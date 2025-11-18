@@ -96,6 +96,35 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
+const AppContent: React.FC = () => {
+  const { page } = useNavigation();
+  const { isLoggedIn } = useAuth();
+
+  switch (page) {
+    case 'auth':
+      return <AuthPage />;
+    case 'dashboard':
+      return isLoggedIn ? <DashboardPage /> : <AuthPage />;
+    case 'home':
+    default:
+      return (
+        <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-200 overflow-x-hidden transition-colors duration-300">
+          <Header />
+          <main>
+            <Hero />
+            <Stats />
+            <HowItWorks />
+            <Referral />
+            <FeaturedProjects />
+            <Pricing />
+            <Faqs />
+            <CtaSection />
+          </main>
+          <Footer />
+        </div>
+      );
+  }
+};
 
 const App: React.FC = () => {
   const [page, setPage] = useState<Page>('home');
@@ -119,38 +148,11 @@ const App: React.FC = () => {
     navigateTo('home');
   };
 
-  const renderPage = () => {
-    switch (page) {
-      case 'auth':
-        return <AuthPage />;
-      case 'dashboard':
-        return isLoggedIn ? <DashboardPage /> : <AuthPage />;
-      case 'home':
-      default:
-        return (
-          <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-200 overflow-x-hidden transition-colors duration-300">
-            <Header />
-            <main>
-              <Hero />
-              <Stats />
-              <HowItWorks />
-              <Referral />
-              <FeaturedProjects />
-              <Pricing />
-              <Faqs />
-              <CtaSection />
-            </main>
-            <Footer />
-          </div>
-        );
-    }
-  };
-
   return (
     <ThemeProvider>
       <AuthContext.Provider value={{ isLoggedIn, userEmail, login, logout }}>
         <NavigationContext.Provider value={{ page, navigateTo }}>
-          {renderPage()}
+          <AppContent />
         </NavigationContext.Provider>
       </AuthContext.Provider>
     </ThemeProvider>

@@ -5,13 +5,14 @@ interface ProjectDashboardCardProps {
     domain: string;
     description: string;
     logo: string;
+    tags: string[];
 }
 
-const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo }) => {
+const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags }) => {
     const [isEnabled, setIsEnabled] = useState(true);
 
     return (
-        <div className="bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl p-6 flex flex-col justify-between h-full transition-shadow hover:shadow-lg dark:hover:shadow-gray-800/60">
+        <div className="bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl p-6 flex flex-col justify-between h-full transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-1">
             <div>
                 <div className="flex justify-between items-start mb-4">
                     <div>
@@ -28,6 +29,13 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                     {description}
                 </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                    {tags.map((tag) => (
+                        <span key={tag} className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">
+                        {tag}
+                        </span>
+                    ))}
+                </div>
             </div>
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center">
                 <button className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
