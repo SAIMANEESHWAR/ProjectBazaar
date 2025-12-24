@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 interface PendingProject extends BuyerProject {
@@ -14,59 +14,123 @@ interface ProjectManagementPageProps {
     onViewProjectDetails?: (project: PendingProject) => void;
 }
 
+const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
+
+interface ApiProject {
+    projectId: string;
+    title: string;
+    description: string;
+    price: number;
+    category: string;
+    tags: string[];
+    thumbnailUrl: string;
+    sellerId: string;
+    sellerEmail: string;
+    status: string;
+    adminApproved: boolean;
+    uploadedAt: string;
+    documentationUrl?: string;
+    youtubeVideoUrl?: string;
+    purchasesCount?: number;
+    likesCount?: number;
+    viewsCount?: number;
+}
+
 const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUser, onViewProjectDetails }) => {
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-    const [projects, setProjects] = useState<PendingProject[]>([
-        {
-            id: 'proj-pending-1',
-            imageUrl: 'https://images.unsplash.com/photo-1534237693998-0c6218f200b3?q=80&w=2070&auto=format&fit=crop',
-            category: 'Web Development',
-            title: 'E-commerce Platform',
-            description: 'A full-stack e-commerce solution built with MERN stack, including payment integration.',
-            tags: ['React', 'Node.js', 'MongoDB'],
-            price: 49.99,
-            isPremium: true,
-            hasDocumentation: true,
-            hasExecutionVideo: false,
-            sellerEmail: 'seller1@example.com',
-            sellerName: 'John Doe',
-            sellerId: 'seller-1',
-            uploadedDate: '2024-11-15',
-            status: 'pending',
-        },
-        {
-            id: 'proj-pending-2',
-            imageUrl: 'https://images.unsplash.com/photo-1611162617213-6d22e4f13374?q=80&w=1974&auto=format&fit=crop',
-            category: 'Mobile App',
-            title: 'Social Media App',
-            description: 'Feature-rich social media app clone using React Native and Firebase.',
-            tags: ['React Native', 'Firebase'],
-            price: 59.99,
-            hasDocumentation: true,
-            hasExecutionVideo: true,
-            sellerEmail: 'seller2@example.com',
-            sellerName: 'Jane Smith',
-            sellerId: 'seller-2',
-            uploadedDate: '2024-11-16',
-            status: 'in-review',
-        },
-        {
-            id: 'proj-pending-3',
-            imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop',
-            category: 'Data Science',
-            title: 'Sales Prediction AI',
-            description: 'A machine learning model to predict future sales data with high accuracy.',
-            tags: ['Python', 'Scikit-learn', 'Pandas'],
-            price: 79.99,
-            isPremium: true,
-            hasExecutionVideo: true,
-            sellerEmail: 'seller3@example.com',
-            sellerName: 'Bob Johnson',
-            sellerId: 'seller-3',
-            uploadedDate: '2024-11-17',
-            status: 'active',
-        },
-    ]);
+    const [projects, setProjects] = useState<PendingProject[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Map API project to PendingProject interface
+    const mapApiProjectToComponent = (apiProject: ApiProject): PendingProject => {
+        // Map status based on adminApproved and status fields
+        let status: 'pending' | 'in-review' | 'active' | 'disabled' | 'rejected' = 'pending';
+        
+        if (apiProject.adminApproved) {
+            if (apiProject.status === 'active' || apiProject.status === 'live') {
+                status = 'active';
+            } else if (apiProject.status === 'disabled' || apiProject.status === 'inactive') {
+                status = 'disabled';
+            } else {
+                status = 'active';
+            }
+        } else {
+            if (apiProject.status === 'pending' || !apiProject.status) {
+                status = 'pending';
+            } else if (apiProject.status === 'in-review' || apiProject.status === 'review') {
+                status = 'in-review';
+            } else if (apiProject.status === 'rejected') {
+                status = 'rejected';
+            } else {
+                status = 'pending';
+            }
+        }
+
+        // Format uploaded date
+        const uploadedDate = apiProject.uploadedAt 
+            ? new Date(apiProject.uploadedAt).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
+
+        // Extract seller name from email (or use email as fallback)
+        const sellerName = apiProject.sellerEmail 
+            ? apiProject.sellerEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            : 'Unknown Seller';
+
+        return {
+            id: apiProject.projectId,
+            imageUrl: apiProject.thumbnailUrl || 'https://images.unsplash.com/photo-1534237693998-0c6218f200b3?q=80&w=2070&auto=format&fit=crop',
+            category: apiProject.category || 'Uncategorized',
+            title: apiProject.title || 'Untitled Project',
+            description: apiProject.description || 'No description available',
+            tags: apiProject.tags || [],
+            price: typeof apiProject.price === 'number' ? apiProject.price : parseFloat(String(apiProject.price || '0')),
+            isPremium: false, // API doesn't provide this, can be updated later
+            hasDocumentation: !!apiProject.documentationUrl,
+            hasExecutionVideo: !!apiProject.youtubeVideoUrl,
+            sellerEmail: apiProject.sellerEmail || '',
+            sellerName: sellerName,
+            sellerId: apiProject.sellerId || '',
+            uploadedDate: uploadedDate,
+            status: status
+        };
+    };
+
+    // Fetch projects from API
+    const fetchProjects = async () => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch projects: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.projects) {
+                const mappedProjects = data.projects.map((apiProject: ApiProject) => 
+                    mapApiProjectToComponent(apiProject)
+                );
+                setProjects(mappedProjects);
+                console.log('Fetched projects:', mappedProjects.length);
+            } else {
+                throw new Error('Invalid response format from API');
+            }
+        } catch (err) {
+            console.error('Error fetching projects:', err);
+            setError(err instanceof Error ? err.message : 'Failed to fetch projects');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch projects on component mount
+    useEffect(() => {
+        fetchProjects();
+    }, []);
 
     const handleApprove = (projectId: string) => {
         setProjects(projects.map(p => 
@@ -110,7 +174,49 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
 
     return (
         <div className="space-y-6">
+            {/* Header with Refresh Button */}
+            <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Project Management</h2>
+                <button
+                    onClick={fetchProjects}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                    <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {isLoading ? 'Loading...' : 'Refresh'}
+                </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-red-800 font-medium">Error: {error}</p>
+                        <button
+                            onClick={fetchProjects}
+                            className="ml-auto px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && projects.length === 0 && (
+                <div className="bg-white rounded-lg p-12 border border-gray-200 text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
+                    <p className="text-gray-600 font-medium">Loading projects...</p>
+                </div>
+            )}
+
             {/* Stats */}
+            {!isLoading && (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="bg-white rounded-lg p-4 border border-gray-200">
                     <p className="text-sm text-gray-600">Total Projects</p>
@@ -137,6 +243,7 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
                     <p className="text-2xl font-bold text-red-900">{rejectedProjects.length}</p>
                 </div>
             </div>
+            )}
 
             {/* View Mode Toggle */}
             <div className="bg-white rounded-lg p-4 border border-gray-200 flex items-center justify-between">
@@ -165,6 +272,18 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
             </div>
 
             {/* Content */}
+            {!isLoading && projects.length === 0 && !error && (
+                <div className="bg-white rounded-lg p-12 border border-gray-200 text-center">
+                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p className="text-gray-600 font-medium text-lg mb-2">No projects found</p>
+                    <p className="text-gray-500 text-sm">Projects will appear here once sellers upload them.</p>
+                </div>
+            )}
+
+            {!isLoading && projects.length > 0 && (
+            <>
             {viewMode === 'table' ? (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
@@ -394,6 +513,8 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
                         </div>
                     ))}
                 </div>
+            )}
+            </>
             )}
         </div>
     );
