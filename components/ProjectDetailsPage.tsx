@@ -6,6 +6,7 @@ interface ExtendedProject extends BuyerProject {
     likes: number;
     purchases: number;
     seller: {
+        id?: string;
         name: string;
         email: string;
         avatar: string;

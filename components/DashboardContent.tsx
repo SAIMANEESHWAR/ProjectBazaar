@@ -182,6 +182,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
     const [buyerProjectView, setBuyerProjectView] = useState<'all' | 'activated' | 'disabled'>('all');
     const [projects, setProjects] = useState<BuyerProject[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<BuyerProject[]>([]);
+    const [projectSellerMap, setProjectSellerMap] = useState<Map<string, { sellerId: string; sellerEmail: string }>>(new Map());
     const [selectedProject, setSelectedProject] = useState<BuyerProject | null>(null);
     const [selectedSeller, setSelectedSeller] = useState<any>(null);
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -220,6 +221,18 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             if (data.success && data.projects) {
                 // Map all projects from API
                 const mappedProjects = data.projects.map(mapApiProjectToComponent);
+                
+                // Create a map of projectId to sellerId and sellerEmail for later use
+                const sellerMap = new Map<string, { sellerId: string; sellerEmail: string }>();
+                data.projects.forEach((apiProject) => {
+                    if (apiProject.projectId && apiProject.sellerId) {
+                        sellerMap.set(apiProject.projectId, {
+                            sellerId: apiProject.sellerId,
+                            sellerEmail: apiProject.sellerEmail || ''
+                        });
+                    }
+                });
+                setProjectSellerMap(sellerMap);
                 
                 setProjects(mappedProjects);
                 setFilteredProjects(mappedProjects);
@@ -375,14 +388,17 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return <SettingsPage />;
             case 'project-details':
                 if (!selectedProject) return null;
+                // Get seller info from map
+                const sellerInfo = projectSellerMap.get(selectedProject.id);
                 // Extend project with additional details
                 const extendedProject = {
                     ...selectedProject,
                     likes: Math.floor(Math.random() * 500) + 50,
                     purchases: Math.floor(Math.random() * 200) + 10,
                     seller: {
-                        name: 'John Developer',
-                        email: 'john.developer@example.com',
+                        id: sellerInfo?.sellerId || '',
+                        name: sellerInfo?.sellerEmail?.split('@')[0] || 'Seller',
+                        email: sellerInfo?.sellerEmail || 'seller@example.com',
                         avatar: '',
                         rating: 4.8,
                         totalSales: Math.floor(Math.random() * 1000) + 100,
@@ -418,19 +434,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 );
             case 'seller-profile':
                 if (!selectedSeller) return null;
-                // Get seller's projects (filter by seller email if available)
-                const sellerProjectsList = projects.filter(p => {
-                    // If we have seller info, filter by seller, otherwise show random projects
-                    if (selectedSeller.email) {
-                        // This would require storing sellerEmail in BuyerProject or fetching separately
-                        return true; // For now, show all projects
-                    }
-                    return Math.random() > 0.5;
-                }).slice(0, 9);
+                // SellerProfilePage will fetch projects from API using seller.id
                 return (
                     <SellerProfilePage
                         seller={selectedSeller}
-                        sellerProjects={sellerProjectsList}
                         onBack={() => setActiveView('project-details')}
                     />
                 );
