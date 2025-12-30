@@ -1,19 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ProjectDashboardCard from './ProjectDashboardCard';
 import { useAuth } from '../App';
+import { fetchProjectDetails } from '../services/buyerApi';
 
 interface SellerProject {
     id: string;
     title: string;
-    status: 'Live' | 'In Review' | 'Draft';
+    status: 'Live' | 'In Review' | 'Draft' | 'Approved' | 'Rejected' | 'Disabled';
     sales: number;
     price: number;
     category: string;
     thumbnailUrl?: string;
     description?: string;
+    viewsCount?: number;
+    likesCount?: number;
+    adminApprovalStatus?: string;
 }
 
 const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Seller';
+const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
+const UPLOAD_PROJECT_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/default/Upload_project_from_buyer';
 
 const ALLOWED_CATEGORIES = [
     'Web Development',
@@ -29,13 +35,31 @@ type SortOption = 'none' | 'alphabetical' | 'reverse-alphabetical' | 'price-high
 type ViewMode = 'grid' | 'table';
 
 const StatusBadge = ({ status }: { status: string }) => {
-    const baseClasses = "px-2.5 py-1 text-xs font-semibold rounded-full";
-    const statusClasses = {
-        'Live': 'bg-green-100 text-green-800',
-        'In Review': 'bg-orange-100 text-orange-800',
-        'Draft': 'bg-gray-100 text-gray-800',
+    const baseClasses = "px-3 py-1.5 text-xs font-semibold rounded-full inline-flex items-center gap-1.5";
+    const statusClasses: Record<string, string> = {
+        'Live': 'bg-green-100 text-green-800 border border-green-200',
+        'Approved': 'bg-green-100 text-green-800 border border-green-200',
+        'In Review': 'bg-orange-100 text-orange-800 border border-orange-200',
+        'Draft': 'bg-gray-100 text-gray-800 border border-gray-200',
+        'Rejected': 'bg-red-100 text-red-800 border border-red-200',
+        'Disabled': 'bg-gray-200 text-gray-700 border border-gray-300',
     };
-    return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
+    
+    const statusIcons: Record<string, React.ReactNode> = {
+        'Live': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>,
+        'Approved': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>,
+        'In Review': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>,
+        'Draft': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>,
+        'Rejected': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>,
+        'Disabled': <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" /></svg>,
+    };
+    
+    return (
+        <span className={`${baseClasses} ${statusClasses[status] || statusClasses['Draft']}`}>
+            {statusIcons[status]}
+            {status}
+        </span>
+    );
 }
 
 const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>;
@@ -54,7 +78,13 @@ const MyProjectsPage: React.FC = () => {
     const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [editingProject, setEditingProject] = useState<SellerProject | null>(null);
-    const [editFormData, setEditFormData] = useState<Partial<SellerProject>>({});
+    const [editFormData, setEditFormData] = useState<any>({});
+    const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+    const [projectFiles, setProjectFiles] = useState<File | null>(null);
+    const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
 
@@ -71,15 +101,29 @@ const MyProjectsPage: React.FC = () => {
             status = 'Draft';
         }
 
+        // Map status based on adminApprovalStatus
+        let finalStatus: 'Live' | 'In Review' | 'Draft' | 'Approved' | 'Rejected' | 'Disabled' = status;
+        const approvalStatus = apiProject.adminApprovalStatus?.toLowerCase();
+        if (approvalStatus === 'approved') {
+            finalStatus = 'Approved';
+        } else if (approvalStatus === 'rejected') {
+            finalStatus = 'Rejected';
+        } else if (approvalStatus === 'disabled') {
+            finalStatus = 'Disabled';
+        }
+
         return {
             id: apiProject.projectId || apiProject.id,
             title: apiProject.title || apiProject.name || 'Untitled Project',
-            status: status,
+            status: finalStatus,
             sales: apiProject.purchasesCount || apiProject.sales || 0,
             price: typeof apiProject.price === 'number' ? apiProject.price : parseFloat(apiProject.price || '0'),
             category: apiProject.category || 'Uncategorized',
             thumbnailUrl: apiProject.thumbnailUrl,
-            description: apiProject.description
+            description: apiProject.description,
+            viewsCount: apiProject.viewsCount || 0,
+            likesCount: apiProject.likesCount || 0,
+            adminApprovalStatus: apiProject.adminApprovalStatus
         };
     };
 
@@ -109,7 +153,33 @@ const MyProjectsPage: React.FC = () => {
                 const apiProjects = Array.isArray(data.projects) ? data.projects : [];
                 console.log('API projects received:', apiProjects);
                 console.log('Number of projects:', apiProjects.length);
-                const mappedProjects = apiProjects.map(mapApiProjectToComponent);
+                
+                // Fetch detailed information for each project to get updated stats
+                const projectsWithDetails = await Promise.all(
+                    apiProjects.map(async (project: any) => {
+                        try {
+                            const projectId = project.projectId || project.id;
+                            if (projectId) {
+                                const projectDetail = await fetchProjectDetails(projectId);
+                                if (projectDetail) {
+                                    return {
+                                        ...project,
+                                        viewsCount: projectDetail.viewsCount || project.viewsCount || 0,
+                                        likesCount: projectDetail.likesCount || project.likesCount || 0,
+                                        purchasesCount: projectDetail.purchasesCount || project.purchasesCount || 0,
+                                        adminApprovalStatus: projectDetail.adminApprovalStatus || project.adminApprovalStatus,
+                                    };
+                                }
+                            }
+                            return project;
+                        } catch (error) {
+                            console.error(`Error fetching details for project ${project.projectId || project.id}:`, error);
+                            return project;
+                        }
+                    })
+                );
+                
+                const mappedProjects = projectsWithDetails.map(mapApiProjectToComponent);
                 console.log('Mapped projects:', mappedProjects);
                 console.log('Setting projects state with', mappedProjects.length, 'projects');
                 setProjects(mappedProjects);
@@ -214,25 +284,169 @@ const MyProjectsPage: React.FC = () => {
         // await fetchProjects();
     };
 
-    const handleEdit = (project: SellerProject) => {
+    const handleEdit = async (project: SellerProject) => {
         setEditingProject(project);
-        setEditFormData({
-            title: project.title,
-            category: project.category,
-            price: project.price,
-            status: project.status,
-        });
+        setSaveError(null);
+        setSaveSuccess(false);
+        
+        // Fetch full project details
+        try {
+            const projectDetails = await fetchProjectDetails(project.id);
+            if (projectDetails) {
+                // Convert tags array to comma-separated string if needed
+                const tagsString = Array.isArray(projectDetails.tags) 
+                    ? projectDetails.tags.join(', ') 
+                    : (projectDetails.tags || '');
+                
+                setEditFormData({
+                    title: projectDetails.title || project.title,
+                    category: projectDetails.category || project.category,
+                    price: projectDetails.price || project.price,
+                    description: projectDetails.description || project.description || '',
+                    tags: tagsString,
+                    originalPrice: projectDetails.originalPrice || '',
+                    youtubeVideoUrl: projectDetails.youtubeVideoUrl || '',
+                    documentationUrl: projectDetails.documentationUrl || '',
+                });
+                setThumbnailPreview(projectDetails.thumbnailUrl || project.thumbnailUrl || null);
+            } else {
+                // Fallback to basic data if API fails
+                setEditFormData({
+                    title: project.title,
+                    category: project.category,
+                    price: project.price,
+                    description: project.description || '',
+                    tags: '',
+                    originalPrice: '',
+                    youtubeVideoUrl: '',
+                    documentationUrl: '',
+                });
+                setThumbnailPreview(project.thumbnailUrl || null);
+            }
+        } catch (error) {
+            console.error('Error fetching project details:', error);
+            // Fallback to basic data
+            setEditFormData({
+                title: project.title,
+                category: project.category,
+                price: project.price,
+                description: project.description || '',
+                tags: '',
+                originalPrice: '',
+                youtubeVideoUrl: '',
+                documentationUrl: '',
+            });
+            setThumbnailPreview(project.thumbnailUrl || null);
+        }
+        
+        setThumbnailFile(null);
+        setProjectFiles(null);
     };
 
-    const handleSaveEdit = () => {
-        if (editingProject) {
-            setProjects(prev => prev.map(p => 
-                p.id === editingProject.id 
-                    ? { ...p, ...editFormData } as SellerProject
-                    : p
-            ));
-            setEditingProject(null);
-            setEditFormData({});
+    // Upload file to S3
+    // Note: This is a placeholder - you may need to use a presigned URL endpoint or direct S3 upload
+    // For now, we'll handle file uploads separately if needed
+    const uploadFileToS3 = async (file: File, projectId: string, fileType: 'thumbnail' | 'projectFiles'): Promise<string | null> => {
+        try {
+            // TODO: Implement actual S3 upload
+            // Option 1: Use presigned URL from backend
+            // Option 2: Use direct S3 upload with credentials
+            // Option 3: Use existing upload endpoint if it supports updates
+            
+            // For now, we'll skip file uploads in edit mode and only update text fields
+            // Files can be updated separately through a dedicated file update endpoint
+            console.log(`File upload for ${fileType} would go here`);
+            return null;
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            return null;
+        }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingProject || !userId) {
+            return;
+        }
+
+        setIsSaving(true);
+        setSaveError(null);
+        setSaveSuccess(false);
+
+        try {
+            const updates: any = {};
+
+            // Note: File uploads (thumbnail and projectFiles) may need to be handled separately
+            // through a dedicated file update endpoint. The current update endpoint focuses on text fields.
+            // If files are selected, you may want to show a message or handle them separately.
+            
+            if (thumbnailFile || projectFiles) {
+                // TODO: Implement file upload to S3
+                // For now, we'll proceed with text field updates
+                // Files can be updated through a separate file update flow if needed
+                console.log('File uploads detected - handle separately if needed');
+            }
+
+            // Prepare updates object
+            if (editFormData.title) updates.title = editFormData.title;
+            if (editFormData.description) updates.description = editFormData.description;
+            if (editFormData.category) updates.category = editFormData.category;
+            if (editFormData.tags) {
+                // Convert tags to array or comma-separated string as needed
+                updates.tags = Array.isArray(editFormData.tags) 
+                    ? editFormData.tags 
+                    : editFormData.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+            }
+            if (editFormData.price !== undefined && editFormData.price !== null) {
+                updates.price = parseFloat(editFormData.price);
+            }
+            if (editFormData.originalPrice) {
+                updates.originalPrice = parseFloat(editFormData.originalPrice);
+            }
+            if (editFormData.youtubeVideoUrl) updates.youtubeVideoUrl = editFormData.youtubeVideoUrl;
+            if (editFormData.documentationUrl) updates.documentationUrl = editFormData.documentationUrl;
+            // Note: status is immutable and cannot be changed by seller
+
+            // Call update API
+            const response = await fetch(UPDATE_PROJECT_ENDPOINT, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    projectId: editingProject.id,
+                    sellerId: userId,
+                    updates: updates
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Failed to update project' }));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                setSaveSuccess(true);
+                // Refresh projects list
+                await fetchProjects();
+                // Close modal after a short delay
+                setTimeout(() => {
+                    setEditingProject(null);
+                    setEditFormData({});
+                    setThumbnailFile(null);
+                    setProjectFiles(null);
+                    setThumbnailPreview(null);
+                    setSaveSuccess(false);
+                }, 1500);
+            } else {
+                setSaveError(data.message || 'Failed to update project');
+            }
+        } catch (error) {
+            console.error('Error saving project:', error);
+            setSaveError('An error occurred while saving. Please try again.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -547,43 +761,114 @@ const MyProjectsPage: React.FC = () => {
                     {viewMode === 'table' && (
                         <>
                             {filteredAndSortedProjects.length > 0 ? (
-                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                         <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Title</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                <div className="flex items-center gap-2">
+                                                    <span>Project</span>
+                                                </div>
+                                            </th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                                            <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Sales</th>
+                                            <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Views</th>
+                                            <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Likes</th>
+                                            <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Price</th>
+                                            <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {filteredAndSortedProjects.map((project) => (
-                                            <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <p className="text-sm font-medium text-gray-900">{project.title}</p>
-                                                    <p className="text-sm text-gray-500 mt-0.5">{project.category}</p>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                        {filteredAndSortedProjects.map((project, index) => (
+                                            <tr 
+                                                key={project.id} 
+                                                className="hover:bg-orange-50/50 transition-all duration-200 group border-b border-gray-100 last:border-0"
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex-shrink-0 h-14 w-14 rounded-lg overflow-hidden border-2 border-gray-200 group-hover:border-orange-300 transition-colors bg-gray-50">
+                                                            {project.thumbnailUrl ? (
+                                                                <img 
+                                                                    src={project.thumbnailUrl} 
+                                                                    alt={project.title}
+                                                                    className="h-full w-full object-cover"
+                                                                    onError={(e) => {
+                                                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534237693998-0c6218f200b3?q=80&w=2070&auto=format&fit=crop';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                                                    <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors truncate">
+                                                                {project.title}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-xs text-gray-500">{project.category}</span>
+                                                                {project.description && (
+                                                                    <>
+                                                                        <span className="text-gray-300">•</span>
+                                                                        <span className="text-xs text-gray-400 truncate max-w-xs">
+                                                                            {project.description.length > 50 
+                                                                                ? `${project.description.substring(0, 50)}...` 
+                                                                                : project.description}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <td className="px-6 py-4">
                                                     <StatusBadge status={project.status} />
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{project.sales}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">${project.price.toFixed(2)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <div className="flex items-center gap-2">
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-semibold text-gray-900">{project.sales}</span>
+                                                        <span className="text-xs text-gray-500">sales</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-semibold text-gray-900">{project.viewsCount?.toLocaleString() || 0}</span>
+                                                        <span className="text-xs text-gray-500">views</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-sm font-semibold text-gray-900">{project.likesCount?.toLocaleString() || 0}</span>
+                                                        <span className="text-xs text-gray-500">likes</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-base font-bold text-gray-900">${project.price.toFixed(2)}</span>
+                                                        {project.sales > 0 && (
+                                                            <span className="text-xs text-green-600 font-medium">
+                                                                ${(project.price * project.sales).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} revenue
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center gap-2">
                                                         <button 
                                                             onClick={() => handleEdit(project)}
-                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" 
-                                                            title="Edit"
+                                                            className="p-2.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 border border-transparent hover:border-blue-200" 
+                                                            title="Edit Project"
                                                         >
                                                             <EditIcon />
                                                         </button>
                                                         <button 
                                                             onClick={() => setDeleteConfirmId(project.id)}
-                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors" 
-                                                            title="Delete"
+                                                            className="p-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95 border border-transparent hover:border-red-200" 
+                                                            title="Delete Project"
                                                         >
                                                             <DeleteIcon />
                                                         </button>
@@ -593,6 +878,22 @@ const MyProjectsPage: React.FC = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                            {/* Table Footer with Summary */}
+                            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+                                <div className="flex items-center justify-between text-sm">
+                                    <div className="text-gray-600">
+                                        Showing <span className="font-semibold text-gray-900">{filteredAndSortedProjects.length}</span> of <span className="font-semibold text-gray-900">{projects.length}</span> projects
+                                    </div>
+                                    <div className="flex items-center gap-6 text-gray-600">
+                                        <div>
+                                            <span className="font-semibold text-gray-900">{projects.reduce((sum, p) => sum + p.sales, 0)}</span> total sales
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold text-gray-900">${projects.reduce((sum, p) => sum + (p.price * p.sales), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> total revenue
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -692,7 +993,7 @@ const MyProjectsPage: React.FC = () => {
                         }}
                     >
                         <div 
-                            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto"
+                            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative max-h-[90vh] overflow-y-auto"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
@@ -709,23 +1010,48 @@ const MyProjectsPage: React.FC = () => {
 
                             <h3 className="text-2xl font-bold text-gray-900 mb-6">Edit Project</h3>
 
+                            {saveError && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-sm text-red-600">{saveError}</p>
+                                </div>
+                            )}
+
+                            {saveSuccess && (
+                                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-sm text-green-600">Project updated successfully!</p>
+                                </div>
+                            )}
+
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Title *</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                         value={editFormData.title || ''}
                                         onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                                        required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                                    <textarea
+                                        rows={4}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        value={editFormData.description || ''}
+                                        onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                                     <select
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
                                         value={editFormData.category || ''}
                                         onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                                        required
                                     >
                                         <option value="">Select a category</option>
                                         {ALLOWED_CATEGORIES.map((category) => (
@@ -737,27 +1063,153 @@ const MyProjectsPage: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated) *</label>
                                     <input
-                                        type="number"
-                                        step="0.01"
+                                        type="text"
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        value={editFormData.price || ''}
-                                        onChange={(e) => setEditFormData({ ...editFormData, price: parseFloat(e.target.value) })}
+                                        placeholder="e.g., React, Node.js, MongoDB"
+                                        value={editFormData.tags || ''}
+                                        onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Price ($) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            max="10000"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                            value={editFormData.price || ''}
+                                            onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Original Price ($) - Optional</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                            value={editFormData.originalPrice || ''}
+                                            onChange={(e) => setEditFormData({ ...editFormData, originalPrice: e.target.value })}
+                                            placeholder="For discount"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Video URL</label>
+                                    <input
+                                        type="url"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="https://youtube.com/watch?v=..."
+                                        value={editFormData.youtubeVideoUrl || ''}
+                                        onChange={(e) => setEditFormData({ ...editFormData, youtubeVideoUrl: e.target.value })}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-                                        value={editFormData.status || 'Live'}
-                                        onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as 'Live' | 'In Review' | 'Draft' })}
-                                    >
-                                        <option value="Live">Live</option>
-                                        <option value="In Review">In Review</option>
-                                        <option value="Draft">Draft</option>
-                                    </select>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Documentation URL</label>
+                                    <input
+                                        type="url"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="https://docs.example.com"
+                                        value={editFormData.documentationUrl || ''}
+                                        onChange={(e) => setEditFormData({ ...editFormData, documentationUrl: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* File Uploads */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Project Thumbnail</label>
+                                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                                            {thumbnailPreview ? (
+                                                <div className="text-center">
+                                                    <img src={thumbnailPreview} alt="Preview" className="h-32 w-auto object-cover rounded-md mx-auto mb-2" />
+                                                    <label htmlFor="thumbnail-upload-edit" className="cursor-pointer text-sm text-orange-600 hover:text-orange-700 font-medium">
+                                                        Change Image
+                                                    </label>
+                                                    <input
+                                                        id="thumbnail-upload-edit"
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            if (e.target.files && e.target.files[0]) {
+                                                                const file = e.target.files[0];
+                                                                setThumbnailFile(file);
+                                                                setThumbnailPreview(URL.createObjectURL(file));
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1 text-center">
+                                                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                    <div className="flex text-sm text-gray-600">
+                                                        <label htmlFor="thumbnail-upload-edit" className="relative cursor-pointer bg-white rounded-md font-medium text-orange-600 hover:text-orange-500">
+                                                            <span>Upload a file</span>
+                                                            <input
+                                                                id="thumbnail-upload-edit"
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="sr-only"
+                                                                onChange={(e) => {
+                                                                    if (e.target.files && e.target.files[0]) {
+                                                                        const file = e.target.files[0];
+                                                                        setThumbnailFile(file);
+                                                                        setThumbnailPreview(URL.createObjectURL(file));
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </label>
+                                                        <p className="pl-1">or drag and drop</p>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Project Files (.zip)</label>
+                                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                                            <div className="space-y-1 text-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                <div className="flex text-sm text-gray-600">
+                                                    <label htmlFor="project-files-upload-edit" className="relative cursor-pointer bg-white rounded-md font-medium text-orange-600 hover:text-orange-500">
+                                                        <span>Upload files</span>
+                                                        <input
+                                                            id="project-files-upload-edit"
+                                                            type="file"
+                                                            accept=".zip"
+                                                            className="sr-only"
+                                                            onChange={(e) => {
+                                                                if (e.target.files && e.target.files[0]) {
+                                                                    setProjectFiles(e.target.files[0]);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                    <p className="pl-1">or drag and drop</p>
+                                                </div>
+                                                <p className="text-xs text-gray-500">ZIP file up to 50MB</p>
+                                                {projectFiles && (
+                                                    <p className="text-xs text-green-600 mt-2">✓ {projectFiles.name}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -773,9 +1225,20 @@ const MyProjectsPage: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={handleSaveEdit}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                                    disabled={isSaving}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    Save Changes
+                                    {isSaving ? (
+                                        <>
+                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        'Save Changes'
+                                    )}
                                 </button>
                             </div>
                         </div>
