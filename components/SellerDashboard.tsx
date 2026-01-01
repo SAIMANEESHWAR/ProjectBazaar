@@ -127,12 +127,13 @@ const SellerDashboard: React.FC = () => {
         title: '',
         category: '',
         description: '',
-        tags: '',
         price: '',
         originalPrice: '',
         youtubeVideoUrl: '',
         documentationUrl: ''
     });
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
     
     // File state
     const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -439,6 +440,29 @@ const SellerDashboard: React.FC = () => {
         }));
     };
 
+    // Tag handling
+    const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag();
+        } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+            // Remove last tag when backspace is pressed on empty input
+            removeTag(tags.length - 1);
+        }
+    };
+
+    const addTag = () => {
+        const trimmedTag = tagInput.trim().replace(/,/g, '');
+        if (trimmedTag && !tags.includes(trimmedTag) && tags.length < 10) {
+            setTags(prev => [...prev, trimmedTag]);
+            setTagInput('');
+        }
+    };
+
+    const removeTag = (index: number) => {
+        setTags(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError(null);
@@ -455,8 +479,13 @@ const SellerDashboard: React.FC = () => {
         }
 
         // Validate required fields
-        if (!formData.title || !formData.category || !formData.description || !formData.tags || !formData.price) {
+        if (!formData.title || !formData.category || !formData.description || !formData.price) {
             setSubmitError('Please fill in all required fields');
+            return;
+        }
+
+        if (tags.length === 0) {
+            setSubmitError('Please add at least one tag');
             return;
         }
 
@@ -475,7 +504,7 @@ const SellerDashboard: React.FC = () => {
                 title: formData.title.trim(),
                 category: formData.category.trim(),
                 description: formData.description.trim(),
-                tags: formData.tags.trim(),
+                tags: tags.join(', '),
                 price: parseFloat(formData.price),
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
                 youtubeVideoUrl: formData.youtubeVideoUrl.trim() || undefined,
@@ -506,12 +535,13 @@ const SellerDashboard: React.FC = () => {
                     title: '',
                     category: '',
                     description: '',
-                    tags: '',
                     price: '',
                     originalPrice: '',
                     youtubeVideoUrl: '',
                     documentationUrl: ''
                 });
+                setTags([]);
+                setTagInput('');
                 // Revoke object URLs to prevent memory leaks
                 imagePreviews.forEach(url => URL.revokeObjectURL(url));
                 setImageFiles([]);
@@ -798,13 +828,42 @@ const SellerDashboard: React.FC = () => {
                         />
                     </div>
                      <div className="mt-6">
-                        <InputField 
-                            id="tags" 
-                            label="Tags" 
-                            placeholder="e.g., React, Node.js, API (comma-separated)" 
-                            value={formData.tags}
-                            onChange={handleInputChange}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tags <span className="text-gray-400 font-normal">({tags.length}/10)</span>
+                        </label>
+                        <div className={`w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all ${tags.length >= 10 ? 'opacity-75' : ''}`}>
+                            <div className="flex flex-wrap gap-2">
+                                {tags.map((tag, index) => (
+                                    <span 
+                                        key={index}
+                                        className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200"
+                                    >
+                                        {tag}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeTag(index)}
+                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-orange-200 transition-colors"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </span>
+                                ))}
+                                {tags.length < 10 && (
+                                    <input
+                                        type="text"
+                                        value={tagInput}
+                                        onChange={(e) => setTagInput(e.target.value)}
+                                        onKeyDown={handleTagInputKeyDown}
+                                        onBlur={() => { if (tagInput.trim()) addTag(); }}
+                                        placeholder={tags.length === 0 ? "Type a tag and press Enter..." : "Add more..."}
+                                        className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 py-1"
+                                    />
+                                )}
+                            </div>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">Press Enter or comma to add a tag. Backspace to remove the last tag.</p>
                     </div>
                 </SectionCard>
 
