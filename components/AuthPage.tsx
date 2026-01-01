@@ -416,35 +416,26 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <section className={`flex max-lg:justify-center min-h-screen relative ${
-      !isLogin ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : 'bg-background'
-    }`}>
-      {/* Dark Background Animation - Enhanced for Signup */}
-      {!isLogin && (
-        <div className='fixed inset-0 z-0 overflow-hidden pointer-events-none'>
-          <Ripple 
-            mainCircleSize={150} 
-            mainCircleOpacity={0.15}
-            numCircles={12}
-            className='!max-w-full w-full h-full'
-          />
-        </div>
-      )}
-      
+    <section className='flex max-lg:justify-center min-h-screen relative bg-background'>
       {/* Left Side - Animation */}
       <span className='hidden lg:flex flex-col justify-center w-1/2 relative z-10'>
-        {/* Background Ripple Animation - Centered behind text */}
-        <div className='absolute inset-0 flex items-center justify-center pointer-events-none z-0'>
-          <Ripple 
-            mainCircleSize={120} 
-            mainCircleOpacity={0.2}
-            numCircles={10}
-            className='!max-w-full w-full h-full'
-          />
-        </div>
-        {/* Text and Icons - Above the animation */}
-        <div className='relative z-10 w-full h-full flex items-center justify-center'>
-          <TechOrbitDisplay iconsArray={iconsArray} text={isLogin ? 'Welcome Back' : 'Get Started'} />
+        {/* Container with both Ripple and Text centered at same point */}
+        <div className='relative w-full h-full flex items-center justify-center'>
+          {/* Background Ripple Animation - Centered behind text */}
+          <div className='absolute w-full h-full flex items-center justify-center pointer-events-none z-0'>
+            <div className='relative w-full max-w-2xl h-full flex items-center justify-center'>
+              <Ripple 
+                mainCircleSize={100} 
+                mainCircleOpacity={0.24}
+                numCircles={11}
+                className='!max-w-full'
+              />
+            </div>
+          </div>
+          {/* Text and Icons - Above the animation, same center point */}
+          <div className='relative z-10 w-full h-full flex items-center justify-center'>
+            <TechOrbitDisplay iconsArray={iconsArray} text={isLogin ? 'Welcome Back' : 'Get Started'} />
+          </div>
         </div>
       </span>
 
