@@ -115,6 +115,7 @@ interface UploadedProject {
 const MAX_FREE_PROJECTS = 5;
 const API_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/default/Upload_project_from_buyer';
 const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Seller';
+const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const MAX_IMAGE_SIZE_MB = 10;
 
 type ViewMode = 'grid' | 'table';
@@ -124,6 +125,10 @@ const SellerDashboard: React.FC = () => {
     const { isPremium } = usePremium();
     const { userId, userEmail } = useAuth();
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    
+    // User profile state
+    const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+    const [userFullName, setUserFullName] = useState<string>('');
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -474,9 +479,33 @@ const SellerDashboard: React.FC = () => {
         }
     };
 
-    // Fetch projects on component mount and when userId changes
+    // Fetch user profile to get profile image
+    const fetchUserProfile = async () => {
+        if (!userId) return;
+        
+        try {
+            const response = await fetch(GET_USER_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
+            
+            const data = await response.json();
+            const user = data.data || data.user || data;
+            
+            if (user && data.success !== false) {
+                setUserProfileImage(user.profilePictureUrl || null);
+                setUserFullName(user.fullName || user.name || '');
+            }
+        } catch (err) {
+            console.error('Failed to fetch user profile:', err);
+        }
+    };
+
+    // Fetch projects and user profile on component mount and when userId changes
     useEffect(() => {
         fetchProjects();
+        fetchUserProfile();
     }, [userId]);
 
     const MAX_IMAGES = 5;
@@ -708,7 +737,8 @@ const SellerDashboard: React.FC = () => {
             return;
         }
 
-        if (!isPremium && uploadedProjects.length >= MAX_FREE_PROJECTS) {
+        // Allow unlimited uploads if user has profile image or is premium
+        if (!isPremium && !userProfileImage && uploadedProjects.length >= MAX_FREE_PROJECTS) {
             setShowPremiumModal(true);
             return;
         }
@@ -885,7 +915,8 @@ const SellerDashboard: React.FC = () => {
     };
 
     const handleUploadClick = () => {
-        if (!isPremium && uploadedProjects.length >= MAX_FREE_PROJECTS) {
+        // Allow unlimited uploads if user has profile image or is premium
+        if (!isPremium && !userProfileImage && uploadedProjects.length >= MAX_FREE_PROJECTS) {
             setShowPremiumModal(true);
         } else {
             setShowUploadForm(true);
@@ -909,11 +940,47 @@ const SellerDashboard: React.FC = () => {
             {!showUploadForm && (
                 <div>
                     <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-900">My Uploaded Projects</h2>
-                            <p className="text-sm text-gray-600 mt-1">
-                                {uploadedProjects.length} of {MAX_FREE_PROJECTS} projects uploaded
-                            </p>
+                        <div className="flex items-center gap-4">
+                            {/* User Profile Image */}
+                            <div className="relative">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center overflow-hidden border-3 border-orange-200 shadow-lg">
+                                    {userProfileImage ? (
+                                        <img 
+                                            src={userProfileImage} 
+                                            alt="Profile" 
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-white text-xl font-bold">
+                                            {userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}
+                                        </span>
+                                    )}
+                                </div>
+                                {userProfileImage && (
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">My Uploaded Projects</h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    {userProfileImage ? (
+                                        <>
+                                            <span className="text-green-600 font-medium">{uploadedProjects.length} projects</span>
+                                            <span className="text-gray-400 mx-1">•</span>
+                                            <span className="text-orange-600">Unlimited uploads unlocked</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {uploadedProjects.length} of {MAX_FREE_PROJECTS} projects uploaded
+                                            <span className="text-orange-500 ml-2 text-xs">(Add profile photo for unlimited)</span>
+                                        </>
+                                    )}
+                                </p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* View Toggle Buttons */}
@@ -1616,9 +1683,9 @@ const SellerDashboard: React.FC = () => {
                                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                     </svg>
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Upgrade to Premium</h3>
+                                <h3 className="text-2xl font-bold text-gray-900 mb-2">Unlock Unlimited Uploads</h3>
                                 <p className="text-gray-600">
-                                    You've reached the limit of {MAX_FREE_PROJECTS} free projects. Upgrade to Premium to upload unlimited projects!
+                                    You've reached the limit of {MAX_FREE_PROJECTS} free projects. Add a profile photo or upgrade to Premium to upload unlimited projects!
                                 </p>
                             </div>
 
@@ -1652,29 +1719,62 @@ const SellerDashboard: React.FC = () => {
                                 </ul>
                             </div>
 
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowPremiumModal(false)}
-                                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                                >
-                                    Maybe Later
-                                </button>
+                            {/* Quick Option: Add Profile Photo */}
+                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-green-800">Free Option</p>
+                                        <p className="text-sm text-green-600">Add a profile photo to unlock unlimited uploads</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
                                 <button
                                     onClick={() => {
                                         setShowPremiumModal(false);
-                                        navigateTo('home');
-                                        // Scroll to pricing section after navigation
-                                        setTimeout(() => {
-                                            const pricingSection = document.getElementById('pricing');
-                                            if (pricingSection) {
-                                                pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                            }
-                                        }, 100);
+                                        // Navigate to settings to add profile photo
+                                        const settingsTab = document.querySelector('[data-tab="settings"]');
+                                        if (settingsTab) {
+                                            (settingsTab as HTMLElement).click();
+                                        }
                                     }}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                                    className="w-full px-4 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                                 >
-                                    Buy Premium
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Add Profile Photo (Free)
                                 </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowPremiumModal(false)}
+                                        className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                                    >
+                                        Maybe Later
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowPremiumModal(false);
+                                            navigateTo('home');
+                                            // Scroll to pricing section after navigation
+                                            setTimeout(() => {
+                                                const pricingSection = document.getElementById('pricing');
+                                                if (pricingSection) {
+                                                    pricingSection.scrollIntoView({ behavior: 'smooth' });
+                                                }
+                                            }, 100);
+                                        }}
+                                        className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                                    >
+                                        Buy Premium
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

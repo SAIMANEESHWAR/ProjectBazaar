@@ -22,6 +22,7 @@ import SellerProfilePage from './SellerProfilePage';
 import HelpCenterPage from './HelpCenterPage';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
+const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 
 interface ApiProject {
     projectId: string;
@@ -186,9 +187,11 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
     const [buyerProjectView, setBuyerProjectView] = useState<'all' | 'activated' | 'disabled'>('all');
     const [projects, setProjects] = useState<BuyerProject[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<BuyerProject[]>([]);
-    const [projectSellerMap, setProjectSellerMap] = useState<Map<string, { sellerId: string; sellerEmail: string }>>(new Map());
+    const [projectSellerMap, setProjectSellerMap] = useState<Map<string, { sellerId: string; sellerEmail: string; sellerProfilePicture?: string; sellerName?: string }>>(new Map());
+    const [sellerProfileCache, setSellerProfileCache] = useState<Map<string, { profilePicture?: string; fullName?: string }>>(new Map());
     const [selectedProject, setSelectedProject] = useState<BuyerProject | null>(null);
     const [selectedSeller, setSelectedSeller] = useState<any>(null);
+    const [previousView, setPreviousView] = useState<DashboardView>('dashboard');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
 
@@ -291,6 +294,50 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
         }
     }, [dashboardMode]);
 
+    // Function to fetch seller profile picture
+    const fetchSellerProfile = async (sellerId: string) => {
+        // Check if already cached
+        if (sellerProfileCache.has(sellerId)) {
+            return sellerProfileCache.get(sellerId);
+        }
+        
+        try {
+            const response = await fetch(GET_USER_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: sellerId }),
+            });
+            
+            const data = await response.json();
+            const user = data.data || data.user || data;
+            
+            if (user && data.success !== false) {
+                const profile = {
+                    profilePicture: user.profilePictureUrl || undefined,
+                    fullName: user.fullName || user.name || undefined,
+                };
+                
+                // Cache the result
+                setSellerProfileCache(prev => new Map(prev).set(sellerId, profile));
+                return profile;
+            }
+        } catch (err) {
+            console.error('Failed to fetch seller profile:', err);
+        }
+        
+        return { profilePicture: undefined, fullName: undefined };
+    };
+
+    // Fetch seller profile when viewing project details
+    useEffect(() => {
+        if (activeView === 'project-details' && selectedProject) {
+            const sellerInfo = projectSellerMap.get(selectedProject.id);
+            if (sellerInfo?.sellerId && !sellerProfileCache.has(sellerInfo.sellerId)) {
+                fetchSellerProfile(sellerInfo.sellerId);
+            }
+        }
+    }, [activeView, selectedProject, projectSellerMap]);
+
     // Apply search filter
     const searchFilteredProjects = filteredProjects.filter(project => {
         const query = searchQuery.toLowerCase();
@@ -356,6 +403,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                                                         key={project.id} 
                                                         project={project}
                                                         onViewDetails={(proj) => {
+                                                            setPreviousView('dashboard');
                                                             setSelectedProject(proj);
                                                             setActiveView('project-details');
                                                         }}
@@ -405,6 +453,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                     <WishlistPage 
                         allProjects={projects}
                         onViewDetails={(proj) => {
+                            setPreviousView('wishlist');
                             setSelectedProject(proj);
                             setActiveView('project-details');
                         }}
@@ -422,6 +471,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 if (!selectedProject) return null;
                 // Get seller info from map
                 const sellerInfo = projectSellerMap.get(selectedProject.id);
+                // Get cached seller profile
+                const cachedSellerProfile = sellerInfo?.sellerId ? sellerProfileCache.get(sellerInfo.sellerId) : undefined;
                 // Extend project with additional details
                 const extendedProject = {
                     ...selectedProject,
@@ -429,9 +480,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                     purchases: Math.floor(Math.random() * 200) + 10,
                     seller: {
                         id: sellerInfo?.sellerId || '',
-                        name: sellerInfo?.sellerEmail?.split('@')[0] || 'Seller',
+                        name: cachedSellerProfile?.fullName || sellerInfo?.sellerEmail?.split('@')[0] || 'Seller',
                         email: sellerInfo?.sellerEmail || 'seller@example.com',
-                        avatar: '',
+                        avatar: cachedSellerProfile?.profilePicture || '',
                         rating: 4.8,
                         totalSales: Math.floor(Math.random() * 1000) + 100,
                     },
@@ -457,8 +508,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return (
                     <ProjectDetailsPage
                         project={extendedProject}
-                        onBack={() => setActiveView('dashboard')}
+                        onBack={() => setActiveView(previousView)}
                         onViewSeller={(seller) => {
+                            setPreviousView('project-details');
                             setSelectedSeller(seller);
                             setActiveView('seller-profile');
                         }}
@@ -470,7 +522,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return (
                     <SellerProfilePage
                         seller={selectedSeller}
-                        onBack={() => setActiveView('project-details')}
+                        onBack={() => setActiveView(previousView)}
+                        onViewProjectDetails={(project) => {
+                            setPreviousView('seller-profile');
+                            setSelectedProject(project);
+                            setActiveView('project-details');
+                        }}
                     />
                 );
             default:

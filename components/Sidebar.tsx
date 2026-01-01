@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
+
+const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 
 const LogoIcon: React.FC<{className?: string}> = ({className}) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -59,12 +61,41 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveView, isOpen, isCollapsed, onClose, onToggle, onCollapseToggle }) => {
-    const { userEmail, logout } = useAuth();
-    const [isHovered, setIsHovered] = React.useState(false);
+    const { userEmail, userId, logout } = useAuth();
+    const [isHovered, setIsHovered] = useState(false);
+    const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+    const [userFullName, setUserFullName] = useState<string>('');
     const cart = useCart();
     const cartCount = dashboardMode === 'buyer' ? cart.cartCount : 0;
 
     const navItems = dashboardMode === 'buyer' ? buyerNavItems : sellerNavItems;
+
+    // Fetch user profile to get profile image
+    useEffect(() => {
+        const fetchUserProfile = async () => {
+            if (!userId) return;
+            
+            try {
+                const response = await fetch(GET_USER_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId }),
+                });
+                
+                const data = await response.json();
+                const user = data.data || data.user || data;
+                
+                if (user && data.success !== false) {
+                    setUserProfileImage(user.profilePictureUrl || null);
+                    setUserFullName(user.fullName || user.name || '');
+                }
+            } catch (err) {
+                console.error('Failed to fetch user profile:', err);
+            }
+        };
+
+        fetchUserProfile();
+    }, [userId]);
     
     // When collapsed and hovered, show expanded version
     const isExpanded = isOpen && (!isCollapsed || isHovered);
@@ -149,11 +180,24 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
             <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 border-t border-gray-200`}>
                 {isExpanded ? (
                     <div className="flex items-center p-2 bg-orange-50 rounded-lg">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                            {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
+                        <div className="relative flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                                {userProfileImage ? (
+                                    <img 
+                                        src={userProfileImage} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                )}
+                            </div>
+                            {userProfileImage && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                            )}
                         </div>
                         <div className="ml-3 flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">User</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{userFullName || 'User'}</p>
                             <p className="text-xs text-gray-500 truncate">{userEmail ?? 'user@example.com'}</p>
                         </div>
                         <button onClick={logout} className="ml-2 p-2 rounded-full text-gray-500 hover:bg-orange-100 flex-shrink-0">
@@ -162,8 +206,21 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">
-                            {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
+                        <div className="relative">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                                {userProfileImage ? (
+                                    <img 
+                                        src={userProfileImage} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                )}
+                            </div>
+                            {userProfileImage && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                            )}
                         </div>
                         <button 
                             onClick={logout} 
