@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigation, useAuth } from '../App';
-import AuthIllustration from './AuthIllustration';
-
-const EmailIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" /></svg>;
-const PasswordIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
-const PhoneIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>;
+import {
+  Ripple,
+  AuthTabs,
+  TechOrbitDisplay,
+} from '@/components/ui/modern-animated-sign-in';
 
 const API_ENDPOINT = 'https://xlxus7dr78.execute-api.ap-south-2.amazonaws.com/User_login_signup';
 
@@ -28,15 +28,171 @@ interface ApiResponse {
   };
 }
 
+interface OrbitIcon {
+  component: () => ReactNode;
+  className: string;
+  duration?: number;
+  delay?: number;
+  radius?: number;
+  path?: boolean;
+  reverse?: boolean;
+}
+
+const iconsArray: OrbitIcon[] = [
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg'
+        alt='HTML5'
+      />
+    ),
+    className: 'size-[20px] border-none bg-transparent',
+    duration: 20,
+    delay: 20,
+    radius: 100,
+    path: false,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg'
+        alt='CSS3'
+      />
+    ),
+    className: 'size-[20px] border-none bg-transparent',
+    duration: 20,
+    delay: 10,
+    radius: 100,
+    path: false,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg'
+        alt='TypeScript'
+      />
+    ),
+    className: 'size-[30px] border-none bg-transparent',
+    radius: 210,
+    duration: 20,
+    path: false,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg'
+        alt='JavaScript'
+      />
+    ),
+    className: 'size-[30px] border-none bg-transparent',
+    radius: 210,
+    duration: 20,
+    delay: 20,
+    path: false,
+    reverse: false,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg'
+        alt='TailwindCSS'
+      />
+    ),
+    className: 'size-[20px] border-none bg-transparent',
+    duration: 20,
+    delay: 20,
+    radius: 150,
+    path: false,
+    reverse: true,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nextjs/nextjs-original.svg'
+        alt='Nextjs'
+      />
+    ),
+    className: 'size-[20px] border-none bg-transparent',
+    duration: 20,
+    delay: 10,
+    radius: 150,
+    path: false,
+    reverse: true,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg'
+        alt='React'
+      />
+    ),
+    className: 'size-[30px] border-none bg-transparent',
+    radius: 270,
+    duration: 20,
+    path: false,
+    reverse: true,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/figma/figma-original.svg'
+        alt='Figma'
+      />
+    ),
+    className: 'size-[30px] border-none bg-transparent',
+    radius: 270,
+    duration: 20,
+    delay: 60,
+    path: false,
+    reverse: true,
+  },
+  {
+    component: () => (
+      <img
+        width={50}
+        height={50}
+        src='https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg'
+        alt='Git'
+      />
+    ),
+    className: 'size-[30px] border-none bg-transparent',
+    radius: 320,
+    duration: 20,
+    delay: 20,
+    path: false,
+    reverse: false,
+  },
+];
+
 const AuthPage: React.FC = () => {
   const { navigateTo } = useNavigation();
   const { login } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    phoneNumber: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,10 +210,10 @@ const AuthPage: React.FC = () => {
         },
         body: JSON.stringify({
           action: 'signup',
-          email: email.trim(),
-          phoneNumber: phoneNumber.trim(),
-          password: password,
-          confirmPassword: confirmPassword,
+          email: formData.email.trim(),
+          phoneNumber: formData.phoneNumber.trim(),
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
         }),
       });
 
@@ -89,15 +245,15 @@ const AuthPage: React.FC = () => {
         },
         body: JSON.stringify({
           action: 'login',
-          email: email.trim(),
-          password: password,
+          email: formData.email.trim(),
+          password: formData.password,
         }),
       });
 
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        // Determine role - check if admin (you can modify this logic)
+        // Determine role - check if admin
         const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
         
         // Store user data in localStorage for session persistence
@@ -125,8 +281,8 @@ const AuthPage: React.FC = () => {
         },
         body: JSON.stringify({
           action: 'login',
-          email: email.trim(),
-          password: password,
+          email: formData.email.trim(),
+          password: formData.password,
         }),
       });
 
@@ -146,194 +302,198 @@ const AuthPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError(null);
 
     if (isLogin) {
-      if (!email || !password) {
+      if (!formData.email || !formData.password) {
         setError('Please fill in all required fields.');
         return;
       }
       await handleLogin();
     } else {
-      if (!email || !phoneNumber || !password || !confirmPassword) {
+      if (!formData.email || !formData.phoneNumber || !formData.password || !formData.confirmPassword) {
         setError('Please fill in all required fields.');
         return;
       }
-      if (password !== confirmPassword) {
+      if (formData.password !== formData.confirmPassword) {
         setError('Passwords do not match.');
         return;
       }
       await handleSignup();
     }
   };
-  
+
+  const handleInputChange = (
+    event: ChangeEvent<HTMLInputElement>,
+    name: keyof typeof formData
+  ) => {
+    const value = event.target.value;
+    setFormData((prevState) => ({
+      ...prevState,
+      [name]: value,
+    }));
+  };
+
+  const goToForgotPassword = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+    console.log('forgot password');
+  };
+
   const toggleAuthMode = () => {
     setAuthMode(isLogin ? 'signup' : 'login');
     setError(null);
     // Clear form fields when switching modes
-    setPassword('');
-    setConfirmPassword('');
-  }
+    setFormData({
+      email: '',
+      phoneNumber: '',
+      password: '',
+      confirmPassword: '',
+    });
+  };
+
+  const formFields = {
+    header: isLogin ? 'Welcome back' : 'Create an account',
+    subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
+    fields: isLogin
+      ? [
+          {
+            label: 'Email',
+            required: true,
+            type: 'email',
+            placeholder: 'Enter your email address',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'email'),
+          },
+          {
+            label: 'Password',
+            required: true,
+            type: 'password',
+            placeholder: 'Enter your password',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'password'),
+          },
+        ]
+      : [
+          {
+            label: 'Email',
+            required: true,
+            type: 'email',
+            placeholder: 'Enter your email address',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'email'),
+          },
+          {
+            label: 'PhoneNumber',
+            required: true,
+            type: 'text',
+            placeholder: 'Enter your phone number',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'phoneNumber'),
+          },
+          {
+            label: 'Password',
+            required: true,
+            type: 'password',
+            placeholder: 'Enter your password',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'password'),
+          },
+          {
+            label: 'ConfirmPassword',
+            required: true,
+            type: 'password',
+            placeholder: 'Confirm your password',
+            onChange: (event: ChangeEvent<HTMLInputElement>) =>
+              handleInputChange(event, 'confirmPassword'),
+          },
+        ],
+    submitButton: isLogin ? 'Sign in' : 'Sign up',
+    textVariantButton: isLogin ? 'Forgot password?' : undefined,
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 transition-colors duration-300">
-      <div className="w-full max-w-4xl">
-        <div className="flex flex-col lg:flex-row bg-white dark:bg-[#111111] rounded-2xl shadow-2xl shadow-blue-500/10 overflow-hidden">
-          
-          <div className="hidden lg:flex w-full lg:w-1/2 items-center justify-center p-12 bg-gray-50 border-r border-gray-200">
-             <AuthIllustration />
-          </div>
-
-          <div className="w-full lg:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-            <button onClick={() => navigateTo('home')} className="self-start mb-6 text-sm text-gray-500 hover:text-blue-500 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Home
-            </button>
-
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-              {isLogin ? 'Welcome Back' : 'Create an Account'}
-            </h2>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-            
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                    <EmailIcon />
-                </span>
-                <input
-                  type="email"
-                  placeholder="Your Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              {!isLogin && (
-                 <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        <PhoneIcon />
-                    </span>
-                    <input
-                      type="tel"
-                      placeholder="Phone Number"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
-                      required
-                      disabled={loading}
-                    />
-                </div>
-              )}
-
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                    <PasswordIcon />
-                </span>
-                <input
-                  type="password"
-                  placeholder="Your Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-               {!isLogin && (
-                 <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        <PasswordIcon />
-                    </span>
-                    <input
-                      type="password"
-                      placeholder="Confirm Password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-900"
-                      required
-                      disabled={loading}
-                    />
-                </div>
-              )}
-
-              {isLogin && (
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center">
-                    <input 
-                      id="remember" 
-                      type="checkbox" 
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded bg-gray-100" 
-                      disabled={loading}
-                    />
-                    <label htmlFor="remember" className="ml-2 block text-gray-600">Keep me logged in</label>
-                  </div>
-                  <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                    Forgot Password?
-                  </a>
-                </div>
-              )}
-              
-              <div>
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {isLogin ? 'Logging in...' : 'Registering...'}
-                    </span>
-                  ) : (
-                    isLogin ? 'Log In' : 'Register'
-                  )}
-                </button>
-              </div>
-            </form>
-
-            {isLogin && (
-                <>
-                    <div className="my-6 flex items-center">
-                        <div className="flex-grow border-t border-gray-200"></div>
-                        <span className="mx-4 text-sm text-gray-500">or</span>
-                        <div className="flex-grow border-t border-gray-200"></div>
-                    </div>
-
-                    <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-200 rounded-lg hover:bg-gray-50:bg-gray-800/50 transition-colors">
-                        <svg className="w-5 h-5" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.223 0-9.651-3.657-11.303-8h-6.723C8.614 34.621 15.682 40 24 40z"></path><path fill="#1976D2" d="M43.611 20.083L43.595 20L42 20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l6.19 5.238C42.012 35.836 44 30.138 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
-                        <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
-                    </button>
-                </>
-            )}
-            
-            <p className="text-center text-sm text-gray-600 mt-8">
-              {isLogin ? "Don't have an account yet?" : 'Already have an account?'}{' '}
-              <button onClick={toggleAuthMode} className="font-medium text-blue-600 hover:text-blue-500">
-                {isLogin ? 'Sign up' : 'Log in'}
-              </button>
-            </p>
-          </div>
+    <section className={`flex max-lg:justify-center min-h-screen relative ${
+      !isLogin ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : 'bg-background'
+    }`}>
+      {/* Dark Background Animation - Enhanced for Signup */}
+      {!isLogin && (
+        <div className='fixed inset-0 z-0 overflow-hidden pointer-events-none'>
+          <Ripple 
+            mainCircleSize={150} 
+            mainCircleOpacity={0.15}
+            numCircles={12}
+            className='!max-w-full w-full h-full'
+          />
         </div>
-      </div>
-    </div>
+      )}
+      
+      {/* Left Side - Animation */}
+      <span className='hidden lg:flex flex-col justify-center w-1/2 relative z-10'>
+        {/* Background Ripple Animation - Centered behind text */}
+        <div className='absolute inset-0 flex items-center justify-center pointer-events-none z-0'>
+          <Ripple 
+            mainCircleSize={120} 
+            mainCircleOpacity={0.2}
+            numCircles={10}
+            className='!max-w-full w-full h-full'
+          />
+        </div>
+        {/* Text and Icons - Above the animation */}
+        <div className='relative z-10 w-full h-full flex items-center justify-center'>
+          <TechOrbitDisplay iconsArray={iconsArray} text={isLogin ? 'Welcome Back' : 'Get Started'} />
+        </div>
+      </span>
+
+      {/* Right Side - Form */}
+      <span className={`w-full lg:w-1/2 h-[100dvh] flex flex-col justify-center items-center max-lg:px-[10%] relative z-10`}>
+        <button
+          onClick={() => navigateTo('home')}
+          className='absolute top-6 left-6 text-sm text-gray-500 hover:text-blue-500 flex items-center gap-1'
+        >
+          <svg
+            xmlns='http://www.w3.org/2000/svg'
+            className='h-4 w-4'
+            fill='none'
+            viewBox='0 0 24 24'
+            stroke='currentColor'
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              d='M10 19l-7-7m0 0l7-7m-7 7h18'
+            />
+          </svg>
+          Back to Home
+        </button>
+
+        <AuthTabs
+          formFields={formFields}
+          goTo={isLogin ? goToForgotPassword : toggleAuthMode}
+          handleSubmit={handleSubmit}
+        />
+
+        {error && (
+          <div className='mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-md w-full'>
+            <p className='text-sm text-red-600 dark:text-red-400'>{error}</p>
+          </div>
+        )}
+
+        <p className='text-center text-sm text-gray-600 dark:text-gray-400 mt-6'>
+          {isLogin ? "Don't have an account yet?" : 'Already have an account?'}{' '}
+          <button
+            onClick={toggleAuthMode}
+            className='font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500'
+          >
+            {isLogin ? 'Sign up' : 'Log in'}
+          </button>
+        </p>
+      </span>
+    </section>
   );
 };
 
