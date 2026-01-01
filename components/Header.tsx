@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme, useNavigation, useAuth } from '../App';
+import { NavBar } from './ui/tubelight-navbar';
 
 const LogoIcon: React.FC = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -36,7 +37,26 @@ const Header: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks = ['Projects', 'Freelancers', 'Pricing', 'FAQs'];
+  const [activeNavTab, setActiveNavTab] = useState('Projects');
+
+  const navLinks = [
+    { name: 'Projects', url: '#projects', onClick: () => {
+      const element = document.getElementById('projects');
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+    }},
+    { name: 'Freelancers', url: '#freelancers', onClick: () => {
+      const element = document.getElementById('freelancers');
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+    }},
+    { name: 'Pricing', url: '#pricing', onClick: () => {
+      const element = document.getElementById('pricing');
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+    }},
+    { name: 'FAQs', url: '#faqs', onClick: () => {
+      const element = document.getElementById('faqs');
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
+    }},
+  ];
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'py-4' : 'py-6'}`}>
@@ -47,12 +67,12 @@ const Header: React.FC = () => {
                 <span className="text-xl font-bold text-gray-900">ProjectBazaar</span>
             </button>
 
-            <nav className="hidden md:flex items-center gap-8">
-                {navLinks.map((link) => (
-                <a key={link} href="#" className="text-gray-600 hover:text-gray-900 transition-colors duration-200">
-                    {link}
-                </a>
-                ))}
+            <nav className="hidden md:flex items-center">
+                <NavBar 
+                  items={navLinks}
+                  activeTab={activeNavTab}
+                  onTabChange={setActiveNavTab}
+                />
             </nav>
 
             <div className="hidden md:flex items-center">
@@ -92,9 +112,19 @@ const Header: React.FC = () => {
             <div className="md:hidden mt-2 bg-white/80 backdrop-blur-lg rounded-xl p-4 border border-gray-200">
             <nav className="flex flex-col items-center gap-4">
                 {navLinks.map((link) => (
-                <a key={link} href="#" className="text-gray-600 hover:text-gray-900:text-white transition-colors duration-200 py-2">
-                    {link}
-                </a>
+                <button 
+                  key={link.name} 
+                  onClick={() => {
+                    link.onClick?.();
+                    setIsOpen(false);
+                    setActiveNavTab(link.name);
+                  }}
+                  className={`text-gray-600 hover:text-gray-900 transition-colors duration-200 py-2 ${
+                    activeNavTab === link.name ? 'text-primary font-semibold' : ''
+                  }`}
+                >
+                    {link.name}
+                </button>
                 ))}
                 {isLoggedIn ? (
                     <>
