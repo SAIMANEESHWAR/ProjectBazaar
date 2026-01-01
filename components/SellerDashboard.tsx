@@ -114,10 +114,13 @@ const SellerDashboard: React.FC = () => {
     const { navigateTo } = useNavigation();
     const { isPremium } = usePremium();
     const { userId, userEmail } = useAuth();
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [isDragging, setIsDragging] = useState(false);
+    const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     
     // Form state
     const [formData, setFormData] = useState({
@@ -132,8 +135,7 @@ const SellerDashboard: React.FC = () => {
     });
     
     // File state
-    const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-    const [projectFiles, setProjectFiles] = useState<File | null>(null);
+    const [imageFiles, setImageFiles] = useState<File[]>([]);
     
     // UI state
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -320,18 +322,113 @@ const SellerDashboard: React.FC = () => {
         fetchProjects();
     }, [userId]);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setThumbnailFile(file);
-            setImagePreview(URL.createObjectURL(file));
+    const MAX_IMAGES = 5;
+
+    const addImages = (files: FileList | File[]) => {
+        const fileArray = Array.from(files);
+        const validImages = fileArray.filter(file => file.type.startsWith('image/'));
+        
+        if (validImages.length === 0) return;
+
+        // Limit total images
+        const remainingSlots = MAX_IMAGES - imageFiles.length;
+        const filesToAdd = validImages.slice(0, remainingSlots);
+
+        if (filesToAdd.length > 0) {
+            setImageFiles(prev => [...prev, ...filesToAdd]);
+            const newPreviews = filesToAdd.map(file => URL.createObjectURL(file));
+            setImagePreviews(prev => [...prev, ...newPreviews]);
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setProjectFiles(e.target.files[0]);
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            addImages(e.target.files);
         }
+    };
+
+    const removeImage = (index: number) => {
+        setImageFiles(prev => prev.filter((_, i) => i !== index));
+        setImagePreviews(prev => {
+            // Revoke the object URL to prevent memory leaks
+            URL.revokeObjectURL(prev[index]);
+            return prev.filter((_, i) => i !== index);
+        });
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            addImages(files);
+        }
+    };
+
+    // Image reordering handlers - reorder in place as you drag
+    const handleImageDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+        setDraggedImageIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        // Use a minimal drag image
+        const dragImage = document.createElement('div');
+        dragImage.style.width = '1px';
+        dragImage.style.height = '1px';
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 0, 0);
+        setTimeout(() => document.body.removeChild(dragImage), 0);
+    };
+
+    const handleImageDragEnd = () => {
+        setDraggedImageIndex(null);
+        setDragOverIndex(null);
+    };
+
+    const handleImageDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+        e.preventDefault();
+        if (draggedImageIndex === null || draggedImageIndex === index) return;
+        
+        // Reorder images in real-time as you drag over
+        setDragOverIndex(index);
+        
+        // Perform the reorder immediately
+        const newFiles = [...imageFiles];
+        const newPreviews = [...imagePreviews];
+        
+        const [draggedFile] = newFiles.splice(draggedImageIndex, 1);
+        const [draggedPreview] = newPreviews.splice(draggedImageIndex, 1);
+        
+        newFiles.splice(index, 0, draggedFile);
+        newPreviews.splice(index, 0, draggedPreview);
+        
+        setImageFiles(newFiles);
+        setImagePreviews(newPreviews);
+        setDraggedImageIndex(index); // Update dragged index to new position
+    };
+
+    const handleImageDragLeaveItem = () => {
+        // Don't reset dragOverIndex here to prevent flickering
+    };
+
+    const handleImageDropOnItem = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Reordering already happened in dragOver, just cleanup
+        setDraggedImageIndex(null);
+        setDragOverIndex(null);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -363,8 +460,8 @@ const SellerDashboard: React.FC = () => {
             return;
         }
 
-        if (!thumbnailFile || !projectFiles) {
-            setSubmitError('Please upload both thumbnail and project files');
+        if (imageFiles.length === 0) {
+            setSubmitError('Please upload at least one project image');
             return;
         }
 
@@ -415,9 +512,10 @@ const SellerDashboard: React.FC = () => {
                     youtubeVideoUrl: '',
                     documentationUrl: ''
                 });
-                setThumbnailFile(null);
-                setProjectFiles(null);
-                setImagePreview(null);
+                // Revoke object URLs to prevent memory leaks
+                imagePreviews.forEach(url => URL.revokeObjectURL(url));
+                setImageFiles([]);
+                setImagePreviews([]);
                 
                 // Refresh projects list to get the latest from API
                 await fetchProjects();
@@ -751,50 +849,107 @@ const SellerDashboard: React.FC = () => {
                 </SectionCard>
 
                  <SectionCard title="Uploads" step={3}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Project Thumbnail</label>
-                             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                                {imagePreview ? (
-                                    <img src={imagePreview} alt="Preview" className="h-48 w-auto object-cover rounded-md" />
-                                ) : (
-                                    <div className="space-y-1 text-center">
-                                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                        <div className="flex text-sm text-gray-600">
-                                            <label htmlFor="image-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"><span>Upload a file</span><input id="image-upload" name="image-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*" /></label>
-                                            <p className="pl-1">or drag and drop</p>
-                                        </div>
-                                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Project Files (.zip)</label>
-                             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                                <div className="space-y-1 text-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                    <div className="flex text-sm text-gray-600">
-                                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                                            <span>Upload files</span>
-                                            <input 
-                                                id="file-upload" 
-                                                name="file-upload" 
-                                                type="file" 
-                                                className="sr-only" 
-                                                accept=".zip"
-                                                onChange={handleFileChange}
-                                            />
-                                        </label>
-                                        <p className="pl-1">or drag and drop</p>
-                                    </div>
-                                    <p className="text-xs text-gray-500">ZIP file up to 50MB</p>
-                                    {projectFiles && (
-                                        <p className="text-xs text-green-600 mt-2">✓ {projectFiles.name}</p>
-                                    )}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Project Images <span className="text-gray-400 font-normal">({imagePreviews.length}/{MAX_IMAGES})</span>
+                        </label>
+                        
+                        {/* Drop Zone */}
+                        <div
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
+                                isDragging 
+                                    ? 'border-orange-500 bg-orange-50' 
+                                    : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/50'
+                            } ${imageFiles.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
+                        >
+                            <div className="space-y-2 text-center">
+                                <svg className={`mx-auto h-12 w-12 ${isDragging ? 'text-orange-500' : 'text-gray-400'}`} stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                <div className="flex text-sm text-gray-600 justify-center">
+                                    <label htmlFor="image-upload" className="relative cursor-pointer rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none">
+                                        <span>Click to upload</span>
+                                        <input 
+                                            id="image-upload" 
+                                            name="image-upload" 
+                                            type="file" 
+                                            className="sr-only" 
+                                            onChange={handleImageChange} 
+                                            accept="image/*"
+                                            multiple
+                                            disabled={imageFiles.length >= MAX_IMAGES}
+                                        />
+                                    </label>
+                                    <p className="pl-1">or drag and drop</p>
                                 </div>
+                                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each • Max {MAX_IMAGES} images</p>
                             </div>
                         </div>
+
+                        {/* Image Previews Grid */}
+                        {imagePreviews.length > 0 && (
+                            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {imagePreviews.map((preview, index) => (
+                                    <div 
+                                        key={preview} 
+                                        className={`relative group cursor-grab active:cursor-grabbing transition-transform duration-150 ease-out ${
+                                            draggedImageIndex === index ? 'z-10 scale-105 shadow-xl' : ''
+                                        }`}
+                                        draggable
+                                        onDragStart={(e) => handleImageDragStart(e, index)}
+                                        onDragEnd={handleImageDragEnd}
+                                        onDragOver={(e) => handleImageDragOver(e, index)}
+                                        onDragLeave={handleImageDragLeaveItem}
+                                        onDrop={(e) => handleImageDropOnItem(e)}
+                                    >
+                                        <div className={`aspect-square rounded-lg overflow-hidden border-2 bg-gray-100 transition-all ${
+                                            draggedImageIndex === index ? 'border-orange-500 ring-2 ring-orange-300 shadow-lg' : 'border-gray-200'
+                                        }`}>
+                                            <img 
+                                                src={preview} 
+                                                alt={`Preview ${index + 1}`} 
+                                                className="w-full h-full object-cover pointer-events-none select-none"
+                                            />
+                                        </div>
+                                        {/* Drag handle indicator */}
+                                        <div className={`absolute top-1 left-1 w-6 h-6 bg-black/50 text-white rounded flex items-center justify-center transition-opacity ${
+                                            draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                                        }`}>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                                            </svg>
+                                        </div>
+                                        {/* Remove button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeImage(index)}
+                                            className={`absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity hover:bg-red-600 z-10 ${
+                                                draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                                            }`}
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                        {/* First image badge */}
+                                        {index === 0 && (
+                                            <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded shadow">
+                                                Thumbnail
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {imagePreviews.length > 0 && (
+                            <p className="mt-2 text-xs text-gray-500">
+                                The first image will be used as the project thumbnail. Drag images to reorder.
+                            </p>
+                        )}
                     </div>
                 </SectionCard>
 
