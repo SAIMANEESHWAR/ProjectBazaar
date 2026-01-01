@@ -107,6 +107,7 @@ interface UploadedProject {
 const MAX_FREE_PROJECTS = 5;
 const API_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/default/Upload_project_from_buyer';
 const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Seller';
+const MAX_IMAGE_SIZE_MB = 10;
 
 type ViewMode = 'grid' | 'table';
 
@@ -226,6 +227,69 @@ const SellerDashboard: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<string>('');
+
+    // Upload single image to S3 and return the URL
+    const uploadImageToS3 = async (file: File, index: number): Promise<string> => {
+        // Validate file size
+        if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+            throw new Error(`Image ${index + 1} exceeds ${MAX_IMAGE_SIZE_MB}MB limit`);
+        }
+
+        setUploadProgress(`Uploading image ${index + 1}...`);
+
+        // 1. Get presigned URL from Lambda
+        const presignRes = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'getPresignedUrl',
+                sellerId: userId,
+                fileName: `project-${Date.now()}-${index}-${file.name}`,
+                fileType: file.type,
+            }),
+        });
+
+        const presignData = await presignRes.json();
+        console.log('Presign response:', presignData);
+
+        if (!presignData.success || !presignData.uploadUrl) {
+            throw new Error('Failed to get upload URL for image');
+        }
+
+        const { uploadUrl, fileUrl } = presignData;
+        
+        console.log('Uploading to S3 URL:', uploadUrl);
+
+        // 2. Upload image directly to S3
+        // The presigned URL was signed WITH Content-Type, so we MUST send it
+        await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    console.log('S3 Upload response:', xhr.status, xhr.responseText);
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('XHR error:', xhr.status, xhr.statusText);
+                reject(new Error('Network error during upload'));
+            };
+            // Presigned URL is NOT signed with Content-Type (browser-safe upload)
+
+            
+            xhr.open('PUT', uploadUrl);
+            xhr.send(file);
+        });
+
+        return fileUrl;
+    };
     const [uploadedProjects, setUploadedProjects] = useState<UploadedProject[]>([]);
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -669,9 +733,26 @@ const SellerDashboard: React.FC = () => {
         }
 
         setIsSubmitting(true);
+        setUploadProgress('Preparing upload...');
 
         try {
-            // Prepare request body matching Lambda function expectations
+            // 1. Upload all images to S3 first
+            setUploadProgress(`Uploading ${imageFiles.length} image(s) to cloud...`);
+            const imageUrls: string[] = [];
+            
+            for (let i = 0; i < imageFiles.length; i++) {
+                try {
+                    const imageUrl = await uploadImageToS3(imageFiles[i], i);
+                    imageUrls.push(imageUrl);
+                } catch (uploadError) {
+                    console.error(`Failed to upload image ${i + 1}:`, uploadError);
+                    throw new Error(`Failed to upload image ${i + 1}. Please try again.`);
+                }
+            }
+
+            setUploadProgress('Submitting project...');
+
+            // 2. Prepare request body with S3 image URLs
             const requestBody = {
                 sellerId: userId,
                 sellerEmail: userEmail,
@@ -683,6 +764,9 @@ const SellerDashboard: React.FC = () => {
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
                 githubUrl: formData.githubUrl.trim() || undefined,
                 youtubeVideoUrl: formData.youtubeVideoUrl.trim() || undefined,
+                // Image URLs from S3
+                thumbnailUrl: imageUrls[0], // First image is the thumbnail
+                imageUrls: imageUrls, // All images including thumbnail
                 // Resource links
                 pptUrl: resourceUrls.ppt.trim() || undefined,
                 documentationUrl: resourceUrls.documentation.trim() || undefined,
@@ -755,9 +839,14 @@ const SellerDashboard: React.FC = () => {
             }
         } catch (error) {
             console.error('Upload error:', error);
-            setSubmitError('Network error. Please check your connection and try again.');
+            if (error instanceof Error) {
+                setSubmitError(error.message);
+            } else {
+                setSubmitError('Network error. Please check your connection and try again.');
+            }
         } finally {
             setIsSubmitting(false);
+            setUploadProgress('');
         }
     };
 
@@ -1437,7 +1526,7 @@ const SellerDashboard: React.FC = () => {
                         <button 
                             type="submit" 
                             disabled={isSubmitting}
-                            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2 px-6 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[180px] justify-center"
                         >
                             {isSubmitting ? (
                                 <>
@@ -1445,10 +1534,15 @@ const SellerDashboard: React.FC = () => {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Submitting...
+                                    <span className="text-sm">{uploadProgress || 'Submitting...'}</span>
                                 </>
                             ) : (
-                                'Submit for Review'
+                                <>
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    Submit for Review
+                                </>
                             )}
                         </button>
                 </div>

@@ -181,30 +181,26 @@ const SettingsPage: React.FC = () => {
             });
     
             const presignData = await presignRes.json();
+            console.log('Presign response:', presignData);
     
             if (!presignData.success) {
                 throw new Error('Failed to get upload URL');
             }
     
-            const { uploadUrl, fileUrl } = presignData;
+            const { uploadUrl, fileUrl, contentType } = presignData;
     
-            // 2️⃣ Upload image directly to S3 using XMLHttpRequest (more reliable for S3)
-            await new Promise<void>((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open('PUT', uploadUrl, true);
-                xhr.setRequestHeader('Content-Type', file.type);
-                
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                    } else {
-                        reject(new Error(`Upload failed with status ${xhr.status}`));
-                    }
-                };
-                
-                xhr.onerror = () => reject(new Error('Network error during upload'));
-                xhr.send(file);
+            // 2️⃣ Upload image directly to S3 using fetch
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                // Only set Content-Type if the backend tells us to
+                ...(contentType && { headers: { 'Content-Type': contentType } })
             });
+
+            if (!uploadResponse.ok) {
+                console.error('S3 upload failed:', uploadResponse.status, await uploadResponse.text());
+                throw new Error(`Upload failed with status ${uploadResponse.status}`);
+            }
     
             // 3️⃣ Save S3 URL to state (will be saved to DB when user clicks Save Changes)
             setPendingImageUrl(fileUrl);
