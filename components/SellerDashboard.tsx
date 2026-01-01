@@ -130,10 +130,94 @@ const SellerDashboard: React.FC = () => {
         price: '',
         originalPrice: '',
         youtubeVideoUrl: '',
-        documentationUrl: ''
+        githubUrl: ''
     });
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
+    
+    // Resource links state
+    type ResourceType = 'ppt' | 'documentation' | 'executionVideo' | 'researchPaper';
+    const [selectedResources, setSelectedResources] = useState<ResourceType[]>([]);
+    const [resourceUrls, setResourceUrls] = useState<Record<ResourceType, string>>({
+        ppt: '',
+        documentation: '',
+        executionVideo: '',
+        researchPaper: ''
+    });
+    
+    // Custom resource links
+    interface CustomResource {
+        id: string;
+        label: string;
+        url: string;
+    }
+    const [customResources, setCustomResources] = useState<CustomResource[]>([]);
+    
+    const resourceOptions: { key: ResourceType; label: string; placeholder: string; icon: React.ReactNode; color: string }[] = [
+        { 
+            key: 'ppt', 
+            label: 'PPT / Presentation', 
+            placeholder: 'https://docs.google.com/presentation/...',
+            color: 'bg-orange-100 text-orange-600 border-orange-200',
+            icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+        },
+        { 
+            key: 'documentation', 
+            label: 'Documentation', 
+            placeholder: 'https://docs.example.com',
+            color: 'bg-blue-100 text-blue-600 border-blue-200',
+            icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        },
+        { 
+            key: 'executionVideo', 
+            label: 'Execution Video', 
+            placeholder: 'https://youtube.com/watch?v=...',
+            color: 'bg-red-100 text-red-600 border-red-200',
+            icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        },
+        { 
+            key: 'researchPaper', 
+            label: 'Research Paper', 
+            placeholder: 'https://arxiv.org/...',
+            color: 'bg-purple-100 text-purple-600 border-purple-200',
+            icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+        }
+    ];
+
+    const toggleResource = (resource: ResourceType) => {
+        setSelectedResources(prev => {
+            if (prev.includes(resource)) {
+                setResourceUrls(urls => ({ ...urls, [resource]: '' }));
+                return prev.filter(r => r !== resource);
+            } else {
+                return [...prev, resource];
+            }
+        });
+    };
+
+    const handleResourceUrlChange = (resource: ResourceType, value: string) => {
+        setResourceUrls(prev => ({ ...prev, [resource]: value }));
+    };
+
+    const addCustomResource = () => {
+        const newId = `custom-${Date.now()}`;
+        setCustomResources(prev => [...prev, { id: newId, label: '', url: '' }]);
+    };
+
+    const updateCustomResource = (id: string, field: 'label' | 'url', value: string) => {
+        setCustomResources(prev => 
+            prev.map(r => r.id === id ? { ...r, [field]: value } : r)
+        );
+    };
+
+    const removeCustomResource = (id: string) => {
+        setCustomResources(prev => prev.filter(r => r.id !== id));
+    };
+    
+    // GitHub validation state
+    const [isValidatingGithub, setIsValidatingGithub] = useState(false);
+    const [githubValidationError, setGithubValidationError] = useState<string | null>(null);
+    const [githubValidated, setGithubValidated] = useState(false);
     
     // File state
     const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -463,6 +547,85 @@ const SellerDashboard: React.FC = () => {
         setTags(prev => prev.filter((_, i) => i !== index));
     };
 
+    // GitHub URL validation - check if it's a public repository
+    const parseGithubUrl = (url: string): { owner: string; repo: string } | null => {
+        // Match various GitHub URL formats
+        const patterns = [
+            /github\.com\/([^\/]+)\/([^\/\?#]+)/,  // https://github.com/owner/repo
+            /github\.com:([^\/]+)\/([^\/\?#]+)/,   // git@github.com:owner/repo
+        ];
+        
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) {
+                return { 
+                    owner: match[1], 
+                    repo: match[2].replace(/\.git$/, '') 
+                };
+            }
+        }
+        return null;
+    };
+
+    const validateGithubUrl = async () => {
+        const url = formData.githubUrl.trim();
+        
+        if (!url) {
+            setGithubValidationError(null);
+            setGithubValidated(false);
+            return;
+        }
+
+        const parsed = parseGithubUrl(url);
+        if (!parsed) {
+            setGithubValidationError('Please enter a valid GitHub repository URL (e.g., https://github.com/username/repo)');
+            setGithubValidated(false);
+            return;
+        }
+
+        setIsValidatingGithub(true);
+        setGithubValidationError(null);
+
+        try {
+            const response = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.status === 200) {
+                const data = await response.json();
+                if (data.private === false) {
+                    setGithubValidated(true);
+                    setGithubValidationError(null);
+                } else {
+                    setGithubValidated(false);
+                    setGithubValidationError('This repository is private. Please upload a public GitHub repository URL.');
+                }
+            } else if (response.status === 404) {
+                setGithubValidated(false);
+                setGithubValidationError('Repository not found. Please upload a public GitHub repository URL.');
+            } else {
+                setGithubValidated(false);
+                setGithubValidationError('Unable to verify repository. Please check the URL and try again.');
+            }
+        } catch (error) {
+            console.error('GitHub validation error:', error);
+            setGithubValidated(false);
+            setGithubValidationError('Unable to verify repository. Please check your connection and try again.');
+        } finally {
+            setIsValidatingGithub(false);
+        }
+    };
+
+    // Reset GitHub validation when URL changes
+    const handleGithubUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, githubUrl: e.target.value }));
+        setGithubValidated(false);
+        setGithubValidationError(null);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError(null);
@@ -494,6 +657,17 @@ const SellerDashboard: React.FC = () => {
             return;
         }
 
+        // Validate GitHub URL if provided
+        if (formData.githubUrl.trim() && !githubValidated) {
+            setSubmitError('Please verify your GitHub URL by clicking the "Verify" button');
+            return;
+        }
+
+        if (githubValidationError) {
+            setSubmitError('Please fix the GitHub URL error before submitting');
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -507,13 +681,24 @@ const SellerDashboard: React.FC = () => {
                 tags: tags.join(', '),
                 price: parseFloat(formData.price),
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+                githubUrl: formData.githubUrl.trim() || undefined,
                 youtubeVideoUrl: formData.youtubeVideoUrl.trim() || undefined,
-                documentationUrl: formData.documentationUrl.trim() || undefined
+                // Resource links
+                pptUrl: resourceUrls.ppt.trim() || undefined,
+                documentationUrl: resourceUrls.documentation.trim() || undefined,
+                executionVideoUrl: resourceUrls.executionVideo.trim() || undefined,
+                researchPaperUrl: resourceUrls.researchPaper.trim() || undefined,
+                // Custom resources - filter out empty ones
+                customResources: customResources.filter(r => r.label.trim() && r.url.trim()).map(r => ({
+                    label: r.label.trim(),
+                    url: r.url.trim()
+                }))
             };
 
-            // Remove undefined values
+            // Remove undefined/empty values
             Object.keys(requestBody).forEach(key => {
-                if (requestBody[key as keyof typeof requestBody] === undefined) {
+                const value = requestBody[key as keyof typeof requestBody];
+                if (value === undefined || (Array.isArray(value) && value.length === 0)) {
                     delete requestBody[key as keyof typeof requestBody];
                 }
             });
@@ -538,10 +723,20 @@ const SellerDashboard: React.FC = () => {
                     price: '',
                     originalPrice: '',
                     youtubeVideoUrl: '',
-                    documentationUrl: ''
+                    githubUrl: ''
                 });
                 setTags([]);
                 setTagInput('');
+                setSelectedResources([]);
+                setResourceUrls({
+                    ppt: '',
+                    documentation: '',
+                    executionVideo: '',
+                    researchPaper: ''
+                });
+                setCustomResources([]);
+                setGithubValidated(false);
+                setGithubValidationError(null);
                 // Revoke object URLs to prevent memory leaks
                 imagePreviews.forEach(url => URL.revokeObjectURL(url));
                 setImageFiles([]);
@@ -889,21 +1084,228 @@ const SellerDashboard: React.FC = () => {
                             onChange={handleInputChange}
                         />
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                     <div className="mt-6">
                         <InputField 
                             id="youtubeVideoUrl" 
-                            label="YouTube Video URL" 
+                            label="YouTube Demo Video URL" 
                             placeholder="https://youtube.com/watch?v=..." 
                             value={formData.youtubeVideoUrl}
                             onChange={handleInputChange}
                         />
-                        <InputField 
-                            id="documentationUrl" 
-                            label="Documentation URL" 
-                            placeholder="https://docs.example.com" 
-                            value={formData.documentationUrl}
-                            onChange={handleInputChange}
-                        />
+                    </div>
+                    
+                    {/* Resource Links - Improved UI */}
+                    <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                            Resource Links
+                            <span className="text-gray-400 font-normal ml-1">(optional - add supporting materials)</span>
+                        </label>
+                        
+                        {/* Resource type chips to select */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {resourceOptions.map((option) => {
+                                const isSelected = selectedResources.includes(option.key);
+                                return (
+                                    <button
+                                        key={option.key}
+                                        type="button"
+                                        onClick={() => toggleResource(option.key)}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-medium text-sm transition-all ${
+                                            isSelected 
+                                                ? option.color + ' shadow-sm' 
+                                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {option.icon}
+                                        {option.label}
+                                        {isSelected && (
+                                            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                            {/* Add Custom button */}
+                            <button
+                                type="button"
+                                onClick={addCustomResource}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-dashed border-gray-300 text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 font-medium text-sm transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Custom
+                            </button>
+                        </div>
+                        
+                        {/* URL inputs for selected resources */}
+                        {(selectedResources.length > 0 || customResources.length > 0) && (
+                            <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                {/* Predefined resources */}
+                                {selectedResources.map((resourceKey) => {
+                                    const option = resourceOptions.find(o => o.key === resourceKey)!;
+                                    return (
+                                        <div key={resourceKey} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${option.color}`}>
+                                                    {option.icon}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="text-sm font-medium text-gray-700 mb-1">{option.label}</div>
+                                                    <input
+                                                        type="url"
+                                                        value={resourceUrls[resourceKey]}
+                                                        onChange={(e) => handleResourceUrlChange(resourceKey, e.target.value)}
+                                                        placeholder={option.placeholder}
+                                                        className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleResource(resourceKey)}
+                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors self-start"
+                                                    title="Remove"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                
+                                {/* Custom resources */}
+                                {customResources.map((resource) => (
+                                    <div key={resource.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 text-green-600 border border-green-200 flex-shrink-0">
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <input
+                                                    type="text"
+                                                    value={resource.label}
+                                                    onChange={(e) => updateCustomResource(resource.id, 'label', e.target.value)}
+                                                    placeholder="Resource name (e.g., Figma Design, API Docs)"
+                                                    className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm font-medium"
+                                                />
+                                                <input
+                                                    type="url"
+                                                    value={resource.url}
+                                                    onChange={(e) => updateCustomResource(resource.id, 'url', e.target.value)}
+                                                    placeholder="https://..."
+                                                    className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomResource(resource.id)}
+                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Remove"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {selectedResources.length === 0 && customResources.length === 0 && (
+                            <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-center border border-dashed border-gray-200">
+                                Click on resource types above to add links, or use "Add Custom" for other resources
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* GitHub URL with validation */}
+                    <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Project GitHub URL
+                            <span className="text-gray-400 font-normal ml-1">(must be public repository)</span>
+                        </label>
+                        <div className="flex gap-3">
+                            <div className="flex-1 relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    type="url"
+                                    value={formData.githubUrl}
+                                    onChange={handleGithubUrlChange}
+                                    placeholder="https://github.com/username/repository"
+                                    className={`w-full pl-10 pr-10 py-2 rounded-lg bg-gray-50 border focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 ${
+                                        githubValidationError 
+                                            ? 'border-red-300 bg-red-50' 
+                                            : githubValidated 
+                                                ? 'border-green-300 bg-green-50' 
+                                                : 'border-gray-200'
+                                    }`}
+                                />
+                                {/* Status icon */}
+                                {formData.githubUrl && (
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                        {isValidatingGithub ? (
+                                            <svg className="animate-spin h-5 w-5 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        ) : githubValidated ? (
+                                            <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : githubValidationError ? (
+                                            <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        ) : null}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={validateGithubUrl}
+                                disabled={!formData.githubUrl.trim() || isValidatingGithub}
+                                className="px-4 py-2 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isValidatingGithub ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Verifying...
+                                    </>
+                                ) : (
+                                    'Verify'
+                                )}
+                            </button>
+                        </div>
+                        {/* Validation feedback */}
+                        {githubValidationError && (
+                            <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                {githubValidationError}
+                            </p>
+                        )}
+                        {githubValidated && (
+                            <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Public repository verified successfully!
+                            </p>
+                        )}
                     </div>
                 </SectionCard>
 
