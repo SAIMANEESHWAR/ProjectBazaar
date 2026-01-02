@@ -6,8 +6,8 @@ const HeroIllustration: React.FC = () => (
     <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
         <defs>
             <linearGradient id="illustration-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#3B82F6" />
-                <stop offset="100%" stopColor="#9333EA" />
+                <stop offset="0%" stopColor="#F97316" />
+                <stop offset="100%" stopColor="#EA580C" />
             </linearGradient>
         </defs>
         {/* Base shapes */}
@@ -50,7 +50,7 @@ const Hero: React.FC = () => {
       <div className="absolute inset-0 z-0">
         <div className="absolute top-0 left-0 w-full h-full bg-white dark:bg-[#0a0a0a]"></div>
         <div 
-          className="absolute top-1/2 left-1/2 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/2 bg-gradient-to-tr from-blue-600 via-purple-600 to-blue-600 opacity-10 animate-[spin_30s_linear_infinite]"
+          className="absolute top-1/2 left-1/2 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/2 bg-gradient-to-tr from-orange-600 via-orange-500 to-orange-600 opacity-10 animate-[spin_30s_linear_infinite]"
         />
       </div>
       
@@ -60,7 +60,7 @@ const Hero: React.FC = () => {
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-4">
                     Discover. Build.
                     <br />
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
                         Earn.
                     </span>
                 </h1>
@@ -68,7 +68,7 @@ const Hero: React.FC = () => {
                     The ultimate marketplace for projects, ideas, and collaborations. Turn your academic and personal projects into real revenue.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center gap-4 justify-center md:justify-start">
-                <button onClick={() => navigateTo('auth')} className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 px-8 rounded-full hover:opacity-90 transition-opacity duration-300 transform hover:scale-105">
+                <button onClick={() => navigateTo('auth')} className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-3 px-8 rounded-full hover:opacity-90 transition-opacity duration-300 transform hover:scale-105">
                     Explore Projects
                 </button>
                 <button onClick={() => navigateTo('auth')} className="w-full sm:w-auto bg-gray-200/80 text-gray-800 font-semibold py-3 px-8 rounded-full hover:bg-gray-200:bg-gray-700/80 transition-all duration-300">

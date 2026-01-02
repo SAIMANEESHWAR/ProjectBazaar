@@ -7,8 +7,8 @@ const LogoIcon: React.FC = () => (
     <path d="M14.293 3.293L12 1.00001L3.29297 9.70704C3.10547 9.89454 3.00006 10.149 3.00006 10.414V20C3.00006 20.552 3.44806 21 4.00006 21H12V13H14V21H20C20.552 21 21 20.552 21 20V10.414C21 10.149 20.8946 9.89452 20.7071 9.70702L14.293 3.293Z" fill="url(#paint0_linear_1_2)"/>
     <defs>
       <linearGradient id="paint0_linear_1_2" x1="3" y1="1" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#3B82F6"/>
-        <stop offset="1" stopColor="#9333EA"/>
+        <stop stopColor="#F97316"/>
+        <stop offset="1" stopColor="#EA580C"/>
       </linearGradient>
     </defs>
   </svg>
@@ -89,7 +89,7 @@ const Header: React.FC = () => {
                 ) : (
                     <>
                         <button onClick={() => navigateTo('auth')} className="text-gray-600 hover:text-gray-900 transition-colors duration-200 mr-6">Login</button>
-                        <button onClick={() => navigateTo('auth')} className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-5 rounded-full hover:opacity-90 transition-opacity duration-200">
+                        <button onClick={() => navigateTo('auth')} className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2 px-5 rounded-full hover:opacity-90 transition-opacity duration-200">
                             Sign Up
                         </button>
                     </>
@@ -136,7 +136,7 @@ const Header: React.FC = () => {
                 ) : (
                      <>
                         <button onClick={() => { navigateTo('auth'); setIsOpen(false); }} className="text-gray-600 hover:text-gray-900 transition-colors duration-200 py-2">Login</button>
-                        <button onClick={() => { navigateTo('auth'); setIsOpen(false); }} className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 px-6 rounded-full w-full">
+                        <button onClick={() => { navigateTo('auth'); setIsOpen(false); }} className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2 px-6 rounded-full w-full">
                             Sign Up
                         </button>
                     </>

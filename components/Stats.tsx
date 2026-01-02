@@ -9,7 +9,7 @@ const Stats: React.FC = () => {
   ];
 
   return (
-    <section className="py-16 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900">
+    <section className="py-16 bg-gradient-to-r from-orange-50 to-orange-50 dark:from-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((stat, index) => (
