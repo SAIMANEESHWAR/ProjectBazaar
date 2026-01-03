@@ -18,6 +18,7 @@ import SellerSuccessStories from './components/SellerSuccessStories';
 import WhatCanYouSell from './components/WhatCanYouSell';
 import SellerCta from './components/SellerCta';
 import BuyerSellerToggle from './components/BuyerSellerToggle';
+import { CallToAction } from './components/ui/cta-3';
 
 type Theme = 'light' | 'dark';
 type Page = 'home' | 'auth' | 'dashboard' | 'admin';
@@ -180,6 +181,9 @@ const AppContent: React.FC = () => {
             <Referral />
             <Pricing />
             <Faqs />
+            <div className="py-12 px-4">
+              <CallToAction />
+            </div>
             <CtaSection />
           </main>
           <Footer />

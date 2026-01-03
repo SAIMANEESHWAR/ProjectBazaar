@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigation } from '../App';
+import { RotatingStats } from './ui/animated-counter';
 
 // Floating Avatar Component
 const FloatingAvatar: React.FC<{
@@ -208,10 +209,18 @@ const Hero: React.FC = () => {
             <div className="absolute w-[400px] h-[400px] md:w-[480px] md:h-[480px] rounded-full border border-white/10" />
             <div className="absolute w-[520px] h-[520px] md:w-[600px] md:h-[600px] rounded-full border border-white/5" />
 
-            {/* Center Stats */}
+            {/* Center Stats - Animated Counter */}
             <div className="relative z-10 text-center">
-              <div className="text-5xl md:text-6xl font-bold text-white mb-2">20k+</div>
-              <div className="text-white/60 text-lg">Specialists</div>
+              <RotatingStats
+                stats={[
+                  { value: 100, label: 'Users', suffix: '+' },
+                  { value: 1000, label: 'Projects', suffix: '+' },
+                  { value: 500, label: 'Freelancers', suffix: '+' },
+                  { value: 50, label: 'Categories', suffix: '+' },
+                  { value: 20000, label: 'Specialists', suffix: '+' },
+                ]}
+                rotationInterval={3000}
+              />
             </div>
 
             {/* Floating Avatars - positioned around the orbits */}
