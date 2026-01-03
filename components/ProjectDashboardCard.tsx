@@ -10,9 +10,11 @@ interface ProjectDashboardCardProps {
     sales?: number;
     price?: number;
     category?: string;
+    adminComment?: string;
+    adminAction?: string;
 }
 
-const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category }) => {
+const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category, adminComment, adminAction }) => {
     const [isEnabled, setIsEnabled] = useState(true);
 
     return (
@@ -80,6 +82,33 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                                 <span className="font-medium">{sales} sales</span>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Admin Message and Action */}
+                {adminComment && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                {adminAction && (
+                                    <div className="mb-2">
+                                        <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                            {adminAction === 'project_disabled' ? 'Project Disabled' : 
+                                             adminAction === 'first_warning' ? 'First Warning' : 
+                                             adminAction === 'other_action' ? 'Admin Action' : 
+                                             adminAction}
+                                        </span>
+                                    </div>
+                                )}
+                                <p className="text-sm text-gray-800 font-medium mb-1">Admin Message:</p>
+                                <p className="text-sm text-gray-700 leading-relaxed">{adminComment}</p>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

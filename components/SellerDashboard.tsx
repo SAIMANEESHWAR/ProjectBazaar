@@ -110,12 +110,15 @@ interface UploadedProject {
     price: number;
     category: string;
     adminApprovalStatus?: string;
+    adminComment?: string;
+    adminAction?: string;
 }
 
 const MAX_FREE_PROJECTS = 5;
 const API_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/default/Upload_project_from_buyer';
 const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Seller';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+const GET_REPORTS_ENDPOINT = 'https://0en59tzhoa.execute-api.ap-south-2.amazonaws.com/default/Get_ReportDetails_by_sellerid_buyerId_ReportId';
 const MAX_IMAGE_SIZE_MB = 10;
 
 type ViewMode = 'grid' | 'table';
@@ -362,6 +365,31 @@ const SellerDashboard: React.FC = () => {
         };
     };
 
+    // Fetch reports by sellerId
+    const fetchReports = async (sellerId: string): Promise<Map<string, { adminComment?: string; adminAction?: string; status: string }>> => {
+        const reportsMap = new Map();
+        try {
+            const response = await fetch(`${GET_REPORTS_ENDPOINT}?role=seller&sellerId=${sellerId}`);
+            const data = await response.json();
+            
+            if (data.success && data.data && Array.isArray(data.data)) {
+                data.data.forEach((report: any) => {
+                    // Only include reports that are not in pending status
+                    if (report.status && report.status.toLowerCase() !== 'pending' && report.status.toLowerCase() !== 'under_review') {
+                        reportsMap.set(report.projectId, {
+                            adminComment: report.adminComment,
+                            adminAction: report.adminAction,
+                            status: report.status
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching reports:', error);
+        }
+        return reportsMap;
+    };
+
     // Fetch projects from API and calculate stats
     const fetchProjects = async () => {
         if (!userId) {
@@ -373,6 +401,9 @@ const SellerDashboard: React.FC = () => {
         setProjectsError(null);
 
         try {
+            // Fetch reports first
+            const reportsMap = await fetchReports(userId);
+            
             // First, try to fetch projects from the seller projects endpoint
             const response = await fetch(`${GET_PROJECTS_ENDPOINT}?sellerId=${userId}`, {
                 method: 'GET',
@@ -424,7 +455,16 @@ const SellerDashboard: React.FC = () => {
                     })
                 );
 
-                const mappedProjects = projectsWithDetails.map(mapApiProjectToComponent);
+                const mappedProjects = projectsWithDetails.map(project => {
+                    const mapped = mapApiProjectToComponent(project);
+                    // Add report data if available
+                    const reportData = reportsMap.get(mapped.id);
+                    if (reportData) {
+                        mapped.adminComment = reportData.adminComment;
+                        mapped.adminAction = reportData.adminAction;
+                    }
+                    return mapped;
+                });
                 console.log('Mapped projects for display:', mappedProjects);
                 console.log('Number of projects to display:', mappedProjects.length);
                 setUploadedProjects(mappedProjects);
@@ -1059,6 +1099,8 @@ const SellerDashboard: React.FC = () => {
                                             sales={project.sales}
                                             price={project.price}
                                             category={project.category}
+                                            adminComment={project.adminComment}
+                                            adminAction={project.adminAction}
                                         />
                                     ))}
                                 </div>
@@ -1095,20 +1137,38 @@ const SellerDashboard: React.FC = () => {
                                                             <p className="text-sm font-medium text-gray-900">{project.name}</p>
                                                             <p className="text-sm text-gray-500">{project.category}</p>
                                                         </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                            <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                                                                project.status === 'Live' || project.status === 'Approved'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : project.status === 'In Review'
-                                                                    ? 'bg-orange-100 text-orange-800'
-                                                                    : project.status === 'Rejected'
-                                                                    ? 'bg-red-100 text-red-800'
-                                                                    : project.status === 'Disabled'
-                                                                    ? 'bg-gray-200 text-gray-700'
-                                                                    : 'bg-gray-100 text-gray-800'
-                                                            }`}>
-                                                                {project.status}
-                                                            </span>
+                                                        <td className="px-6 py-4 text-sm">
+                                                            <div className="space-y-2">
+                                                                <span className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${
+                                                                    project.status === 'Live' || project.status === 'Approved'
+                                                                        ? 'bg-green-100 text-green-800'
+                                                                        : project.status === 'In Review'
+                                                                        ? 'bg-orange-100 text-orange-800'
+                                                                        : project.status === 'Rejected'
+                                                                        ? 'bg-red-100 text-red-800'
+                                                                        : project.status === 'Disabled'
+                                                                        ? 'bg-gray-200 text-gray-700'
+                                                                        : 'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                    {project.status}
+                                                                </span>
+                                                                {project.adminComment && (
+                                                                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                                                        {project.adminAction && (
+                                                                            <div className="mb-1">
+                                                                                <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                                                    {project.adminAction === 'project_disabled' ? 'Project Disabled' : 
+                                                                                     project.adminAction === 'first_warning' ? 'First Warning' : 
+                                                                                     project.adminAction === 'other_action' ? 'Admin Action' : 
+                                                                                     project.adminAction}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-xs text-gray-700 font-medium mb-1">Admin Message:</p>
+                                                                        <p className="text-xs text-gray-600 leading-relaxed">{project.adminComment}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {project.sales}

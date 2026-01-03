@@ -57,14 +57,11 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [statusUpdateComment, setStatusUpdateComment] = useState(report.adminComment || '');
-    const [selectedStatus, setSelectedStatus] = useState<'approved' | 'rejected' | 'under_review'>(() => {
-        // Map UI status to API status
-        if (report.status === 'resolved') return 'approved';
-        if (report.status === 'dismissed') return 'rejected';
-        return 'under_review';
+    const [selectedAction, setSelectedAction] = useState<'disable_project' | 'first_warning' | 'others'>(() => {
+        // Default to 'others' if no previous status
+        return 'others';
     });
     const [updatingStatus, setUpdatingStatus] = useState(false);
-    const [disablingProject, setDisablingProject] = useState(false);
     const [updateSuccess, setUpdateSuccess] = useState(false);
 
     useEffect(() => {
@@ -121,22 +118,59 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
 
         setUpdatingStatus(true);
         setUpdateSuccess(false);
+        
         try {
+            // If "Disable Project" is selected, disable the project first
+            if (selectedAction === 'disable_project') {
+                try {
+                    const disableResponse = await fetch(ADMIN_APPROVAL_ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: report.projectId,
+                            adminApprovalStatus: 'disabled'
+                        })
+                    });
+
+                    if (!disableResponse.ok) {
+                        throw new Error(`Failed to disable project: ${disableResponse.statusText}`);
+                    }
+
+                    const disableData = await disableResponse.json();
+                    if (!disableData.success) {
+                        throw new Error(disableData.error?.message || disableData.message || 'Failed to disable project');
+                    }
+                } catch (disableErr) {
+                    console.error('Error disabling project:', disableErr);
+                    alert(`Failed to disable project: ${disableErr instanceof Error ? disableErr.message : 'Unknown error'}`);
+                    setUpdatingStatus(false);
+                    return;
+                }
+            }
+
+            // Map selected action to API status and adminAction
+            let apiStatus: 'approved' | 'rejected' | 'under_review';
+            let adminAction: string;
+
+            if (selectedAction === 'disable_project') {
+                apiStatus = 'rejected'; // Report is resolved (rejected) when project is disabled
+                adminAction = 'project_disabled';
+            } else if (selectedAction === 'first_warning') {
+                apiStatus = 'under_review';
+                adminAction = 'first_warning';
+            } else { // others
+                apiStatus = 'under_review';
+                adminAction = 'other_action';
+            }
+
+            // Update report status
             const requestBody: any = {
                 role: 'admin',
                 reportId: report.reportId,
-                status: selectedStatus,
+                status: apiStatus,
                 adminComment: statusUpdateComment.trim(),
+                adminAction: adminAction,
             };
-
-            // Add adminAction based on status
-            if (selectedStatus === 'approved') {
-                requestBody.adminAction = 'resolved';
-            } else if (selectedStatus === 'rejected') {
-                requestBody.adminAction = 'dismissed';
-            } else {
-                requestBody.adminAction = 'under_review';
-            }
 
             const response = await fetch(UPDATE_REPORT_ENDPOINT, {
                 method: 'POST',
@@ -159,7 +193,7 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
                 }
                 // Also call onStatusUpdate if provided
                 if (onStatusUpdate) {
-                    const uiStatus = mapAPIStatusToUI(selectedStatus);
+                    const uiStatus = mapAPIStatusToUI(apiStatus);
                     onStatusUpdate(report.id, uiStatus as 'resolved' | 'dismissed', statusUpdateComment);
                 }
                 // Show success message
@@ -587,62 +621,62 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
 
                     <div className="p-8">
                         <div className="space-y-6">
-                            {/* Status Selector */}
+                            {/* Action Selector */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-900 mb-3">
-                                    Report Status <span className="text-red-500">*</span>
+                                    Select Action <span className="text-red-500">*</span>
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <button
-                                        onClick={() => setSelectedStatus('approved')}
+                                        onClick={() => setSelectedAction('disable_project')}
                                         disabled={updatingStatus}
                                         className={`px-6 py-4 rounded-xl border-2 font-bold text-lg transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                                            selectedStatus === 'approved'
-                                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-600 shadow-lg'
-                                                : 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-center gap-2">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            <span>Approved</span>
-                                        </div>
-                                        <p className="text-xs mt-1 opacity-75">Mark as resolved</p>
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedStatus('rejected')}
-                                        disabled={updatingStatus}
-                                        className={`px-6 py-4 rounded-xl border-2 font-bold text-lg transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                                            selectedStatus === 'rejected'
+                                            selectedAction === 'disable_project'
                                                 ? 'bg-gradient-to-r from-red-500 to-red-600 text-white border-red-600 shadow-lg'
                                                 : 'bg-white text-gray-700 border-gray-300 hover:border-red-400 hover:bg-red-50'
                                         }`}
                                     >
                                         <div className="flex items-center justify-center gap-2">
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                                             </svg>
-                                            <span>Rejected</span>
+                                            <span>Disable Project</span>
                                         </div>
-                                        <p className="text-xs mt-1 opacity-75">Dismiss report</p>
+                                        <p className="text-xs mt-1 opacity-75">Disable the project</p>
                                     </button>
                                     <button
-                                        onClick={() => setSelectedStatus('under_review')}
+                                        onClick={() => setSelectedAction('first_warning')}
                                         disabled={updatingStatus}
                                         className={`px-6 py-4 rounded-xl border-2 font-bold text-lg transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                                            selectedStatus === 'under_review'
+                                            selectedAction === 'first_warning'
                                                 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white border-yellow-600 shadow-lg'
                                                 : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
                                         }`}
                                     >
                                         <div className="flex items-center justify-center gap-2">
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                             </svg>
-                                            <span>Under Review</span>
+                                            <span>1st Warning</span>
                                         </div>
-                                        <p className="text-xs mt-1 opacity-75">Keep pending</p>
+                                        <p className="text-xs mt-1 opacity-75">Issue first warning</p>
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedAction('others')}
+                                        disabled={updatingStatus}
+                                        className={`px-6 py-4 rounded-xl border-2 font-bold text-lg transition-all transform hover:scale-105 disabled:transform-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            selectedAction === 'others'
+                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-lg'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                            </svg>
+                                            <span>Others</span>
+                                        </div>
+                                        <p className="text-xs mt-1 opacity-75">Other actions</p>
                                     </button>
                                 </div>
                             </div>
@@ -673,7 +707,13 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
                                 <button
                                     onClick={handleUpdateStatus}
                                     disabled={updatingStatus || !statusUpdateComment.trim()}
-                                    className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none"
+                                    className={`flex items-center gap-3 px-8 py-4 text-white rounded-xl transition-all font-bold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none ${
+                                        selectedAction === 'disable_project'
+                                            ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                                            : selectedAction === 'first_warning'
+                                            ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700'
+                                            : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                    }`}
                                 >
                                     {updatingStatus ? (
                                         <>
@@ -681,14 +721,32 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            Updating...
+                                            {selectedAction === 'disable_project' ? 'Disabling Project...' : 'Updating...'}
                                         </>
                                     ) : (
                                         <>
-                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                            Update Status & Comment
+                                            {selectedAction === 'disable_project' ? (
+                                                <>
+                                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                    </svg>
+                                                    Disable Project & Update Report
+                                                </>
+                                            ) : selectedAction === 'first_warning' ? (
+                                                <>
+                                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                    </svg>
+                                                    Issue Warning & Update Report
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Update Report
+                                                </>
+                                            )}
                                         </>
                                     )}
                                 </button>
@@ -719,37 +777,13 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
                     </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Report Info */}
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex items-center gap-3">
-                            <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <p className="text-gray-700 font-medium">Report ID: <span className="font-mono text-gray-900">{report.reportId}</span></p>
-                        </div>
-                        <button
-                            onClick={handleDisableProject}
-                            disabled={disablingProject}
-                            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-bold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none"
-                        >
-                            {disablingProject ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Disabling...
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                    </svg>
-                                    Disable Project
-                                </>
-                            )}
-                        </button>
+                    <div className="flex items-center gap-3">
+                        <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p className="text-gray-700 font-medium">Report ID: <span className="font-mono text-gray-900">{report.reportId}</span></p>
                     </div>
                 </div>
             </div>
