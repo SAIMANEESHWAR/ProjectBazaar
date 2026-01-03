@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
-// Note: If you have a "Get All Users" endpoint, replace the fetch logic below
+const GET_ALL_USERS_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
+const UPDATE_USER_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
 
 interface User {
     id: string;
@@ -25,6 +26,7 @@ interface User {
     isPremium?: boolean;
     credits?: number;
     phoneNumber?: string;
+    accountLockedUntil?: string | null;
 }
 
 interface ApiUser {
@@ -41,6 +43,7 @@ interface ApiUser {
     lastLoginAt?: string;
     phoneNumber?: string;
     profilePictureUrl?: string;
+    accountLockedUntil?: string | null;
 }
 
 interface UserManagementPageProps {
@@ -56,19 +59,27 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
     const [roleFilter, setRoleFilter] = useState<'all' | 'buyer' | 'seller'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [updateSuccess, setUpdateSuccess] = useState(false);
+    const [editFormData, setEditFormData] = useState<{
+        status: 'active' | 'blocked' | 'deleted';
+        credits?: number;
+        accountLockedUntil?: string | null;
+    } | null>(null);
 
     // Map API user to User interface
     const mapApiUserToComponent = (apiUser: ApiUser): User => {
         // Determine role
         const role: 'buyer' | 'seller' = (apiUser.role?.toLowerCase() === 'seller' ? 'seller' : 'buyer');
         
-        // Map status
+        // Map status - API uses: active, blocked, deleted
         let status: 'active' | 'inactive' | 'suspended' = 'active';
         if (apiUser.status) {
             const statusLower = apiUser.status.toLowerCase();
-            if (statusLower === 'inactive' || statusLower === 'disabled') {
+            if (statusLower === 'blocked') {
                 status = 'inactive';
-            } else if (statusLower === 'suspended' || statusLower === 'banned') {
+            } else if (statusLower === 'deleted') {
                 status = 'suspended';
             } else {
                 status = 'active';
@@ -108,47 +119,52 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
             isPremium: apiUser.isPremium || false,
             credits: apiUser.credits || 0,
             phoneNumber: apiUser.phoneNumber,
+            accountLockedUntil: apiUser.accountLockedUntil,
         };
     };
 
     // Fetch all users
-    // NOTE: This is a placeholder implementation. In production, you should have a dedicated "Get All Users" endpoint.
-    // For now, this will attempt to fetch users. You may need to:
-    // 1. Create a Lambda endpoint that returns all users
-    // 2. Or maintain a list of user IDs and fetch them individually
-    // 3. Or use a DynamoDB scan operation via Lambda
     const fetchUsers = async () => {
+        console.log('fetchUsers called');
         setIsLoading(true);
         setError(null);
         
         try {
-            // TODO: Replace this with your actual "Get All Users" endpoint
-            // Example: const response = await fetch('https://your-api.com/get-all-users');
+            console.log('Fetching users from:', GET_ALL_USERS_ENDPOINT);
             
-            // For now, we'll use mock data but structure it to easily replace with API call
-            // In production, uncomment and use your actual endpoint:
-            /*
-            const response = await fetch('YOUR_GET_ALL_USERS_ENDPOINT');
+            const response = await fetch(GET_ALL_USERS_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    role: 'admin',
+                    action: 'GET_ALL_USERS'
+                }),
+            });
+            
+            console.log('Response status:', response.status, response.statusText);
             
             if (!response.ok) {
-                throw new Error(`Failed to fetch users: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
             }
             
             const data = await response.json();
+            console.log('API Response:', data);
             
-            if (data.success && data.users) {
-                const mappedUsers = data.users.map((apiUser: ApiUser) => 
+            if (data.success && data.data && Array.isArray(data.data)) {
+                console.log('Users data received:', data.data.length, 'users');
+                const mappedUsers = data.data.map((apiUser: ApiUser) => 
                     mapApiUserToComponent(apiUser)
                 );
                 setUsers(mappedUsers);
+                console.log('Mapped users:', mappedUsers.length);
             } else {
+                console.error('Invalid response format:', data);
                 throw new Error('Invalid response format from API');
             }
-            */
-            
-            // Temporary: Using empty array - replace with API call above
-            setUsers([]);
-            console.warn('UserManagementPage: Using placeholder. Please implement "Get All Users" API endpoint.');
             
         } catch (err) {
             console.error('Error fetching users:', err);
@@ -156,6 +172,70 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
             setUsers([]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    // Update user
+    const updateUser = async (userId: string, updates: { status?: 'active' | 'blocked' | 'deleted'; credits?: number; accountLockedUntil?: string | null }) => {
+        setIsUpdating(true);
+        setUpdateSuccess(false);
+        
+        try {
+            const requestBody: any = {
+                role: 'admin',
+                action: 'UPDATE_USER',
+                userId: userId,
+            };
+
+            if (updates.status) {
+                requestBody.status = updates.status;
+            }
+            if (updates.credits !== undefined) {
+                requestBody.credits = updates.credits;
+            }
+            if (updates.accountLockedUntil !== undefined) {
+                requestBody.accountLockedUntil = updates.accountLockedUntil;
+            }
+
+            console.log('Updating user with body:', requestBody);
+
+            const response = await fetch(UPDATE_USER_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            console.log('Update response status:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Update error:', errorText);
+                throw new Error(`Failed to update user: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('Update response:', data);
+            
+            if (data.success) {
+                setUpdateSuccess(true);
+                // Refresh users list
+                await fetchUsers();
+                // Close edit modal after a short delay
+                setTimeout(() => {
+                    setEditingUser(null);
+                    setEditFormData(null);
+                    setUpdateSuccess(false);
+                }, 1500);
+            } else {
+                throw new Error(data.error || 'Failed to update user');
+            }
+        } catch (err) {
+            console.error('Error updating user:', err);
+            alert(`Failed to update user: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -175,29 +255,41 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
         });
     }, [users, searchQuery, roleFilter, statusFilter]);
 
-    const handleToggleUserStatus = (userId: string) => {
-        // TODO: Call API to toggle user status
-        setUsers(users.map(u => {
-            if (u.id === userId) {
-                if (u.status === 'active') {
-                    return { ...u, status: 'inactive' as const };
-                } else if (u.status === 'inactive') {
-                    return { ...u, status: 'active' as const };
-                } else {
-                    return { ...u, status: 'active' as const };
-                }
-            }
-            return u;
-        }));
-        console.log('Toggle user status:', userId, '(API call needed)');
+    const handleEditUser = (user: User) => {
+        // Map UI status to API status
+        let apiStatus: 'active' | 'blocked' | 'deleted' = 'active';
+        if (user.status === 'inactive') {
+            apiStatus = 'blocked';
+        } else if (user.status === 'suspended') {
+            apiStatus = 'deleted';
+        }
+        
+        setEditFormData({
+            status: apiStatus,
+            credits: user.credits,
+            accountLockedUntil: user.accountLockedUntil || null,
+        });
+        setEditingUser(user);
     };
 
-    const handleSuspendUser = (userId: string) => {
-        // TODO: Call API to suspend user
-        setUsers(users.map(u => 
-            u.id === userId ? { ...u, status: 'suspended' as const } : u
-        ));
-        console.log('Suspend user:', userId, '(API call needed)');
+    const handleUpdateUser = async () => {
+        if (!editingUser || !editFormData) return;
+        
+        await updateUser(editingUser.userId, editFormData);
+    };
+
+    const handleCloseEditModal = () => {
+        setEditingUser(null);
+        setEditFormData(null);
+        setUpdateSuccess(false);
+    };
+
+    // Map API status to UI status for display
+    const mapApiStatusToUI = (apiStatus: string): 'active' | 'inactive' | 'suspended' => {
+        const statusLower = apiStatus.toLowerCase();
+        if (statusLower === 'blocked') return 'inactive';
+        if (statusLower === 'deleted') return 'suspended';
+        return 'active';
     };
 
     const handleViewUserDetails = (user: User) => {
@@ -420,7 +512,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                 {filteredUsers.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center">
-                                            <p className="text-gray-500">No users found. {users.length === 0 ? 'Please implement the "Get All Users" API endpoint.' : 'Try adjusting your filters.'}</p>
+                                            <p className="text-gray-500">No users found. {users.length === 0 ? 'No users available.' : 'Try adjusting your filters.'}</p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -486,26 +578,12 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                                     >
                                                         View Details
                                                     </button>
-                                                    {user.status !== 'suspended' && (
-                                                        <button
-                                                            onClick={() => handleToggleUserStatus(user.id)}
-                                                            className={`px-3 py-1.5 rounded-lg transition-colors font-semibold text-xs ${
-                                                                user.status === 'active'
-                                                                    ? 'text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100'
-                                                                    : 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'
-                                                            }`}
-                                                        >
-                                                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
-                                                        </button>
-                                                    )}
-                                                    {user.status !== 'suspended' && (
-                                                        <button
-                                                            onClick={() => handleSuspendUser(user.id)}
-                                                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors font-semibold text-xs"
-                                                        >
-                                                            Suspend
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={() => handleEditUser(user)}
+                                                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors font-semibold text-xs"
+                                                    >
+                                                        Edit
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -519,7 +597,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredUsers.length === 0 ? (
                         <div className="col-span-full p-12 text-center bg-white rounded-xl border border-gray-200">
-                            <p className="text-gray-500">No users found. {users.length === 0 ? 'Please implement the "Get All Users" API endpoint.' : 'Try adjusting your filters.'}</p>
+                            <p className="text-gray-500">No users found. {users.length === 0 ? 'No users available.' : 'Try adjusting your filters.'}</p>
                         </div>
                     ) : (
                         filteredUsers.map((user) => (
@@ -584,22 +662,148 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                     >
                                         View Details
                                     </button>
-                                    {user.status !== 'suspended' && (
-                                        <button
-                                            onClick={() => handleToggleUserStatus(user.id)}
-                                            className={`flex-1 px-4 py-2 rounded-lg transition-colors font-semibold text-sm ${
-                                                user.status === 'active'
-                                                    ? 'text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100'
-                                                    : 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'
-                                            }`}
-                                        >
-                                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleEditUser(user)}
+                                        className="flex-1 text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors font-semibold text-sm"
+                                    >
+                                        Edit
+                                    </button>
                                 </div>
                             </div>
                         ))
                     )}
+                </div>
+            )}
+
+            {/* Edit User Modal */}
+            {editingUser && editFormData && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 rounded-t-2xl">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-bold text-white">Edit User</h2>
+                                <button
+                                    onClick={handleCloseEditModal}
+                                    disabled={isUpdating}
+                                    className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <p className="text-blue-100 text-sm mt-1">{editingUser.name} ({editingUser.email})</p>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-6">
+                            {updateSuccess && (
+                                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-3">
+                                    <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <p className="text-green-800 font-semibold">User updated successfully!</p>
+                                </div>
+                            )}
+
+                            {/* Status */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-3">
+                                    Status <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={editFormData.status}
+                                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as 'active' | 'blocked' | 'deleted' })}
+                                    disabled={isUpdating}
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="blocked">Blocked (Inactive)</option>
+                                    <option value="deleted">Deleted (Suspended)</option>
+                                </select>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Active: User can access the platform<br/>
+                                    Blocked: User account is temporarily disabled<br/>
+                                    Deleted: User account is permanently suspended
+                                </p>
+                            </div>
+
+                            {/* Credits */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-3">
+                                    Credits
+                                </label>
+                                <input
+                                    type="number"
+                                    value={editFormData.credits || 0}
+                                    onChange={(e) => setEditFormData({ ...editFormData, credits: parseInt(e.target.value) || 0 })}
+                                    disabled={isUpdating}
+                                    min="0"
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <p className="text-sm text-gray-500 mt-2">Current credits: {editingUser.credits || 0}</p>
+                            </div>
+
+                            {/* Account Locked Until */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-3">
+                                    Account Locked Until (Optional)
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={editFormData.accountLockedUntil ? new Date(editFormData.accountLockedUntil).toISOString().slice(0, 16) : ''}
+                                    onChange={(e) => setEditFormData({ ...editFormData, accountLockedUntil: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                                    disabled={isUpdating}
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditFormData({ ...editFormData, accountLockedUntil: null })}
+                                        disabled={isUpdating}
+                                        className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                                    >
+                                        Remove Lock
+                                    </button>
+                                    <span className="text-sm text-gray-500">• Leave empty to unlock account</span>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-4 pt-4 border-t border-gray-200">
+                                <button
+                                    onClick={handleCloseEditModal}
+                                    disabled={isUpdating}
+                                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUpdateUser}
+                                    disabled={isUpdating}
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isUpdating ? (
+                                        <>
+                                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Updating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            Update User
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
