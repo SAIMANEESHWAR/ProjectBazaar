@@ -20,6 +20,7 @@ import ProjectDetailsPage from './ProjectDetailsPage';
 import CartPage from './CartPage';
 import SellerProfilePage from './SellerProfilePage';
 import HelpCenterPage from './HelpCenterPage';
+import Pagination from './Pagination';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -194,6 +195,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
     const [previousView, setPreviousView] = useState<DashboardView>('dashboard');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(12);
 
     // Map API project to BuyerProject interface
     const mapApiProjectToComponent = (apiProject: ApiProject): BuyerProject => {
@@ -348,6 +351,17 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             project.tags.some(tag => tag.toLowerCase().includes(query))
         );
     });
+
+    // Calculate pagination
+    const totalPages = Math.ceil(searchFilteredProjects.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedProjects = searchFilteredProjects.slice(startIndex, endIndex);
+
+    // Reset to page 1 when filters or search change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filteredProjects.length]);
     
     const renderBuyerContent = () => {
         switch (activeView) {
@@ -394,11 +408,11 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
 
                                     {!isLoadingProjects && !projectsError && searchFilteredProjects.length > 0 ? (
                                         <>
-                                            <div className="mb-4 text-sm text-gray-600">
-                                                Showing <span className="font-semibold text-gray-900">{searchFilteredProjects.length}</span> project{searchFilteredProjects.length !== 1 ? 's' : ''}
+                                            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                                                Showing <span className="font-semibold text-gray-900 dark:text-gray-100">{searchFilteredProjects.length}</span> project{searchFilteredProjects.length !== 1 ? 's' : ''}
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
-                                                {searchFilteredProjects.map((project) => (
+                                                {paginatedProjects.map((project) => (
                                                     <BuyerProjectCard 
                                                         key={project.id} 
                                                         project={project}
@@ -410,6 +424,19 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                                                     />
                                                 ))}
                                             </div>
+                                            {totalPages > 1 && (
+                                                <Pagination
+                                                    currentPage={currentPage}
+                                                    totalPages={totalPages}
+                                                    onPageChange={setCurrentPage}
+                                                    itemsPerPage={itemsPerPage}
+                                                    totalItems={searchFilteredProjects.length}
+                                                    onItemsPerPageChange={(newItemsPerPage) => {
+                                                        setItemsPerPage(newItemsPerPage);
+                                                        setCurrentPage(1);
+                                                    }}
+                                                />
+                                            )}
                                         </>
                                     ) : !isLoadingProjects && !projectsError ? (
                                         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
