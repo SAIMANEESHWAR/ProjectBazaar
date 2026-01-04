@@ -124,6 +124,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     }
   };
 
+  // ---------------- FETCH ON MOUNT ----------------
+  useEffect(() => {
+    fetchNotifications();
+  }, [userId]);
+
   // ---------------- CLICK OUTSIDE ----------------
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
