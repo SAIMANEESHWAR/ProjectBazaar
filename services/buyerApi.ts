@@ -7,6 +7,7 @@ const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.ama
 const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.amazonaws.com/default/Get_project_details_by_projectId';
 const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazonaws.com/default/Report_projects_by_buyerId';
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
+const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
 
 export interface CartItem {
   projectId: string;
@@ -469,6 +470,71 @@ export const reportProject = async (reportData: ReportProjectRequest): Promise<R
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       message: 'Failed to submit report',
+    };
+  }
+};
+
+/**
+ * Create payment intent for Razorpay checkout
+ */
+export interface CreatePaymentIntentRequest {
+  userId: string;
+  projectIds: string[];
+  totalAmount: number;
+  currency?: string;
+}
+
+export interface CreatePaymentIntentResponse {
+  success: boolean;
+  orderId?: string; // Internal DB order ID (not used for Razorpay)
+  razorpayOrderId?: string; // Razorpay order ID (IMPORTANT - used for checkout)
+  amount?: number; // Amount in paise
+  currency?: string;
+  key?: string; // Razorpay key ID (rzp_test_* or rzp_live_*)
+  name?: string;
+  description?: string;
+  prefill?: {
+    email?: string;
+    contact?: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+export const createPaymentIntent = async (
+  request: CreatePaymentIntentRequest
+): Promise<CreatePaymentIntentResponse> => {
+  try {
+    const response = await fetch(CREATE_PAYMENT_INTENT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: request.userId,
+        projectIds: request.projectIds,
+        totalAmount: request.totalAmount,
+        currency: request.currency || 'INR',
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to create payment intent',
+        message: data.message,
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to create payment intent',
     };
   }
 };
