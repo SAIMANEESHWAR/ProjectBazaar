@@ -397,7 +397,7 @@ const AnimatedForm = memo(function AnimatedForm({
   };
 
   return (
-    <section className='max-md:w-full flex flex-col gap-4 w-96 mx-auto'>
+    <section className='max-md:w-full flex flex-col gap-3 sm:gap-4 w-96 mx-auto'>
       <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
         <h2 className='font-bold text-3xl text-white'>
           {header}
@@ -622,7 +622,7 @@ const AuthTabs = memo(function AuthTabs({
   return (
     <div className='flex max-lg:justify-center w-full md:w-auto'>
       {/* Right Side */}
-      <div className='w-full lg:w-1/2 h-[100dvh] flex flex-col justify-center items-center max-lg:px-[10%]'>
+      <div className='w-full lg:w-1/2 h-auto flex flex-col justify-center items-center max-lg:px-0'>
         <AnimatedForm
           {...formFields}
           fieldPerRow={1}

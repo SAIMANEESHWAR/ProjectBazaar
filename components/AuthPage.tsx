@@ -25,6 +25,8 @@ interface ApiResponse {
   error?: {
     code: string;
     message: string;
+    blockedUntil?: string;
+    deletedUntil?: string;
   };
 }
 
@@ -416,9 +418,9 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <section className='flex max-lg:justify-center min-h-screen relative bg-black'>
+    <section className='flex max-lg:justify-center h-screen overflow-hidden relative bg-black'>
       {/* Left Side - Animation */}
-      <span className='hidden lg:flex flex-col justify-center w-1/2 relative z-10'>
+      <span className='hidden lg:flex flex-col justify-center w-1/2 relative z-10 h-full'>
         {/* Container with both Ripple and Text centered at same point */}
         <div className='relative w-full h-full flex items-center justify-center'>
           {/* Background Ripple Animation - Centered behind text */}
@@ -440,10 +442,10 @@ const AuthPage: React.FC = () => {
       </span>
 
       {/* Right Side - Form */}
-      <span className={`w-full lg:w-1/2 min-h-[100dvh] flex flex-col justify-center items-center max-lg:px-[10%] py-8 relative z-10`}>
+      <span className={`w-full lg:w-1/2 h-full flex flex-col justify-center items-center max-lg:px-4 sm:px-6 md:px-8 py-2 sm:py-4 relative z-10 overflow-hidden`}>
         <button
           onClick={() => navigateTo('home')}
-          className='absolute top-6 left-6 text-sm text-gray-400 hover:text-blue-400 flex items-center gap-1 z-20'
+          className='absolute top-3 sm:top-4 left-3 sm:left-4 text-sm text-gray-400 hover:text-blue-400 flex items-center gap-1 z-20'
         >
           <svg
             xmlns='http://www.w3.org/2000/svg'
@@ -462,18 +464,20 @@ const AuthPage: React.FC = () => {
           Back to Home
         </button>
 
-        <div className='w-full max-w-md flex flex-col items-center'>
-          <AuthTabs
-            formFields={formFields}
-            goTo={isLogin ? goToForgotPassword : toggleAuthMode}
-            handleSubmit={handleSubmit}
-            accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
-            onAccountToggle={toggleAuthMode}
-          />
+        <div className='w-full max-w-md flex flex-col items-center px-2 sm:px-0 max-h-full overflow-hidden'>
+          <div className='w-full flex-shrink-0'>
+            <AuthTabs
+              formFields={formFields}
+              goTo={isLogin ? goToForgotPassword : toggleAuthMode}
+              handleSubmit={handleSubmit}
+              accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
+              onAccountToggle={toggleAuthMode}
+            />
+          </div>
 
           {error && (
-            <div className='mt-4 p-3 bg-red-900/30 border border-red-500/50 rounded-lg max-w-md w-full'>
-              <p className='text-sm text-red-300'>{error}</p>
+            <div className='mt-2 sm:mt-3 p-2 sm:p-3 bg-red-900/30 border border-red-500/50 rounded-lg max-w-md w-full flex-shrink-0'>
+              <p className='text-xs sm:text-sm text-red-300 break-words'>{error}</p>
             </div>
           )}
         </div>

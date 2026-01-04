@@ -6,6 +6,7 @@ const LAMBDA_ENDPOINT = 'https://tcladht447.execute-api.ap-south-2.amazonaws.com
 const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.amazonaws.com/default/Get_project_details_by_projectId';
 const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazonaws.com/default/Report_projects_by_buyerId';
+const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 
 export interface CartItem {
   projectId: string;
@@ -122,6 +123,27 @@ export const fetchUserData = async (userId: string): Promise<UserData | null> =>
 };
 
 /**
+ * Update project counters (wishlist, cart, likes)
+ */
+const updateProjectCounters = async (projectId: string, increments: Record<string, number>): Promise<void> => {
+  try {
+    await fetch(UPDATE_PROJECT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId,
+        increments,
+      }),
+    });
+  } catch (error) {
+    console.error('Error updating project counters:', error);
+    // Don't throw - this is a secondary update, user table update is primary
+  }
+};
+
+/**
  * Like a project
  */
 export const likeProject = async (userId: string, projectId: string): Promise<ApiResponse> => {
@@ -139,6 +161,15 @@ export const likeProject = async (userId: string, projectId: string): Promise<Ap
     });
 
     const data = await response.json();
+    
+    // If user table update succeeded, also update project table
+    if (data.success) {
+      await updateProjectCounters(projectId, {
+        likesCount: 1,
+        wishlistCount: 1,
+      });
+    }
+    
     return data;
   } catch (error) {
     console.error('Error liking project:', error);
@@ -168,6 +199,15 @@ export const unlikeProject = async (userId: string, projectId: string): Promise<
     });
 
     const data = await response.json();
+    
+    // If user table update succeeded, also update project table
+    if (data.success) {
+      await updateProjectCounters(projectId, {
+        likesCount: -1,
+        wishlistCount: -1,
+      });
+    }
+    
     return data;
   } catch (error) {
     console.error('Error unliking project:', error);
@@ -197,6 +237,14 @@ export const addToCart = async (userId: string, projectId: string): Promise<ApiR
     });
 
     const data = await response.json();
+    
+    // If user table update succeeded, also update project table
+    if (data.success) {
+      await updateProjectCounters(projectId, {
+        cartCount: 1,
+      });
+    }
+    
     return data;
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -226,6 +274,14 @@ export const removeFromCart = async (userId: string, projectId: string): Promise
     });
 
     const data = await response.json();
+    
+    // If user table update succeeded, also update project table
+    if (data.success) {
+      await updateProjectCounters(projectId, {
+        cartCount: -1,
+      });
+    }
+    
     return data;
   } catch (error) {
     console.error('Error removing from cart:', error);
