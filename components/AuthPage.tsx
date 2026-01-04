@@ -416,7 +416,7 @@ const AuthPage: React.FC = () => {
   };
 
   return (
-    <section className='flex max-lg:justify-center min-h-screen relative bg-background'>
+    <section className='flex max-lg:justify-center min-h-screen relative bg-black'>
       {/* Left Side - Animation */}
       <span className='hidden lg:flex flex-col justify-center w-1/2 relative z-10'>
         {/* Container with both Ripple and Text centered at same point */}
@@ -440,10 +440,10 @@ const AuthPage: React.FC = () => {
       </span>
 
       {/* Right Side - Form */}
-      <span className={`w-full lg:w-1/2 h-[100dvh] flex flex-col justify-center items-center max-lg:px-[10%] relative z-10`}>
+      <span className={`w-full lg:w-1/2 min-h-[100dvh] flex flex-col justify-center items-center max-lg:px-[10%] py-8 relative z-10`}>
         <button
           onClick={() => navigateTo('home')}
-          className='absolute top-6 left-6 text-sm text-gray-500 hover:text-blue-500 flex items-center gap-1'
+          className='absolute top-6 left-6 text-sm text-gray-400 hover:text-blue-400 flex items-center gap-1 z-20'
         >
           <svg
             xmlns='http://www.w3.org/2000/svg'
@@ -462,27 +462,21 @@ const AuthPage: React.FC = () => {
           Back to Home
         </button>
 
-        <AuthTabs
-          formFields={formFields}
-          goTo={isLogin ? goToForgotPassword : toggleAuthMode}
-          handleSubmit={handleSubmit}
-        />
+        <div className='w-full max-w-md flex flex-col items-center'>
+          <AuthTabs
+            formFields={formFields}
+            goTo={isLogin ? goToForgotPassword : toggleAuthMode}
+            handleSubmit={handleSubmit}
+            accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
+            onAccountToggle={toggleAuthMode}
+          />
 
-        {error && (
-          <div className='mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-md w-full'>
-            <p className='text-sm text-red-600 dark:text-red-400'>{error}</p>
-          </div>
-        )}
-
-        <p className='text-center text-sm text-gray-600 dark:text-gray-400 mt-6'>
-          {isLogin ? "Don't have an account yet?" : 'Already have an account?'}{' '}
-          <button
-            onClick={toggleAuthMode}
-            className='font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500'
-          >
-            {isLogin ? 'Sign up' : 'Log in'}
-          </button>
-        </p>
+          {error && (
+            <div className='mt-4 p-3 bg-red-900/30 border border-red-500/50 rounded-lg max-w-md w-full'>
+              <p className='text-sm text-red-300'>{error}</p>
+            </div>
+          )}
+        </div>
       </span>
     </section>
   );

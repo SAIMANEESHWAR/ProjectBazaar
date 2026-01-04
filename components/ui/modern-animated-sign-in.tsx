@@ -62,7 +62,7 @@ const Input = memo(
         <input
           type={type}
           className={cn(
-            `shadow-input dark:placeholder-text-neutral-600 flex h-10 w-full rounded-md border-none bg-gray-50 px-3 py-2 text-sm text-black transition duration-400 group-hover/input:shadow-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-400 focus-visible:ring-[2px] focus-visible:ring-neutral-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:text-white dark:shadow-[0px_0px_1px_1px_#404040] dark:focus-visible:ring-neutral-600`,
+            `shadow-input flex h-10 w-full rounded-md border-none bg-gray-50 px-3 py-2 text-sm text-black transition duration-400 group-hover/input:shadow-none file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-400 focus-visible:ring-[2px] focus-visible:ring-neutral-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:text-white dark:placeholder:text-white/50 dark:shadow-[0px_0px_1px_1px_#404040] dark:focus-visible:ring-neutral-600`,
             className
           )}
           ref={ref}
@@ -336,6 +336,8 @@ type AnimatedFormProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   googleLogin?: string;
   goTo?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  accountToggleText?: string;
+  onAccountToggle?: () => void;
 };
 
 type Errors = {
@@ -353,6 +355,8 @@ const AnimatedForm = memo(function AnimatedForm({
   onSubmit,
   googleLogin,
   goTo,
+  accountToggleText,
+  onAccountToggle,
 }: AnimatedFormProps) {
   const [visible, setVisible] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -395,14 +399,14 @@ const AnimatedForm = memo(function AnimatedForm({
   return (
     <section className='max-md:w-full flex flex-col gap-4 w-96 mx-auto'>
       <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
-        <h2 className='font-bold text-3xl text-neutral-800 dark:text-neutral-200'>
+        <h2 className='font-bold text-3xl text-white'>
           {header}
         </h2>
       </BoxReveal>
 
       {subHeader && (
         <BoxReveal boxColor='var(--skeleton)' duration={0.3} className='pb-2'>
-          <p className='text-neutral-600 text-sm max-w-sm dark:text-neutral-300'>
+          <p className='text-white/80 text-sm max-w-sm'>
             {subHeader}
           </p>
         </BoxReveal>
@@ -438,7 +442,7 @@ const AnimatedForm = memo(function AnimatedForm({
           <BoxReveal boxColor='var(--skeleton)' duration={0.3} width='100%'>
             <section className='flex items-center gap-4'>
               <hr className='flex-1 border-1 border-dashed border-neutral-300 dark:border-neutral-700' />
-              <p className='text-neutral-700 text-sm dark:text-neutral-300'>
+              <p className='text-white/70 text-sm'>
                 or
               </p>
               <hr className='flex-1 border-1 border-dashed border-neutral-300 dark:border-neutral-700' />
@@ -460,7 +464,7 @@ const AnimatedForm = memo(function AnimatedForm({
             <section key={field.label} className='flex flex-col gap-2'>
               <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
                 <Label htmlFor={field.label}>
-                  {field.label} <span className='text-red-500'>*</span>
+                  {field.label} <span className='text-red-400'>*</span>
                 </Label>
               </BoxReveal>
 
@@ -489,7 +493,7 @@ const AnimatedForm = memo(function AnimatedForm({
                     <button
                       type='button'
                       onClick={toggleVisibility}
-                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5'
+                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-white/70 hover:text-white'
                     >
                       {visible ? (
                         <Eye className='h-5 w-5' />
@@ -502,7 +506,7 @@ const AnimatedForm = memo(function AnimatedForm({
 
                 <section className='h-4'>
                   {errors[field.label] && (
-                    <p className='text-red-500 text-xs'>
+                    <p className='text-red-300 text-xs'>
                       {errors[field.label]}
                     </p>
                   )}
@@ -514,7 +518,7 @@ const AnimatedForm = memo(function AnimatedForm({
 
         <BoxReveal width='100%' boxColor='var(--skeleton)' duration={0.3}>
           {errorField && (
-            <p className='text-red-500 text-sm mb-4'>{errorField}</p>
+            <p className='text-red-300 text-sm mb-4'>{errorField}</p>
           )}
         </BoxReveal>
 
@@ -526,8 +530,8 @@ const AnimatedForm = memo(function AnimatedForm({
         >
           <button
             className='bg-gradient-to-br relative group/btn from-zinc-200 dark:from-zinc-900
-            dark:to-zinc-900 to-zinc-200 block dark:bg-zinc-800 w-full text-black
-            dark:text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] 
+            dark:to-zinc-900 to-zinc-200 block dark:bg-zinc-800 w-full text-white
+            rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] 
               dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset] outline-hidden hover:cursor-pointer'
             type='submit'
           >
@@ -536,15 +540,39 @@ const AnimatedForm = memo(function AnimatedForm({
           </button>
         </BoxReveal>
 
-        {textVariantButton && goTo && (
+        {(textVariantButton || accountToggleText) && (
           <BoxReveal boxColor='var(--skeleton)' duration={0.3}>
-            <section className='mt-4 text-center hover:cursor-pointer'>
-              <button
-                className='text-sm text-blue-500 hover:cursor-pointer outline-hidden'
-                onClick={goTo}
-              >
-                {textVariantButton}
-              </button>
+            <section className='mt-4 flex items-center justify-center gap-4 flex-wrap'>
+              {textVariantButton && goTo && (
+                <button
+                  className='text-sm text-blue-400 hover:text-blue-300 hover:cursor-pointer outline-hidden transition-colors'
+                  onClick={goTo}
+                >
+                  {textVariantButton}
+                </button>
+              )}
+              {accountToggleText && onAccountToggle && (
+                <span className='text-sm text-white/70'>
+                  {accountToggleText.includes('?') ? (
+                    <>
+                      {accountToggleText.split('?')[0]}?{' '}
+                      <button
+                        onClick={onAccountToggle}
+                        className='font-medium text-blue-400 hover:text-blue-300 transition-colors'
+                      >
+                        {accountToggleText.split('?')[1]?.trim()}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={onAccountToggle}
+                      className='font-medium text-blue-400 hover:text-blue-300 transition-colors'
+                    >
+                      {accountToggleText}
+                    </button>
+                  )}
+                </span>
+              )}
             </section>
           </BoxReveal>
         )}
@@ -580,12 +608,16 @@ interface AuthTabsProps {
   };
   goTo: (event: React.MouseEvent<HTMLButtonElement>) => void;
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  accountToggleText?: string;
+  onAccountToggle?: () => void;
 }
 
 const AuthTabs = memo(function AuthTabs({
   formFields,
   goTo,
   handleSubmit,
+  accountToggleText,
+  onAccountToggle,
 }: AuthTabsProps) {
   return (
     <div className='flex max-lg:justify-center w-full md:w-auto'>
@@ -596,7 +628,8 @@ const AuthTabs = memo(function AuthTabs({
           fieldPerRow={1}
           onSubmit={handleSubmit}
           goTo={goTo}
-          googleLogin='Login with Google'
+          accountToggleText={accountToggleText}
+          onAccountToggle={onAccountToggle}
         />
       </div>
     </div>
@@ -613,7 +646,7 @@ const Label = memo(function Label({ className, ...props }: LabelProps) {
   return (
     <label
       className={cn(
-        'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+        'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-white',
         className
       )}
       {...props}
