@@ -236,4 +236,5 @@ const GitHubContributionHeatmap: React.FC<GitHubContributionHeatmapProps> = ({ u
 };
 
 export default GitHubContributionHeatmap;
+export type { GitHubContributionHeatmapProps };
 
