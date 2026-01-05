@@ -6,6 +6,8 @@ const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amaz
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GITHUB_OAUTH_CALLBACK = 'https://ksngma8ixd.execute-api.ap-south-2.amazonaws.com/default/Github_OAuth_Callback';
 const GITHUB_CLIENT_ID = 'Ov23liWkZ6bJwdgaeJta';
+const GOOGLE_DRIVE_OAUTH_CALLBACK = 'https://yr3g0hy49k.execute-api.ap-south-2.amazonaws.com/default/Google_Drive_Callback';
+const GOOGLE_CLIENT_ID = '1045739523565-va7quhkm5ngjflbcp4r7q2mijc69bkm6.apps.googleusercontent.com';
 
 interface SectionCardProps {
     title: string;
@@ -137,6 +139,24 @@ const SettingsPage: React.FC = () => {
     const [reposError, setReposError] = useState<string | null>(null);
     const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
 
+    // Google Drive OAuth state
+    const [driveData, setDriveData] = useState<{
+        accessToken?: string;
+        files?: Array<{
+            id: string;
+            name: string;
+            mimeType: string;
+        }>;
+        user?: {
+            email?: string;
+            name?: string;
+            picture?: string;
+        };
+    } | null>(null);
+    const [connectingDrive, setConnectingDrive] = useState(false);
+    const driveCallbackProcessed = useRef(false);
+    const [loadingDriveFiles, setLoadingDriveFiles] = useState(false);
+
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -193,6 +213,23 @@ const SettingsPage: React.FC = () => {
                         if (storedToken) {
                             // Try to fetch GitHub user info to restore connection state
                             fetchGitHubUserInfo(storedToken);
+                        }
+                    }
+                    
+                    // Google Drive data
+                    if (user.driveData) {
+                        // Restore access token from localStorage if available
+                        const storedToken = localStorage.getItem('drive_access_token');
+                        const driveDataWithToken = storedToken 
+                            ? { ...user.driveData, accessToken: storedToken }
+                            : user.driveData;
+                        setDriveData(driveDataWithToken);
+                    } else {
+                        // If no driveData in database but token exists in localStorage, try to restore
+                        const storedToken = localStorage.getItem('drive_access_token');
+                        if (storedToken) {
+                            // Try to fetch Drive files to restore connection state
+                            fetchDriveFiles(storedToken);
                         }
                     }
                     
@@ -285,6 +322,76 @@ const SettingsPage: React.FC = () => {
         handleGithubCallback();
     }, [userId]);
 
+    // Handle Google Drive OAuth callback (when Lambda redirects back to frontend)
+    useEffect(() => {
+        const handleDriveCallback = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const driveDataParam = urlParams.get('drive_data');
+            const error = urlParams.get('error');
+            const message = urlParams.get('message');
+            
+            // Check if this is a redirect from Lambda with Drive data
+            if (driveDataParam && userId && !driveCallbackProcessed.current) {
+                driveCallbackProcessed.current = true;
+                setConnectingDrive(true);
+                setSaveError(null);
+                
+                try {
+                    // Decode Drive data from URL parameter
+                    const decodedData = JSON.parse(decodeURIComponent(driveDataParam));
+                    
+                    if (decodedData.success && decodedData.drive) {
+                        // Store access token in localStorage (temporary solution - should be encrypted in production)
+                        if (decodedData.drive.accessToken) {
+                            localStorage.setItem('drive_access_token', decodedData.drive.accessToken);
+                        }
+                        
+                        setDriveData(decodedData.drive);
+                        
+                        // Save Drive data to user profile (without access token for security)
+                        const driveDataToSave = { ...decodedData.drive };
+                        delete driveDataToSave.accessToken; // Don't save token to database
+                        
+                        const saveResponse = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'updateSettings',
+                                userId,
+                                driveData: driveDataToSave,
+                            }),
+                        });
+                        
+                        const saveData = await saveResponse.json();
+                        if (saveData.success) {
+                            setSaveMessage('Google Drive connected successfully!');
+                            // Clean URL - remove parameters
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        } else {
+                            setSaveError('Failed to save Google Drive data');
+                        }
+                    } else {
+                        setSaveError(decodedData.message || 'Failed to connect Google Drive');
+                    }
+                } catch (err) {
+                    console.error('Google Drive OAuth error:', err);
+                    setSaveError('Failed to process Google Drive data');
+                } finally {
+                    setConnectingDrive(false);
+                }
+            } else if (error || message) {
+                // Handle error from Lambda redirect (only if not already processed)
+                if (!driveCallbackProcessed.current) {
+                    setSaveError(message || error || 'Google Drive authorization failed');
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        };
+        
+        handleDriveCallback();
+    }, [userId]);
+
     // Initiate GitHub OAuth
     const connectGithub = () => {
         if (!userId) {
@@ -300,6 +407,97 @@ const SettingsPage: React.FC = () => {
         
         const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user&state=${encodeURIComponent(state)}`;
         window.location.href = githubAuthUrl;
+    };
+
+    // Initiate Google Drive OAuth
+    const connectDrive = () => {
+        if (!userId) {
+            setSaveError('You must be logged in to connect Google Drive');
+            return;
+        }
+        
+        // Use Lambda function URL as redirect_uri (already registered in Google)
+        // Pass frontend return URL in state parameter
+        const frontendReturnUrl = `${window.location.origin}${window.location.pathname}`;
+        const state = btoa(JSON.stringify({ userId, returnUrl: frontendReturnUrl }));
+        const redirectUri = GOOGLE_DRIVE_OAUTH_CALLBACK;
+        
+        const googleAuthUrl =
+            "https://accounts.google.com/o/oauth2/v2/auth" +
+            `?client_id=${GOOGLE_CLIENT_ID}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            "&response_type=code" +
+            "&scope=https://www.googleapis.com/auth/drive.metadata.readonly" +
+            "&access_type=offline" +
+            "&prompt=consent" +
+            `&state=${encodeURIComponent(state)}`;
+        
+        window.location.href = googleAuthUrl;
+    };
+
+    // Fetch Google Drive files
+    const fetchDriveFiles = async (accessToken?: string) => {
+        const token = accessToken || driveData?.accessToken || localStorage.getItem('drive_access_token');
+        if (!token) {
+            return;
+        }
+        
+        setLoadingDriveFiles(true);
+        try {
+            const response = await fetch(
+                'https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,modifiedTime,size)',
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                setDriveData(prev => ({
+                    ...prev,
+                    files: data.files || [],
+                }));
+            }
+        } catch (err) {
+            console.error('Error fetching Drive files:', err);
+        } finally {
+            setLoadingDriveFiles(false);
+        }
+    };
+
+    // Disconnect Google Drive
+    const disconnectDrive = async () => {
+        if (!userId) return;
+        
+        setConnectingDrive(true);
+        try {
+            const response = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'updateSettings',
+                    userId,
+                    driveData: null,
+                }),
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                setDriveData(null);
+                // Remove access token from localStorage
+                localStorage.removeItem('drive_access_token');
+                setSaveMessage('Google Drive disconnected');
+            } else {
+                setSaveError('Failed to disconnect Google Drive');
+            }
+        } catch (err) {
+            console.error('Disconnect Drive error:', err);
+            setSaveError('Failed to disconnect Google Drive');
+        } finally {
+            setConnectingDrive(false);
+        }
     };
 
     // Fetch GitHub user info to restore connection state
@@ -436,6 +634,14 @@ const SettingsPage: React.FC = () => {
             fetchRepositories();
         }
     }, [githubData]);
+
+    // Load Drive files when Google Drive is connected
+    useEffect(() => {
+        const token = driveData?.accessToken || localStorage.getItem('drive_access_token');
+        if (token && driveData && (!driveData.files || driveData.files.length === 0) && !loadingDriveFiles) {
+            fetchDriveFiles();
+        }
+    }, [driveData]);
     
     // Disconnect GitHub
     const disconnectGithub = async () => {
@@ -632,6 +838,12 @@ const SettingsPage: React.FC = () => {
             // Include GitHub data if available
             if (githubData) {
                 requestBody.githubData = githubData;
+            }
+            
+            // Include Google Drive data if available (without access token)
+            if (driveData) {
+                const { accessToken, ...driveDataToSave } = driveData;
+                requestBody.driveData = driveDataToSave;
             }
             
             // Include profile picture URL if available
@@ -1099,6 +1311,155 @@ const SettingsPage: React.FC = () => {
                                             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                                         </svg>
                                         Connect GitHub
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Google Drive Integration Section */}
+                    <div className="border-t border-gray-200 pt-6 mt-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-1">Google Drive Integration</h4>
+                                <p className="text-sm text-gray-500">Connect your Google Drive to access and manage your files</p>
+                            </div>
+                        </div>
+                        
+                        {/* Setup Instructions */}
+                        {!driveData && (
+                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                    <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-blue-900 mb-2">Ready to Connect!</p>
+                                        <p className="text-xs text-blue-800 mb-2">
+                                            The Lambda function URL is already configured as the callback URL in your Google OAuth App.
+                                        </p>
+                                        <p className="text-xs text-blue-800">
+                                            Click "Connect Google Drive" below to authorize and connect your Google Drive account.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {driveData ? (
+                            <div className="space-y-4">
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            {driveData.user?.picture && (
+                                                <img 
+                                                    src={driveData.user.picture} 
+                                                    alt={driveData.user.name || 'Google Drive'} 
+                                                    className="w-12 h-12 rounded-full"
+                                                />
+                                            )}
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold text-gray-900">{driveData.user?.name || 'Google Drive User'}</p>
+                                                </div>
+                                                {driveData.user?.email && (
+                                                    <p className="text-sm text-gray-600 mt-1">{driveData.user.email}</p>
+                                                )}
+                                                {driveData.files && (
+                                                    <p className="text-sm text-gray-500 mt-1">{driveData.files.length} files loaded</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={disconnectDrive}
+                                            disabled={connectingDrive}
+                                            className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {connectingDrive ? 'Disconnecting...' : 'Disconnect'}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Google Drive Files Section */}
+                                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M7.71 2.5L2.5 7.71l5.21 5.21L13.42 7.71 7.71 2.5zm8.79 0L13.42 7.71l5.21 5.21 5.21-5.21L16.5 2.5zM2.5 16.29l5.21 5.21L13.42 16.5 8.21 11.29 2.5 16.29zm13.42 0l5.21 5.21 5.21-5.21-5.21-5.21-5.21 5.21z"/>
+                                            </svg>
+                                            <h4 className="text-lg font-semibold text-gray-900">Drive Files</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {driveData.files && driveData.files.length > 0 && (
+                                                <button
+                                                    onClick={() => fetchDriveFiles()}
+                                                    disabled={loadingDriveFiles}
+                                                    className="px-3 py-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {loadingDriveFiles ? 'Refreshing...' : 'Refresh'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {loadingDriveFiles && (!driveData.files || driveData.files.length === 0) ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <svg className="animate-spin h-6 w-6 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span className="ml-2 text-sm text-gray-500">Loading files...</span>
+                                        </div>
+                                    ) : driveData.files && driveData.files.length > 0 ? (
+                                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                                            {driveData.files.map((file) => (
+                                                <div
+                                                    key={file.id}
+                                                    className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <svg className="w-5 h-5 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                                                    </svg>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                                        <p className="text-xs text-gray-500">{file.mimeType}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p className="text-sm text-gray-500 mb-3">No files found.</p>
+                                            <button
+                                                onClick={() => fetchDriveFiles()}
+                                                className="px-4 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+                                            >
+                                                Load Files
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={connectDrive}
+                                disabled={connectingDrive}
+                                className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {connectingDrive ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Connecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M7.71 2.5L2.5 7.71l5.21 5.21L13.42 7.71 7.71 2.5zm8.79 0L13.42 7.71l5.21 5.21 5.21-5.21L16.5 2.5zM2.5 16.29l5.21 5.21L13.42 16.5 8.21 11.29 2.5 16.29zm13.42 0l5.21 5.21 5.21-5.21-5.21-5.21-5.21 5.21z"/>
+                                        </svg>
+                                        Connect Google Drive
                                     </>
                                 )}
                             </button>
