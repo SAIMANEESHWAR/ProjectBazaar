@@ -48,6 +48,7 @@ const viewTitles: Record<DashboardView, string> = {
   cart: 'Shopping Cart',
   analytics: 'Analytics',
   settings: 'Settings',
+  courses: 'Courses',
   'my-projects': 'My Projects',
   earnings: 'Earnings',
   payouts: 'Payouts',

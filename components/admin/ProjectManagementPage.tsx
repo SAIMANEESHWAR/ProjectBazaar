@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../App';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 interface PendingProject extends BuyerProject {
@@ -40,8 +39,6 @@ interface ApiProject {
     updatedAt?: string;
 }
 
-const UPLOAD_PROJECT_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/default/Upload_project_from_buyer';
-
 const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUser, onViewProjectDetails }) => {
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
     const [projects, setProjects] = useState<PendingProject[]>([]);
@@ -49,25 +46,6 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'disabled' | 'all'>('pending');
     const [updatingProjects, setUpdatingProjects] = useState<Set<string>>(new Set());
-    const [showUploadForm, setShowUploadForm] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError] = useState<string | null>(null);
-    const [uploadSuccess, setUploadSuccess] = useState(false);
-    
-    // Upload form state
-    const [uploadFormData, setUploadFormData] = useState({
-        title: '',
-        category: '',
-        description: '',
-        price: '',
-        tags: '',
-        youtubeVideoUrl: '',
-        documentationUrl: '',
-        githubUrl: '',
-        liveDemoUrl: '',
-    });
-    const [imageFiles, setImageFiles] = useState<File[]>([]);
-    const [projectFiles, setProjectFiles] = useState<File | null>(null);
 
     // Map API project to PendingProject interface
     const mapApiProjectToComponent = (apiProject: ApiProject): PendingProject => {

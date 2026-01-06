@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../App';
 
 const COURSES_API_ENDPOINT = 'https://npvrcgotli.execute-api.ap-south-2.amazonaws.com/default/Admin_upload_courses_and_notes';
@@ -56,8 +56,6 @@ const CoursesManagementPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-    const [uploadError, setUploadError] = useState<string | null>(null);
     
     const [formData, setFormData] = useState<CourseFormData>({
         title: '',
@@ -88,7 +86,6 @@ const CoursesManagementPage: React.FC = () => {
     });
 
     const [tagInput, setTagInput] = useState('');
-    const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     // Fetch courses from API
     const fetchCourses = async () => {
@@ -214,8 +211,6 @@ const CoursesManagementPage: React.FC = () => {
                 throw new Error(`Upload failed with status ${response.status}: ${response.statusText}`);
             }
 
-            // Update progress to 100%
-            setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }));
             console.log(`Successfully uploaded ${fileKey}`);
         } catch (error) {
             console.error(`Error uploading ${fileKey}:`, error);
@@ -260,7 +255,6 @@ const CoursesManagementPage: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        setUploadProgress({});
 
         try {
             const courseId = `course-${Date.now()}`;
@@ -396,11 +390,9 @@ const CoursesManagementPage: React.FC = () => {
         } catch (error) {
             console.error('Error creating course:', error);
             const errorMessage = error instanceof Error ? error.message : 'Failed to create course';
-            setUploadError(errorMessage);
             alert(`Error: ${errorMessage}`);
         } finally {
             setIsSubmitting(false);
-            setUploadProgress({});
         }
     };
 
