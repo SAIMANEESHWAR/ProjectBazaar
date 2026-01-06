@@ -55,6 +55,7 @@ const viewTitles: Record<DashboardView, string> = {
   'project-details': 'Project Details',
   'seller-profile': 'Seller Profile',
   'help-center': 'Help Center',
+  'course-details': 'Course Details',
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({

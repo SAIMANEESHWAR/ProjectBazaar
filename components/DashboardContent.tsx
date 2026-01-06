@@ -20,7 +20,8 @@ import ProjectDetailsPage from './ProjectDetailsPage';
 import CartPage from './CartPage';
 import SellerProfilePage from './SellerProfilePage';
 import HelpCenterPage from './HelpCenterPage';
-import BuyerCoursesPage from './BuyerCoursesPage';
+import BuyerCoursesPage, { Course } from './BuyerCoursesPage';
+import CourseDetailsPage from './CourseDetailsPage';
 import Pagination from './Pagination';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
@@ -195,6 +196,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
     const [sellerProfileCache, setSellerProfileCache] = useState<Map<string, { profilePicture?: string; fullName?: string }>>(new Map());
     const [selectedProject, setSelectedProject] = useState<BuyerProject | null>(null);
     const [selectedSeller, setSelectedSeller] = useState<any>(null);
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [previousView, setPreviousView] = useState<DashboardView>('dashboard');
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -492,7 +494,23 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'cart':
                 return <CartPage allProjects={projects} />;
             case 'courses':
-                return <BuyerCoursesPage />;
+                return (
+                    <BuyerCoursesPage 
+                        onViewCourse={(course) => {
+                            setPreviousView('courses');
+                            setSelectedCourse(course);
+                            setActiveView('course-details');
+                        }}
+                    />
+                );
+            case 'course-details':
+                if (!selectedCourse) return null;
+                return (
+                    <CourseDetailsPage
+                        course={selectedCourse}
+                        onBack={() => setActiveView(previousView)}
+                    />
+                );
             case 'analytics':
                 return <BuyerAnalyticsPage />;
             case 'help-center':
@@ -594,7 +612,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()
             ) : (
                 <div className="container mx-auto px-6 py-8">
-                    {activeView !== 'project-details' && activeView !== 'seller-profile' && (
+                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && (
                         <DashboardHeader 
                             dashboardMode={dashboardMode} 
                             setDashboardMode={setDashboardMode}

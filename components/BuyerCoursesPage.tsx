@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 const GET_ALL_COURSES_ENDPOINT = 'https://lejjk9h72l.execute-api.ap-south-2.amazonaws.com/default/Get_all_courses_for_admin_and_buyer';
 
-interface Course {
+interface BuyerCoursesPageProps {
+    onViewCourse?: (course: Course) => void;
+}
+
+export interface Course {
     courseId: string;
     title: string;
     description: string;
@@ -34,7 +38,7 @@ interface Course {
     };
 }
 
-const BuyerCoursesPage: React.FC = () => {
+const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => {
     const [courses, setCourses] = useState<Course[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -337,7 +341,10 @@ const BuyerCoursesPage: React.FC = () => {
                                                 )}
                                             </span>
                                         </div>
-                                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold text-sm">
+                                        <button 
+                                            onClick={() => onViewCourse?.(course)}
+                                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold text-sm"
+                                        >
                                             View Course
                                         </button>
                                     </div>
