@@ -56,13 +56,13 @@ const Header: React.FC = () => {
         }`}>
           {/* Logo */}
           <button onClick={() => navigateTo('home')} className="flex items-center gap-3" aria-label="Go to homepage">
-            <LogoIcon />
+                <LogoIcon />
             <span className="text-xl font-bold text-white">ProjectBazaar</span>
-          </button>
+            </button>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
+            <nav className="hidden md:flex items-center gap-8">
+                {navLinks.map((link) => (
               <button
                 key={link.name}
                 onClick={link.onClick}
@@ -70,8 +70,8 @@ const Header: React.FC = () => {
               >
                 {link.name}
               </button>
-            ))}
-          </nav>
+                ))}
+            </nav>
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center gap-4">
@@ -87,11 +87,11 @@ const Header: React.FC = () => {
                   onClick={logout} 
                   className="bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold py-2.5 px-6 rounded-full hover:opacity-90 transition-all duration-200"
                 >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
+                            Logout
+                        </button>
+                    </>
+                ) : (
+                    <>
                 <button 
                   onClick={() => navigateTo('auth')} 
                   className="text-white/70 hover:text-white transition-colors duration-200 font-medium flex items-center gap-2"
@@ -103,11 +103,11 @@ const Header: React.FC = () => {
                   className="bg-[#1e1e2f] hover:bg-[#2a2a3f] border border-white/20 text-white font-semibold py-2.5 px-6 rounded-full transition-all duration-200 shadow-lg"
                 >
                   Join Now
-                </button>
-              </>
-            )}
-          </div>
-
+                        </button>
+                    </>
+                )}
+            </div>
+            
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button 
@@ -122,16 +122,16 @@ const Header: React.FC = () => {
                   strokeWidth="2" 
                   d={isOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
                 />
-              </svg>
-            </button>
-          </div>
+                </svg>
+                </button>
+            </div>
         </div>
 
         {/* Mobile Menu */}
         {isOpen && (
           <div className="md:hidden mt-3 bg-[#1a1025]/95 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-xl">
             <nav className="flex flex-col items-center gap-4">
-              {navLinks.map((link) => (
+                {navLinks.map((link) => (
                 <button
                   key={link.name}
                   onClick={() => {
@@ -142,10 +142,10 @@ const Header: React.FC = () => {
                 >
                   {link.name}
                 </button>
-              ))}
+                ))}
               <div className="w-full h-px bg-white/10 my-2" />
-              {isLoggedIn ? (
-                <>
+                {isLoggedIn ? (
+                    <>
                   <button 
                     onClick={() => { navigateTo('dashboard'); setIsOpen(false); }} 
                     className="text-white/70 hover:text-white transition-colors duration-200 font-medium py-2"
@@ -156,11 +156,11 @@ const Header: React.FC = () => {
                     onClick={() => { logout(); setIsOpen(false); }} 
                     className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold py-3 px-6 rounded-full"
                   >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
+                            Logout
+                        </button>
+                    </>
+                ) : (
+                     <>
                   <button 
                     onClick={() => { navigateTo('auth'); setIsOpen(false); }} 
                     className="text-white/70 hover:text-white transition-colors duration-200 font-medium py-2"
@@ -172,11 +172,11 @@ const Header: React.FC = () => {
                     className="w-full bg-[#1e1e2f] hover:bg-[#2a2a3f] border border-white/20 text-white font-semibold py-3 px-6 rounded-full"
                   >
                     Join Now
-                  </button>
-                </>
-              )}
+                        </button>
+                    </>
+                )}
             </nav>
-          </div>
+            </div>
         )}
       </div>
     </header>
