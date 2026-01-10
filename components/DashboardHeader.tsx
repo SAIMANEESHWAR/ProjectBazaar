@@ -49,6 +49,7 @@ const viewTitles: Record<DashboardView, string> = {
   analytics: 'Analytics',
   settings: 'Settings',
   courses: 'Courses',
+  hackathons: 'Hackathons',
   'my-projects': 'My Projects',
   earnings: 'Earnings',
   payouts: 'Payouts',

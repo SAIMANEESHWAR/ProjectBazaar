@@ -8,6 +8,7 @@ const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.
 const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazonaws.com/default/Report_projects_by_buyerId';
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
+const FETCH_HACKATHONS_ENDPOINT = 'https://zv6v6bsuie.execute-api.ap-south-2.amazonaws.com/default/get_hackathons_details';
 
 export interface CartItem {
   projectId: string;
@@ -537,6 +538,268 @@ export const createPaymentIntent = async (
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       message: 'Failed to create payment intent',
+    };
+  }
+};
+
+/**
+ * Fetch hackathons from Firecrawl API via Lambda
+ */
+// API Response format
+export interface HackathonApiResponse {
+  post_link: string;
+  location: string;
+  created_at: number;
+  end_date: string | null;
+  start_date: string | null;
+  status: 'live' | 'upcoming' | string;
+  PK: string;
+  image_link: string | null;
+  type: 'online' | 'offline' | string;
+}
+
+// Frontend Hackathon format (mapped from API)
+export interface Hackathon {
+  id: string; // PK
+  name: string; // Extracted from URL or generated
+  platform: string; // Extracted from post_link domain
+  official_url: string; // post_link
+  status: 'live' | 'upcoming' | string;
+  mode: 'Online' | 'Offline'; // Mapped from type (based on actual API data)
+  location: string;
+  start_date: string | null;
+  end_date: string | null;
+  image_url: string | null; // image_link
+  created_at: number;
+}
+
+export interface FetchHackathonsResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    hackathons: Hackathon[];
+    count: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Helper function to extract platform from URL
+const extractPlatformFromUrl = (url: string): string => {
+  try {
+    const hostname = new URL(url).hostname;
+    if (hostname.includes('unstop.com')) return 'unstop.com';
+    if (hostname.includes('devfolio.co')) return 'devfolio.co';
+    if (hostname.includes('hackerearth.com')) return 'hackerearth.com';
+    if (hostname.includes('skillenza.com')) return 'skillenza.com';
+    if (hostname.includes('techgig.com')) return 'techgig.com';
+    return hostname;
+  } catch {
+    return 'Unknown Platform';
+  }
+};
+
+// Helper function to extract hackathon name from URL
+const extractNameFromUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    
+    // Extract from path segments
+    const segments = pathname.split('/').filter(s => s);
+    
+    // For unstop.com, usually the last segment before the ID is the name
+    if (url.includes('unstop.com')) {
+      const hackathonsIndex = segments.indexOf('hackathons');
+      if (hackathonsIndex >= 0 && segments[hackathonsIndex + 1]) {
+        // Replace hyphens with spaces and capitalize
+        const namePart = segments[hackathonsIndex + 1];
+        // Remove the ID at the end if present
+        const nameWithoutId = namePart.replace(/-\d+$/, '');
+        return nameWithoutId.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      }
+    }
+    
+    // For devfolio.co, usually subdomain or path
+    if (url.includes('devfolio.co')) {
+      const subdomain = urlObj.hostname.split('.')[0];
+      if (subdomain && subdomain !== 'www' && subdomain !== 'devfolio') {
+        return subdomain.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      }
+      // Use pathname as fallback
+      if (segments.length > 0) {
+        return segments[segments.length - 1].split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      }
+    }
+    
+    // Fallback: use hostname
+    return urlObj.hostname;
+  } catch {
+    return 'Hackathon';
+  }
+};
+
+// Map API response to frontend format
+const mapApiResponseToHackathon = (apiData: HackathonApiResponse): Hackathon => {
+  const modeMap: Record<string, 'Online' | 'Offline'> = {
+    'online': 'Online',
+    'offline': 'Offline',
+  };
+  
+  return {
+    id: apiData.PK,
+    name: extractNameFromUrl(apiData.post_link),
+    platform: extractPlatformFromUrl(apiData.post_link),
+    official_url: apiData.post_link,
+    status: apiData.status || 'upcoming',
+    mode: modeMap[apiData.type?.toLowerCase()] || 'Online', // Default to Online if type is unknown
+    location: apiData.location || 'TBA',
+    start_date: apiData.start_date,
+    end_date: apiData.end_date,
+    image_url: apiData.image_link,
+    created_at: apiData.created_at,
+  };
+};
+
+export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathonsResponse> => {
+  try {
+    // Try GET first, fallback to POST if needed
+    const response = await fetch(FETCH_HACKATHONS_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Handle non-OK responses (4xx, 5xx)
+    if (!response.ok) {
+      let errorData: any = {};
+      let errorMessage = '';
+      
+      try {
+        const responseText = await response.text();
+        if (responseText) {
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (e) {
+            // If not JSON, use text as message
+            errorMessage = responseText;
+          }
+        }
+      } catch (e) {
+        // If response body cannot be read
+        errorMessage = '';
+      }
+      
+      // Determine error message based on status code and response
+      if (response.status === 500) {
+        errorMessage = errorData.message || errorData.error?.message || errorMessage || 
+          'Server error: The hackathons service is currently unavailable. Please check Lambda configuration and try again later.';
+      } else if (response.status === 404) {
+        errorMessage = 'Hackathons endpoint not found. Please check the API configuration.';
+      } else if (response.status === 403) {
+        errorMessage = 'Access forbidden. Please check API permissions.';
+      } else {
+        errorMessage = errorData.message || errorData.error?.message || errorData.error || errorMessage || 
+          `Failed to fetch hackathons: ${response.status} ${response.statusText}`;
+      }
+      
+      return {
+        success: false,
+        error: {
+          code: response.status === 500 ? 'SERVER_ERROR' : 
+                response.status === 404 ? 'NOT_FOUND' : 
+                response.status === 403 ? 'FORBIDDEN' : 'FETCH_ERROR',
+          message: errorMessage,
+        },
+      };
+    }
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // If response is not valid JSON
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: 'Invalid response format from hackathons API',
+        },
+      };
+    }
+    
+    // Handle error response
+    if (data.success === false || data.error) {
+      return {
+        success: false,
+        error: typeof data.error === 'string' 
+          ? { code: 'API_ERROR', message: data.error }
+          : (data.error || {
+              code: 'API_ERROR',
+              message: data.message || 'Failed to fetch hackathons',
+            }),
+      };
+    }
+    
+    // Handle API response format: { hackathons: [...], count: N } or { success: true, data: { hackathons: [...], count: N } }
+    
+    // Check if response has nested data structure
+    let hackathonsArray: HackathonApiResponse[] = [];
+    let count = 0;
+    
+    if (data.success === true && data.data) {
+      // Nested structure: { success: true, data: { hackathons: [...], count: N } }
+      hackathonsArray = Array.isArray(data.data.hackathons) ? data.data.hackathons : [];
+      count = data.data.count || hackathonsArray.length;
+    } else if (data.hackathons && Array.isArray(data.hackathons)) {
+      // Direct structure: { hackathons: [...], count: N }
+      hackathonsArray = data.hackathons;
+      count = data.count || hackathonsArray.length;
+    } else if (Array.isArray(data)) {
+      // Just an array
+      hackathonsArray = data;
+      count = data.length;
+    }
+    
+    // Map API response to frontend format
+    if (hackathonsArray.length > 0) {
+      const mappedHackathons: Hackathon[] = hackathonsArray.map(mapApiResponseToHackathon);
+      
+      return {
+        success: true,
+        message: data.message || 'Hackathons fetched successfully',
+        data: {
+          hackathons: mappedHackathons,
+          count: count || mappedHackathons.length,
+        },
+      };
+    }
+    
+    // If we can't parse the structure, return error
+    return {
+      success: false,
+      error: {
+        code: 'INVALID_RESPONSE',
+        message: 'Invalid response structure from hackathons API. Expected { hackathons: [...], count: N }',
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching hackathons:', error);
+    return {
+      success: false,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch hackathons',
+      },
     };
   }
 };

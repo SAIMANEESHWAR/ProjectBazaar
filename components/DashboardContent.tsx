@@ -22,6 +22,7 @@ import SellerProfilePage from './SellerProfilePage';
 import HelpCenterPage from './HelpCenterPage';
 import BuyerCoursesPage, { Course } from './BuyerCoursesPage';
 import CourseDetailsPage from './CourseDetailsPage';
+import HackathonsPage from './HackathonsPage';
 import Pagination from './Pagination';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
@@ -503,6 +504,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                         }}
                     />
                 );
+            case 'hackathons':
+                return <HackathonsPage />;
             case 'course-details':
                 if (!selectedCourse) return null;
                 return (
@@ -612,7 +615,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()
             ) : (
                 <div className="container mx-auto px-6 py-8">
-                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && (
+                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && activeView !== 'hackathons' && (
                         <DashboardHeader 
                             dashboardMode={dashboardMode} 
                             setDashboardMode={setDashboardMode}

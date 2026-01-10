@@ -4,7 +4,7 @@ import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
 import { fetchUserData, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem } from '../services/buyerApi';
 
-export type DashboardView = 'dashboard' | 'purchases' | 'wishlist' | 'cart' | 'analytics' | 'settings' | 'my-projects' | 'earnings' | 'payouts' | 'project-details' | 'seller-profile' | 'help-center' | 'courses' | 'course-details';
+export type DashboardView = 'dashboard' | 'purchases' | 'wishlist' | 'cart' | 'analytics' | 'settings' | 'my-projects' | 'earnings' | 'payouts' | 'project-details' | 'seller-profile' | 'help-center' | 'courses' | 'course-details' | 'hackathons';
 
 interface WishlistContextType {
     wishlist: string[];
