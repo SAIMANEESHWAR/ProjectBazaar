@@ -42,9 +42,9 @@ const HackathonsFilters: React.FC<HackathonsFiltersProps> = ({
   };
 
   const toggleLocation = (location: string) => {
-    setLocationFilter(prev =>
+    setLocationFilter((prev: string[]) =>
       prev.includes(location)
-        ? prev.filter(l => l !== location)
+        ? prev.filter((l: string) => l !== location)
         : [...prev, location]
     );
   };

@@ -102,11 +102,6 @@ const HackathonCard: React.FC<HackathonCardProps> = ({ hackathon, onClick }) => 
   const daysLeft = getDaysLeft();
   const postedDate = getPostedDate();
 
-  // Get mode color for badge
-  const modeColor = mode === 'Online' 
-    ? 'bg-gray-100 text-gray-700 border-gray-200' 
-    : 'bg-gray-100 text-gray-700 border-gray-200';
-
   const handleClick = () => {
     if (onClick) {
       onClick(hackathon);

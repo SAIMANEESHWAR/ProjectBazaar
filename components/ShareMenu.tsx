@@ -71,7 +71,7 @@ const ShareMenu: React.FC<ShareMenuProps> = ({ isOpen, onClose, position, shareD
   };
 
   const shareViaNative = async () => {
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && 'share' in navigator && typeof navigator.share === 'function') {
       try {
         await navigator.share({
           title: shareData.title,
@@ -100,7 +100,7 @@ const ShareMenu: React.FC<ShareMenuProps> = ({ isOpen, onClose, position, shareD
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {navigator.share && (
+        {typeof navigator !== 'undefined' && 'share' in navigator && typeof navigator.share === 'function' && (
           <button
             onClick={shareViaNative}
             className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 flex items-center gap-3 text-sm text-gray-700 transition-colors"
