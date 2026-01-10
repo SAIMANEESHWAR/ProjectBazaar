@@ -147,52 +147,58 @@ const HackathonsPage: React.FC = () => {
     <div className="mt-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Discover Hackathons</h1>
-        <p className="text-gray-600">Find and participate in exciting hackathons from top platforms</p>
+        <h1 className="text-4xl font-bold text-gray-900 mb-3 tracking-tight">Discover Hackathons</h1>
+        <p className="text-base text-gray-600 leading-relaxed">Find and participate in exciting hackathons from top platforms</p>
       </div>
 
       {/* Integrated Platforms Section */}
-      <div className="mb-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-200 p-4">
+      <div className="mb-6 bg-gradient-to-br from-blue-50/80 via-indigo-50/80 to-purple-50/80 backdrop-blur-sm rounded-2xl border border-blue-200/60 shadow-sm p-5">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <span className="text-sm font-semibold text-gray-700 whitespace-nowrap flex-shrink-0">
-            Hackathons integrated from:
-          </span>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <span className="text-sm font-bold text-gray-800 whitespace-nowrap">
+              Hackathons integrated from:
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
             {platforms.map((platform) => (
               <a
                 key={platform.domain}
                 href={`https://${platform.domain}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition-all group"
+                className="flex items-center gap-2.5 bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-full border border-gray-200/80 hover:border-blue-400 hover:bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
                 title={`Visit ${platform.name}`}
               >
-                <div className="relative w-6 h-6 flex items-center justify-center flex-shrink-0 bg-gray-50 rounded overflow-hidden">
+                <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 rounded-full overflow-hidden ring-1 ring-gray-200/50 group-hover:ring-blue-200 transition-all">
                   {logoErrors[platform.domain] ? (
-                    <span className="text-xs font-bold text-gray-600">
+                    <span className="text-xs font-bold text-gray-700 leading-none">
                       {platform.fallback || platform.name.charAt(0)}
                     </span>
                   ) : (
                     <img
                       src={platform.logo}
                       alt={`${platform.name} logo`}
-                      className="w-full h-full object-contain"
+                      className="w-5 h-5 object-contain"
                       onError={() => {
                         setLogoErrors(prev => ({ ...prev, [platform.domain]: true }));
                       }}
                     />
                   )}
                 </div>
-                <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">
+                <span className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
                   {platform.domain}
                 </span>
                 <svg 
-                  className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-all opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1" 
+                  className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-all opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-0.5" 
                   fill="none" 
                   viewBox="0 0 24 24" 
                   stroke="currentColor"
+                  strokeWidth={2.5}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               </a>
             ))}
@@ -204,19 +210,20 @@ const HackathonsPage: React.FC = () => {
       <div className="mb-6">
         <div className="relative max-w-2xl">
           <svg 
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
+            strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
             type="text"
             placeholder="Search hackathons by name, platform, organizer, or tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all bg-white"
+            className="w-full pl-12 pr-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400 transition-all bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder:text-gray-400 text-gray-900"
           />
         </div>
       </div>
