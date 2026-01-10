@@ -8,6 +8,9 @@ const GITHUB_OAUTH_CALLBACK = 'https://ksngma8ixd.execute-api.ap-south-2.amazona
 const GITHUB_CLIENT_ID = 'Ov23liWkZ6bJwdgaeJta';
 const GOOGLE_DRIVE_OAUTH_CALLBACK = 'https://yr3g0hy49k.execute-api.ap-south-2.amazonaws.com/default/Google_Drive_Callback';
 const GOOGLE_CLIENT_ID = '1045739523565-va7quhkm5ngjflbcp4r7q2mijc69bkm6.apps.googleusercontent.com';
+const FREELANCER_OAUTH_CALLBACK_API = 'https://0pwxlef4jj.execute-api.ap-south-2.amazonaws.com/default/freelancer-oauth-callback';
+// Freelancer OAuth Client ID - must match the CLIENT_ID in your Lambda environment variable FREELANCER_CLIENT_ID
+const FREELANCER_CLIENT_ID = 'e7f386e4-b386-48e8-bed4-449692bc20cb';
 
 interface SectionCardProps {
     title: string;
@@ -157,6 +160,44 @@ const SettingsPage: React.FC = () => {
     const driveCallbackProcessed = useRef(false);
     const [loadingDriveFiles, setLoadingDriveFiles] = useState(false);
 
+    // Freelancer OAuth state
+    const [freelancerData, setFreelancerData] = useState<{
+        username?: string;
+        rating?: number;
+        profileLink?: string;
+        accessToken?: string;
+        [key: string]: any;
+    } | null>(null);
+    const [connectingFreelancer, setConnectingFreelancer] = useState(false);
+    const freelancerCallbackProcessed = useRef(false);
+    
+    // Freelancer projects state
+    interface FreelancerProject {
+        id: number;
+        title: string;
+        description: string;
+        url: string;
+        status: string;
+        type: string;
+        budget?: {
+            minimum: number;
+            maximum: number;
+            currency?: {
+                code: string;
+                sign: string;
+            };
+        };
+        time_submitted: number;
+        currency?: {
+            code: string;
+            sign: string;
+        };
+        seo_url?: string;
+    }
+    const [freelancerProjects, setFreelancerProjects] = useState<FreelancerProject[]>([]);
+    const [loadingFreelancerProjects, setLoadingFreelancerProjects] = useState(false);
+    const [freelancerProjectsError, setFreelancerProjectsError] = useState<string | null>(null);
+
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -230,6 +271,23 @@ const SettingsPage: React.FC = () => {
                         if (storedToken) {
                             // Try to fetch Drive files to restore connection state
                             fetchDriveFiles(storedToken);
+                        }
+                    }
+                    
+                    // Freelancer data
+                    if (user.freelancerData) {
+                        // Restore access token from localStorage if available
+                        const storedToken = localStorage.getItem('freelancer_access_token');
+                        const freelancerDataWithToken = storedToken 
+                            ? { ...user.freelancerData, accessToken: storedToken }
+                            : user.freelancerData;
+                        setFreelancerData(freelancerDataWithToken);
+                    } else {
+                        // If no freelancerData in database but token exists in localStorage, try to restore
+                        const storedToken = localStorage.getItem('freelancer_access_token');
+                        if (storedToken) {
+                            // Token exists but no profile data - user might need to reconnect
+                            console.log('Freelancer token found but no profile data');
                         }
                     }
                     
@@ -392,6 +450,136 @@ const SettingsPage: React.FC = () => {
         handleDriveCallback();
     }, [userId]);
 
+    // Handle Freelancer OAuth callback (when Lambda redirects back to frontend with profile data)
+    useEffect(() => {
+        const handleFreelancerCallback = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const freelancerDataParam = urlParams.get('freelancer_data');
+            const error = urlParams.get('error');
+            const message = urlParams.get('message');
+            
+            // Check if this is a redirect from Lambda with Freelancer profile data
+            if (freelancerDataParam && userId && !freelancerCallbackProcessed.current) {
+                freelancerCallbackProcessed.current = true;
+                setConnectingFreelancer(true);
+                setSaveError(null);
+                
+                try {
+                    // Decode Freelancer data from URL parameter (Lambda redirects back with data)
+                    const decodedData = JSON.parse(decodeURIComponent(freelancerDataParam));
+                    
+                    console.log('Decoded Freelancer data:', decodedData);
+                    
+                    // Handle the actual API response structure: { access_token, profile: { status: "success", result: {...} } }
+                    // The profile data is nested in profile.result
+                    const profileResult = decodedData.profile?.result || decodedData.result || null;
+                    const profileStatus = decodedData.profile?.status || decodedData.status;
+                    
+                    if (profileStatus === 'success' && profileResult) {
+                        // Extract profile information from the actual Freelancer API response structure
+                        const username = profileResult.username || profileResult.display_name || profileResult.public_name || profileResult.id?.toString();
+                        const profileLink = `https://www.freelancer.com/u/${username}`;
+                        const accessToken = decodedData.access_token; // Store access token to fetch projects
+                        
+                        // Calculate rating if available (employer_reputation or other reputation fields)
+                        const rating = profileResult.employer_reputation || profileResult.reputation || profileResult.freelancer_reputation || null;
+                        
+                        // Extract location information
+                        const location = profileResult.location ? {
+                            city: profileResult.location.city,
+                            country: profileResult.location.country?.name,
+                            countryCode: profileResult.location.country?.code,
+                        } : null;
+                        
+                        // Extract registration date
+                        const registrationDate = profileResult.registration_date 
+                            ? new Date(profileResult.registration_date * 1000).toLocaleDateString()
+                            : null;
+                        
+                        // Normalize profile data for storage and display
+                        const normalizedProfile = {
+                            username: username,
+                            displayName: profileResult.display_name || profileResult.public_name,
+                            publicName: profileResult.public_name,
+                            userId: profileResult.id,
+                            role: profileResult.role || profileResult.chosen_role,
+                            profileLink: profileLink,
+                            rating: rating,
+                            location: location,
+                            registrationDate: registrationDate,
+                            emailVerified: profileResult.status?.email_verified || false,
+                            paymentVerified: profileResult.status?.payment_verified || false,
+                            profileComplete: profileResult.status?.profile_complete || false,
+                            primaryCurrency: profileResult.primary_currency?.code || 'INR',
+                            avatar: profileResult.avatar_cdn || profileResult.avatar_large_cdn || profileResult.avatar,
+                            portfolioCount: profileResult.portfolio_count !== undefined ? profileResult.portfolio_count : 0,
+                            jobsCount: profileResult.jobs !== undefined ? profileResult.jobs : null,
+                            hourlyRate: profileResult.hourly_rate !== undefined && profileResult.hourly_rate !== null ? profileResult.hourly_rate : null,
+                            profileDescription: profileResult.profile_description || null,
+                            tagline: profileResult.tagline || null,
+                            // Store access token temporarily in state (will be stored in localStorage)
+                            accessToken: accessToken,
+                        };
+                        
+                        console.log('Normalized Freelancer profile:', normalizedProfile);
+                        
+                        // Store access token in localStorage for fetching projects
+                        if (accessToken) {
+                            localStorage.setItem('freelancer_access_token', accessToken);
+                        }
+                        
+                        setFreelancerData(normalizedProfile);
+                        
+                        // Save Freelancer data to user profile (without accessToken)
+                        const { accessToken: _, ...profileToSave } = normalizedProfile;
+                        
+                        const saveResponse = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'updateSettings',
+                                userId,
+                                freelancerData: profileToSave,
+                            }),
+                        });
+                        
+                        const saveData = await saveResponse.json();
+                        if (saveData.success !== false) {
+                            setSaveMessage('Freelancer account connected successfully!');
+                            
+                            // Fetch projects after successful connection
+                            if (accessToken && profileResult.id) {
+                                fetchFreelancerProjects(accessToken, profileResult.id);
+                            }
+                            
+                            // Clean URL - remove parameters
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        } else {
+                            setSaveError('Failed to save Freelancer data');
+                        }
+                    } else {
+                        setSaveError(decodedData.message || decodedData.error || decodedData.profile?.status || 'Failed to connect Freelancer account');
+                    }
+                } catch (err) {
+                    console.error('Freelancer OAuth error:', err);
+                    setSaveError('Failed to process Freelancer data');
+                } finally {
+                    setConnectingFreelancer(false);
+                }
+            } else if (error || message) {
+                // Handle error from Lambda redirect
+                if (!freelancerCallbackProcessed.current) {
+                    setSaveError(message || error || 'Freelancer authorization failed');
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    freelancerCallbackProcessed.current = true;
+                }
+            }
+        };
+        
+        handleFreelancerCallback();
+    }, [userId]);
+
     // Initiate GitHub OAuth
     const connectGithub = () => {
         if (!userId) {
@@ -497,6 +685,135 @@ const SettingsPage: React.FC = () => {
             setSaveError('Failed to disconnect Google Drive');
         } finally {
             setConnectingDrive(false);
+        }
+    };
+
+    // Initiate Freelancer OAuth
+    // Flow: Frontend redirects to Freelancer OAuth -> Freelancer redirects back to frontend with code -> Frontend calls Lambda with code
+    const connectFreelancer = () => {
+        console.log('Connect Freelancer button clicked');
+        
+        if (!userId) {
+            setSaveError('You must be logged in to connect Freelancer');
+            return;
+        }
+        
+        try {
+            // Verify CLIENT_ID is configured
+            if (!FREELANCER_CLIENT_ID || FREELANCER_CLIENT_ID.trim() === '') {
+                const errorMsg = 'Freelancer OAuth Client ID is not configured. Please set FREELANCER_CLIENT_ID in SettingsPage.tsx.';
+                setSaveError(errorMsg);
+                alert(errorMsg);
+                return;
+            }
+            
+            // Use Lambda callback API as redirect_uri (must be registered in Freelancer OAuth app settings)
+            // Pass frontend return URL in state parameter so Lambda can redirect back
+            const frontendReturnUrl = `${window.location.origin}${window.location.pathname}`;
+            const state = btoa(JSON.stringify({ userId, returnUrl: frontendReturnUrl }));
+            const redirectUri = FREELANCER_OAUTH_CALLBACK_API;
+            const scope = 'basic';
+            
+            // Use correct Freelancer OAuth authorize URL (accounts.freelancer.com, not www.freelancer.com)
+            const freelancerAuthUrl = `https://accounts.freelancer.com/oauth/authorize?response_type=code&client_id=${FREELANCER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${encodeURIComponent(state)}`;
+            
+            console.log('Redirecting to Freelancer OAuth');
+            console.log('Redirect URI (Lambda callback):', redirectUri);
+            console.log('Frontend return URL (in state):', frontendReturnUrl);
+            console.log('Full OAuth URL:', freelancerAuthUrl);
+            
+            setConnectingFreelancer(true);
+            setSaveError(null);
+            setSaveMessage(null);
+            
+            window.location.href = freelancerAuthUrl;
+        } catch (error) {
+            console.error('Error initiating Freelancer OAuth:', error);
+            setSaveError(`Failed to initiate Freelancer OAuth: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setConnectingFreelancer(false);
+        }
+    };
+
+    // Disconnect Freelancer
+    // Fetch Freelancer projects
+    const fetchFreelancerProjects = async (accessToken?: string, userId?: number) => {
+        const token = accessToken || freelancerData?.accessToken || localStorage.getItem('freelancer_access_token');
+        const freelancerUserId = userId || freelancerData?.userId;
+        
+        if (!token || !freelancerUserId) {
+            setFreelancerProjectsError('Access token or user ID not available. Please reconnect your Freelancer account.');
+            return;
+        }
+        
+        setLoadingFreelancerProjects(true);
+        setFreelancerProjectsError(null);
+        
+        try {
+            // Fetch projects owned by the user
+            const projectsUrl = `https://www.freelancer.com/api/projects/0.1/projects/?owners[]=${freelancerUserId}&limit=20`;
+            
+            const response = await fetch(projectsUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                },
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch projects: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Freelancer projects response:', data);
+            
+            // Handle different response structures
+            const projects = data.result?.projects || data.projects || data.data || [];
+            
+            if (Array.isArray(projects)) {
+                setFreelancerProjects(projects);
+            } else {
+                setFreelancerProjects([]);
+            }
+        } catch (err) {
+            console.error('Error fetching Freelancer projects:', err);
+            setFreelancerProjectsError('Failed to fetch Freelancer projects. Please try again.');
+            setFreelancerProjects([]);
+        } finally {
+            setLoadingFreelancerProjects(false);
+        }
+    };
+
+    const disconnectFreelancer = async () => {
+        if (!userId) return;
+        
+        setConnectingFreelancer(true);
+        try {
+            const response = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'updateSettings',
+                    userId,
+                    freelancerData: null,
+                }),
+            });
+            
+            const data = await response.json();
+            if (data.success !== false) {
+                setFreelancerData(null);
+                setFreelancerProjects([]);
+                // Remove access token from localStorage
+                localStorage.removeItem('freelancer_access_token');
+                setSaveMessage('Freelancer account disconnected');
+            } else {
+                setSaveError('Failed to disconnect Freelancer account');
+            }
+        } catch (err) {
+            console.error('Disconnect Freelancer error:', err);
+            setSaveError('Failed to disconnect Freelancer account');
+        } finally {
+            setConnectingFreelancer(false);
         }
     };
 
@@ -642,6 +959,14 @@ const SettingsPage: React.FC = () => {
             fetchDriveFiles();
         }
     }, [driveData]);
+
+    // Load Freelancer projects when Freelancer is connected
+    useEffect(() => {
+        const token = freelancerData?.accessToken || localStorage.getItem('freelancer_access_token');
+        if (token && freelancerData && freelancerData.userId && freelancerProjects.length === 0 && !loadingFreelancerProjects) {
+            fetchFreelancerProjects(token, freelancerData.userId);
+        }
+    }, [freelancerData]);
     
     // Disconnect GitHub
     const disconnectGithub = async () => {
@@ -844,6 +1169,11 @@ const SettingsPage: React.FC = () => {
             if (driveData) {
                 const { accessToken, ...driveDataToSave } = driveData;
                 requestBody.driveData = driveDataToSave;
+            }
+            
+            // Include Freelancer data if available
+            if (freelancerData) {
+                requestBody.freelancerData = freelancerData;
             }
             
             // Include profile picture URL if available
@@ -1460,6 +1790,328 @@ const SettingsPage: React.FC = () => {
                                             <path d="M7.71 2.5L2.5 7.71l5.21 5.21L13.42 7.71 7.71 2.5zm8.79 0L13.42 7.71l5.21 5.21 5.21-5.21L16.5 2.5zM2.5 16.29l5.21 5.21L13.42 16.5 8.21 11.29 2.5 16.29zm13.42 0l5.21 5.21 5.21-5.21-5.21-5.21-5.21 5.21z"/>
                                         </svg>
                                         Connect Google Drive
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Freelancer Integration Section */}
+                    <div className="border-t border-gray-200 pt-6 mt-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-1">Freelancer Integration</h4>
+                                <p className="text-sm text-gray-500">Connect your Freelancer account to showcase your profile and ratings</p>
+                            </div>
+                        </div>
+                        
+                        {freelancerData ? (
+                            <div className="space-y-4">
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            {freelancerData.avatar ? (
+                                                <img 
+                                                    src={freelancerData.avatar} 
+                                                    alt={freelancerData.username || 'Freelancer'} 
+                                                    className="w-16 h-16 rounded-full border-2 border-gray-200"
+                                                />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center border-2 border-gray-200">
+                                                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <p className="text-xl font-bold text-gray-900">{freelancerData.displayName || freelancerData.publicName || freelancerData.username || 'Freelancer User'}</p>
+                                                    {freelancerData.role && (
+                                                        <span className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full capitalize">
+                                                            {freelancerData.role}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-600 mb-1">@{freelancerData.username}</p>
+                                                {freelancerData.location && (
+                                                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        </svg>
+                                                        <span>
+                                                            {freelancerData.location.city && freelancerData.location.country 
+                                                                ? `${freelancerData.location.city}, ${freelancerData.location.country}`
+                                                                : freelancerData.location.city || freelancerData.location.country || 'Location not set'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={disconnectFreelancer}
+                                            disabled={connectingFreelancer}
+                                            className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {connectingFreelancer ? 'Disconnecting...' : 'Disconnect'}
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Additional Profile Details */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                                        {freelancerData.rating !== undefined && freelancerData.rating !== null && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-700">Rating:</span>
+                                                <div className="flex items-center gap-1">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <svg
+                                                            key={i}
+                                                            className={`w-4 h-4 ${i < Math.round(freelancerData.rating || 0) ? 'text-yellow-400' : 'text-gray-300'}`}
+                                                            fill="currentColor"
+                                                            viewBox="0 0 20 20"
+                                                        >
+                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                        </svg>
+                                                    ))}
+                                                    <span className="text-sm text-gray-600">({freelancerData.rating.toFixed(1)})</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {freelancerData.registrationDate && (
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Member since: </span>
+                                                <span className="text-sm text-gray-600">{freelancerData.registrationDate}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {freelancerData.primaryCurrency && (
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Currency: </span>
+                                                <span className="text-sm text-gray-600">{freelancerData.primaryCurrency}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {freelancerData.hourlyRate !== null && freelancerData.hourlyRate !== undefined && (
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Hourly Rate: </span>
+                                                <span className="text-sm text-gray-600">
+                                                    {freelancerData.primaryCurrency === 'INR' ? '₹' : '$'}{freelancerData.hourlyRate}/hr
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {freelancerData.portfolioCount !== undefined && freelancerData.portfolioCount > 0 && (
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Portfolio Items: </span>
+                                                <span className="text-sm text-gray-600">{freelancerData.portfolioCount}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {freelancerData.jobsCount !== null && freelancerData.jobsCount !== undefined && (
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">Jobs: </span>
+                                                <span className="text-sm text-gray-600">{freelancerData.jobsCount}</span>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-gray-700">Status:</span>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {freelancerData.emailVerified && (
+                                                    <span className="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded">Email Verified</span>
+                                                )}
+                                                {freelancerData.paymentVerified && (
+                                                    <span className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded">Payment Verified</span>
+                                                )}
+                                                {freelancerData.profileComplete && (
+                                                    <span className="px-2 py-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded">Profile Complete</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Tagline and Profile Description */}
+                                    {(freelancerData.tagline || freelancerData.profileDescription) && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            {freelancerData.tagline && (
+                                                <p className="text-sm font-semibold text-gray-900 mb-2 italic">"{freelancerData.tagline}"</p>
+                                            )}
+                                            {freelancerData.profileDescription && (
+                                                <p className="text-sm text-gray-700 leading-relaxed">{freelancerData.profileDescription}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    {freelancerData.profileLink && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <a
+                                                href={freelancerData.profileLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                                View Full Profile on Freelancer
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Freelancer Projects Section */}
+                                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                            </svg>
+                                            <h4 className="text-lg font-semibold text-gray-900">Projects</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {freelancerProjects.length > 0 && (
+                                                <button
+                                                    onClick={() => fetchFreelancerProjects()}
+                                                    disabled={loadingFreelancerProjects}
+                                                    className="px-3 py-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {loadingFreelancerProjects ? 'Refreshing...' : 'Refresh'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {loadingFreelancerProjects && freelancerProjects.length === 0 ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <svg className="animate-spin h-6 w-6 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span className="ml-2 text-sm text-gray-500">Loading projects...</span>
+                                        </div>
+                                    ) : freelancerProjectsError ? (
+                                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                            <p className="text-sm text-red-800">{freelancerProjectsError}</p>
+                                            <button
+                                                onClick={() => fetchFreelancerProjects()}
+                                                className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                                            >
+                                                Try again
+                                            </button>
+                                        </div>
+                                    ) : freelancerProjects.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-sm text-gray-500 mb-3">No projects found.</p>
+                                            <button
+                                                onClick={() => fetchFreelancerProjects()}
+                                                className="px-4 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+                                            >
+                                                Load Projects
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                                            {freelancerProjects.map((project) => {
+                                                const projectUrl = project.seo_url || project.url || `https://www.freelancer.com/projects/${project.id}`;
+                                                let budgetDisplay = 'Budget not specified';
+                                                if (project.budget && typeof project.budget === 'object') {
+                                                    const budget = project.budget as { minimum?: number; maximum?: number; currency?: { sign?: string } };
+                                                    const sign = budget.currency?.sign || project.currency?.sign || '$';
+                                                    if (budget.minimum !== undefined) {
+                                                        budgetDisplay = `${sign}${budget.minimum}${budget.maximum ? ` - ${budget.maximum}` : '+'}`;
+                                                    }
+                                                } else if (project.currency?.sign) {
+                                                    budgetDisplay = `${project.currency.sign}N/A`;
+                                                }
+                                                
+                                                return (
+                                                    <div
+                                                        key={project.id}
+                                                        className="flex flex-col gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="flex-1 min-w-0">
+                                                                <a
+                                                                    href={projectUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-base font-semibold text-gray-900 hover:text-orange-600 transition-colors block mb-1"
+                                                                >
+                                                                    {project.title}
+                                                                </a>
+                                                                {project.description && (
+                                                                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                                                                        {project.description.length > 150 
+                                                                            ? `${project.description.substring(0, 150)}...` 
+                                                                            : project.description}
+                                                                    </p>
+                                                                )}
+                                                                <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                        {budgetDisplay}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                                        </svg>
+                                                                        {project.type || 'Project'}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                        {project.status}
+                                                                    </span>
+                                                                    {project.time_submitted && (
+                                                                        <span>
+                                                                            {new Date(project.time_submitted * 1000).toLocaleDateString()}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <a
+                                                                href={projectUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex-shrink-0 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="View on Freelancer"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                </svg>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={connectFreelancer}
+                                disabled={connectingFreelancer}
+                                className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {connectingFreelancer ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Connecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        Connect Freelancer
                                     </>
                                 )}
                             </button>
