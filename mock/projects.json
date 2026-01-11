@@ -1,0 +1,183 @@
+[
+  {
+    "id": "p1",
+    "title": "Build a React Native Mobile App for E-commerce",
+    "description": "Looking for an experienced React Native developer to build a cross-platform mobile app for our e-commerce platform. The app should include user authentication, product browsing, shopping cart, payment integration, and order tracking features.",
+    "type": "fixed",
+    "budget": {
+      "min": 5000,
+      "max": 8000,
+      "currency": "USD"
+    },
+    "skills": ["React Native", "JavaScript", "Firebase", "Stripe"],
+    "bidsCount": 12,
+    "postedAt": "2024-01-15T10:30:00Z",
+    "postedTimeAgo": "1 minute ago"
+  },
+  {
+    "id": "p2",
+    "title": "WordPress Website Redesign with Custom Theme",
+    "description": "Need a professional WordPress developer to redesign our company website. The new design should be modern, responsive, and include a custom theme. Must have experience with Elementor or similar page builders.",
+    "type": "hourly",
+    "budget": {
+      "min": 20,
+      "max": 35,
+      "currency": "USD"
+    },
+    "skills": ["WordPress", "PHP", "CSS", "JavaScript"],
+    "bidsCount": 8,
+    "postedAt": "2024-01-15T10:25:00Z",
+    "postedTimeAgo": "6 minutes ago"
+  },
+  {
+    "id": "p3",
+    "title": "Python Django Backend API Development",
+    "description": "Seeking a Django developer to create a RESTful API for a SaaS application. The API should handle user management, authentication, file uploads, and integrate with third-party services. Experience with PostgreSQL and Redis required.",
+    "type": "fixed",
+    "budget": {
+      "min": 3000,
+      "max": 5000,
+      "currency": "USD"
+    },
+    "skills": ["Python", "Django", "PostgreSQL", "REST API"],
+    "bidsCount": 15,
+    "postedAt": "2024-01-15T10:20:00Z",
+    "postedTimeAgo": "11 minutes ago"
+  },
+  {
+    "id": "p4",
+    "title": "Vue.js Admin Dashboard Development",
+    "description": "Looking for a Vue.js expert to build a comprehensive admin dashboard with data visualization, user management, analytics, and reporting features. Should be responsive and use modern UI frameworks like Vuetify or Element Plus.",
+    "type": "hourly",
+    "budget": {
+      "min": 25,
+      "max": 40,
+      "currency": "USD"
+    },
+    "skills": ["Vue.js", "JavaScript", "Chart.js", "CSS"],
+    "bidsCount": 9,
+    "postedAt": "2024-01-15T10:15:00Z",
+    "postedTimeAgo": "16 minutes ago"
+  },
+  {
+    "id": "p5",
+    "title": "Laravel E-commerce Platform with Payment Gateway",
+    "description": "Need an experienced Laravel developer to build a full-featured e-commerce platform. Features should include product management, shopping cart, checkout process, payment gateway integration (Stripe/PayPal), order management, and admin panel.",
+    "type": "fixed",
+    "budget": {
+      "min": 6000,
+      "max": 10000,
+      "currency": "USD"
+    },
+    "skills": ["PHP", "Laravel", "MySQL", "Payment Gateway"],
+    "bidsCount": 18,
+    "postedAt": "2024-01-15T10:10:00Z",
+    "postedTimeAgo": "21 minutes ago"
+  },
+  {
+    "id": "p6",
+    "title": "Mobile App UI/UX Design (Figma)",
+    "description": "Seeking a talented UI/UX designer to create mobile app designs using Figma. The app is for a fitness tracking platform. Need modern, intuitive designs for iOS and Android with design system and component library.",
+    "type": "hourly",
+    "budget": {
+      "min": 30,
+      "max": 50,
+      "currency": "USD"
+    },
+    "skills": ["Figma", "UI/UX Design", "Mobile Design", "Prototyping"],
+    "bidsCount": 6,
+    "postedAt": "2024-01-15T10:05:00Z",
+    "postedTimeAgo": "26 minutes ago"
+  },
+  {
+    "id": "p7",
+    "title": "Node.js Real-time Chat Application",
+    "description": "Looking for a Node.js developer to build a real-time chat application using WebSockets. The app should support multiple rooms, private messaging, file sharing, and user presence indicators. Experience with Socket.io required.",
+    "type": "fixed",
+    "budget": {
+      "min": 2500,
+      "max": 4000,
+      "currency": "USD"
+    },
+    "skills": ["Node.js", "Socket.io", "Express", "MongoDB"],
+    "bidsCount": 11,
+    "postedAt": "2024-01-15T10:00:00Z",
+    "postedTimeAgo": "31 minutes ago"
+  },
+  {
+    "id": "p8",
+    "title": "Angular Enterprise Application Development",
+    "description": "Need an Angular developer to build a complex enterprise application with multiple modules, forms, data tables, and reporting features. Should follow Angular best practices and use NgRx for state management.",
+    "type": "hourly",
+    "budget": {
+      "min": 35,
+      "max": 50,
+      "currency": "USD"
+    },
+    "skills": ["Angular", "TypeScript", "RxJS", "NgRx"],
+    "bidsCount": 7,
+    "postedAt": "2024-01-15T09:55:00Z",
+    "postedTimeAgo": "36 minutes ago"
+  },
+  {
+    "id": "p9",
+    "title": "Full Stack Development: React + Node.js",
+    "description": "Seeking a full-stack developer to build a complete web application from scratch. Frontend in React with TypeScript, backend in Node.js with Express, database in PostgreSQL. Must include authentication, CRUD operations, and deployment setup.",
+    "type": "fixed",
+    "budget": {
+      "min": 4000,
+      "max": 7000,
+      "currency": "USD"
+    },
+    "skills": ["React", "Node.js", "TypeScript", "PostgreSQL"],
+    "bidsCount": 20,
+    "postedAt": "2024-01-15T09:50:00Z",
+    "postedTimeAgo": "41 minutes ago"
+  },
+  {
+    "id": "p10",
+    "title": "WordPress Plugin Development",
+    "description": "Need a WordPress developer to create a custom plugin for membership management. The plugin should handle user registration, subscription plans, payment processing, and member-only content access.",
+    "type": "hourly",
+    "budget": {
+      "min": 22,
+      "max": 38,
+      "currency": "USD"
+    },
+    "skills": ["WordPress", "PHP", "Plugin Development", "WooCommerce"],
+    "bidsCount": 14,
+    "postedAt": "2024-01-15T09:45:00Z",
+    "postedTimeAgo": "46 minutes ago"
+  },
+  {
+    "id": "p11",
+    "title": "Shopify Store Setup and Customization",
+    "description": "Looking for a Shopify expert to set up a new online store, customize the theme, configure products, set up payment gateways, and optimize for SEO. Experience with Liquid templating language required.",
+    "type": "fixed",
+    "budget": {
+      "min": 1500,
+      "max": 3000,
+      "currency": "USD"
+    },
+    "skills": ["Shopify", "Liquid", "E-commerce", "SEO"],
+    "bidsCount": 5,
+    "postedAt": "2024-01-15T09:40:00Z",
+    "postedTimeAgo": "51 minutes ago"
+  },
+  {
+    "id": "p12",
+    "title": "Machine Learning Model Integration",
+    "description": "Need a Python developer with ML experience to integrate a pre-trained machine learning model into our web application. The model should process images and return predictions via API endpoints.",
+    "type": "hourly",
+    "budget": {
+      "min": 40,
+      "max": 60,
+      "currency": "USD"
+    },
+    "skills": ["Python", "Machine Learning", "TensorFlow", "Flask"],
+    "bidsCount": 4,
+    "postedAt": "2024-01-15T09:35:00Z",
+    "postedTimeAgo": "56 minutes ago"
+  }
+]
+

@@ -33,6 +33,9 @@ const Header: React.FC = () => {
       const element = document.getElementById('projects');
       if (element) element.scrollIntoView({ behavior: 'smooth' });
     }},
+    { name: 'Browse', onClick: () => {
+      navigateTo('browseFreelancers');
+    }},
     { name: 'Solutions', onClick: () => {
       const element = document.getElementById('how-it-works');
       if (element) element.scrollIntoView({ behavior: 'smooth' });

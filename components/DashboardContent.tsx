@@ -19,6 +19,8 @@ import DashboardFilters from './DashboardFilters';
 import ProjectDetailsPage from './ProjectDetailsPage';
 import CartPage from './CartPage';
 import SellerProfilePage from './SellerProfilePage';
+import { BrowseFreelancersContent } from './BrowseFreelancersContent';
+import { BrowseProjectsContent } from './BrowseProjectsContent';
 import HelpCenterPage from './HelpCenterPage';
 import BuyerCoursesPage, { Course } from './BuyerCoursesPage';
 import CourseDetailsPage from './CourseDetailsPage';
@@ -191,6 +193,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
     const { userId } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [buyerProjectView, setBuyerProjectView] = useState<'all' | 'activated' | 'disabled'>('all');
+    const [browseView, setBrowseView] = useState<'all' | 'freelancers' | 'projects'>('all');
     const [projects, setProjects] = useState<BuyerProject[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<BuyerProject[]>([]);
     const [projectSellerMap, setProjectSellerMap] = useState<Map<string, { sellerId: string; sellerEmail: string; sellerProfilePicture?: string; sellerName?: string }>>(new Map());
@@ -374,7 +377,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'dashboard':
                 return (
                      <div className="mt-8">
-                        {buyerProjectView === 'all' && (
+                        {/* Render content based on browseView */}
+                        {browseView === 'freelancers' && <BrowseFreelancersContent />}
+                        {browseView === 'projects' && <BrowseProjectsContent />}
+                        {(browseView === 'all' || (!browseView && buyerProjectView === 'all')) && (
                             <div className="flex flex-col lg:flex-row gap-6">
                                 {/* Filters Sidebar */}
                                 <div className="lg:w-80 flex-shrink-0">
@@ -624,6 +630,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                             activeView={activeView}
                             buyerProjectView={buyerProjectView}
                             setBuyerProjectView={setBuyerProjectView}
+                            browseView={browseView}
+                            setBrowseView={setBrowseView}
                             isSidebarOpen={isSidebarOpen}
                             toggleSidebar={toggleSidebar}
                         />

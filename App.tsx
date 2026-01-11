@@ -22,9 +22,11 @@ import SellerCta from './components/SellerCta';
 import BuyerSellerToggle from './components/BuyerSellerToggle';
 import { CallToAction } from './components/ui/cta-3';
 import FAQWithSpiral from './components/ui/faq-section';
+import BrowseFreelancers from './components/BrowseFreelancers';
+import BrowseProjects from './components/BrowseProjects';
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -174,6 +176,10 @@ const AppContent: React.FC = () => {
           <FAQWithSpiral />
         </div>
       );
+    case 'browseFreelancers':
+      return <BrowseFreelancers />;
+    case 'browseProjects':
+      return <BrowseProjects />;
     case 'notFound':
       return <NotFound />;
     case 'home':
@@ -235,6 +241,8 @@ const App: React.FC = () => {
         '/seller': 'seller',
         '/admin': 'admin',
         '/faq': 'faq',
+        '/browse-freelancers': 'browseFreelancers',
+        '/browse-projects': 'browseProjects',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -243,6 +251,8 @@ const App: React.FC = () => {
         'seller': 'seller',
         'admin': 'admin',
         'faq': 'faq',
+        'browseFreelancers': 'browseFreelancers',
+        'browseProjects': 'browseProjects',
         'notFound': 'notFound',
       };
       
@@ -354,6 +364,8 @@ const App: React.FC = () => {
       'seller': '/seller',
       'admin': '/admin',
       'faq': '/faq',
+      'browseFreelancers': '/browse-freelancers',
+      'browseProjects': '/browse-projects',
       'notFound': '/404'
     };
     

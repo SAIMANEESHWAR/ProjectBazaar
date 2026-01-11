@@ -1,0 +1,207 @@
+[
+  {
+    "id": "f1",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
+    "name": "John Smith",
+    "username": "johnsmith",
+    "isVerified": true,
+    "rating": 4.9,
+    "reviewsCount": 234,
+    "successRate": 98,
+    "hourlyRate": 25,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Mohali"
+    },
+    "skills": ["React", "Node.js", "TypeScript", "MongoDB"]
+  },
+  {
+    "id": "f2",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    "name": "Sarah Johnson",
+    "username": "sarahj",
+    "isVerified": true,
+    "rating": 4.8,
+    "reviewsCount": 189,
+    "successRate": 95,
+    "hourlyRate": 22,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Surat"
+    },
+    "skills": ["Python", "Django", "PostgreSQL", "AWS"]
+  },
+  {
+    "id": "f3",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    "name": "Mike Chen",
+    "username": "mikechen",
+    "isVerified": false,
+    "rating": 4.7,
+    "reviewsCount": 156,
+    "successRate": 92,
+    "hourlyRate": 20,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Bangalore"
+    },
+    "skills": ["Vue.js", "Nuxt.js", "Firebase", "Tailwind CSS"]
+  },
+  {
+    "id": "f4",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+    "name": "Emma Wilson",
+    "username": "emmaw",
+    "isVerified": true,
+    "rating": 5.0,
+    "reviewsCount": 312,
+    "successRate": 99,
+    "hourlyRate": 30,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Mumbai"
+    },
+    "skills": ["Angular", "RxJS", "GraphQL", "Docker"]
+  },
+  {
+    "id": "f5",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
+    "name": "David Kumar",
+    "username": "davidk",
+    "isVerified": true,
+    "rating": 4.6,
+    "reviewsCount": 98,
+    "successRate": 90,
+    "hourlyRate": 18,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Delhi"
+    },
+    "skills": ["PHP", "Laravel", "MySQL", "Redis"]
+  },
+  {
+    "id": "f6",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa",
+    "name": "Lisa Anderson",
+    "username": "lisaa",
+    "isVerified": false,
+    "rating": 4.8,
+    "reviewsCount": 145,
+    "successRate": 94,
+    "hourlyRate": 24,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Chennai"
+    },
+    "skills": ["Java", "Spring Boot", "Microservices", "Kubernetes"]
+  },
+  {
+    "id": "f7",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Robert",
+    "name": "Robert Singh",
+    "username": "roberts",
+    "isVerified": true,
+    "rating": 4.9,
+    "reviewsCount": 267,
+    "successRate": 97,
+    "hourlyRate": 28,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Pune"
+    },
+    "skills": ["Ruby", "Rails", "PostgreSQL", "Elasticsearch"]
+  },
+  {
+    "id": "f8",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Amy",
+    "name": "Amy Lee",
+    "username": "amylee",
+    "isVerified": true,
+    "rating": 4.7,
+    "reviewsCount": 178,
+    "successRate": 93,
+    "hourlyRate": 21,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Hyderabad"
+    },
+    "skills": ["JavaScript", "Express.js", "MongoDB", "Socket.io"]
+  },
+  {
+    "id": "f9",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
+    "name": "James Patel",
+    "username": "jamesp",
+    "isVerified": false,
+    "rating": 4.5,
+    "reviewsCount": 87,
+    "successRate": 88,
+    "hourlyRate": 16,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Ahmedabad"
+    },
+    "skills": ["C#", ".NET", "SQL Server", "Azure"]
+  },
+  {
+    "id": "f10",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria",
+    "name": "Maria Garcia",
+    "username": "mariag",
+    "isVerified": true,
+    "rating": 4.9,
+    "reviewsCount": 201,
+    "successRate": 96,
+    "hourlyRate": 26,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Kolkata"
+    },
+    "skills": ["Next.js", "React", "Prisma", "Vercel"]
+  },
+  {
+    "id": "f11",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Tom",
+    "name": "Tom Brown",
+    "username": "tomb",
+    "isVerified": true,
+    "rating": 4.8,
+    "reviewsCount": 223,
+    "successRate": 95,
+    "hourlyRate": 23,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Jaipur"
+    },
+    "skills": ["Go", "Gin", "PostgreSQL", "Docker"]
+  },
+  {
+    "id": "f12",
+    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica",
+    "name": "Jessica White",
+    "username": "jessicaw",
+    "isVerified": false,
+    "rating": 4.6,
+    "reviewsCount": 112,
+    "successRate": 91,
+    "hourlyRate": 19,
+    "currency": "USD",
+    "location": {
+      "country": "India",
+      "city": "Lucknow"
+    },
+    "skills": ["Swift", "iOS", "UIKit", "Core Data"]
+  }
+]
+

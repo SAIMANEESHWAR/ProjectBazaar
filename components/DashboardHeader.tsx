@@ -37,6 +37,8 @@ interface DashboardHeaderProps {
   activeView: DashboardView;
   buyerProjectView: 'all' | 'activated' | 'disabled';
   setBuyerProjectView: (view: 'all' | 'activated' | 'disabled') => void;
+  browseView?: 'all' | 'freelancers' | 'projects';
+  setBrowseView?: (view: 'all' | 'freelancers' | 'projects') => void;
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
 }
@@ -67,6 +69,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   activeView,
   buyerProjectView,
   setBuyerProjectView,
+  browseView,
+  setBrowseView,
   toggleSidebar,
 }) => {
   const title = viewTitles[activeView] || 'Dashboard';
@@ -292,18 +296,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <div className="flex bg-orange-50 rounded-lg p-1">
             <ToggleButton
               text="All"
-              active={buyerProjectView === 'all'}
-              onClick={() => setBuyerProjectView('all')}
+              active={browseView === 'all' || (!browseView && buyerProjectView === 'all')}
+              onClick={() => {
+                if (setBrowseView) {
+                  setBrowseView('all');
+                } else {
+                  setBuyerProjectView('all');
+                }
+              }}
             />
             <ToggleButton
-              text="Activated"
-              active={buyerProjectView === 'activated'}
-              onClick={() => setBuyerProjectView('activated')}
+              text="Freelancers"
+              active={browseView === 'freelancers'}
+              onClick={() => {
+                if (setBrowseView) {
+                  setBrowseView('freelancers');
+                }
+              }}
             />
             <ToggleButton
-              text="Disabled"
-              active={buyerProjectView === 'disabled'}
-              onClick={() => setBuyerProjectView('disabled')}
+              text="Projects"
+              active={browseView === 'projects'}
+              onClick={() => {
+                if (setBrowseView) {
+                  setBrowseView('projects');
+                } else {
+                  setBuyerProjectView('all');
+                }
+              }}
             />
           </div>
 
