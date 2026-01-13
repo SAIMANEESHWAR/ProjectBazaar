@@ -1,9 +1,9 @@
 """
-Lambda Function: Portfolio Generator (Gemini Fixed Version)
----------------------------------------------------------
+Lambda Function: Portfolio Generator
+------------------------------------
 1. Receive resume (PDF/DOCX) as base64
-2. Extract text
-3. Use Google Gemini 1.5 Flash to extract portfolio data
+2. Extract text using PyPDF2/pdfplumber
+3. Parse resume text with regex patterns to extract portfolio data
 4. Generate portfolio with selectable templates
 5. Deploy to Vercel
 6. Return live URL
@@ -55,7 +55,6 @@ except ImportError:
 # =========================
 # CONFIG
 # =========================
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 VERCEL_TOKEN = os.environ.get("VERCEL_TOKEN", "")
 
 # =========================
@@ -146,23 +145,21 @@ def handle_parse_resume(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[s
     file_bytes = base64.b64decode(file_b64)
     resume_text = extract_text_from_resume(file_bytes, file_type, file_name)
     
-    # Check if extraction failed (returned raw PDF marker)
-    is_raw_pdf = resume_text.startswith("[PDF_RAW_BASE64:")
-    
-    if not is_raw_pdf and len(resume_text) < 50:
-        return error_response("Resume extraction failed - could not read text from document", headers)
+    if len(resume_text) < 50:
+        return error_response(
+            "Could not extract text from resume. This usually happens when: "
+            "1) The PDF is scanned/image-based (not selectable text), "
+            "2) The PDF uses unusual fonts or encoding. "
+            "Try uploading a different PDF or a Word document (.docx).", 
+            headers
+        )
 
-    portfolio_data = extract_portfolio_data_with_ai(resume_text, user_email)
+    portfolio_data = extract_portfolio_data(resume_text, user_email)
     
-    # Prepare extracted text for response (don't send raw base64 back)
-    extracted_text = ""
-    if is_raw_pdf:
-        extracted_text = "[PDF processed directly by AI - text extraction was not possible]"
-    else:
-        # Return first 5000 chars of extracted text for user to review
-        extracted_text = resume_text[:5000]
-        if len(resume_text) > 5000:
-            extracted_text += f"\n\n... [truncated, {len(resume_text)} total characters extracted]"
+    # Return extracted text for user to review (truncated to 5000 chars)
+    extracted_text = resume_text[:5000]
+    if len(resume_text) > 5000:
+        extracted_text += f"\n\n... [truncated, {len(resume_text)} total characters extracted]"
 
     return {
         "statusCode": 200,
@@ -171,8 +168,8 @@ def handle_parse_resume(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[s
             "success": True,
             "portfolioData": portfolio_data,
             "extractedText": extracted_text,
-            "extractionMethod": "multimodal_ai" if is_raw_pdf else "text_extraction",
-            "textLength": len(resume_text) if not is_raw_pdf else 0
+            "extractionMethod": "regex_parser",
+            "textLength": len(resume_text)
         })
     }
 
@@ -225,23 +222,19 @@ def handle_generate_portfolio(body: Dict[str, Any], headers: Dict[str, str]) -> 
         file_bytes = base64.b64decode(file_b64)
         resume_text = extract_text_from_resume(file_bytes, file_type, file_name)
         
-        # Check if extraction failed (returned raw PDF marker)
-        is_raw_pdf = resume_text.startswith("[PDF_RAW_BASE64:")
-        
-        if not is_raw_pdf and len(resume_text) < 50:
-            return error_response("Resume extraction failed", headers)
+        if len(resume_text) < 50:
+            return error_response(
+                "Could not extract text from resume. Try uploading a different PDF or Word document (.docx).", 
+                headers
+            )
 
-        portfolio_data = extract_portfolio_data_with_ai(resume_text, user_email)
+        portfolio_data = extract_portfolio_data(resume_text, user_email)
         
         # Prepare extracted text for response
-        if is_raw_pdf:
-            extracted_text = "[PDF processed directly by AI - text extraction was not possible]"
-            extraction_method = "multimodal_ai"
-        else:
-            extracted_text = resume_text[:5000]
-            if len(resume_text) > 5000:
-                extracted_text += f"\n\n... [truncated, {len(resume_text)} total characters extracted]"
-            extraction_method = "text_extraction"
+        extracted_text = resume_text[:5000]
+        if len(resume_text) > 5000:
+            extracted_text += f"\n\n... [truncated, {len(resume_text)} total characters extracted]"
+        extraction_method = "regex_parser"
 
     # Deploy with selected template
     deployment = deploy_to_vercel(portfolio_data, user_id, template_id)
@@ -437,8 +430,7 @@ def delete_portfolio_from_history(user_id: str, portfolio_id: str) -> bool:
 def extract_text_from_resume(content: bytes, file_type: str, file_name: str) -> str:
     """
     Extract text from resume files (PDF/DOCX).
-    Uses smart extraction with pdfplumber + OCR fallback for PDFs.
-    Falls back to Gemini multimodal if extraction fails.
+    Uses PyPDF2 (primary) with pdfplumber + OCR fallback for PDFs.
     """
     temp_dir = tempfile.mkdtemp()
     path = os.path.join(temp_dir, file_name)
@@ -454,8 +446,8 @@ def extract_text_from_resume(content: bytes, file_type: str, file_name: str) -> 
             
             # Check if extraction produced garbage or failed
             if is_garbage_text(text):
-                print("PDF extraction produced unreadable text, using raw content for Gemini multimodal")
-                return f"[PDF_RAW_BASE64:{base64.b64encode(content).decode()}]"
+                print("PDF extraction produced unreadable text")
+                return ""
             
             print(f"PDF extraction successful: {len(text)} characters")
             return text
@@ -473,7 +465,7 @@ def extract_pdf_text_smart(pdf_path: str) -> str:
     Smart PDF text extraction with 3-step strategy:
     1. PyPDF2 (most compatible) - works in Lambda without extra dependencies
     2. pdfplumber (more accurate) - if available
-    3. OCR fallback (pytesseract) - for scanned/image-based PDFs
+    3. Basic regex extraction (no dependencies) - fallback using zlib decompression
     """
     
     # Step 1: Try PyPDF2 first (most compatible with Lambda)
@@ -538,52 +530,166 @@ def extract_pdf_text_smart(pdf_path: str) -> str:
             print(f"pdfplumber extraction successful: {len(cleaned_text)} chars")
             return cleaned_text
         else:
-            print(f"pdfplumber extracted only {len(cleaned_text)} chars, trying OCR...")
+            print(f"pdfplumber extracted only {len(cleaned_text)} chars, trying basic extraction...")
             
     except ImportError:
-        print("pdfplumber not available, trying OCR...")
+        print("pdfplumber not available, trying basic extraction...")
     except Exception as e:
-        print(f"pdfplumber failed: {e}, trying OCR...")
+        print(f"pdfplumber failed: {e}, trying basic extraction...")
     
-    # Step 3: OCR fallback for scanned/image-based PDFs
+    # Step 3: Basic text extraction from PDF bytes (no dependencies needed)
     try:
-        from pdf2image import convert_from_path
-        import pytesseract
-        
-        print("Attempting PDF extraction with OCR (pytesseract)...")
-        
-        # Convert PDF pages to images
-        images = convert_from_path(pdf_path, dpi=300)
-        
-        all_text = []
-        for i, img in enumerate(images):
-            try:
-                # OCR with optimized settings for resume text
-                page_text = pytesseract.image_to_string(
-                    img,
-                    lang="eng",
-                    config="--psm 6"  # Assume uniform block of text
-                )
-                if page_text:
-                    all_text.append(page_text)
-            except Exception as e:
-                print(f"OCR error on page {i + 1}: {e}")
-                continue
-        
-        combined_text = "\n\n".join(all_text)
-        cleaned_text = clean_resume_text(combined_text)
-        
-        print(f"OCR extraction complete: {len(cleaned_text)} chars")
-        return cleaned_text
-        
-    except ImportError as e:
-        print(f"OCR dependencies not available: {e}")
+        print("Attempting basic PDF text extraction (no dependencies)...")
+        text = extract_pdf_text_basic(pdf_path)
+        if len(text) > 100:
+            print(f"Basic extraction successful: {len(text)} chars")
+            return text
+        else:
+            print(f"Basic extraction got only {len(text)} chars")
     except Exception as e:
-        print(f"OCR extraction failed: {e}")
+        print(f"Basic extraction failed: {e}")
     
-    # If all methods fail, return empty string (will trigger multimodal fallback)
-    print("All PDF extraction methods failed")
+    # If all methods fail, return empty string
+    print("All PDF extraction methods failed - PDF may be scanned/image-based")
     return ""
+
+
+def extract_pdf_text_basic(pdf_path: str) -> str:
+    """
+    Basic PDF text extraction using regex on raw PDF content.
+    Works without any external dependencies (uses standard library zlib).
+    This is a fallback for when PyPDF2/pdfplumber aren't available.
+    """
+    import zlib
+    
+    with open(pdf_path, 'rb') as f:
+        pdf_bytes = f.read()
+    
+    text_parts = []
+    
+    # First, try to decompress FlateDecode streams (most modern PDFs use compression)
+    # Find all stream objects
+    stream_pattern = re.compile(rb'stream\s*\n(.*?)\nendstream', re.DOTALL)
+    
+    for match in stream_pattern.finditer(pdf_bytes):
+        stream_data = match.group(1)
+        
+        # Try to decompress with zlib (FlateDecode)
+        try:
+            decompressed = zlib.decompress(stream_data)
+            # Decode to string
+            try:
+                content = decompressed.decode('utf-8', errors='ignore')
+            except:
+                content = decompressed.decode('latin-1', errors='ignore')
+            
+            # Extract text from decompressed content
+            extracted = extract_text_from_pdf_content(content)
+            if extracted:
+                text_parts.append(extracted)
+        except zlib.error:
+            # Not compressed or different compression, try raw
+            pass
+        except Exception as e:
+            continue
+    
+    # Also try uncompressed content (older PDFs)
+    try:
+        pdf_content = pdf_bytes.decode('latin-1')
+        extracted = extract_text_from_pdf_content(pdf_content)
+        if extracted and len(extracted) > len(' '.join(text_parts)):
+            text_parts = [extracted]
+    except:
+        pass
+    
+    # Join and clean the text
+    raw_text = ' '.join(text_parts)
+    cleaned = clean_resume_text(raw_text)
+    
+    return cleaned
+
+
+def extract_text_from_pdf_content(content: str) -> str:
+    """Extract text strings from PDF content stream."""
+    text_parts = []
+    
+    # Pattern 1: Simple text strings - (text) Tj
+    pattern1 = re.compile(r'\(([^)]*)\)\s*Tj', re.DOTALL)
+    for match in pattern1.finditer(content):
+        text = decode_pdf_string(match.group(1))
+        if text.strip() and len(text) > 0:
+            text_parts.append(text)
+    
+    # Pattern 2: Text arrays - [(text) -100 (more)] TJ
+    pattern2 = re.compile(r'\[(.*?)\]\s*TJ', re.DOTALL)
+    for match in pattern2.finditer(content):
+        array_content = match.group(1)
+        strings = re.findall(r'\(([^)]*)\)', array_content)
+        line_parts = []
+        for s in strings:
+            text = decode_pdf_string(s)
+            if text:
+                line_parts.append(text)
+        if line_parts:
+            text_parts.append(''.join(line_parts))
+    
+    # Pattern 3: Hex strings - <48656C6C6F> Tj
+    pattern3 = re.compile(r'<([0-9A-Fa-f]+)>\s*Tj', re.DOTALL)
+    for match in pattern3.finditer(content):
+        hex_str = match.group(1)
+        try:
+            text = bytes.fromhex(hex_str).decode('utf-8', errors='ignore')
+            if text.strip():
+                text_parts.append(text)
+        except:
+            pass
+    
+    # Pattern 4: Look for BT...ET blocks and extract all text
+    pattern4 = re.compile(r'BT\s*(.*?)\s*ET', re.DOTALL)
+    for match in pattern4.finditer(content):
+        block = match.group(1)
+        # Get all strings in the block
+        strings = re.findall(r'\(([^)]+)\)', block)
+        block_text = []
+        for s in strings:
+            text = decode_pdf_string(s)
+            if text and len(text) > 0:
+                block_text.append(text)
+        if block_text:
+            text_parts.append(' '.join(block_text))
+    
+    # Join with spaces and newlines where appropriate
+    result = ' '.join(text_parts)
+    
+    # Try to restore some structure - add newlines after common patterns
+    result = re.sub(r'([.!?])\s+([A-Z])', r'\1\n\2', result)
+    
+    return result
+
+
+def decode_pdf_string(s: str) -> str:
+    """Decode PDF escape sequences in a string."""
+    # Common PDF escape sequences
+    s = s.replace('\\n', '\n')
+    s = s.replace('\\r', '\r')
+    s = s.replace('\\t', '\t')
+    s = s.replace('\\(', '(')
+    s = s.replace('\\)', ')')
+    s = s.replace('\\\\', '\\')
+    
+    # Decode octal sequences like \050 for '('
+    def octal_replace(match):
+        try:
+            return chr(int(match.group(1), 8))
+        except:
+            return match.group(0)
+    
+    s = re.sub(r'\\([0-7]{1,3})', octal_replace, s)
+    
+    # Remove non-printable characters except newlines/tabs
+    s = ''.join(c for c in s if c.isprintable() or c in '\n\t')
+    
+    return s
 
 
 def clean_resume_text(text: str) -> str:
@@ -690,215 +796,427 @@ def extract_docx_text(path: str) -> str:
         return ""
 
 # =========================
-# GEMINI AI (FIXED)
+# RESUME PARSER (Regex-based)
 # =========================
-# List of Gemini models to try in order (for fallback support)
-GEMINI_MODELS = [
-    "gemini-2.0-flash",           # Latest stable
-    "gemini-1.5-flash",           # Previous stable
-    "gemini-1.5-flash-latest",    # Latest 1.5 flash
-    "gemini-pro",                 # Fallback
-]
-
-
-def extract_portfolio_data_with_ai(resume_text: str, user_email: str) -> Dict[str, Any]:
-    if not GEMINI_API_KEY:
-        print("No GEMINI_API_KEY configured, using fallback")
-        return get_fallback_portfolio_data(resume_text, user_email)
-
-    # Check if we received raw PDF content (extraction failed)
-    is_raw_pdf = resume_text.startswith("[PDF_RAW_BASE64:")
+def extract_portfolio_data(resume_text: str, user_email: str) -> Dict[str, Any]:
+    """
+    Extract portfolio data from resume text using regex patterns.
+    No AI/external API required.
+    """
+    print(f"Parsing resume text ({len(resume_text)} characters)...")
     
-    prompt = f"""You are an expert at extracting structured data from resumes.
-Extract all portfolio data from this resume document.
-Return ONLY valid JSON with no additional text or explanation.
-
-IMPORTANT: Extract the ACTUAL name, title, skills, experience from the document.
-Do NOT use placeholder or generic values.
-
-Required JSON Schema:
-{{
-  "personal": {{ 
-    "name": "Full Name from resume", 
-    "title": "Job title/role from resume", 
-    "tagline": "A catchy one-liner about the person", 
-    "email": "{user_email or 'email from resume'}", 
-    "location": "City/Country from resume", 
-    "bio": "2-3 sentence professional summary" 
-  }},
-  "about": {{ 
-    "headline": "About section headline", 
-    "description": "Detailed professional description", 
-    "highlights": ["highlight1", "highlight2", "highlight3"] 
-  }},
-  "education": [
-    {{"institution": "University Name", "degree": "Degree Name", "field": "Field of Study", "year": "Year"}}
-  ],
-  "experience": [
-    {{"company": "Company Name", "title": "Job Title", "period": "Start - End", "description": "Job description"}}
-  ],
-  "projects": [
-    {{"name": "Project Name", "description": "Project description", "technologies": ["tech1", "tech2"]}}
-  ],
-  "skills": {{
-    "frontend": [{{"name": "React", "level": 85}}],
-    "backend": [{{"name": "Node.js", "level": 80}}],
-    "database": [{{"name": "PostgreSQL", "level": 75}}],
-    "devops": [{{"name": "AWS", "level": 70}}],
-    "other": [{{"name": "Problem Solving", "level": 90}}]
-  }},
-  "certifications": [
-    {{"name": "Certification Name", "issuer": "Issuing Organization", "year": "Year"}}
-  ],
-  "links": {{ 
-    "github": "github URL if found", 
-    "linkedin": "linkedin URL if found", 
-    "twitter": "", 
-    "email": "mailto:email@example.com" 
-  }}
-}}
-"""
-
-    # Build the content parts
-    parts = []
+    # Check if we received raw PDF marker (extraction failed)
+    if resume_text.startswith("[PDF_RAW_BASE64:"):
+        print("Cannot parse raw PDF without text extraction")
+        return get_empty_portfolio_data(user_email)
     
-    if is_raw_pdf:
-        # Use multimodal: send PDF directly to Gemini
-        pdf_base64 = resume_text.replace("[PDF_RAW_BASE64:", "").rstrip("]")
-        parts.append({
-            "inline_data": {
-                "mime_type": "application/pdf",
-                "data": pdf_base64
-            }
-        })
-        parts.append({"text": prompt})
-        print("Using multimodal PDF processing with Gemini")
-    else:
-        # Send as text
-        full_prompt = prompt + f"\n\nResume Content:\n{resume_text[:12000]}"
-        parts.append({"text": full_prompt})
-
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": parts
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": 4096
-        },
-        "safetySettings": [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-        ]
-    }
-
-    # Try each model in order until one works
-    last_error = None
-    for model_name in GEMINI_MODELS:
-        try:
-            # Try v1 API first (stable), then v1beta if needed
-            for api_version in ["v1", "v1beta"]:
-                url = (
-                    f"https://generativelanguage.googleapis.com/{api_version}/models/"
-                    f"{model_name}:generateContent"
-                    f"?key={GEMINI_API_KEY}"
-                )
-                
-                print(f"Trying Gemini model: {model_name} (API: {api_version})")
-
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST"
-                )
-
-                try:
-                    with urllib.request.urlopen(req, timeout=90) as r:
-                        res = json.loads(r.read().decode("utf-8"))
-
-                    text = res["candidates"][0]["content"]["parts"][0]["text"]
-                    # Clean up JSON from markdown code blocks
-                    text = re.sub(r"```json\s*", "", text)
-                    text = re.sub(r"```\s*", "", text)
-                    text = text.strip()
-                    
-                    # Find JSON object in the response
-                    json_match = re.search(r'\{[\s\S]*\}', text)
-                    if json_match:
-                        text = json_match.group(0)
-
-                    result = json.loads(text)
-                    print(f"Successfully extracted portfolio using {model_name} ({api_version})")
-                    print(f"Portfolio name: {result.get('personal', {}).get('name', 'Unknown')}")
-                    return result
-                    
-                except urllib.error.HTTPError as e:
-                    if e.code == 404:
-                        # Model not found, try next
-                        print(f"Model {model_name} not found on {api_version}, trying next...")
-                        continue
-                    elif e.code == 400:
-                        # Bad request - might be wrong API version, try next
-                        error_body = e.read().decode() if e.fp else ""
-                        print(f"Bad request for {model_name} ({api_version}): {error_body[:200]}")
-                        continue
-                    else:
-                        raise
-                        
-        except Exception as e:
-            last_error = e
-            print(f"Error with model {model_name}: {e}")
-            continue
+    text = resume_text
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
     
-    # All models failed
-    print(f"All Gemini models failed. Last error: {last_error}")
-    import traceback
-    traceback.print_exc()
-    return get_fallback_portfolio_data(resume_text, user_email)
-
-# =========================
-# FALLBACK
-# =========================
-def get_fallback_portfolio_data(resume_text: str, user_email: str) -> Dict[str, Any]:
-    email_match = re.search(r"[\w.-]+@[\w.-]+\.\w+", resume_text)
-    email = email_match.group(0) if email_match else user_email or "contact@example.com"
-
-    return {
+    # Extract email
+    email_match = re.search(r'[\w.-]+@[\w.-]+\.\w+', text)
+    email = email_match.group(0) if email_match else user_email or ""
+    
+    # Extract phone
+    phone_match = re.search(r'[\+]?[\d\s\-\(\)]{10,}', text)
+    phone = phone_match.group(0).strip() if phone_match else ""
+    
+    # Extract name (usually first non-empty line that looks like a name)
+    name = extract_name(lines)
+    
+    # Extract title/role
+    title = extract_title(text, lines)
+    
+    # Extract location
+    location = extract_location(text)
+    
+    # Extract links
+    github = extract_url(text, r'github\.com/[\w-]+')
+    linkedin = extract_url(text, r'linkedin\.com/in/[\w-]+')
+    
+    # Extract skills
+    skills = extract_skills(text)
+    
+    # Extract experience
+    experience = extract_experience(text)
+    
+    # Extract education
+    education = extract_education(text)
+    
+    # Extract projects
+    projects = extract_projects(text)
+    
+    # Extract certifications
+    certifications = extract_certifications(text)
+    
+    # Build bio from summary section or first paragraph
+    bio = extract_summary(text) or f"{title} with expertise in {', '.join(list(skills.get('other', []))[:3]) or 'software development'}."
+    
+    result = {
         "personal": {
-            "name": resume_text.split("\n")[0][:40] or "Professional",
-            "title": "Software Developer",
-            "tagline": "Building modern solutions",
+            "name": name,
+            "title": title,
+            "tagline": f"{title} | {location}" if location else title,
             "email": email,
-            "location": "India",
-            "bio": "Experienced developer with a passion for scalable systems."
+            "phone": phone,
+            "location": location,
+            "bio": bio
         },
         "about": {
             "headline": "About Me",
-            "description": "Skilled full-stack engineer.",
-            "highlights": ["Full Stack", "Clean Code", "Scalable Systems"]
+            "description": bio,
+            "highlights": extract_highlights(text, skills)
+        },
+        "education": education,
+        "experience": experience,
+        "projects": projects,
+        "skills": skills,
+        "certifications": certifications,
+        "links": {
+            "github": f"https://{github}" if github else "",
+            "linkedin": f"https://{linkedin}" if linkedin else "",
+            "twitter": "",
+            "email": f"mailto:{email}" if email else ""
+        }
+    }
+    
+    print(f"Extracted portfolio for: {name}")
+    return result
+
+
+def extract_name(lines: List[str]) -> str:
+    """Extract name from resume lines."""
+    for line in lines[:5]:  # Check first 5 lines
+        # Skip lines that look like headers or contact info
+        if any(skip in line.lower() for skip in ['resume', 'cv', 'curriculum', '@', 'http', 'phone', 'email', 'address']):
+            continue
+        # Name is usually 2-4 words, capitalized
+        words = line.split()
+        if 1 <= len(words) <= 5 and all(w[0].isupper() for w in words if w.isalpha()):
+            # Filter out single letters and titles
+            if len(line) > 3 and len(line) < 50:
+                return line
+    return lines[0][:40] if lines else "Professional"
+
+
+def extract_title(text: str, lines: List[str]) -> str:
+    """Extract job title from resume."""
+    # Common title patterns
+    title_patterns = [
+        r'(?:software|senior|junior|lead|full[- ]?stack|front[- ]?end|back[- ]?end|web|mobile|data|ml|ai|cloud|devops|qa|test|ui/?ux)\s*(?:developer|engineer|architect|designer|analyst|scientist|specialist)',
+        r'(?:project|product|program|engineering|technical)\s*manager',
+        r'(?:cto|ceo|vp|director|head)\s*(?:of)?\s*(?:engineering|technology|development)?',
+    ]
+    
+    for pattern in title_patterns:
+        match = re.search(pattern, text.lower())
+        if match:
+            return match.group(0).title()
+    
+    # Check lines after name for title
+    for line in lines[1:6]:
+        line_lower = line.lower()
+        if any(kw in line_lower for kw in ['developer', 'engineer', 'designer', 'manager', 'analyst', 'architect']):
+            return line[:60]
+    
+    return "Software Developer"
+
+
+def extract_location(text: str) -> str:
+    """Extract location from resume."""
+    # Common location patterns
+    location_patterns = [
+        r'(?:location|address|city|based in)[:\s]*([A-Za-z\s,]+)',
+        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*(?:India|USA|UK|Canada|Australia|Germany|France|Singapore)',
+        r'(?:Bangalore|Bengaluru|Mumbai|Delhi|Hyderabad|Chennai|Pune|Kolkata|New York|San Francisco|London|Berlin|Singapore)',
+    ]
+    
+    for pattern in location_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            loc = match.group(1) if match.lastindex else match.group(0)
+            return loc.strip()[:50]
+    
+    return ""
+
+
+def extract_url(text: str, pattern: str) -> str:
+    """Extract URL matching pattern."""
+    match = re.search(pattern, text, re.IGNORECASE)
+    return match.group(0) if match else ""
+
+
+def extract_skills(text: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Extract skills categorized by type."""
+    text_lower = text.lower()
+    
+    # Skill categories and keywords
+    skill_categories = {
+        "frontend": ["react", "angular", "vue", "javascript", "typescript", "html", "css", "sass", "tailwind", "bootstrap", "jquery", "next.js", "redux", "webpack"],
+        "backend": ["python", "java", "node.js", "nodejs", "express", "django", "flask", "spring", "php", "ruby", "rails", "go", "golang", "rust", "c#", ".net", "fastapi"],
+        "database": ["mysql", "postgresql", "postgres", "mongodb", "redis", "elasticsearch", "oracle", "sql server", "sqlite", "dynamodb", "cassandra", "firebase"],
+        "devops": ["aws", "azure", "gcp", "docker", "kubernetes", "jenkins", "ci/cd", "terraform", "ansible", "linux", "git", "github actions", "gitlab"],
+        "other": ["machine learning", "deep learning", "nlp", "computer vision", "tensorflow", "pytorch", "agile", "scrum", "jira", "rest api", "graphql", "microservices"]
+    }
+    
+    found_skills: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in skill_categories}
+    
+    for category, keywords in skill_categories.items():
+        for skill in keywords:
+            if skill in text_lower:
+                # Check it's a word boundary match
+                if re.search(rf'\b{re.escape(skill)}\b', text_lower):
+                    found_skills[category].append({
+                        "name": skill.title() if len(skill) > 3 else skill.upper(),
+                        "level": 80
+                    })
+    
+    # Remove empty categories
+    found_skills = {k: v for k, v in found_skills.items() if v}
+    
+    # If no skills found, add some defaults
+    if not found_skills:
+        found_skills = {
+            "other": [{"name": "Problem Solving", "level": 80}]
+        }
+    
+    return found_skills
+
+
+def extract_experience(text: str) -> List[Dict[str, Any]]:
+    """Extract work experience from resume."""
+    experience = []
+    
+    # Find experience section
+    exp_section = re.search(
+        r'(?:work\s*)?experience[s]?[:\s]*\n([\s\S]*?)(?=\n(?:education|projects?|skills?|certification|$))',
+        text, re.IGNORECASE
+    )
+    
+    if exp_section:
+        exp_text = exp_section.group(1)
+        
+        # Pattern for job entries
+        job_pattern = re.compile(
+            r'([A-Z][^\n]{5,60})\s*[-–|]\s*([A-Z][^\n]{3,40})\s*\n\s*'
+            r'(?:(\d{4}\s*[-–]\s*(?:\d{4}|present|current)))?',
+            re.IGNORECASE
+        )
+        
+        for match in job_pattern.finditer(exp_text):
+            title = match.group(1).strip()
+            company = match.group(2).strip()
+            period = match.group(3).strip() if match.group(3) else ""
+            
+            # Get description (next few lines)
+            start_pos = match.end()
+            end_pos = exp_text.find('\n\n', start_pos)
+            desc = exp_text[start_pos:end_pos if end_pos > 0 else start_pos + 200].strip()
+            
+            experience.append({
+                "company": company,
+                "title": title,
+                "period": period,
+                "description": desc[:300] if desc else f"Worked as {title}"
+            })
+    
+    # Simple fallback - look for company names and dates
+    if not experience:
+        company_pattern = re.compile(
+            r'(?:at|@)\s+([A-Z][A-Za-z\s&]+?)(?:\s+|,|\n)',
+            re.MULTILINE
+        )
+        date_pattern = re.compile(r'(\d{4})\s*[-–]\s*(\d{4}|present|current)', re.IGNORECASE)
+        
+        companies = company_pattern.findall(text)
+        dates = date_pattern.findall(text)
+        
+        for i, company in enumerate(companies[:4]):
+            period = f"{dates[i][0]} - {dates[i][1]}" if i < len(dates) else ""
+            experience.append({
+                "company": company.strip(),
+                "title": "Software Developer",
+                "period": period,
+                "description": f"Worked at {company.strip()}"
+            })
+    
+    return experience[:6]  # Limit to 6 entries
+
+
+def extract_education(text: str) -> List[Dict[str, Any]]:
+    """Extract education from resume."""
+    education = []
+    
+    # Common degree patterns
+    degree_patterns = [
+        r"((?:bachelor|master|ph\.?d|b\.?tech|m\.?tech|b\.?e|m\.?e|b\.?sc|m\.?sc|b\.?a|m\.?a|mba|bca|mca)[^\n]{0,60})",
+        r"((?:computer science|information technology|software engineering|electrical engineering|mechanical engineering)[^\n]{0,40})"
+    ]
+    
+    # Find education section
+    edu_section = re.search(
+        r'education[:\s]*\n([\s\S]*?)(?=\n(?:experience|projects?|skills?|certification|$))',
+        text, re.IGNORECASE
+    )
+    
+    search_text = edu_section.group(1) if edu_section else text
+    
+    for pattern in degree_patterns:
+        for match in re.finditer(pattern, search_text, re.IGNORECASE):
+            degree_text = match.group(1).strip()
+            
+            # Extract year
+            year_match = re.search(r'(\d{4})', degree_text)
+            year = year_match.group(1) if year_match else ""
+            
+            # Try to find institution
+            inst_match = re.search(
+                r'(?:from|at|,)\s*([A-Z][A-Za-z\s]+(?:University|Institute|College|School))',
+                search_text[match.start():match.start()+200],
+                re.IGNORECASE
+            )
+            institution = inst_match.group(1).strip() if inst_match else ""
+            
+            education.append({
+                "degree": degree_text[:80],
+                "institution": institution or "University",
+                "field": "",
+                "year": year
+            })
+    
+    return education[:4]  # Limit to 4 entries
+
+
+def extract_projects(text: str) -> List[Dict[str, Any]]:
+    """Extract projects from resume."""
+    projects = []
+    
+    # Find projects section
+    proj_section = re.search(
+        r'projects?[:\s]*\n([\s\S]*?)(?=\n(?:education|experience|skills?|certification|$))',
+        text, re.IGNORECASE
+    )
+    
+    if proj_section:
+        proj_text = proj_section.group(1)
+        
+        # Split by double newline or bullet points
+        project_blocks = re.split(r'\n\s*\n|\n\s*[-•]\s*', proj_text)
+        
+        for block in project_blocks[:6]:
+            block = block.strip()
+            if len(block) > 20:
+                # First line is usually project name
+                lines = block.split('\n')
+                name = lines[0].strip()[:60]
+                desc = ' '.join(lines[1:])[:200] if len(lines) > 1 else ""
+                
+                # Extract technologies mentioned
+                techs = []
+                tech_keywords = ['react', 'node', 'python', 'java', 'aws', 'docker', 'mongodb', 'postgresql', 'typescript', 'javascript']
+                for tech in tech_keywords:
+                    if tech in block.lower():
+                        techs.append(tech.title())
+                
+                if name and not any(skip in name.lower() for skip in ['experience', 'education', 'skills']):
+                    projects.append({
+                        "name": name,
+                        "description": desc or f"Project: {name}",
+                        "technologies": techs[:4]
+                    })
+    
+    return projects[:6]
+
+
+def extract_certifications(text: str) -> List[Dict[str, Any]]:
+    """Extract certifications from resume."""
+    certifications = []
+    
+    cert_patterns = [
+        r'(aws\s+(?:certified|solutions?\s+architect|developer|sysops)[^\n]{0,40})',
+        r'((?:google|azure|oracle|cisco|comptia|pmp|scrum)[^\n]{0,50}(?:certified|certificate|certification)?)',
+        r'((?:certified|certificate)\s+[^\n]{10,50})',
+    ]
+    
+    for pattern in cert_patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            cert_name = match.group(1).strip()
+            year_match = re.search(r'(\d{4})', cert_name)
+            
+            certifications.append({
+                "name": cert_name[:60],
+                "issuer": "",
+                "year": year_match.group(1) if year_match else ""
+            })
+    
+    return certifications[:5]
+
+
+def extract_summary(text: str) -> str:
+    """Extract professional summary/objective from resume."""
+    summary_patterns = [
+        r'(?:summary|objective|profile|about)[:\s]*\n([^\n]{50,300})',
+        r'^([A-Z][^.]{50,250}\.)',  # First sentence if it's long enough
+    ]
+    
+    for pattern in summary_patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+    
+    return ""
+
+
+def extract_highlights(text: str, skills: Dict[str, List]) -> List[str]:
+    """Generate highlights from extracted data."""
+    highlights = []
+    
+    # Count skills per category
+    for category, skill_list in skills.items():
+        if skill_list:
+            highlights.append(f"{category.title()}: {len(skill_list)}+ technologies")
+    
+    # Add experience highlight
+    exp_years = re.search(r'(\d+)\+?\s*years?\s*(?:of)?\s*experience', text, re.IGNORECASE)
+    if exp_years:
+        highlights.append(f"{exp_years.group(1)}+ years of experience")
+    
+    # Add education highlight
+    if 'master' in text.lower() or 'ph.d' in text.lower():
+        highlights.append("Advanced Degree")
+    elif 'bachelor' in text.lower() or 'b.tech' in text.lower():
+        highlights.append("Bachelor's Degree")
+    
+    return highlights[:5] or ["Problem Solver", "Team Player", "Quick Learner"]
+
+
+def get_empty_portfolio_data(user_email: str) -> Dict[str, Any]:
+    """Return empty portfolio structure when parsing fails."""
+    return {
+        "personal": {
+            "name": "Your Name",
+            "title": "Professional",
+            "tagline": "Your tagline here",
+            "email": user_email or "",
+            "phone": "",
+            "location": "",
+            "bio": "Add your professional summary here."
+        },
+        "about": {
+            "headline": "About Me",
+            "description": "Add your description here.",
+            "highlights": []
         },
         "education": [],
         "experience": [],
         "projects": [],
-        "skills": {
-            "frontend": [{"name": "React", "level": 85}],
-            "backend": [{"name": "Node.js", "level": 80}],
-            "database": [{"name": "PostgreSQL", "level": 75}],
-            "devops": [{"name": "AWS", "level": 70}],
-            "other": [{"name": "Problem Solving", "level": 90}]
-        },
+        "skills": {},
         "certifications": [],
         "links": {
             "github": "",
             "linkedin": "",
             "twitter": "",
-            "email": f"mailto:{email}"
+            "email": f"mailto:{user_email}" if user_email else ""
         }
     }
 

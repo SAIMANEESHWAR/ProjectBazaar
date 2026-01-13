@@ -61,6 +61,8 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
   const [selectedTemplate, setSelectedTemplate] = useState<string>('modern');
   const [previewHtml, setPreviewHtml] = useState<string>('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [extractedText, setExtractedText] = useState<string>('');
+  const [showExtractedText, setShowExtractedText] = useState(false);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -142,7 +144,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
       updateStatus('parsing', 'Parsing your resume document...', 30);
       await simulateDelay(500);
 
-      updateStatus('extracting', 'AI is extracting your professional data...', 50);
+      updateStatus('extracting', 'Extracting your professional data...', 50);
 
       if (DEMO_MODE) {
         // Demo portfolio data
@@ -178,6 +180,10 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
       }
 
       setPortfolioData(result.portfolioData);
+      // Store the extracted text to show to user
+      if (result.extractedText) {
+        setExtractedText(result.extractedText);
+      }
       updateStatus('selecting', 'Choose your portfolio template', 60);
 
     } catch (error) {
@@ -301,6 +307,8 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
     setPortfolioData(null);
     setPreviewHtml('');
     setSelectedTemplate('modern');
+    setExtractedText('');
+    setShowExtractedText(false);
     setStatus({ stage: 'idle', message: 'Upload your resume to get started', progress: 0 });
     setDeploymentResult(null);
   };
@@ -339,7 +347,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 mb-4">
               <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-              <span className="text-sm text-violet-400">AI-Powered Portfolio Builder</span>
+              <span className="text-sm text-violet-400">Smart Portfolio Builder</span>
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold mb-3">
               Build Your <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">Portfolio</span>
@@ -499,6 +507,39 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                     <p><span className="text-gray-500">Experience:</span> <span className="text-white">{portfolioData.experience?.length || 0} positions</span></p>
                     <p><span className="text-gray-500">Skills:</span> <span className="text-white">{Object.values(portfolioData.skills || {}).flat().length} skills</span></p>
                   </div>
+                  
+                  {/* Show Extracted Text Toggle */}
+                  {extractedText && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <button
+                        onClick={() => setShowExtractedText(!showExtractedText)}
+                        className="flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300 transition-colors"
+                      >
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${showExtractedText ? 'rotate-90' : ''}`} 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        {showExtractedText ? 'Hide' : 'Show'} extracted text
+                      </button>
+                      
+                      {showExtractedText && (
+                        <div className="mt-3">
+                          <div className="bg-[#0a0a0f] rounded-xl p-4 max-h-64 overflow-y-auto">
+                            <pre className="text-xs text-gray-400 whitespace-pre-wrap font-mono leading-relaxed">
+                              {extractedText}
+                            </pre>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            This is the raw text extracted from your resume. The parser uses this to identify your information.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Deploy Button */}

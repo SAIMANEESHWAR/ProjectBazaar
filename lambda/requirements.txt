@@ -4,9 +4,8 @@
 # PDF extraction (PyPDF2 is the most compatible with Lambda)
 PyPDF2>=3.0.0
 
-# Optional: Better PDF extraction (requires system dependencies)
+# Optional: Better PDF extraction for complex layouts
 # pdfplumber>=0.10.0
 
-# Optional: OCR support (requires poppler and tesseract)
-# pdf2image>=1.16.0
-# pytesseract>=0.3.10
+# Note: This Lambda includes a basic PDF extractor using Python's built-in zlib
+# that works without any external dependencies. PyPDF2 is recommended for better results.
