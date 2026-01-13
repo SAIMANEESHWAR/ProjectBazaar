@@ -28,7 +28,13 @@ const Header: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks = [
+  interface NavLink {
+    name: string;
+    onClick?: () => void;
+    highlight?: boolean;
+  }
+
+  const navLinks: NavLink[] = [
     { name: 'Projects', onClick: () => {
       const element = document.getElementById('projects');
       if (element) element.scrollIntoView({ behavior: 'smooth' });
@@ -142,13 +148,13 @@ const Header: React.FC = () => {
                     setIsOpen(false);
                   }}
                   className={`transition-colors duration-200 font-medium py-2 ${
-                    'highlight' in link && link.highlight
+                    link.highlight
                       ? 'text-violet-400'
                       : 'text-white/70 hover:text-white'
                   }`}
                 >
                   {link.name}
-                  {'highlight' in link && link.highlight && (
+                  {link.highlight && (
                     <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-semibold bg-violet-500/20 text-violet-400 rounded">NEW</span>
                   )}
                 </button>
