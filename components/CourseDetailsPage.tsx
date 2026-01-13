@@ -1,15 +1,63 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../App';
 import type { Course } from './BuyerCoursesPage';
+import { createCourseOrder, verifyCoursePayment, enrollFreeCourse, getPurchasedCourses } from '../services/buyerApi';
+
+// Declare Razorpay type for TypeScript
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
+}
 
 interface CourseDetailsPageProps {
     course: Course;
     onBack: () => void;
+    onPurchaseSuccess?: () => void;
 }
 
-const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack }) => {
+const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, onPurchaseSuccess }) => {
+    const { userId, userEmail, isLoggedIn } = useAuth();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'instructor'>('overview');
     const [selectedPdf, setSelectedPdf] = useState<{ name: string; url: string } | null>(null);
     const [pdfPages, setPdfPages] = useState<Array<{ page: number; url: string }>>([]);
+    const [isPurchasing, setIsPurchasing] = useState(false);
+    const [purchaseError, setPurchaseError] = useState<string | null>(null);
+    const [isAlreadyPurchased, setIsAlreadyPurchased] = useState(false);
+    const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+
+    // Check if user already purchased this course
+    useEffect(() => {
+        const checkPurchaseStatus = async () => {
+            if (!userId) return;
+            
+            try {
+                const response = await getPurchasedCourses(userId);
+                if (response.success && response.purchasedCourses) {
+                    const isPurchased = response.purchasedCourses.some(
+                        (pc) => pc.courseId === course.courseId
+                    );
+                    setIsAlreadyPurchased(isPurchased);
+                }
+            } catch (err) {
+                console.error('Error checking purchase status:', err);
+            }
+        };
+
+        checkPurchaseStatus();
+    }, [userId, course.courseId]);
+
+    // Load Razorpay SDK
+    useEffect(() => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        document.body.appendChild(script);
+
+        return () => {
+            document.body.removeChild(script);
+        };
+    }, []);
 
     // Load PDF and extract first 3 pages
     useEffect(() => {
@@ -25,6 +73,109 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack })
             setPdfPages(pages);
         }
     }, [selectedPdf]);
+
+    // Handle course purchase with Razorpay
+    const handlePurchase = async () => {
+        if (!isLoggedIn || !userId) {
+            setPurchaseError('Please log in to purchase this course');
+            return;
+        }
+
+        if (isAlreadyPurchased) {
+            setPurchaseError('You have already purchased this course');
+            return;
+        }
+
+        setIsPurchasing(true);
+        setPurchaseError(null);
+
+        try {
+            // Handle free course enrollment
+            if (course.isFree || course.price === 0) {
+                const response = await enrollFreeCourse(userId, course.courseId);
+                
+                if (response.success) {
+                    setPurchaseSuccess(true);
+                    setIsAlreadyPurchased(true);
+                    onPurchaseSuccess?.();
+                } else {
+                    setPurchaseError(response.error || 'Failed to enroll in course');
+                }
+                setIsPurchasing(false);
+                return;
+            }
+
+            // Create Razorpay order for paid course
+            // IMPORTANT: Always use INR for Razorpay to enable all payment methods
+            // USD/other currencies only support Cards - no UPI, Wallets, Netbanking
+            const orderResponse = await createCourseOrder({
+                userId,
+                courseId: course.courseId,
+                amount: course.price,
+                currency: 'INR', // Force INR to enable UPI, Wallets, Netbanking
+                userEmail: userEmail || undefined,
+            });
+
+            if (!orderResponse.success || !orderResponse.razorpayOrderId) {
+                throw new Error(orderResponse.error || 'Failed to create order');
+            }
+
+            // Initialize Razorpay checkout
+            const options = {
+                key: orderResponse.key,
+                amount: orderResponse.amount,
+                currency: orderResponse.currency,
+                name: orderResponse.name || 'ProjectBazaar',
+                description: orderResponse.description || `Purchase: ${course.title}`,
+                order_id: orderResponse.razorpayOrderId,
+                prefill: orderResponse.prefill,
+                theme: {
+                    color: '#f97316', // Orange theme
+                },
+                handler: async function (response: any) {
+                    // Verify payment on backend
+                    try {
+                        const verifyResponse = await verifyCoursePayment({
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_signature: response.razorpay_signature,
+                            userId,
+                            courseId: course.courseId,
+                        });
+
+                        if (verifyResponse.success) {
+                            setPurchaseSuccess(true);
+                            setIsAlreadyPurchased(true);
+                            onPurchaseSuccess?.();
+                        } else {
+                            setPurchaseError(verifyResponse.error || 'Payment verification failed');
+                        }
+                    } catch (err) {
+                        console.error('Payment verification error:', err);
+                        setPurchaseError('Payment verification failed. Please contact support.');
+                    }
+                    setIsPurchasing(false);
+                },
+                modal: {
+                    ondismiss: function () {
+                        setIsPurchasing(false);
+                    },
+                },
+            };
+
+            const razorpay = new window.Razorpay(options);
+            razorpay.on('payment.failed', function (response: any) {
+                console.error('Payment failed:', response.error);
+                setPurchaseError(response.error.description || 'Payment failed');
+                setIsPurchasing(false);
+            });
+            razorpay.open();
+        } catch (error) {
+            console.error('Purchase error:', error);
+            setPurchaseError(error instanceof Error ? error.message : 'Failed to initiate purchase');
+            setIsPurchasing(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -440,9 +591,92 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack })
                                 </div>
                             </div>
 
-                            <button className="w-full bg-orange-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors mb-4">
-                                {course.isFree ? 'Enroll Now' : 'Purchase Course'}
-                            </button>
+                            {/* Purchase Success Message */}
+                            {purchaseSuccess && (
+                                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-green-700">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span className="font-medium">
+                                            {course.isFree ? 'Successfully enrolled!' : 'Purchase successful!'}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-green-600 mt-1">You now have full access to this course.</p>
+                                </div>
+                            )}
+
+                            {/* Purchase Error Message */}
+                            {purchaseError && (
+                                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-red-700">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span className="font-medium">Error</span>
+                                    </div>
+                                    <p className="text-sm text-red-600 mt-1">{purchaseError}</p>
+                                </div>
+                            )}
+
+                            {/* Purchase Button */}
+                            {isAlreadyPurchased || purchaseSuccess ? (
+                                <button 
+                                    className="w-full bg-green-500 text-white font-semibold py-3 px-4 rounded-lg mb-4 flex items-center justify-center gap-2"
+                                    disabled
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    {course.isFree ? 'Enrolled' : 'Purchased'}
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handlePurchase}
+                                    disabled={isPurchasing || !isLoggedIn}
+                                    className={`w-full font-semibold py-3 px-4 rounded-lg transition-colors mb-4 flex items-center justify-center gap-2 ${
+                                        isPurchasing || !isLoggedIn
+                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                            : 'bg-orange-500 text-white hover:bg-orange-600'
+                                    }`}
+                                >
+                                    {isPurchasing ? (
+                                        <>
+                                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                            </svg>
+                                            Processing...
+                                        </>
+                                    ) : !isLoggedIn ? (
+                                        'Login to Purchase'
+                                    ) : course.isFree ? (
+                                        <>
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                            Enroll Now
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                            Purchase Course
+                                        </>
+                                    )}
+                                </button>
+                            )}
+
+                            {/* Secure Payment Badge */}
+                            {!course.isFree && !isAlreadyPurchased && !purchaseSuccess && (
+                                <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-4">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Secure payment via Razorpay
+                                </div>
+                            )}
 
                             <div className="space-y-4 pt-4 border-t border-gray-200">
                                 <div className="flex justify-between text-sm">
@@ -464,6 +698,21 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack })
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Money Back Guarantee */}
+                            {!course.isFree && (
+                                <div className="mt-6 pt-4 border-t border-gray-200">
+                                    <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
+                                        <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                        </svg>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 text-sm">30-Day Guarantee</p>
+                                            <p className="text-xs text-gray-600">Full refund if not satisfied</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

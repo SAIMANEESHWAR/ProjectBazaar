@@ -9,6 +9,8 @@ const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazo
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
 const FETCH_HACKATHONS_ENDPOINT = 'https://zv6v6bsuie.execute-api.ap-south-2.amazonaws.com/default/get_hackathons_details';
+// Course purchase Lambda endpoint
+const COURSE_PURCHASE_ENDPOINT = 'https://ukcbl5e5p7.execute-api.ap-south-2.amazonaws.com/default/course_purchase_handler';
 
 export interface CartItem {
   projectId: string;
@@ -800,6 +802,267 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
         code: 'NETWORK_ERROR',
         message: error instanceof Error ? error.message : 'Failed to fetch hackathons',
       },
+    };
+  }
+};
+
+// =========================
+// COURSE PURCHASE APIs
+// =========================
+
+/**
+ * Course purchase types
+ */
+export interface CoursePurchase {
+  courseId: string;
+  courseTitle: string;
+  priceAtPurchase: number;
+  purchasedAt: string;
+  paymentId: string;
+  orderStatus: string;
+}
+
+export interface PurchasedCourse {
+  courseId: string;
+  title: string;
+  description: string;
+  category: string;
+  subCategory?: string;
+  level: string;
+  language: string;
+  price: number;
+  currency: string;
+  isFree: boolean;
+  thumbnailUrl?: string;
+  promoVideoUrl?: string;
+  status: string;
+  visibility: string;
+  likesCount: number;
+  purchasesCount: number;
+  viewsCount: number;
+  createdAt: string;
+  updatedAt: string;
+  instructor: {
+    adminId: string;
+    name: string;
+  };
+  content: {
+    pdfs: Array<{ name: string; url: string }>;
+    videos: Array<{ title: string; url: string }>;
+    notes: Array<{ name: string; url: string }>;
+    additionalResources: Array<{ name: string; url: string }>;
+  };
+  // Purchase metadata
+  purchasedAt?: string;
+  priceAtPurchase?: number;
+  paymentId?: string;
+}
+
+export interface CreateCourseOrderRequest {
+  userId: string;
+  courseId: string;
+  amount: number;
+  currency?: string;
+  userEmail?: string;
+  userPhone?: string;
+}
+
+export interface CreateCourseOrderResponse {
+  success: boolean;
+  orderId?: string;
+  razorpayOrderId?: string;
+  amount?: number;
+  currency?: string;
+  key?: string;
+  name?: string;
+  description?: string;
+  courseId?: string;
+  courseTitle?: string;
+  prefill?: {
+    email?: string;
+    contact?: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+export interface VerifyCoursePaymentRequest {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+  userId: string;
+  courseId: string;
+}
+
+export interface VerifyCoursePaymentResponse {
+  success: boolean;
+  message?: string;
+  orderId?: string;
+  courseId?: string;
+  courseTitle?: string;
+  paymentId?: string;
+  error?: string;
+}
+
+export interface GetPurchasedCoursesResponse {
+  success: boolean;
+  purchasedCourses?: PurchasedCourse[];
+  count?: number;
+  error?: string;
+}
+
+/**
+ * Create Razorpay order for course purchase
+ */
+export const createCourseOrder = async (
+  request: CreateCourseOrderRequest
+): Promise<CreateCourseOrderResponse> => {
+  try {
+    const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'CREATE_COURSE_ORDER',
+        ...request,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to create course order',
+        message: data.message,
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error creating course order:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to create course order',
+    };
+  }
+};
+
+/**
+ * Verify Razorpay payment and complete course purchase
+ */
+export const verifyCoursePayment = async (
+  request: VerifyCoursePaymentRequest
+): Promise<VerifyCoursePaymentResponse> => {
+  try {
+    const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'COURSE_PAYMENT_WEBHOOK',
+        ...request,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to verify payment',
+        message: data.message,
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error verifying course payment:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to verify course payment',
+    };
+  }
+};
+
+/**
+ * Enroll in a free course
+ */
+export const enrollFreeCourse = async (
+  userId: string,
+  courseId: string
+): Promise<ApiResponse & { courseTitle?: string }> => {
+  try {
+    const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'ENROLL_FREE_COURSE',
+        userId,
+        courseId,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to enroll in course',
+        message: data.message,
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error enrolling in free course:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to enroll in course',
+    };
+  }
+};
+
+/**
+ * Get user's purchased courses
+ */
+export const getPurchasedCourses = async (
+  userId: string
+): Promise<GetPurchasedCoursesResponse> => {
+  try {
+    const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'GET_PURCHASED_COURSES',
+        userId,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Failed to fetch purchased courses',
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching purchased courses:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 };

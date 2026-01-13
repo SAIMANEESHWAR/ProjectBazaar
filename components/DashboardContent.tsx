@@ -27,6 +27,8 @@ import CourseDetailsPage from './CourseDetailsPage';
 import HackathonsPage from './HackathonsPage';
 import Pagination from './Pagination';
 import BuildPortfolioPage from './BuildPortfolioPage';
+import MyCoursesPage from './MyCoursesPage';
+import { PurchasedCourse } from '../services/buyerApi';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -507,6 +509,40 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                         onViewCourse={(course) => {
                             setPreviousView('courses');
                             setSelectedCourse(course);
+                            setActiveView('course-details');
+                        }}
+                    />
+                );
+            case 'my-courses':
+                return (
+                    <MyCoursesPage 
+                        onViewCourse={(course: PurchasedCourse) => {
+                            // Convert PurchasedCourse to Course type for course details
+                            const courseForDetails: Course = {
+                                courseId: course.courseId,
+                                title: course.title,
+                                description: course.description,
+                                category: course.category,
+                                subCategory: course.subCategory,
+                                level: course.level,
+                                language: course.language,
+                                price: course.price,
+                                currency: course.currency,
+                                isFree: course.isFree,
+                                thumbnailUrl: course.thumbnailUrl,
+                                promoVideoUrl: course.promoVideoUrl,
+                                status: course.status,
+                                visibility: course.visibility,
+                                likesCount: course.likesCount,
+                                purchasesCount: course.purchasesCount,
+                                viewsCount: course.viewsCount,
+                                createdAt: course.createdAt,
+                                updatedAt: course.updatedAt,
+                                instructor: course.instructor,
+                                content: course.content,
+                            };
+                            setPreviousView('my-courses');
+                            setSelectedCourse(courseForDetails);
                             setActiveView('course-details');
                         }}
                     />
