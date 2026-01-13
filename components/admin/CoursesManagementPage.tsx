@@ -78,6 +78,8 @@ const CoursesManagementPage: React.FC = () => {
     const [allPurchases, setAllPurchases] = useState<Array<CoursePurchase & { userName: string; userEmail: string; userId: string }>>([]);
     const [isPurchasesLoading, setIsPurchasesLoading] = useState(false);
     const [purchaseStats, setPurchaseStats] = useState({ totalRevenue: 0, totalPurchases: 0, uniqueBuyers: 0 });
+    const [purchaseViewMode, setPurchaseViewMode] = useState<'table' | 'grid'>('table');
+    const [searchPurchase, setSearchPurchase] = useState('');
     
     const [formData, setFormData] = useState<CourseFormData>({
         title: '',
@@ -934,12 +936,63 @@ const CoursesManagementPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Purchases Table */}
+                    {/* Purchases Section with View Toggle */}
                     <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                        {/* Header with Search and View Toggle */}
                         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="text-lg font-semibold text-gray-900">All Course Purchases</h3>
-                            <p className="text-sm text-gray-500 mt-1">Complete history of course purchases by users</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">All Course Purchases</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Complete history of course purchases by users</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {/* Search */}
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Search purchases..."
+                                            value={searchPurchase}
+                                            onChange={(e) => setSearchPurchase(e.target.value)}
+                                            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent w-48"
+                                        />
+                                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </div>
+                                    {/* View Toggle */}
+                                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setPurchaseViewMode('table')}
+                                            className={`p-2 rounded-md transition-colors ${
+                                                purchaseViewMode === 'table'
+                                                    ? 'bg-white text-orange-600 shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                            title="Table View"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => setPurchaseViewMode('grid')}
+                                            className={`p-2 rounded-md transition-colors ${
+                                                purchaseViewMode === 'grid'
+                                                    ? 'bg-white text-orange-600 shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                            title="Grid View"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Content */}
                         {isPurchasesLoading ? (
                             <div className="p-12 text-center">
                                 <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500"></div>
@@ -954,51 +1007,111 @@ const CoursesManagementPage: React.FC = () => {
                                 <p className="text-sm text-gray-400">Course purchases will appear here when users buy courses</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gray-50 border-b border-gray-200">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Buyer</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Course</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment ID</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {allPurchases.map((purchase, index) => (
-                                            <tr key={`${purchase.courseId}-${purchase.paymentId}-${index}`} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center">
-                                                        <div className="h-10 w-10 flex-shrink-0">
-                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
-                                                                {purchase.userName.charAt(0).toUpperCase()}
+                            <>
+                                {/* Table View */}
+                                {purchaseViewMode === 'table' && (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Buyer</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Course</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {allPurchases
+                                                    .filter(p => 
+                                                        searchPurchase === '' ||
+                                                        p.userName.toLowerCase().includes(searchPurchase.toLowerCase()) ||
+                                                        p.userEmail.toLowerCase().includes(searchPurchase.toLowerCase()) ||
+                                                        p.courseTitle.toLowerCase().includes(searchPurchase.toLowerCase())
+                                                    )
+                                                    .map((purchase, index) => (
+                                                    <tr key={`${purchase.courseId}-${purchase.paymentId}-${index}`} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center">
+                                                                <div className="h-10 w-10 flex-shrink-0">
+                                                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
+                                                                        {purchase.userName.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="ml-4">
+                                                                    <div className="text-sm font-medium text-gray-900">{purchase.userName}</div>
+                                                                    <div className="text-sm text-gray-500">{purchase.userEmail}</div>
+                                                                </div>
                                                             </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="text-sm font-medium text-gray-900 max-w-xs truncate">{purchase.courseTitle}</div>
+                                                            <div className="text-xs text-gray-500">{purchase.courseId.substring(0, 8)}...</div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`text-sm font-bold ${purchase.priceAtPurchase > 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                                                                {purchase.priceAtPurchase > 0 ? `₹${purchase.priceAtPurchase.toLocaleString()}` : 'Free'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                                                                {purchase.paymentId ? purchase.paymentId.substring(0, 16) + '...' : 'N/A'}
+                                                            </code>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                                purchase.orderStatus === 'CAPTURED' || purchase.orderStatus === 'completed' || purchase.orderStatus === 'COMPLETED' || purchase.orderStatus === 'SUCCESS'
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : purchase.orderStatus === 'PENDING' || purchase.orderStatus === 'pending'
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : purchase.orderStatus === 'FREE_ENROLLMENT' || purchase.orderStatus === 'enrolled'
+                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                    : 'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {purchase.orderStatus === 'CAPTURED' || purchase.orderStatus === 'SUCCESS' ? '✓ Paid' : 
+                                                                 purchase.orderStatus === 'FREE_ENROLLMENT' || purchase.orderStatus === 'enrolled' ? '📚 Enrolled' :
+                                                                 purchase.orderStatus || 'Unknown'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            {formatDate(purchase.purchasedAt)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                {/* Grid View */}
+                                {purchaseViewMode === 'grid' && (
+                                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {allPurchases
+                                            .filter(p => 
+                                                searchPurchase === '' ||
+                                                p.userName.toLowerCase().includes(searchPurchase.toLowerCase()) ||
+                                                p.userEmail.toLowerCase().includes(searchPurchase.toLowerCase()) ||
+                                                p.courseTitle.toLowerCase().includes(searchPurchase.toLowerCase())
+                                            )
+                                            .map((purchase, index) => (
+                                            <div 
+                                                key={`grid-${purchase.courseId}-${purchase.paymentId}-${index}`} 
+                                                className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-200 hover:border-orange-300"
+                                            >
+                                                {/* Header with Avatar and Status */}
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center">
+                                                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                                            {purchase.userName.charAt(0).toUpperCase()}
                                                         </div>
-                                                        <div className="ml-4">
-                                                            <div className="text-sm font-medium text-gray-900">{purchase.userName}</div>
-                                                            <div className="text-sm text-gray-500">{purchase.userEmail}</div>
+                                                        <div className="ml-3">
+                                                            <h4 className="font-semibold text-gray-900">{purchase.userName}</h4>
+                                                            <p className="text-xs text-gray-500">{purchase.userEmail}</p>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-gray-900 max-w-xs truncate">{purchase.courseTitle}</div>
-                                                    <div className="text-xs text-gray-500">{purchase.courseId}</div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`text-sm font-bold ${purchase.priceAtPurchase > 0 ? 'text-green-600' : 'text-blue-600'}`}>
-                                                        {purchase.priceAtPurchase > 0 ? `₹${purchase.priceAtPurchase.toLocaleString()}` : 'Free'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                                                        {purchase.paymentId ? purchase.paymentId.substring(0, 20) + '...' : 'N/A'}
-                                                    </code>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                        purchase.orderStatus === 'CAPTURED' || purchase.orderStatus === 'completed' || purchase.orderStatus === 'COMPLETED'
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                                        purchase.orderStatus === 'CAPTURED' || purchase.orderStatus === 'completed' || purchase.orderStatus === 'COMPLETED' || purchase.orderStatus === 'SUCCESS'
                                                             ? 'bg-green-100 text-green-800'
                                                             : purchase.orderStatus === 'PENDING' || purchase.orderStatus === 'pending'
                                                             ? 'bg-yellow-100 text-yellow-800'
@@ -1006,19 +1119,51 @@ const CoursesManagementPage: React.FC = () => {
                                                             ? 'bg-blue-100 text-blue-800'
                                                             : 'bg-gray-100 text-gray-800'
                                                     }`}>
-                                                        {purchase.orderStatus === 'CAPTURED' ? '✓ Paid' : 
-                                                         purchase.orderStatus === 'FREE_ENROLLMENT' || purchase.orderStatus === 'enrolled' ? '📚 Enrolled' :
+                                                        {purchase.orderStatus === 'CAPTURED' || purchase.orderStatus === 'SUCCESS' ? '✓ Paid' : 
+                                                         purchase.orderStatus === 'FREE_ENROLLMENT' || purchase.orderStatus === 'enrolled' ? '📚 Free' :
                                                          purchase.orderStatus || 'Unknown'}
                                                     </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-gray-500">
-                                                    {formatDate(purchase.purchasedAt)}
-                                                </td>
-                                            </tr>
+                                                </div>
+
+                                                {/* Course Info */}
+                                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 mb-4">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                        </svg>
+                                                        <span className="text-xs font-medium text-gray-500 uppercase">Course</span>
+                                                    </div>
+                                                    <p className="font-medium text-gray-900 truncate">{purchase.courseTitle}</p>
+                                                </div>
+
+                                                {/* Price and Date */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 mb-1">Amount</p>
+                                                        <p className={`text-xl font-bold ${purchase.priceAtPurchase > 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                                                            {purchase.priceAtPurchase > 0 ? `₹${purchase.priceAtPurchase.toLocaleString()}` : 'Free'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs text-gray-500 mb-1">Purchased</p>
+                                                        <p className="text-sm font-medium text-gray-700">{formatDate(purchase.purchasedAt)}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Payment ID Footer */}
+                                                <div className="mt-4 pt-3 border-t border-gray-100">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-gray-400">Payment ID</span>
+                                                        <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-600">
+                                                            {purchase.paymentId ? purchase.paymentId.substring(0, 12) + '...' : 'N/A'}
+                                                        </code>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </>
