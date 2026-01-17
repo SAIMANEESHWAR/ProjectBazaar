@@ -25,6 +25,7 @@ import FAQWithSpiral from './components/ui/faq-section';
 import BrowseFreelancers from './components/BrowseFreelancers';
 import BrowseProjects from './components/BrowseProjects';
 import BuildPortfolioPage from './components/BuildPortfolioPage';
+import PlatformFeatures from './components/PlatformFeatures';
 
 type Theme = 'light' | 'dark';
 type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'notFound';
@@ -193,6 +194,7 @@ const AppContent: React.FC = () => {
           <main>
             <Hero />
             <Stats />
+            <PlatformFeatures />
             <Categories />
             <BuyerSellerToggle />
             <TopSellers />

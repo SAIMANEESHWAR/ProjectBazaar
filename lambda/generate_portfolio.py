@@ -2,7 +2,7 @@
 Lambda Function: Portfolio Generator
 ------------------------------------
 1. Receive resume (PDF/DOCX) as base64
-2. Extract text using PyPDF2/pdfplumber
+2. Extract text using pdfplumber (primary) / PyPDF2 (fallback)
 3. Parse resume text with regex patterns to extract portfolio data
 4. Generate portfolio with selectable templates
 5. Deploy to Vercel
@@ -463,12 +463,54 @@ def extract_text_from_resume(content: bytes, file_type: str, file_name: str) -> 
 def extract_pdf_text_smart(pdf_path: str) -> str:
     """
     Smart PDF text extraction with 3-step strategy:
-    1. PyPDF2 (most compatible) - works in Lambda without extra dependencies
-    2. pdfplumber (more accurate) - if available
+    1. pdfplumber (primary - more accurate for complex layouts)
+    2. PyPDF2 (fallback) - works in Lambda without extra dependencies
     3. Basic regex extraction (no dependencies) - fallback using zlib decompression
     """
     
-    # Step 1: Try PyPDF2 first (most compatible with Lambda)
+    # Step 1: Try pdfplumber first (more accurate for complex layouts)
+    try:
+        import pdfplumber
+        
+        print("Attempting PDF extraction with pdfplumber...")
+        all_text = []
+        
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                try:
+                    # Try simple extraction first (most compatible)
+                    page_text = page.extract_text()
+                    
+                    # If simple extraction fails, try with tolerances
+                    if not page_text:
+                        page_text = page.extract_text(
+                            x_tolerance=3,
+                            y_tolerance=3
+                        )
+                    
+                    if page_text:
+                        all_text.append(page_text)
+                        print(f"  Page {page_num + 1}: extracted {len(page_text)} chars")
+                except Exception as e:
+                    print(f"pdfplumber error on page {page_num + 1}: {e}")
+                    continue
+        
+        combined_text = "\n\n".join(all_text)
+        cleaned_text = clean_resume_text(combined_text)
+        
+        # If we got substantial text, return it
+        if len(cleaned_text) > 200:
+            print(f"pdfplumber extraction successful: {len(cleaned_text)} chars")
+            return cleaned_text
+        else:
+            print(f"pdfplumber extracted only {len(cleaned_text)} chars, trying PyPDF2...")
+            
+    except ImportError:
+        print("pdfplumber not available, trying PyPDF2...")
+    except Exception as e:
+        print(f"pdfplumber failed: {e}, trying PyPDF2...")
+    
+    # Step 2: Try PyPDF2 as fallback
     try:
         import PyPDF2
         
@@ -493,49 +535,12 @@ def extract_pdf_text_smart(pdf_path: str) -> str:
             print(f"PyPDF2 extraction successful: {len(cleaned_text)} chars")
             return cleaned_text
         else:
-            print(f"PyPDF2 extracted only {len(cleaned_text)} chars, trying pdfplumber...")
+            print(f"PyPDF2 extracted only {len(cleaned_text)} chars, trying basic extraction...")
             
     except ImportError:
-        print("PyPDF2 not available, trying pdfplumber...")
+        print("PyPDF2 not available, trying basic extraction...")
     except Exception as e:
-        print(f"PyPDF2 failed: {e}, trying pdfplumber...")
-    
-    # Step 2: Try pdfplumber (more accurate for complex layouts)
-    try:
-        import pdfplumber
-        
-        print("Attempting PDF extraction with pdfplumber...")
-        all_text = []
-        
-        with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages):
-                try:
-                    # Extract with layout preservation
-                    page_text = page.extract_text(
-                        x_tolerance=2,
-                        y_tolerance=2,
-                        layout=True
-                    )
-                    if page_text:
-                        all_text.append(page_text)
-                except Exception as e:
-                    print(f"pdfplumber error on page {page_num + 1}: {e}")
-                    continue
-        
-        combined_text = "\n\n".join(all_text)
-        cleaned_text = clean_resume_text(combined_text)
-        
-        # If we got substantial text, return it
-        if len(cleaned_text) > 300:
-            print(f"pdfplumber extraction successful: {len(cleaned_text)} chars")
-            return cleaned_text
-        else:
-            print(f"pdfplumber extracted only {len(cleaned_text)} chars, trying basic extraction...")
-            
-    except ImportError:
-        print("pdfplumber not available, trying basic extraction...")
-    except Exception as e:
-        print(f"pdfplumber failed: {e}, trying basic extraction...")
+        print(f"PyPDF2 failed: {e}, trying basic extraction...")
     
     # Step 3: Basic text extraction from PDF bytes (no dependencies needed)
     try:
@@ -704,9 +709,10 @@ def clean_resume_text(text: str) -> str:
     text = re.sub(r'\(cid:\d+\)', '', text)
     text = re.sub(r'cid:\d+', '', text)
     
-    # Remove other common PDF artifacts
-    text = re.sub(r'\uf0[0-9a-fA-F]{2}', '', text)  # Unicode private use area
-    text = re.sub(r'[\ue000-\uf8ff]', '', text)  # Private use area characters
+    # Remove other common PDF artifacts (Unicode private use area)
+    # Use actual Unicode characters, not raw string escapes
+    text = re.sub('[\uf000-\uf0ff]', '', text)  # FontAwesome icons range
+    text = re.sub('[\ue000-\uf8ff]', '', text)  # Full private use area
     
     # Normalize various bullet point styles to simple dash
     bullet_patterns = ['•', '●', '○', '▪', '▫', '►', '▸', '◆', '◇', '■', '□', '★', '☆', '➤', '➢', '→', '»']

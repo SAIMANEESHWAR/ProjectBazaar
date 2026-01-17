@@ -1,11 +1,17 @@
 # Lambda function dependencies
 # Install in a layer or bundle with the deployment package
 
-# PDF extraction (PyPDF2 is the most compatible with Lambda)
+# PDF extraction - pdfplumber is primary, PyPDF2 is fallback
+pdfplumber>=0.10.0
 PyPDF2>=3.0.0
 
-# Optional: Better PDF extraction for complex layouts
-# pdfplumber>=0.10.0
-
 # Note: This Lambda includes a basic PDF extractor using Python's built-in zlib
-# that works without any external dependencies. PyPDF2 is recommended for better results.
+# that works without any external dependencies as a final fallback.
+#
+# To deploy with these dependencies:
+# 1. Create a deployment package:
+#    pip install -t package/ pdfplumber PyPDF2
+#    cd package && zip -r ../lambda.zip . && cd ..
+#    zip lambda.zip generate_portfolio.py portfolio_templates.py
+#
+# 2. Or use a Lambda Layer with these dependencies pre-installed
