@@ -42,7 +42,6 @@ const buyerNavItems = [
     { name: 'Cart', view: 'cart' as DashboardView, icon: CartIcon },
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
-    { name: 'My Courses', view: 'my-courses' as DashboardView, icon: MyCoursesIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },
     { name: 'Help Center', view: 'help-center' as DashboardView, icon: HelpCenterIcon },
     { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
