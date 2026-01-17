@@ -135,14 +135,18 @@ const assessments: Assessment[] = [
 
 // Company-specific assessments
 const companyAssessments: Assessment[] = [
-  { id: 'google', title: 'Google Interview Prep', logo: '/company_logos/google.jpg', time: '45 Minutes', objective: 20, programming: 5, registrations: 25000, category: 'company', company: 'Google', xpReward: 200 },
-  { id: 'amazon', title: 'Amazon SDE Assessment', logo: '/company_logos/amazon.jpg', time: '60 Minutes', objective: 25, programming: 5, registrations: 32000, category: 'company', company: 'Amazon', xpReward: 250 },
-  { id: 'microsoft', title: 'Microsoft Coding Round', logo: '/company_logos/microsoft.jpg', time: '45 Minutes', objective: 20, programming: 3, registrations: 28000, category: 'company', company: 'Microsoft', xpReward: 200 },
-  { id: 'meta', title: 'Meta Interview Prep', logo: '/company_logos/meta.jpg', time: '50 Minutes', objective: 18, programming: 4, registrations: 18000, category: 'company', company: 'Meta', xpReward: 220 },
-  { id: 'flipkart', title: 'Flipkart SDE Test', logo: '/company_logos/flipkart.jpg', time: '40 Minutes', objective: 15, programming: 3, registrations: 15000, category: 'company', company: 'Flipkart', xpReward: 180 },
-  { id: 'infosys', title: 'Infosys Assessment', logo: '/company_logos/infosys.jpg', time: '35 Minutes', objective: 20, programming: 2, registrations: 45000, category: 'company', company: 'Infosys', xpReward: 150 },
-  { id: 'tcs', title: 'TCS NQT Prep', logo: '/company_logos/tcs.jpg', time: '40 Minutes', objective: 25, programming: 2, registrations: 55000, category: 'company', company: 'TCS', xpReward: 150 },
-  { id: 'wipro', title: 'Wipro NLTH Test', logo: '/company_logos/wipro.jpg', time: '35 Minutes', objective: 20, programming: 2, registrations: 38000, category: 'company', company: 'Wipro', xpReward: 140 },
+  { id: 'google', title: 'Google Interview Prep', logo: '/company_logos/google.png', time: '45 Minutes', objective: 20, programming: 5, registrations: 25000, category: 'company', company: 'Google', xpReward: 200 },
+  { id: 'amazon', title: 'Amazon SDE Assessment', logo: '/company_logos/amazon.png', time: '60 Minutes', objective: 25, programming: 5, registrations: 32000, category: 'company', company: 'Amazon', xpReward: 250 },
+  { id: 'microsoft', title: 'Microsoft Coding Round', logo: '/company_logos/microsoft.png', time: '45 Minutes', objective: 20, programming: 3, registrations: 28000, category: 'company', company: 'Microsoft', xpReward: 200 },
+  { id: 'meta', title: 'Meta Interview Prep', logo: '/company_logos/meta.png', time: '50 Minutes', objective: 18, programming: 4, registrations: 18000, category: 'company', company: 'Meta', xpReward: 220 },
+  { id: 'flipkart', title: 'Flipkart SDE Test', logo: '/company_logos/flipkart.png', time: '40 Minutes', objective: 15, programming: 3, registrations: 15000, category: 'company', company: 'Flipkart', xpReward: 180 },
+  { id: 'infosys', title: 'Infosys Assessment', logo: '/company_logos/infosys.png', time: '35 Minutes', objective: 20, programming: 2, registrations: 45000, category: 'company', company: 'Infosys', xpReward: 150 },
+  { id: 'accenture', title: 'Accenture Assessment', logo: '/company_logos/accenture.jpg', time: '40 Minutes', objective: 25, programming: 2, registrations: 55000, category: 'company', company: 'Accenture', xpReward: 150 },
+  { id: 'deloitte', title: 'Deloitte Test', logo: '/company_logos/deloitte.png', time: '35 Minutes', objective: 20, programming: 2, registrations: 38000, category: 'company', company: 'Deloitte', xpReward: 140 },
+  { id: 'oracle', title: 'Oracle Technical Round', logo: '/company_logos/oracle.png', time: '45 Minutes', objective: 20, programming: 3, registrations: 22000, category: 'company', company: 'Oracle', xpReward: 180 },
+  { id: 'ibm', title: 'IBM Cognitive Assessment', logo: '/company_logos/ibm.png', time: '40 Minutes', objective: 22, programming: 2, registrations: 35000, category: 'company', company: 'IBM', xpReward: 160 },
+  { id: 'cisco', title: 'Cisco Technical Test', logo: '/company_logos/cisco.jpg', time: '45 Minutes', objective: 18, programming: 4, registrations: 18000, category: 'company', company: 'Cisco', xpReward: 180 },
+  { id: 'salesforce', title: 'Salesforce Developer', logo: '/company_logos/salesforce.png', time: '50 Minutes', objective: 20, programming: 3, registrations: 15000, category: 'company', company: 'Salesforce', xpReward: 200 },
 ];
 
 // Badges data
@@ -493,7 +497,7 @@ const MockAssessmentPage: React.FC = () => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')} Hr : ${mins.toString().padStart(2, '0')} min : ${secs.toString().padStart(2, '0')} sec`;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleStartTest = (assessment: Assessment) => {
@@ -1648,10 +1652,14 @@ const MockAssessmentPage: React.FC = () => {
                   >
                     {index + 1}
                     {isAnswered && !isActive && (
-                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
                     )}
                     {isFlagged && (
-                      <span className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                      <span className="absolute -top-1 -left-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center text-amber-900 text-[8px] font-bold">!</span>
                     )}
                   </button>
                 );
@@ -1660,13 +1668,13 @@ const MockAssessmentPage: React.FC = () => {
           </div>
 
           {/* Progress summary */}
-          <div className="p-3 border-t border-slate-700/50">
-            <div className="bg-slate-700/30 rounded-xl p-3">
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="text-slate-400">Progress</span>
-                <span className="text-white font-semibold">{attemptedCount}/{questions.length}</span>
+          <div className="p-2 border-t border-slate-700/50">
+            <div className="bg-slate-700/30 rounded-lg p-2">
+              <div className="text-center mb-1.5">
+                <span className="text-white font-bold text-sm">{attemptedCount}</span>
+                <span className="text-slate-400 text-xs">/{questions.length}</span>
               </div>
-              <div className="h-2 bg-slate-600/50 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-slate-600/50 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercent}%` }}
@@ -1699,37 +1707,33 @@ const MockAssessmentPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {/* Timer */}
-              <div className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl border-2 transition-all duration-300 ${
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
                 timeLeft < 300 
-                  ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' 
+                  ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' 
                   : timeLeft < 600 
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800'
-                  : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700'
+                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
+                  : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
               }`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  timeLeft < 300 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-slate-100 dark:bg-slate-700'
-                }`}>
-                  <ClockIcon />
-                </div>
-                <span className={`font-mono font-bold text-lg tracking-wide ${
-                  timeLeft < 300 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-gray-900 dark:text-white'
+                <ClockIcon />
+                <span className={`font-mono text-sm ${
+                  timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'
                 }`}>
                   {formatTime(timeLeft)}
                 </span>
               </div>
 
               {/* Progress indicator */}
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="w-28 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  {attemptedCount} / {questions.length}
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  {attemptedCount}/{questions.length}
                 </span>
               </div>
 
@@ -1760,17 +1764,21 @@ const MockAssessmentPage: React.FC = () => {
                     <button
                       key={index}
                       onClick={() => setCurrentQuestionIndex(index)}
-                      className={`relative w-10 h-10 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
+                      className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
                         isActive
                           ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
                           : isAnswered
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
                           : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
                       }`}
                     >
                       {index + 1}
                       {isAnswered && !isActive && (
-                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 transform translate-x-0.5 -translate-y-0.5" />
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
                       )}
                     </button>
                   );
