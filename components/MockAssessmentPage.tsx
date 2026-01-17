@@ -885,6 +885,27 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [codeOutput, setCodeOutput] = useState('');
   const [leftPanelWidth, setLeftPanelWidth] = useState(35); // percentage
   const [isResizing, setIsResizing] = useState(false);
+  
+  // Anti-cheating & proctoring state
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showTabWarningModal, setShowTabWarningModal] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [fullScreenExitCount, setFullScreenExitCount] = useState(0);
+  const [showFullScreenWarning, setShowFullScreenWarning] = useState(false);
+  const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
+  
+  // Custom test case input for programming questions
+  const [customTestInput, setCustomTestInput] = useState('');
+  const [customTestOutput, setCustomTestOutput] = useState('');
+  const [activeConsoleTab, setActiveConsoleTab] = useState<'testcase' | 'result' | 'custom'>('testcase');
+  
+  // Code hints feature
+  const [showHints, setShowHints] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState<Record<number, number>>({});
+  
+  // Maximum warnings before auto-submit
+  const MAX_TAB_SWITCHES = 1;
+  const MAX_FULLSCREEN_EXITS = 2;
 
   // Handle initial view from route
   useEffect(() => {
@@ -1110,6 +1131,159 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     return () => clearInterval(timer);
   }, [view, timeLeft]);
 
+  // Tab switch detection effect
+  useEffect(() => {
+    if (view !== 'test') return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= MAX_TAB_SWITCHES) {
+            // Auto-submit on max violations
+            setTimeout(() => handleSubmitTest(), 100);
+          } else {
+            setShowTabWarningModal(true);
+          }
+          return newCount;
+        });
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setTabSwitchCount(prev => {
+        const newCount = prev + 1;
+        if (newCount >= MAX_TAB_SWITCHES) {
+          setTimeout(() => handleSubmitTest(), 100);
+        } else {
+          setShowTabWarningModal(true);
+        }
+        return newCount;
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [view]);
+
+  // Copy/paste prevention effect
+  useEffect(() => {
+    if (view !== 'test') return;
+
+    const preventCopyPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      setCopyPasteAttempts(prev => prev + 1);
+    };
+
+    const preventContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      setCopyPasteAttempts(prev => prev + 1);
+    };
+
+    const preventKeyboardShortcuts = (e: KeyboardEvent) => {
+      // Prevent Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A
+      if (e.ctrlKey || e.metaKey) {
+        if (['c', 'v', 'x', 'a'].includes(e.key.toLowerCase())) {
+          e.preventDefault();
+          setCopyPasteAttempts(prev => prev + 1);
+        }
+      }
+      // Prevent PrintScreen
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('copy', preventCopyPaste);
+    document.addEventListener('paste', preventCopyPaste);
+    document.addEventListener('cut', preventCopyPaste);
+    document.addEventListener('contextmenu', preventContextMenu);
+    document.addEventListener('keydown', preventKeyboardShortcuts);
+
+    return () => {
+      document.removeEventListener('copy', preventCopyPaste);
+      document.removeEventListener('paste', preventCopyPaste);
+      document.removeEventListener('cut', preventCopyPaste);
+      document.removeEventListener('contextmenu', preventContextMenu);
+      document.removeEventListener('keydown', preventKeyboardShortcuts);
+    };
+  }, [view]);
+
+  // Fullscreen mode management
+  useEffect(() => {
+    if (view !== 'test') return;
+
+    const handleFullScreenChange = () => {
+      const isCurrentlyFullScreen = !!document.fullscreenElement;
+      if (!isCurrentlyFullScreen && isFullScreen) {
+        // User exited fullscreen
+        setFullScreenExitCount(prev => {
+          const newCount = prev + 1;
+          if (newCount >= MAX_FULLSCREEN_EXITS) {
+            setTimeout(() => handleSubmitTest(), 100);
+          } else {
+            setShowFullScreenWarning(true);
+          }
+          return newCount;
+        });
+      }
+      setIsFullScreen(isCurrentlyFullScreen);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, [view, isFullScreen]);
+
+  // Enter fullscreen mode function
+  const enterFullScreen = useCallback(async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+      setIsFullScreen(true);
+    } catch (err) {
+      console.error('Failed to enter fullscreen:', err);
+    }
+  }, []);
+
+  // Exit fullscreen mode function
+  const exitFullScreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+      setIsFullScreen(false);
+    } catch (err) {
+      console.error('Failed to exit fullscreen:', err);
+    }
+  }, []);
+
+  // Run custom test case
+  const runCustomTestCase = async (questionIndex: number, question: ProgrammingQuestion) => {
+    if (!customTestInput.trim()) {
+      setCustomTestOutput('Please enter a test input.');
+      return;
+    }
+    setIsRunningCode(true);
+    setCustomTestOutput('Running custom test...');
+    
+    const code = getCurrentCode(questionIndex, question);
+    const result = await executeCode(code, selectedLanguage, customTestInput);
+    
+    setCustomTestOutput(
+      result.success 
+        ? `Output:\n${result.output}` 
+        : `Error:\n${result.error || 'Execution failed'}`
+    );
+    setIsRunningCode(false);
+  };
+
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -1136,6 +1310,17 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     const timeInSeconds = parseInt(selectedAssessment?.time || '30') * 60;
     setTimeLeft(timeInSeconds);
     setTestStartTime(new Date());
+    
+    // Reset anti-cheating counters
+    setTabSwitchCount(0);
+    setFullScreenExitCount(0);
+    setCopyPasteAttempts(0);
+    setHintsUsed({});
+    setCustomTestInput('');
+    setCustomTestOutput('');
+    
+    // Enter fullscreen mode
+    enterFullScreen();
   };
 
   const handleAnswerSelect = (optionIndex: number) => {
@@ -1155,6 +1340,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   };
 
   const handleSubmitTest = () => {
+    // Exit fullscreen when test is submitted
+    exitFullScreen();
+    
     const questions = getQuestions();
     const questionResults = questions.map((q, index) => {
       if (isProgrammingQuestion(q)) {
@@ -1181,7 +1369,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
     const solved = questionResults.filter((r) => r.isCorrect).length;
     const attempted = Object.keys(answers).length;
-    const score = (solved / questions.length) * 100;
+    
+    // Apply hint penalty (reduce score if hints were used)
+    const totalHintsUsed = Object.values(hintsUsed).reduce((a, b) => a + b, 0);
+    const hintPenalty = Math.min(totalHintsUsed * 2, 20); // Max 20% penalty
+    const baseScore = (solved / questions.length) * 100;
+    const score = Math.max(0, baseScore - hintPenalty);
 
     const result: TestResult = {
       assessmentId: selectedAssessment?.id || '',
@@ -1198,8 +1391,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     setTestResult(result);
     setTestHistory(prev => [result, ...prev]); // Save to history
     
-    // Update user progress with XP earned
-    const xpEarned = Math.round(score * 2);
+    // Update user progress with XP earned (reduced if violations occurred)
+    const violationPenalty = tabSwitchCount * 10 + fullScreenExitCount * 5;
+    const xpEarned = Math.max(0, Math.round(score * 2) - violationPenalty);
     setUserProgress(prev => ({
       ...prev,
       currentXP: prev.currentXP + xpEarned,
@@ -1212,6 +1406,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     if (selectedAssessment && dailyChallenge.topic.toLowerCase().includes(selectedAssessment.title.toLowerCase())) {
       setDailyChallenge(prev => ({ ...prev, completed: true }));
     }
+    
+    // Reset proctoring state
+    setShowTabWarningModal(false);
+    setShowFullScreenWarning(false);
+    setShowHints(false);
     
     setView('results');
     
@@ -2346,6 +2545,129 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     </div>
   );
 
+  // Tab switch warning modal
+  const renderTabWarningModal = () => (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 animate-pulse-once">
+        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 dark:bg-red-900/30 rounded-full">
+          <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-3">
+          Tab Switch Detected!
+        </h2>
+        
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+          You switched away from the test. This has been recorded.
+        </p>
+        
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-red-700 dark:text-red-400 font-medium">Warnings:</span>
+            <span className="text-red-700 dark:text-red-400 font-bold text-lg">
+              {tabSwitchCount} / {MAX_TAB_SWITCHES}
+            </span>
+          </div>
+          <div className="mt-2 h-2 bg-red-200 dark:bg-red-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-red-500 rounded-full transition-all"
+              style={{ width: `${(tabSwitchCount / MAX_TAB_SWITCHES) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+            {MAX_TAB_SWITCHES - tabSwitchCount} warning{MAX_TAB_SWITCHES - tabSwitchCount !== 1 ? 's' : ''} remaining before auto-submission
+          </p>
+        </div>
+        
+        <button
+          onClick={() => {
+            setShowTabWarningModal(false);
+            enterFullScreen();
+          }}
+          className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition shadow-lg shadow-red-500/30"
+        >
+          Return to Test
+        </button>
+      </div>
+    </div>
+  );
+
+  // Fullscreen exit warning modal
+  const renderFullScreenWarningModal = () => (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8">
+        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-amber-100 dark:bg-amber-900/30 rounded-full">
+          <svg className="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-3">
+          Fullscreen Mode Required
+        </h2>
+        
+        <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+          Please stay in fullscreen mode during the test to maintain exam integrity.
+        </p>
+        
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-amber-700 dark:text-amber-400 font-medium">Exits:</span>
+            <span className="text-amber-700 dark:text-amber-400 font-bold text-lg">
+              {fullScreenExitCount} / {MAX_FULLSCREEN_EXITS}
+            </span>
+          </div>
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+            {MAX_FULLSCREEN_EXITS - fullScreenExitCount} exit{MAX_FULLSCREEN_EXITS - fullScreenExitCount !== 1 ? 's' : ''} remaining before auto-submission
+          </p>
+        </div>
+        
+        <button
+          onClick={() => {
+            setShowFullScreenWarning(false);
+            enterFullScreen();
+          }}
+          className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-medium rounded-xl hover:from-amber-600 hover:to-amber-700 transition shadow-lg shadow-amber-500/30"
+        >
+          Re-enter Fullscreen
+        </button>
+      </div>
+    </div>
+  );
+
+  // Code hints for programming questions
+  const getHintsForQuestion = (questionId: number): string[] => {
+    const hintsMap: Record<number, string[]> = {
+      101: [
+        'Consider using a hash map to store values you\'ve seen',
+        'For each number, check if (target - number) exists in the map',
+        'Time complexity can be O(n) with this approach'
+      ],
+      102: [
+        'You can use two pointers, one at the start and one at the end',
+        'Swap characters at the pointers and move them towards the center',
+        'Alternatively, use Python\'s slicing with [::-1]'
+      ],
+      103: [
+        'Use a stack to keep track of opening brackets',
+        'When you see a closing bracket, check if it matches the top of the stack',
+        'The string is valid if the stack is empty at the end'
+      ],
+      104: [
+        'Use modulo operator (%) to check divisibility',
+        'Check divisibility by 15 first (FizzBuzz), then 5, then 3',
+        'Build the string based on divisibility conditions'
+      ]
+    };
+    return hintsMap[questionId] || [
+      'Break down the problem into smaller steps',
+      'Consider edge cases carefully',
+      'Think about the time and space complexity'
+    ];
+  };
+
   const renderTestInterface = () => {
     const questions = getQuestions();
     const currentQuestion = questions[currentQuestionIndex];
@@ -2800,18 +3122,59 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </div>
 
                         {/* Console Panel */}
-                        <div className="h-[180px] border-t border-gray-700 flex flex-col bg-[#1e1e1e]">
+                        <div className="h-[220px] border-t border-gray-700 flex flex-col bg-[#1e1e1e]">
                           {/* Console Tabs */}
                           <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
                             <div className="flex items-center gap-1">
-                              <button className="px-3 py-1 text-xs font-medium text-gray-200 bg-gray-700 rounded">
+                              <button 
+                                onClick={() => setActiveConsoleTab('testcase')}
+                                className={`px-3 py-1 text-xs font-medium rounded transition ${
+                                  activeConsoleTab === 'testcase' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                              >
                                 Testcase
                               </button>
-                              <button className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 rounded">
-                                Test Result
+                              <button 
+                                onClick={() => setActiveConsoleTab('result')}
+                                className={`px-3 py-1 text-xs font-medium rounded transition ${
+                                  activeConsoleTab === 'result' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                              >
+                                Result
+                              </button>
+                              <button 
+                                onClick={() => setActiveConsoleTab('custom')}
+                                className={`px-3 py-1 text-xs font-medium rounded transition ${
+                                  activeConsoleTab === 'custom' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                              >
+                                Custom Input
                               </button>
                             </div>
                             <div className="flex items-center gap-2">
+                              {/* Hints Button */}
+                              <button
+                                onClick={() => {
+                                  setShowHints(!showHints);
+                                  if (!showHints) {
+                                    setHintsUsed(prev => ({
+                                      ...prev,
+                                      [currentQuestionIndex]: (prev[currentQuestionIndex] || 0) + 1
+                                    }));
+                                  }
+                                }}
+                                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition ${
+                                  showHints 
+                                    ? 'bg-purple-600 text-white' 
+                                    : 'text-purple-400 hover:text-purple-300 hover:bg-purple-900/30'
+                                }`}
+                                title="Get hints (may affect score)"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                                Hints
+                              </button>
                               {codeTestResults[currentQuestionIndex] && (
                                 <span className={`text-xs font-medium ${
                                   codeTestResults[currentQuestionIndex].every(r => r.passed)
@@ -2824,22 +3187,103 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                             </div>
                           </div>
                           
-                          {/* Console Output */}
+                          {/* Console Content */}
                           <div className="flex-1 overflow-y-auto p-3">
-                            <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                              {codeOutput || (
-                                <span className="text-gray-500">
-                                  You must run your code first.
-                                </span>
-                              )}
-                            </pre>
+                            {/* Hints Panel */}
+                            {showHints && (
+                              <div className="mb-3 bg-purple-900/30 border border-purple-700 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                  </svg>
+                                  <span className="text-xs font-semibold text-purple-300">Hints</span>
+                                  <span className="text-xs text-purple-500">(Using hints may reduce your score)</span>
+                                </div>
+                                <ul className="space-y-1.5">
+                                  {getHintsForQuestion(currentQuestion.id).map((hint, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-xs text-purple-200">
+                                      <span className="text-purple-400 font-bold">{i + 1}.</span>
+                                      {hint}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Testcase Tab */}
+                            {activeConsoleTab === 'testcase' && (
+                              <div className="space-y-2">
+                                {currentQuestion.testCases.filter(tc => !tc.hidden).map((tc, i) => (
+                                  <div key={i} className="bg-gray-800 rounded p-2">
+                                    <p className="text-xs text-gray-400 mb-1">Case {i + 1}:</p>
+                                    <div className="font-mono text-xs">
+                                      <span className="text-gray-500">Input: </span>
+                                      <span className="text-gray-300">{tc.input}</span>
+                                    </div>
+                                    <div className="font-mono text-xs">
+                                      <span className="text-gray-500">Expected: </span>
+                                      <span className="text-emerald-400">{tc.expectedOutput}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Result Tab */}
+                            {activeConsoleTab === 'result' && (
+                              <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
+                                {codeOutput || (
+                                  <span className="text-gray-500">
+                                    Run your code to see results here.
+                                  </span>
+                                )}
+                              </pre>
+                            )}
+
+                            {/* Custom Input Tab */}
+                            {activeConsoleTab === 'custom' && (
+                              <div className="space-y-2">
+                                <div>
+                                  <label className="text-xs text-gray-400 block mb-1">Custom Input:</label>
+                                  <textarea
+                                    value={customTestInput}
+                                    onChange={(e) => setCustomTestInput(e.target.value)}
+                                    placeholder="Enter your custom test input here..."
+                                    className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-gray-200 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => runCustomTestCase(currentQuestionIndex, currentQuestion)}
+                                  disabled={isRunningCode}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded transition disabled:opacity-50"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                  </svg>
+                                  Run Custom Test
+                                </button>
+                                {customTestOutput && (
+                                  <div className="bg-gray-800 rounded p-2 mt-2">
+                                    <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
+                                      {customTestOutput}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Action Buttons */}
                           <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-[#2d2d2d]">
-                            <button className="text-xs text-gray-400 hover:text-gray-200 transition">
-                              Console
-                            </button>
+                            <div className="flex items-center gap-3">
+                              {/* Proctoring Status */}
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <div className={`w-2 h-2 rounded-full ${tabSwitchCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
+                                <span className={tabSwitchCount > 0 ? 'text-amber-400' : 'text-gray-400'}>
+                                  {tabSwitchCount > 0 ? `${tabSwitchCount} warning${tabSwitchCount > 1 ? 's' : ''}` : 'Proctored'}
+                                </span>
+                              </div>
+                            </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => runCode(currentQuestionIndex, currentQuestion)}
@@ -2964,6 +3408,66 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             </div>
           </div>
         </div>
+
+        {/* Proctoring Status Bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700 px-4 py-2 z-40">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
+            <div className="flex items-center gap-6">
+              {/* Fullscreen Status */}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isFullScreen ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                <span className={isFullScreen ? 'text-emerald-400' : 'text-amber-400'}>
+                  {isFullScreen ? 'Fullscreen Active' : 'Not Fullscreen'}
+                </span>
+                {!isFullScreen && (
+                  <button
+                    onClick={enterFullScreen}
+                    className="ml-1 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] transition"
+                  >
+                    Enter
+                  </button>
+                )}
+              </div>
+
+              {/* Tab Switch Status */}
+              <div className="flex items-center gap-2">
+                <svg className={`w-3.5 h-3.5 ${tabSwitchCount > 0 ? 'text-red-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className={tabSwitchCount > 0 ? 'text-red-400' : 'text-gray-400'}>
+                  Tab Switches: {tabSwitchCount}/{MAX_TAB_SWITCHES}
+                </span>
+              </div>
+
+              {/* Copy-Paste Attempts */}
+              {copyPasteAttempts > 0 && (
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                  <span className="text-amber-400">
+                    Blocked Actions: {copyPasteAttempts}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              <span className="text-gray-500">
+                Exam Proctoring Active
+              </span>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-gray-400">Recording</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Warning Modals */}
+        {showTabWarningModal && renderTabWarningModal()}
+        {showFullScreenWarning && renderFullScreenWarningModal()}
       </div>
     );
   };
