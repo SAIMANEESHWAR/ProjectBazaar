@@ -883,6 +883,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [codeTestResults, setCodeTestResults] = useState<Record<number, { passed: boolean; output: string; expected: string; error?: string }[]>>({});
   const [isRunningCode, setIsRunningCode] = useState(false);
   const [codeOutput, setCodeOutput] = useState('');
+  const [leftPanelWidth, setLeftPanelWidth] = useState(35); // percentage
+  const [isResizing, setIsResizing] = useState(false);
 
   // Handle initial view from route
   useEffect(() => {
@@ -2502,49 +2504,95 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           {/* Question navigation pills */}
           <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm px-8 py-4 border-b border-gray-200/50 dark:border-gray-700/50 overflow-visible">
             <div className="flex items-center gap-3 overflow-x-auto py-2 px-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-lg shadow-sm">S1</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Section 1</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
-              </div>
-              <div className="flex items-center gap-2 py-1">
-                {questions.map((_, index) => {
-                  const isActive = currentQuestionIndex === index;
-                  const isAnswered = answers[index] !== undefined;
-                  
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                      className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
-                        isActive
-                          ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
-                          : isAnswered
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                      }`}
-                    >
-                      {index + 1}
-                      {isAnswered && !isActive && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Section 1 - MCQ Questions */}
+              {questions.some((q) => !isProgrammingQuestion(q)) && (
+                <>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-lg shadow-sm">S1</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">MCQ</span>
+                  </div>
+                  <div className="flex items-center gap-2 py-1">
+                    {questions.map((q, index) => {
+                      if (isProgrammingQuestion(q)) return null;
+                      const isActive = currentQuestionIndex === index;
+                      const isAnswered = answers[index] !== undefined;
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentQuestionIndex(index)}
+                          className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
+                            isActive
+                              ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
+                              : isAnswered
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          {index + 1}
+                          {isAnswered && !isActive && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              
+              {/* Section 2 - Programming Questions */}
+              {questions.some((q) => isProgrammingQuestion(q)) && (
+                <>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs font-bold rounded-lg shadow-sm">S2</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Coding</span>
+                  </div>
+                  <div className="flex items-center gap-2 py-1">
+                    {questions.map((q, index) => {
+                      if (!isProgrammingQuestion(q)) return null;
+                      const isActive = currentQuestionIndex === index;
+                      const isAnswered = answers[index] !== undefined || codeTestResults[index]?.some(r => r.passed);
+                      
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentQuestionIndex(index)}
+                          className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
+                            isActive
+                              ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                              : isAnswered
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          {index + 1}
+                          {isAnswered && !isActive && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Question content */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="max-w-3xl mx-auto">
+          <div className={`flex-1 overflow-y-auto ${isProgrammingQuestion(currentQuestion) ? 'p-0' : 'p-6'}`}>
+            <div className={isProgrammingQuestion(currentQuestion) ? 'h-full' : 'max-w-3xl mx-auto'}>
               {/* Question card */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/30 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden">
-                {/* Question header */}
+              <div className={`bg-white dark:bg-gray-800 ${isProgrammingQuestion(currentQuestion) ? 'h-full' : 'rounded-2xl shadow-lg shadow-gray-200/30 dark:shadow-none border border-gray-100 dark:border-gray-700'} overflow-hidden`}>
+                {/* Question header - Only show for MCQ, programming has its own header */}
+                {!isProgrammingQuestion(currentQuestion) && (
                 <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-gray-750 dark:to-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-base shadow-md shadow-orange-500/25">
@@ -2571,25 +2619,40 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     <span className="font-medium">{flaggedQuestions.has(currentQuestionIndex) ? 'Flagged' : 'Flag'}</span>
                   </button>
                 </div>
+                )}
 
                 {/* Question body */}
-                <div className={isProgrammingQuestion(currentQuestion) ? "" : "p-5"}>
+                <div className={isProgrammingQuestion(currentQuestion) ? "h-full" : "p-5"}>
                   {/* Conditional rendering: MCQ or Programming (LeetCode Style) */}
                   {isProgrammingQuestion(currentQuestion) ? (
                     /* Programming Question - LeetCode Style Split Panel */
-                    <div className="flex flex-col lg:flex-row h-[calc(100vh-280px)] min-h-[500px] -m-0 -mx-0">
+                    <div 
+                      className="flex flex-col lg:flex-row h-[calc(100vh-200px)] min-h-[600px] overflow-hidden"
+                      onMouseMove={(e) => {
+                        if (isResizing) {
+                          e.preventDefault();
+                          const container = e.currentTarget;
+                          const containerRect = container.getBoundingClientRect();
+                          const containerWidth = containerRect.width;
+                          const mouseX = e.clientX - containerRect.left;
+                          const newWidthPercent = (mouseX / containerWidth) * 100;
+                          // Clamp between 25% and 50%
+                          const clampedWidth = Math.max(25, Math.min(50, newWidthPercent));
+                          setLeftPanelWidth(clampedWidth);
+                        }
+                      }}
+                      onMouseUp={() => setIsResizing(false)}
+                      onMouseLeave={() => setIsResizing(false)}
+                    >
                       {/* Left Panel - Problem Description */}
-                      <div className="lg:w-[45%] w-full h-full border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-[#1a1a1a]">
+                      <div 
+                        className="h-full border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-[#1a1a1a] overflow-hidden"
+                        style={{ width: `${leftPanelWidth}%`, flexShrink: 0 }}
+                      >
                         {/* Tabs */}
                         <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#262626]">
                           <button className="px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                             Description
-                          </button>
-                          <button className="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-                            Editorial
-                          </button>
-                          <button className="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-                            Solutions
                           </button>
                         </div>
                         
@@ -2660,8 +2723,20 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </div>
                       </div>
 
+                      {/* Resizable Divider */}
+                      <div 
+                        className={`w-1.5 ${isResizing ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} hover:bg-orange-400 dark:hover:bg-orange-500 cursor-col-resize transition-colors flex-shrink-0 hidden lg:flex items-center justify-center group`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setIsResizing(true);
+                        }}
+                        title="Drag to resize panels"
+                      >
+                        <div className="w-0.5 h-8 bg-gray-400 dark:bg-gray-500 group-hover:bg-orange-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+
                       {/* Right Panel - Code Editor & Console */}
-                      <div className="lg:w-[55%] w-full h-full flex flex-col bg-[#1e1e1e]">
+                      <div className="flex-1 h-full flex flex-col bg-[#1e1e1e] overflow-hidden min-w-0 mr-4 rounded-lg">
                         {/* Editor Header */}
                         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
                           <div className="flex items-center gap-3">
@@ -2678,22 +2753,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => {
-                                setCodeAnswers(prev => ({ ...prev, [currentQuestionIndex]: '' }));
+                                // Reset to starter code for the current language
+                                const starterCode = currentQuestion.starterCode[selectedLanguage] || currentQuestion.starterCode.python || '';
+                                setCodeAnswers(prev => ({ ...prev, [currentQuestionIndex]: starterCode }));
                               }}
                               className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
-                              title="Reset Code"
+                              title="Reset to Default Code"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </button>
-                            <button
-                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
-                              title="Settings"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                             </button>
                             <button
@@ -2807,11 +2875,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     </div>
                   ) : (
                     /* MCQ Question - Options */
-                    <div className="p-5">
+                <div className="p-5">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5 whitespace-pre-line">
-                        {currentQuestion.question}
-                      </h3>
-                      <div className="space-y-2.5">
+                    {currentQuestion.question}
+                  </h3>
+                  <div className="space-y-2.5">
                       {(currentQuestion as Question).options.map((option, index) => {
                       const isSelected = answers[currentQuestionIndex] === index;
                       const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
@@ -2843,7 +2911,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </button>
                       );
                     })}
-                      </div>
+                  </div>
                     </div>
                   )}
                 </div>
