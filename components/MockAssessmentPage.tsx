@@ -565,6 +565,22 @@ const MockAssessmentPage: React.FC = () => {
 
     setTestResult(result);
     setTestHistory(prev => [result, ...prev]); // Save to history
+    
+    // Update user progress with XP earned
+    const xpEarned = Math.round(score * 2);
+    setUserProgress(prev => ({
+      ...prev,
+      currentXP: prev.currentXP + xpEarned,
+      totalXP: prev.totalXP + xpEarned,
+      testsCompleted: prev.testsCompleted + 1,
+      avgScore: Math.round((prev.avgScore * prev.testsCompleted + (score / questions.length) * 100) / (prev.testsCompleted + 1)),
+    }));
+
+    // Mark daily challenge as completed if applicable
+    if (selectedAssessment && dailyChallenge.topic.toLowerCase().includes(selectedAssessment.title.toLowerCase())) {
+      setDailyChallenge(prev => ({ ...prev, completed: true }));
+    }
+    
     setView('results');
   };
 
