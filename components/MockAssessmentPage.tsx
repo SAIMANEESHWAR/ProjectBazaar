@@ -2573,127 +2573,245 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 </div>
 
                 {/* Question body */}
-                <div className="p-5">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5 whitespace-pre-line">
-                    {currentQuestion.question}
-                  </h3>
-
-                  {/* Conditional rendering: MCQ or Programming */}
+                <div className={isProgrammingQuestion(currentQuestion) ? "" : "p-5"}>
+                  {/* Conditional rendering: MCQ or Programming (LeetCode Style) */}
                   {isProgrammingQuestion(currentQuestion) ? (
-                    /* Programming Question - Code Editor */
-                    <div className="space-y-4">
-                      {/* Constraints */}
-                      {currentQuestion.constraints && (
-                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
-                          <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">📋 Constraints</h4>
-                          <pre className="text-xs text-amber-700 dark:text-amber-400 whitespace-pre-wrap font-mono">{currentQuestion.constraints}</pre>
+                    /* Programming Question - LeetCode Style Split Panel */
+                    <div className="flex flex-col lg:flex-row h-[calc(100vh-280px)] min-h-[500px] -m-0 -mx-0">
+                      {/* Left Panel - Problem Description */}
+                      <div className="lg:w-[45%] w-full h-full border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-[#1a1a1a]">
+                        {/* Tabs */}
+                        <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#262626]">
+                          <button className="px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-md">
+                            Description
+                          </button>
+                          <button className="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                            Editorial
+                          </button>
+                          <button className="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                            Solutions
+                          </button>
                         </div>
-                      )}
+                        
+                        {/* Problem Content - Scrollable */}
+                        <div className="flex-1 overflow-y-auto p-5">
+                          {/* Difficulty Badge */}
+                          <div className="flex items-center gap-3 mb-4">
+                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                              currentQuestion.difficulty === 'easy' 
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : currentQuestion.difficulty === 'medium'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              {currentQuestion.difficulty?.charAt(0).toUpperCase() + currentQuestion.difficulty?.slice(1)}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              Topic: {currentQuestion.topic}
+                            </span>
+                          </div>
 
-                      {/* Examples */}
-                      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">💡 Examples</h4>
-                        <div className="space-y-3">
-                          {currentQuestion.examples.map((ex, i) => (
-                            <div key={i} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                              <div className="text-xs">
-                                <div className="mb-1"><span className="font-semibold text-slate-600 dark:text-slate-300">Input:</span> <code className="bg-slate-100 dark:bg-slate-600 px-1 rounded">{ex.input}</code></div>
-                                <div><span className="font-semibold text-slate-600 dark:text-slate-300">Output:</span> <code className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1 rounded">{ex.output}</code></div>
-                                {ex.explanation && <div className="mt-1 text-slate-500 dark:text-slate-400 italic">{ex.explanation}</div>}
+                          {/* Problem Title & Description */}
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                            {currentQuestionIndex + 1}. {currentQuestion.question.split('\n')[0]}
+                          </h3>
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line text-sm leading-relaxed">
+                              {currentQuestion.question.split('\n').slice(1).join('\n')}
+                            </p>
+                          </div>
+
+                          {/* Examples */}
+                          <div className="mt-6 space-y-4">
+                            {currentQuestion.examples.map((ex, i) => (
+                              <div key={i} className="bg-gray-50 dark:bg-[#262626] rounded-lg p-4">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Example {i + 1}:</p>
+                                <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-md p-3 font-mono text-sm">
+                                  <div className="text-gray-600 dark:text-gray-400">
+                                    <span className="text-gray-500 dark:text-gray-500">Input: </span>
+                                    <span className="text-gray-900 dark:text-gray-200">{ex.input}</span>
+                                  </div>
+                                  <div className="text-gray-600 dark:text-gray-400 mt-1">
+                                    <span className="text-gray-500 dark:text-gray-500">Output: </span>
+                                    <span className="text-gray-900 dark:text-gray-200">{ex.output}</span>
+                                  </div>
+                                  {ex.explanation && (
+                                    <div className="text-gray-600 dark:text-gray-400 mt-1">
+                                      <span className="text-gray-500 dark:text-gray-500">Explanation: </span>
+                                      <span className="text-gray-700 dark:text-gray-300">{ex.explanation}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Language Selector */}
-                      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-xl p-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Language:</span>
-                          <select
-                            value={selectedLanguage}
-                            onChange={(e) => {
-                              setSelectedLanguage(e.target.value);
-                              // Reset code to starter code for new language if not already modified
-                              if (!codeAnswers[currentQuestionIndex]) {
-                                // Will use starter code from the question
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          >
-                            {supportedLanguages.map(lang => (
-                              <option key={lang.id} value={lang.id}>{lang.name}</option>
                             ))}
-                          </select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => runCode(currentQuestionIndex, currentQuestion)}
-                            disabled={isRunningCode}
-                            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isRunningCode ? (
-                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            Run
-                          </button>
-                          <button
-                            onClick={() => submitCode(currentQuestionIndex, currentQuestion)}
-                            disabled={isRunningCode}
-                            className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Submit
-                          </button>
-                        </div>
-                      </div>
+                          </div>
 
-                      {/* Code Editor */}
-                      <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden">
-                        <Editor
-                          height="350px"
-                          language={supportedLanguages.find(l => l.id === selectedLanguage)?.monacoId || 'python'}
-                          value={getCurrentCode(currentQuestionIndex, currentQuestion)}
-                          onChange={(value) => handleCodeChange(currentQuestionIndex, value || '')}
-                          theme="vs-dark"
-                          options={{
-                            minimap: { enabled: false },
-                            fontSize: 14,
-                            lineNumbers: 'on',
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            tabSize: 4,
-                            wordWrap: 'on',
-                          }}
-                        />
-                      </div>
-
-                      {/* Output Console */}
-                      <div className="bg-gray-900 rounded-xl overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-                          <span className="text-sm font-medium text-gray-300">Output</span>
-                          {codeTestResults[currentQuestionIndex] && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">
-                                {codeTestResults[currentQuestionIndex].filter(r => r.passed).length}/{codeTestResults[currentQuestionIndex].length} tests passed
-                              </span>
+                          {/* Constraints */}
+                          {currentQuestion.constraints && (
+                            <div className="mt-6">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Constraints:</p>
+                              <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                                {currentQuestion.constraints.split('\n').map((constraint, i) => (
+                                  <li key={i} className="font-mono text-xs">{constraint}</li>
+                                ))}
+                              </ul>
                             </div>
                           )}
                         </div>
-                        <pre className="p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {codeOutput || 'Click "Run" to test your code or "Submit" to run all test cases.'}
-                        </pre>
+                      </div>
+
+                      {/* Right Panel - Code Editor & Console */}
+                      <div className="lg:w-[55%] w-full h-full flex flex-col bg-[#1e1e1e]">
+                        {/* Editor Header */}
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
+                          <div className="flex items-center gap-3">
+                            <select
+                              value={selectedLanguage}
+                              onChange={(e) => setSelectedLanguage(e.target.value)}
+                              className="px-3 py-1.5 bg-[#3c3c3c] border border-gray-600 rounded-md text-sm font-medium text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor-pointer hover:bg-[#4a4a4a] transition"
+                            >
+                              {supportedLanguages.map(lang => (
+                                <option key={lang.id} value={lang.id}>{lang.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setCodeAnswers(prev => ({ ...prev, [currentQuestionIndex]: '' }));
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
+                              title="Reset Code"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                            <button
+                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
+                              title="Settings"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </button>
+                            <button
+                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
+                              title="Fullscreen"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Code Editor */}
+                        <div className="flex-1 min-h-0">
+                          <Editor
+                            height="100%"
+                            language={supportedLanguages.find(l => l.id === selectedLanguage)?.monacoId || 'python'}
+                            value={getCurrentCode(currentQuestionIndex, currentQuestion)}
+                            onChange={(value) => handleCodeChange(currentQuestionIndex, value || '')}
+                            theme="vs-dark"
+                            options={{
+                              minimap: { enabled: false },
+                              fontSize: 14,
+                              lineNumbers: 'on',
+                              scrollBeyondLastLine: false,
+                              automaticLayout: true,
+                              tabSize: 4,
+                              wordWrap: 'on',
+                              padding: { top: 16, bottom: 16 },
+                              renderLineHighlight: 'all',
+                              cursorBlinking: 'smooth',
+                              smoothScrolling: true,
+                            }}
+                          />
+                        </div>
+
+                        {/* Console Panel */}
+                        <div className="h-[180px] border-t border-gray-700 flex flex-col bg-[#1e1e1e]">
+                          {/* Console Tabs */}
+                          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
+                            <div className="flex items-center gap-1">
+                              <button className="px-3 py-1 text-xs font-medium text-gray-200 bg-gray-700 rounded">
+                                Testcase
+                              </button>
+                              <button className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-gray-200 rounded">
+                                Test Result
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {codeTestResults[currentQuestionIndex] && (
+                                <span className={`text-xs font-medium ${
+                                  codeTestResults[currentQuestionIndex].every(r => r.passed)
+                                    ? 'text-emerald-400'
+                                    : 'text-red-400'
+                                }`}>
+                                  {codeTestResults[currentQuestionIndex].filter(r => r.passed).length}/{codeTestResults[currentQuestionIndex].length} passed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Console Output */}
+                          <div className="flex-1 overflow-y-auto p-3">
+                            <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
+                              {codeOutput || (
+                                <span className="text-gray-500">
+                                  You must run your code first.
+                                </span>
+                              )}
+                            </pre>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-[#2d2d2d]">
+                            <button className="text-xs text-gray-400 hover:text-gray-200 transition">
+                              Console
+                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => runCode(currentQuestionIndex, currentQuestion)}
+                                disabled={isRunningCode}
+                                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#3c3c3c] hover:bg-[#4a4a4a] text-gray-200 text-sm font-medium rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
+                              >
+                                {isRunningCode ? (
+                                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                                Run
+                              </button>
+                              <button
+                                onClick={() => submitCode(currentQuestionIndex, currentQuestion)}
+                                disabled={isRunningCode}
+                                className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                Submit
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ) : (
                     /* MCQ Question - Options */
-                  <div className="space-y-2.5">
+                    <div className="p-5">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5 whitespace-pre-line">
+                        {currentQuestion.question}
+                      </h3>
+                      <div className="space-y-2.5">
                       {(currentQuestion as Question).options.map((option, index) => {
                       const isSelected = answers[currentQuestionIndex] === index;
                       const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
@@ -2725,7 +2843,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </button>
                       );
                     })}
-                  </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
