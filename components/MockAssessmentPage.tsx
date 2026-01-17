@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Editor from '@monaco-editor/react';
 
 // Confetti celebration functions (dynamically imported)
 const triggerConfetti = async () => {
@@ -105,7 +106,95 @@ interface Question {
   topic: string;
   explanation?: string;
   difficulty?: DifficultyLevel;
+  type?: 'mcq'; // Optional, defaults to MCQ
 }
+
+interface ProgrammingQuestion {
+  id: number;
+  question: string;
+  topic: string;
+  type: 'programming';
+  difficulty: DifficultyLevel;
+  constraints?: string;
+  examples: { input: string; output: string; explanation?: string }[];
+  starterCode: Record<string, string>;
+  testCases: { input: string; expectedOutput: string; hidden?: boolean }[];
+  explanation?: string;
+}
+
+type AnyQuestion = Question | ProgrammingQuestion;
+
+// Supported programming languages
+const supportedLanguages = [
+  { id: 'python', name: 'Python 3', pistonId: 'python', version: '3.10.0', monacoId: 'python' },
+  { id: 'javascript', name: 'JavaScript', pistonId: 'javascript', version: '18.15.0', monacoId: 'javascript' },
+  { id: 'java', name: 'Java', pistonId: 'java', version: '15.0.2', monacoId: 'java' },
+  { id: 'cpp', name: 'C++', pistonId: 'cpp', version: '10.2.0', monacoId: 'cpp' },
+  { id: 'c', name: 'C', pistonId: 'c', version: '10.2.0', monacoId: 'c' },
+  { id: 'typescript', name: 'TypeScript', pistonId: 'typescript', version: '5.0.3', monacoId: 'typescript' },
+  { id: 'go', name: 'Go', pistonId: 'go', version: '1.16.2', monacoId: 'go' },
+  { id: 'rust', name: 'Rust', pistonId: 'rust', version: '1.68.2', monacoId: 'rust' },
+  { id: 'ruby', name: 'Ruby', pistonId: 'ruby', version: '3.0.1', monacoId: 'ruby' },
+  { id: 'php', name: 'PHP', pistonId: 'php', version: '8.2.3', monacoId: 'php' },
+  { id: 'kotlin', name: 'Kotlin', pistonId: 'kotlin', version: '1.8.20', monacoId: 'kotlin' },
+  { id: 'swift', name: 'Swift', pistonId: 'swift', version: '5.3.3', monacoId: 'swift' },
+  { id: 'csharp', name: 'C#', pistonId: 'csharp', version: '6.12.0', monacoId: 'csharp' },
+  { id: 'scala', name: 'Scala', pistonId: 'scala', version: '3.2.2', monacoId: 'scala' },
+  { id: 'r', name: 'R', pistonId: 'r', version: '4.1.1', monacoId: 'r' },
+  { id: 'perl', name: 'Perl', pistonId: 'perl', version: '5.36.0', monacoId: 'perl' },
+  { id: 'lua', name: 'Lua', pistonId: 'lua', version: '5.4.4', monacoId: 'lua' },
+  { id: 'bash', name: 'Bash', pistonId: 'bash', version: '5.2.0', monacoId: 'shell' },
+  { id: 'dart', name: 'Dart', pistonId: 'dart', version: '2.19.6', monacoId: 'dart' },
+  { id: 'elixir', name: 'Elixir', pistonId: 'elixir', version: '1.14.3', monacoId: 'elixir' },
+  { id: 'haskell', name: 'Haskell', pistonId: 'haskell', version: '9.0.1', monacoId: 'haskell' },
+  { id: 'clojure', name: 'Clojure', pistonId: 'clojure', version: '1.10.3', monacoId: 'clojure' },
+  { id: 'fsharp', name: 'F#', pistonId: 'fsharp', version: '5.0.201', monacoId: 'fsharp' },
+  { id: 'julia', name: 'Julia', pistonId: 'julia', version: '1.8.5', monacoId: 'julia' },
+  { id: 'ocaml', name: 'OCaml', pistonId: 'ocaml', version: '4.12.0', monacoId: 'ocaml' },
+  { id: 'racket', name: 'Racket', pistonId: 'racket', version: '8.3', monacoId: 'scheme' },
+  { id: 'erlang', name: 'Erlang', pistonId: 'erlang', version: '23.0', monacoId: 'erlang' },
+  { id: 'cobol', name: 'COBOL', pistonId: 'cobol', version: '3.1.2', monacoId: 'cobol' },
+  { id: 'fortran', name: 'Fortran', pistonId: 'fortran', version: '10.2.0', monacoId: 'fortran' },
+  { id: 'pascal', name: 'Pascal', pistonId: 'pascal', version: '3.2.2', monacoId: 'pascal' },
+  { id: 'groovy', name: 'Groovy', pistonId: 'groovy', version: '3.0.7', monacoId: 'groovy' },
+];
+
+// Code execution using Piston API (free, no API key required)
+const executeCode = async (code: string, language: string, input: string = ''): Promise<{ output: string; error: string; success: boolean }> => {
+  const lang = supportedLanguages.find(l => l.id === language);
+  if (!lang) {
+    return { output: '', error: 'Unsupported language', success: false };
+  }
+
+  try {
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: lang.pistonId,
+        version: lang.version,
+        files: [{ content: code }],
+        stdin: input,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (data.run) {
+      const output = data.run.stdout || '';
+      const error = data.run.stderr || '';
+      return {
+        output: output.trim(),
+        error: error.trim(),
+        success: !error && data.run.code === 0,
+      };
+    }
+    
+    return { output: '', error: data.message || 'Execution failed', success: false };
+  } catch (err) {
+    return { output: '', error: 'Network error - please try again', success: false };
+  }
+};
 
 interface TestResult {
   assessmentId: string;
@@ -371,6 +460,320 @@ const defaultQuestions: Question[] = [
 ];
 
 // ============================================
+// PROGRAMMING QUESTION BANKS
+// ============================================
+
+const programmingQuestionBanks: Record<string, ProgrammingQuestion[]> = {
+  sde: [
+    {
+      id: 101,
+      question: 'Two Sum\n\nGiven an array of integers nums and an integer target, return the indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.',
+      topic: 'Arrays',
+      type: 'programming',
+      difficulty: 'easy',
+      constraints: '2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9',
+      examples: [
+        { input: 'nums = [2,7,11,15], target = 9', output: '[0, 1]', explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].' },
+        { input: 'nums = [3,2,4], target = 6', output: '[1, 2]' },
+      ],
+      starterCode: {
+        python: `def two_sum(nums, target):
+    # Write your solution here
+    pass
+
+# Read input
+nums = list(map(int, input().split(',')))
+target = int(input())
+result = two_sum(nums, target)
+print(result)`,
+        javascript: `function twoSum(nums, target) {
+    // Write your solution here
+}
+
+// Read input
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+const lines = [];
+rl.on('line', (line) => lines.push(line));
+rl.on('close', () => {
+    const nums = lines[0].split(',').map(Number);
+    const target = parseInt(lines[1]);
+    console.log(JSON.stringify(twoSum(nums, target)));
+});`,
+        java: `import java.util.*;
+
+public class Main {
+    public static int[] twoSum(int[] nums, int target) {
+        // Write your solution here
+        return new int[]{};
+    }
+    
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(",");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            nums[i] = Integer.parseInt(parts[i].trim());
+        }
+        int target = sc.nextInt();
+        int[] result = twoSum(nums, target);
+        System.out.println(Arrays.toString(result));
+    }
+}`,
+        cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+
+vector<int> twoSum(vector<int>& nums, int target) {
+    // Write your solution here
+    return {};
+}
+
+int main() {
+    string line;
+    getline(cin, line);
+    vector<int> nums;
+    stringstream ss(line);
+    string token;
+    while (getline(ss, token, ',')) {
+        nums.push_back(stoi(token));
+    }
+    int target;
+    cin >> target;
+    vector<int> result = twoSum(nums, target);
+    cout << "[" << result[0] << ", " << result[1] << "]" << endl;
+    return 0;
+}`,
+      },
+      testCases: [
+        { input: '2,7,11,15\n9', expectedOutput: '[0, 1]' },
+        { input: '3,2,4\n6', expectedOutput: '[1, 2]' },
+        { input: '3,3\n6', expectedOutput: '[0, 1]', hidden: true },
+      ],
+    },
+    {
+      id: 102,
+      question: 'Reverse a String\n\nWrite a function that reverses a string. The input string is given as an array of characters.\n\nYou must do this by modifying the input array in-place with O(1) extra memory.',
+      topic: 'Strings',
+      type: 'programming',
+      difficulty: 'easy',
+      examples: [
+        { input: 's = ["h","e","l","l","o"]', output: '["o","l","l","e","h"]' },
+        { input: 's = ["H","a","n","n","a","h"]', output: '["h","a","n","n","a","H"]' },
+      ],
+      starterCode: {
+        python: `def reverse_string(s):
+    # Write your solution here - modify s in-place
+    pass
+
+# Read input
+s = list(input().strip())
+reverse_string(s)
+print(s)`,
+        javascript: `function reverseString(s) {
+    // Write your solution here - modify s in-place
+}
+
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const s = line.split('');
+    reverseString(s);
+    console.log(JSON.stringify(s));
+    rl.close();
+});`,
+        java: `import java.util.*;
+
+public class Main {
+    public static void reverseString(char[] s) {
+        // Write your solution here - modify s in-place
+    }
+    
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        char[] s = sc.nextLine().toCharArray();
+        reverseString(s);
+        System.out.println(Arrays.toString(s));
+    }
+}`,
+        cpp: `#include <iostream>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+void reverseString(vector<char>& s) {
+    // Write your solution here - modify s in-place
+}
+
+int main() {
+    string input;
+    getline(cin, input);
+    vector<char> s(input.begin(), input.end());
+    reverseString(s);
+    cout << "[";
+    for (int i = 0; i < s.size(); i++) {
+        cout << "\\"" << s[i] << "\\"";
+        if (i < s.size() - 1) cout << ",";
+    }
+    cout << "]" << endl;
+    return 0;
+}`,
+      },
+      testCases: [
+        { input: 'hello', expectedOutput: "['o', 'l', 'l', 'e', 'h']" },
+        { input: 'Hannah', expectedOutput: "['h', 'a', 'n', 'n', 'a', 'H']" },
+      ],
+    },
+  ],
+  google: [
+    {
+      id: 201,
+      question: 'Valid Parentheses\n\nGiven a string s containing just the characters \'(\', \')\', \'{\', \'}\', \'[\' and \']\', determine if the input string is valid.\n\nAn input string is valid if:\n1. Open brackets must be closed by the same type of brackets.\n2. Open brackets must be closed in the correct order.\n3. Every close bracket has a corresponding open bracket of the same type.',
+      topic: 'Stacks',
+      type: 'programming',
+      difficulty: 'easy',
+      examples: [
+        { input: 's = "()"', output: 'true' },
+        { input: 's = "()[]{}"', output: 'true' },
+        { input: 's = "(]"', output: 'false' },
+      ],
+      starterCode: {
+        python: `def is_valid(s):
+    # Write your solution here
+    pass
+
+# Read input
+s = input().strip()
+print(str(is_valid(s)).lower())`,
+        javascript: `function isValid(s) {
+    // Write your solution here
+}
+
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(isValid(line.trim()));
+    rl.close();
+});`,
+        java: `import java.util.*;
+
+public class Main {
+    public static boolean isValid(String s) {
+        // Write your solution here
+        return false;
+    }
+    
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine();
+        System.out.println(isValid(s));
+    }
+}`,
+        cpp: `#include <iostream>
+#include <stack>
+#include <string>
+using namespace std;
+
+bool isValid(string s) {
+    // Write your solution here
+    return false;
+}
+
+int main() {
+    string s;
+    getline(cin, s);
+    cout << (isValid(s) ? "true" : "false") << endl;
+    return 0;
+}`,
+      },
+      testCases: [
+        { input: '()', expectedOutput: 'true' },
+        { input: '()[]{}', expectedOutput: 'true' },
+        { input: '(]', expectedOutput: 'false' },
+        { input: '([)]', expectedOutput: 'false', hidden: true },
+        { input: '{[]}', expectedOutput: 'true', hidden: true },
+      ],
+    },
+  ],
+  amazon: [
+    {
+      id: 301,
+      question: 'FizzBuzz\n\nGiven an integer n, return a string array answer (1-indexed) where:\n\n- answer[i] == "FizzBuzz" if i is divisible by 3 and 5.\n- answer[i] == "Fizz" if i is divisible by 3.\n- answer[i] == "Buzz" if i is divisible by 5.\n- answer[i] == i (as a string) if none of the above conditions are true.',
+      topic: 'Math',
+      type: 'programming',
+      difficulty: 'easy',
+      examples: [
+        { input: 'n = 3', output: '["1","2","Fizz"]' },
+        { input: 'n = 5', output: '["1","2","Fizz","4","Buzz"]' },
+        { input: 'n = 15', output: '["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]' },
+      ],
+      starterCode: {
+        python: `def fizz_buzz(n):
+    # Write your solution here
+    pass
+
+# Read input
+n = int(input())
+result = fizz_buzz(n)
+print(result)`,
+        javascript: `function fizzBuzz(n) {
+    // Write your solution here
+}
+
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(JSON.stringify(fizzBuzz(parseInt(line))));
+    rl.close();
+});`,
+        java: `import java.util.*;
+
+public class Main {
+    public static List<String> fizzBuzz(int n) {
+        // Write your solution here
+        return new ArrayList<>();
+    }
+    
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        System.out.println(fizzBuzz(n));
+    }
+}`,
+        cpp: `#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
+
+vector<string> fizzBuzz(int n) {
+    // Write your solution here
+    return {};
+}
+
+int main() {
+    int n;
+    cin >> n;
+    vector<string> result = fizzBuzz(n);
+    cout << "[";
+    for (int i = 0; i < result.size(); i++) {
+        cout << "\\"" << result[i] << "\\"";
+        if (i < result.size() - 1) cout << ",";
+    }
+    cout << "]" << endl;
+    return 0;
+}`,
+      },
+      testCases: [
+        { input: '3', expectedOutput: '["1", "2", "Fizz"]' },
+        { input: '5', expectedOutput: '["1", "2", "Fizz", "4", "Buzz"]' },
+        { input: '15', expectedOutput: '["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"]', hidden: true },
+      ],
+    },
+  ],
+};
+
+// ============================================
 // ICONS
 // ============================================
 
@@ -473,6 +876,13 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [testStartTime, setTestStartTime] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'assessment' | 'interview' | 'history'>(initialView === 'history' ? 'history' : 'assessment');
   const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('grid');
+  
+  // Code editor state for programming questions
+  const [selectedLanguage, setSelectedLanguage] = useState('python');
+  const [codeAnswers, setCodeAnswers] = useState<Record<number, string>>({});
+  const [codeTestResults, setCodeTestResults] = useState<Record<number, { passed: boolean; output: string; expected: string; error?: string }[]>>({});
+  const [isRunningCode, setIsRunningCode] = useState(false);
+  const [codeOutput, setCodeOutput] = useState('');
 
   // Handle initial view from route
   useEffect(() => {
@@ -587,10 +997,99 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [showCompanyTests, setShowCompanyTests] = useState(false);
 
   // Get questions for current assessment
-  const getQuestions = useCallback(() => {
+  const getQuestions = useCallback((): AnyQuestion[] => {
     if (!selectedAssessment) return defaultQuestions;
-    return questionBanks[selectedAssessment.id] || defaultQuestions;
+    const mcqQuestions = questionBanks[selectedAssessment.id] || defaultQuestions;
+    const programmingQuestions = programmingQuestionBanks[selectedAssessment.id] || [];
+    
+    // Combine MCQ and programming questions
+    return [...mcqQuestions, ...programmingQuestions];
   }, [selectedAssessment]);
+  
+  // Check if current question is a programming question
+  const isProgrammingQuestion = (question: AnyQuestion): question is ProgrammingQuestion => {
+    return question.type === 'programming';
+  };
+  
+  // Get current code for a programming question
+  const getCurrentCode = (questionIndex: number, question: ProgrammingQuestion) => {
+    if (codeAnswers[questionIndex]) {
+      return codeAnswers[questionIndex];
+    }
+    return question.starterCode[selectedLanguage] || question.starterCode.python || '';
+  };
+  
+  // Handle code change
+  const handleCodeChange = (questionIndex: number, code: string) => {
+    setCodeAnswers(prev => ({ ...prev, [questionIndex]: code }));
+  };
+  
+  // Run code against test cases
+  const runCode = async (questionIndex: number, question: ProgrammingQuestion) => {
+    setIsRunningCode(true);
+    setCodeOutput('Running...');
+    
+    const code = getCurrentCode(questionIndex, question);
+    const results: { passed: boolean; output: string; expected: string; error?: string }[] = [];
+    
+    // Run against visible test cases only
+    const visibleTestCases = question.testCases.filter(tc => !tc.hidden);
+    
+    for (const testCase of visibleTestCases) {
+      const result = await executeCode(code, selectedLanguage, testCase.input);
+      const passed = result.output.trim() === testCase.expectedOutput.trim();
+      results.push({
+        passed,
+        output: result.output || result.error,
+        expected: testCase.expectedOutput,
+        error: result.error,
+      });
+    }
+    
+    setCodeTestResults(prev => ({ ...prev, [questionIndex]: results }));
+    setCodeOutput(results.map((r, i) => 
+      `Test ${i + 1}: ${r.passed ? '✅ Passed' : '❌ Failed'}\nOutput: ${r.output}\nExpected: ${r.expected}`
+    ).join('\n\n'));
+    setIsRunningCode(false);
+  };
+  
+  // Submit code (runs against all test cases including hidden)
+  const submitCode = async (questionIndex: number, question: ProgrammingQuestion) => {
+    setIsRunningCode(true);
+    setCodeOutput('Submitting and running all test cases...');
+    
+    const code = getCurrentCode(questionIndex, question);
+    const results: { passed: boolean; output: string; expected: string; error?: string }[] = [];
+    
+    for (const testCase of question.testCases) {
+      const result = await executeCode(code, selectedLanguage, testCase.input);
+      const passed = result.output.trim() === testCase.expectedOutput.trim();
+      results.push({
+        passed,
+        output: result.output || result.error,
+        expected: testCase.expectedOutput,
+        error: result.error,
+      });
+    }
+    
+    setCodeTestResults(prev => ({ ...prev, [questionIndex]: results }));
+    
+    const allPassed = results.every(r => r.passed);
+    const passedCount = results.filter(r => r.passed).length;
+    
+    setCodeOutput(
+      `${allPassed ? '🎉 All test cases passed!' : `⚠️ ${passedCount}/${results.length} test cases passed`}\n\n` +
+      results.map((r, i) => 
+        `Test ${i + 1}${question.testCases[i].hidden ? ' (hidden)' : ''}: ${r.passed ? '✅ Passed' : '❌ Failed'}${!question.testCases[i].hidden ? `\nOutput: ${r.output}\nExpected: ${r.expected}` : ''}`
+      ).join('\n\n')
+    );
+    setIsRunningCode(false);
+    
+    // Mark as answered if at least one test passes
+    if (passedCount > 0) {
+      setAnswers(prev => ({ ...prev, [questionIndex]: passedCount }));
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -655,13 +1154,28 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   const handleSubmitTest = () => {
     const questions = getQuestions();
-    const questionResults = questions.map((q, index) => ({
+    const questionResults = questions.map((q, index) => {
+      if (isProgrammingQuestion(q)) {
+        // For programming questions, check if they passed any test cases
+        const testResults = codeTestResults[index];
+        const passedAll = testResults?.every(r => r.passed) ?? false;
+        return {
       questionId: q.id,
       topic: q.topic,
-      isCorrect: answers[index] === q.correctAnswer,
+          isCorrect: passedAll,
       userAnswer: answers[index] ?? -1,
-      correctAnswer: q.correctAnswer,
-    }));
+          correctAnswer: 0, // Not applicable for programming
+        };
+      }
+      // For MCQ questions
+      return {
+        questionId: q.id,
+        topic: q.topic,
+        isCorrect: answers[index] === (q as Question).correctAnswer,
+        userAnswer: answers[index] ?? -1,
+        correctAnswer: (q as Question).correctAnswer,
+      };
+    });
 
     const solved = questionResults.filter((r) => r.isCorrect).length;
     const attempted = Object.keys(answers).length;
@@ -1661,12 +2175,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   const renderInstructionsModal = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto relative">
+        {/* Close Button */}
         <button
           onClick={() => setShowInstructions(false)}
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500"
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
         >
-          ✕
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
         
         <div className="flex items-center gap-3 mb-6">
@@ -2057,13 +2574,127 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
                 {/* Question body */}
                 <div className="p-5">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5 whitespace-pre-line">
                     {currentQuestion.question}
                   </h3>
 
-                  {/* Options */}
+                  {/* Conditional rendering: MCQ or Programming */}
+                  {isProgrammingQuestion(currentQuestion) ? (
+                    /* Programming Question - Code Editor */
+                    <div className="space-y-4">
+                      {/* Constraints */}
+                      {currentQuestion.constraints && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
+                          <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">📋 Constraints</h4>
+                          <pre className="text-xs text-amber-700 dark:text-amber-400 whitespace-pre-wrap font-mono">{currentQuestion.constraints}</pre>
+                        </div>
+                      )}
+
+                      {/* Examples */}
+                      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">💡 Examples</h4>
+                        <div className="space-y-3">
+                          {currentQuestion.examples.map((ex, i) => (
+                            <div key={i} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                              <div className="text-xs">
+                                <div className="mb-1"><span className="font-semibold text-slate-600 dark:text-slate-300">Input:</span> <code className="bg-slate-100 dark:bg-slate-600 px-1 rounded">{ex.input}</code></div>
+                                <div><span className="font-semibold text-slate-600 dark:text-slate-300">Output:</span> <code className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1 rounded">{ex.output}</code></div>
+                                {ex.explanation && <div className="mt-1 text-slate-500 dark:text-slate-400 italic">{ex.explanation}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Language Selector */}
+                      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-xl p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Language:</span>
+                          <select
+                            value={selectedLanguage}
+                            onChange={(e) => {
+                              setSelectedLanguage(e.target.value);
+                              // Reset code to starter code for new language if not already modified
+                              if (!codeAnswers[currentQuestionIndex]) {
+                                // Will use starter code from the question
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          >
+                            {supportedLanguages.map(lang => (
+                              <option key={lang.id} value={lang.id}>{lang.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => runCode(currentQuestionIndex, currentQuestion)}
+                            disabled={isRunningCode}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isRunningCode ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            Run
+                          </button>
+                          <button
+                            onClick={() => submitCode(currentQuestionIndex, currentQuestion)}
+                            disabled={isRunningCode}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Submit
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Code Editor */}
+                      <div className="border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden">
+                        <Editor
+                          height="350px"
+                          language={supportedLanguages.find(l => l.id === selectedLanguage)?.monacoId || 'python'}
+                          value={getCurrentCode(currentQuestionIndex, currentQuestion)}
+                          onChange={(value) => handleCodeChange(currentQuestionIndex, value || '')}
+                          theme="vs-dark"
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            lineNumbers: 'on',
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            tabSize: 4,
+                            wordWrap: 'on',
+                          }}
+                        />
+                      </div>
+
+                      {/* Output Console */}
+                      <div className="bg-gray-900 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                          <span className="text-sm font-medium text-gray-300">Output</span>
+                          {codeTestResults[currentQuestionIndex] && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">
+                                {codeTestResults[currentQuestionIndex].filter(r => r.passed).length}/{codeTestResults[currentQuestionIndex].length} tests passed
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <pre className="p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {codeOutput || 'Click "Run" to test your code or "Submit" to run all test cases.'}
+                        </pre>
+                      </div>
+                    </div>
+                  ) : (
+                    /* MCQ Question - Options */
                   <div className="space-y-2.5">
-                    {currentQuestion.options.map((option, index) => {
+                      {(currentQuestion as Question).options.map((option, index) => {
                       const isSelected = answers[currentQuestionIndex] === index;
                       const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
                       
@@ -2095,11 +2726,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                       );
                     })}
                   </div>
+                  )}
                 </div>
               </div>
 
               {/* Answer confirmation */}
-              {answers[currentQuestionIndex] !== undefined && (
+              {!isProgrammingQuestion(currentQuestion) && answers[currentQuestionIndex] !== undefined && (
                 <div className="mt-4 px-4 py-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
                     <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2405,6 +3037,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 {getQuestions().map((q, idx) => {
                   const result = testResult.questionResults.find(r => r.questionId === q.id);
                   const isCorrect = result?.isCorrect;
+                  const isProgramming = isProgrammingQuestion(q);
+                  
                   return (
                     <div key={q.id} className={`p-4 rounded-xl border ${isCorrect ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/10' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'}`}>
                       <div className="flex items-start gap-3">
@@ -2412,13 +3046,29 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           {idx + 1}
                         </span>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white text-sm mb-2">{q.question}</p>
+                          <p className="font-medium text-gray-900 dark:text-white text-sm mb-2 whitespace-pre-line">{q.question}</p>
+                          
+                          {isProgramming ? (
+                            /* Programming question result */
+                            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3">
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="font-medium text-gray-700 dark:text-gray-300">Type:</span>
+                                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs font-medium">
+                                  💻 Programming
+                                </span>
+                              </div>
+                              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                                {isCorrect ? '✅ All test cases passed' : '❌ Some test cases failed'}
+                              </div>
+                            </div>
+                          ) : (
+                            /* MCQ question options */
                           <div className="grid grid-cols-2 gap-2 mb-3">
-                            {q.options.map((opt, optIdx) => (
+                              {(q as Question).options.map((opt: string, optIdx: number) => (
                               <div
                                 key={optIdx}
                                 className={`px-3 py-2 rounded-lg text-xs ${
-                                  optIdx === q.correctAnswer
+                                    optIdx === (q as Question).correctAnswer
                                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
                                     : optIdx === result?.userAnswer && !isCorrect
                                     ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-700'
@@ -2426,11 +3076,13 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                                 }`}
                               >
                                 <span className="font-medium">{String.fromCharCode(65 + optIdx)}.</span> {opt}
-                                {optIdx === q.correctAnswer && <span className="ml-1">✓</span>}
+                                  {optIdx === (q as Question).correctAnswer && <span className="ml-1">✓</span>}
                                 {optIdx === result?.userAnswer && !isCorrect && <span className="ml-1">✗</span>}
                               </div>
                             ))}
                           </div>
+                          )}
+                          
                           {q.explanation && (
                             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                               <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">💡 Explanation:</p>
