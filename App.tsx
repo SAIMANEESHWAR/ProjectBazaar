@@ -28,9 +28,10 @@ import BuildPortfolioPage from './components/BuildPortfolioPage';
 import PlatformFeatures from './components/PlatformFeatures';
 import { ResumeBuilderPage } from './components/resume-builder';
 import MockAssessmentPage from './components/MockAssessmentPage';
+import CodingInterviewQuestionsPage from './components/CodingInterviewQuestionsPage';
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -198,6 +199,8 @@ const AppContent: React.FC = () => {
       return <MockAssessmentPage initialView="daily-challenge" />;
     case 'mockHistory':
       return <MockAssessmentPage initialView="history" />;
+    case 'codingQuestions':
+      return <CodingInterviewQuestionsPage />;
     case 'notFound':
       return <NotFound />;
     case 'home':
@@ -271,6 +274,8 @@ const App: React.FC = () => {
         '/mock-assessment/achievements': 'mockAchievements',
         '/mock-assessment/daily-challenge': 'mockDailyChallenge',
         '/mock-assessment/history': 'mockHistory',
+        '/coding-questions': 'codingQuestions',
+        '/coding-interview-questions': 'codingQuestions',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -288,6 +293,7 @@ const App: React.FC = () => {
         'mockAchievements': 'mockAchievements',
         'mockDailyChallenge': 'mockDailyChallenge',
         'mockHistory': 'mockHistory',
+        'codingQuestions': 'codingQuestions',
         'notFound': 'notFound',
       };
       
@@ -408,6 +414,7 @@ const App: React.FC = () => {
       'mockAchievements': '/mock-assessment/achievements',
       'mockDailyChallenge': '/mock-assessment/daily-challenge',
       'mockHistory': '/mock-assessment/history',
+      'codingQuestions': '/coding-questions',
       'notFound': '/404'
     };
     
