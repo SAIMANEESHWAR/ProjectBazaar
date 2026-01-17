@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
+// Navigation helper for updating URL
+const navigateToRoute = (path: string) => {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+};
+
 // ============================================
 // TYPES & INTERFACES
 // ============================================
 
-type AssessmentView = 'list' | 'test' | 'results' | 'certificate' | 'interview' | 'schedule' | 'leaderboard' | 'achievements' | 'daily-challenge' | 'study-resources';
+type AssessmentView = 'list' | 'test' | 'results' | 'certificate' | 'interview' | 'schedule' | 'leaderboard' | 'achievements' | 'daily-challenge' | 'study-resources' | 'history';
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
 type TestMode = 'timed' | 'practice';
 
@@ -381,8 +387,12 @@ const StarIcon = () => (
 // MAIN COMPONENT
 // ============================================
 
-const MockAssessmentPage: React.FC = () => {
-  const [view, setView] = useState<AssessmentView>('list');
+interface MockAssessmentPageProps {
+  initialView?: AssessmentView;
+}
+
+const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = 'list' }) => {
+  const [view, setView] = useState<AssessmentView>(initialView === 'history' ? 'list' : initialView);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -392,8 +402,38 @@ const MockAssessmentPage: React.FC = () => {
   const [showRules, setShowRules] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set());
   const [testStartTime, setTestStartTime] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'assessment' | 'interview' | 'history'>('assessment');
+  const [activeTab, setActiveTab] = useState<'assessment' | 'interview' | 'history'>(initialView === 'history' ? 'history' : 'assessment');
   const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('grid');
+
+  // Handle initial view from route
+  useEffect(() => {
+    if (initialView === 'leaderboard' || initialView === 'achievements' || initialView === 'daily-challenge') {
+      setView(initialView);
+    } else if (initialView === 'history') {
+      setActiveTab('history');
+      setView('list');
+    }
+  }, [initialView]);
+
+  // Navigation helper that updates both state and URL
+  const navigateToView = useCallback((targetView: AssessmentView) => {
+    setView(targetView);
+    const routes: Record<AssessmentView, string> = {
+      'list': '/mock-assessment',
+      'test': '/mock-assessment',
+      'results': '/mock-assessment',
+      'certificate': '/mock-assessment',
+      'interview': '/mock-assessment',
+      'schedule': '/mock-assessment',
+      'history': '/mock-assessment/history',
+      'leaderboard': '/mock-assessment/leaderboard',
+      'achievements': '/mock-assessment/achievements',
+      'daily-challenge': '/mock-assessment/daily-challenge',
+      'study-resources': '/mock-assessment'
+    };
+    navigateToRoute(routes[targetView] || '/mock-assessment');
+  }, []);
+
   const [testHistory, setTestHistory] = useState<TestResult[]>([
     {
       assessmentId: 'react',
@@ -585,7 +625,7 @@ const MockAssessmentPage: React.FC = () => {
   };
 
   const handleBackToList = () => {
-    setView('list');
+    navigateToView('list');
     setSelectedAssessment(null);
     setTestResult(null);
     setCurrentQuestionIndex(0);
@@ -751,7 +791,7 @@ const MockAssessmentPage: React.FC = () => {
                 <div className="text-right">
                   <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">+{dailyChallenge.xpReward} XP</p>
                   <button 
-                    onClick={() => setView('daily-challenge')}
+                    onClick={() => navigateToView('daily-challenge')}
                     className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition mt-1"
                   >
                     {dailyChallenge.completed ? 'Completed ✓' : 'Start'}
@@ -778,7 +818,7 @@ const MockAssessmentPage: React.FC = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setView('leaderboard')}
+                  onClick={() => navigateToView('leaderboard')}
                   className="text-xs px-3 py-1.5 border border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
                 >
                   Leaderboard →
@@ -792,7 +832,7 @@ const MockAssessmentPage: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium text-gray-900 dark:text-white">Your Badges</h3>
               <button 
-                onClick={() => setView('achievements')}
+                onClick={() => navigateToView('achievements')}
                 className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
               >
                 View All ({allBadges.length})
@@ -954,7 +994,7 @@ const MockAssessmentPage: React.FC = () => {
       {view === 'leaderboard' && (
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ArrowLeftIcon />
             </button>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🏆 Leaderboard</h2>
@@ -1022,7 +1062,7 @@ const MockAssessmentPage: React.FC = () => {
       {view === 'achievements' && (
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ArrowLeftIcon />
             </button>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🎖️ Achievements & Badges</h2>
@@ -1069,7 +1109,7 @@ const MockAssessmentPage: React.FC = () => {
       {view === 'daily-challenge' && (
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ArrowLeftIcon />
             </button>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📅 Daily Challenge</h2>
@@ -2398,7 +2438,7 @@ const MockAssessmentPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <button
-          onClick={() => setView('list')}
+          onClick={() => navigateToView('list')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-8 transition"
         >
           <ArrowLeftIcon />

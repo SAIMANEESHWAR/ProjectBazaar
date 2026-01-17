@@ -30,7 +30,7 @@ import { ResumeBuilderPage } from './components/resume-builder';
 import MockAssessmentPage from './components/MockAssessmentPage';
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -189,7 +189,15 @@ const AppContent: React.FC = () => {
     case 'buildResume':
       return <ResumeBuilderPage />;
     case 'mockAssessment':
-      return <MockAssessmentPage />;
+      return <MockAssessmentPage initialView="list" />;
+    case 'mockLeaderboard':
+      return <MockAssessmentPage initialView="leaderboard" />;
+    case 'mockAchievements':
+      return <MockAssessmentPage initialView="achievements" />;
+    case 'mockDailyChallenge':
+      return <MockAssessmentPage initialView="daily-challenge" />;
+    case 'mockHistory':
+      return <MockAssessmentPage initialView="history" />;
     case 'notFound':
       return <NotFound />;
     case 'home':
@@ -259,6 +267,10 @@ const App: React.FC = () => {
         '/resume-builder': 'buildResume',
         '/mock-assessment': 'mockAssessment',
         '/mock-interview': 'mockAssessment',
+        '/mock-assessment/leaderboard': 'mockLeaderboard',
+        '/mock-assessment/achievements': 'mockAchievements',
+        '/mock-assessment/daily-challenge': 'mockDailyChallenge',
+        '/mock-assessment/history': 'mockHistory',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -272,6 +284,10 @@ const App: React.FC = () => {
         'buildPortfolio': 'buildPortfolio',
         'buildResume': 'buildResume',
         'mockAssessment': 'mockAssessment',
+        'mockLeaderboard': 'mockLeaderboard',
+        'mockAchievements': 'mockAchievements',
+        'mockDailyChallenge': 'mockDailyChallenge',
+        'mockHistory': 'mockHistory',
         'notFound': 'notFound',
       };
       
@@ -388,6 +404,10 @@ const App: React.FC = () => {
       'buildPortfolio': '/build-portfolio',
       'buildResume': '/build-resume',
       'mockAssessment': '/mock-assessment',
+      'mockLeaderboard': '/mock-assessment/leaderboard',
+      'mockAchievements': '/mock-assessment/achievements',
+      'mockDailyChallenge': '/mock-assessment/daily-challenge',
+      'mockHistory': '/mock-assessment/history',
       'notFound': '/404'
     };
     
