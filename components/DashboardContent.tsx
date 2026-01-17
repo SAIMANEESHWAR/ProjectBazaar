@@ -29,6 +29,7 @@ import Pagination from './Pagination';
 import BuildPortfolioPage from './BuildPortfolioPage';
 import { ResumeBuilderPage } from './resume-builder';
 import MyCoursesPage from './MyCoursesPage';
+import CareerGuidancePage from './CareerGuidancePage';
 import { PurchasedCourse } from '../services/buyerApi';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
@@ -554,6 +555,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return <BuildPortfolioPage embedded />;
             case 'build-resume':
                 return <ResumeBuilderPage />;
+            case 'career-guidance':
+                return <CareerGuidancePage />;
             case 'course-details':
                 if (!selectedCourse) return null;
                 return (
@@ -644,6 +647,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return <BuildPortfolioPage embedded />;
             case 'build-resume':
                 return <ResumeBuilderPage />;
+            case 'career-guidance':
+                return <CareerGuidancePage />;
             case 'my-projects':
                 return <MyProjectsPage />;
             case 'my-courses':
@@ -669,7 +674,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()
             ) : (
                 <div className="container mx-auto px-6 py-8">
-                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && activeView !== 'hackathons' && activeView !== 'build-portfolio' && activeView !== 'build-resume' && (
+                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && activeView !== 'hackathons' && activeView !== 'build-portfolio' && activeView !== 'build-resume' && activeView !== 'career-guidance' && (
                         <DashboardHeader 
                             dashboardMode={dashboardMode} 
                             setDashboardMode={setDashboardMode}
