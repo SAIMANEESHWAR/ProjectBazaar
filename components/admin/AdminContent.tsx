@@ -10,6 +10,7 @@ import AdminProjectDetailsPage from './AdminProjectDetailsPage';
 import AdminReportDetailsPage from './AdminReportDetailsPage';
 import CoursesManagementPage from './CoursesManagementPage';
 import CodingQuestionsManagementPage from './CodingQuestionsManagementPage';
+import CareerContentManagementPage from './CareerContentManagementPage';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 interface AdminProject extends BuyerProject {
@@ -53,6 +54,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'payout-systems': 'Payout Systems',
         'courses': 'Courses Management',
         'coding-questions': 'Coding Interview Questions',
+        'career-guidance': 'Career Guidance Content',
         'user-profile': selectedUser ? `${selectedUser.name}'s Profile` : 'User Profile',
         'admin-project-details': selectedProject ? `Project: ${selectedProject.title}` : 'Project Details',
         'admin-report-details': 'Report Details',
@@ -243,6 +245,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'payout-systems' && <PayoutSystemsPage />}
                 {activeView === 'courses' && <CoursesManagementPage />}
                 {activeView === 'coding-questions' && <CodingQuestionsManagementPage />}
+                {activeView === 'career-guidance' && <CareerContentManagementPage />}
             </div>
         </div>
     );

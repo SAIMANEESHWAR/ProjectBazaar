@@ -2,7 +2,18 @@ import React, { useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import AdminContent from './AdminContent';
 
-export type AdminView = 'project-management' | 'fraud-management' | 'user-management' | 'revenue-analytics' | 'payout-systems' | 'courses' | 'coding-questions' | 'user-profile' | 'admin-project-details' | 'admin-report-details';
+export type AdminView =
+    | 'project-management'
+    | 'fraud-management'
+    | 'user-management'
+    | 'revenue-analytics'
+    | 'payout-systems'
+    | 'courses'
+    | 'coding-questions'
+    | 'career-guidance'
+    | 'user-profile'
+    | 'admin-project-details'
+    | 'admin-report-details';
 
 const AdminDashboard: React.FC = () => {
     const [activeView, setActiveView] = useState<AdminView>('project-management');

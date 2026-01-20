@@ -43,7 +43,7 @@ type CareerTab = 'trending' | 'recommend' | 'roadmap' | 'internship' | 'placemen
 type RecommendStep = 0 | 1 | 2 | 3 | 4 | 5;
 
 // Trending Career Data for B.Tech Students
-interface TrendingCareer {
+export interface TrendingCareer {
     title: string;
     avgSalary: string;
     growth: string;
@@ -51,15 +51,18 @@ interface TrendingCareer {
     skills: string[];
     companies: string[];
     description: string;
+    links?: string[]; // roadmap links
 }
 
-interface ProjectIdea {
+export interface ProjectIdea {
     title: string;
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
     duration: string;
     technologies: string[];
     description: string;
     features: string[];
+    githubLinks?: string[]; // GitHub repository links
+    demoLinks?: string[]; // Live demo links
 }
 
 interface PlacementTopic {
@@ -142,10 +145,54 @@ const CurrencyIcon = () => (
 );
 
 // ============================================
+// STORAGE HELPERS
+// ============================================
+
+const TRENDING_CAREERS_KEY = 'careerTrendingCareers';
+const PROJECT_IDEAS_KEY = 'careerProjectIdeas';
+const API_ENDPOINT = 'https://kuxbswn0c9.execute-api.ap-south-2.amazonaws.com/default/Trendingcarrers_ProjectIdeas';
+
+const isBrowser = typeof window !== 'undefined';
+
+export const saveTrendingCareers = (items: TrendingCareer[]) => {
+    if (!isBrowser) return;
+    try {
+        localStorage.setItem(TRENDING_CAREERS_KEY, JSON.stringify(items));
+    } catch (error) {
+        console.error('Failed to save trending careers:', error);
+    }
+};
+
+export const saveProjectIdeas = (items: ProjectIdea[]) => {
+    if (!isBrowser) return;
+    try {
+        localStorage.setItem(PROJECT_IDEAS_KEY, JSON.stringify(items));
+    } catch (error) {
+        console.error('Failed to save project ideas:', error);
+    }
+};
+
+const loadFromStorage = <T,>(key: string, fallback: T[]): T[] => {
+    if (!isBrowser) return fallback;
+    try {
+        const stored = localStorage.getItem(key);
+        if (!stored) return fallback;
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+            return parsed as T[];
+        }
+        return fallback;
+    } catch (error) {
+        console.error(`Failed to load ${key} from storage:`, error);
+        return fallback;
+    }
+};
+
+// ============================================
 // TRENDING CAREERS DATA
 // ============================================
 
-const trendingCareers: TrendingCareer[] = [
+export const defaultTrendingCareers: TrendingCareer[] = [
     {
         title: "AI/ML Engineer",
         avgSalary: "₹8-25 LPA",
@@ -280,7 +327,7 @@ const placementTopics: PlacementTopic[] = [
 // PROJECT IDEAS DATA
 // ============================================
 
-const projectIdeas: ProjectIdea[] = [
+export const defaultProjectIdeas: ProjectIdea[] = [
     {
         title: "AI-Powered Resume Analyzer",
         difficulty: "Intermediate",
@@ -793,7 +840,12 @@ const InternshipDisplay: React.FC<InternshipDisplayProps> = ({ internship, onSta
 // TRENDING CAREERS COMPONENT
 // ============================================
 
-const TrendingCareersSection: React.FC<{ onExploreRoadmap: (career: string) => void }> = ({ onExploreRoadmap }) => {
+interface TrendingCareersSectionProps {
+    careers: TrendingCareer[];
+    onExploreRoadmap: (career: string) => void;
+}
+
+const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers, onExploreRoadmap }) => {
     const [selectedCareer, setSelectedCareer] = useState<TrendingCareer | null>(null);
 
     return (
@@ -820,7 +872,7 @@ const TrendingCareersSection: React.FC<{ onExploreRoadmap: (career: string) => v
 
             {/* Career Cards */}
             <div className="grid md:grid-cols-2 gap-4">
-                {trendingCareers.map((career, idx) => (
+                {careers.map((career, idx) => (
                     <div 
                         key={idx}
                         onClick={() => setSelectedCareer(selectedCareer?.title === career.title ? null : career)}
@@ -882,6 +934,26 @@ const TrendingCareersSection: React.FC<{ onExploreRoadmap: (career: string) => v
                                         ))}
                                     </div>
                                 </div>
+                                {career.links && career.links.length > 0 && (
+                                    <div className="mb-4">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Roadmap Links</p>
+                                        <ul className="space-y-1">
+                                            {career.links.map((link, i) => (
+                                                <li key={i} className="text-xs">
+                                                    <a
+                                                        href={link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-orange-600 hover:text-orange-700 break-all"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {link}
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -1016,13 +1088,17 @@ const PlacementPrepSection: React.FC = () => {
 // PROJECT IDEAS COMPONENT
 // ============================================
 
-const ProjectIdeasSection: React.FC = () => {
+interface ProjectIdeasSectionProps {
+    ideas: ProjectIdea[];
+}
+
+const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
     const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
     const [selectedProject, setSelectedProject] = useState<ProjectIdea | null>(null);
 
     const filteredProjects = filterDifficulty === 'all' 
-        ? projectIdeas 
-        : projectIdeas.filter(p => p.difficulty === filterDifficulty);
+        ? ideas 
+        : ideas.filter(p => p.difficulty === filterDifficulty);
 
     return (
         <div className="space-y-6">
@@ -1095,6 +1171,48 @@ const ProjectIdeasSection: React.FC = () => {
                                         </li>
                                     ))}
                                 </ul>
+                                {(project.githubLinks && project.githubLinks.length > 0) || (project.demoLinks && project.demoLinks.length > 0) ? (
+                                    <div className="mt-3 space-y-3">
+                                        {project.githubLinks && project.githubLinks.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Helpful GitHub Links</p>
+                                                <ul className="space-y-1">
+                                                    {project.githubLinks.map((link, i) => (
+                                                        <li key={i} className="text-xs break-all">
+                                                            <a
+                                                                href={link}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-orange-600 hover:text-orange-700"
+                                                            >
+                                                                {link}
+                                                            </a>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {project.demoLinks && project.demoLinks.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Demo Links</p>
+                                                <ul className="space-y-1">
+                                                    {project.demoLinks.map((link, i) => (
+                                                        <li key={i} className="text-xs break-all">
+                                                            <a
+                                                                href={link}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-orange-600 hover:text-orange-700"
+                                                            >
+                                                                {link}
+                                                            </a>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : null}
                                 <div className="mt-4 flex gap-2">
                                     <a 
                                         href={`https://github.com/topics/${project.technologies[0].toLowerCase().replace(/[^a-z]/g, '')}`}
@@ -1127,6 +1245,9 @@ const ProjectIdeasSection: React.FC = () => {
 // ============================================
 
 const CareerGuidancePage: React.FC = () => {
+    const [trendingCareersData, setTrendingCareersData] = useState<TrendingCareer[]>(defaultTrendingCareers);
+    const [projectIdeasData, setProjectIdeasData] = useState<ProjectIdea[]>(defaultProjectIdeas);
+    const [isLoadingData, setIsLoadingData] = useState(true);
     const [activeTab, setActiveTab] = useState<CareerTab>('trending');
     const [recommendStep, setRecommendStep] = useState<RecommendStep>(0);
     const [responses, setResponses] = useState<string[][]>([]);
@@ -1138,6 +1259,83 @@ const CareerGuidancePage: React.FC = () => {
     const [internship, setInternship] = useState<InternshipData | null>(null);
     const [internshipLoading, setInternshipLoading] = useState(false);
     const [internshipField, setInternshipField] = useState('');
+
+    // Fetch data from API on mount
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            try {
+                // Fetch trending careers
+                const careersResponse = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        section: 'trending',
+                        action: 'list',
+                    }),
+                });
+
+                if (careersResponse.ok) {
+                    const careersData = await careersResponse.json();
+                    if (careersData.success && Array.isArray(careersData.items) && careersData.items.length > 0) {
+                        // Map API response to TrendingCareer interface (ignore id, createdAt, updatedAt)
+                        const mappedCareers: TrendingCareer[] = careersData.items.map((item: any) => ({
+                            title: item.title || '',
+                            avgSalary: item.avgSalary || '',
+                            growth: item.growth || '',
+                            demand: item.demand || 'High',
+                            skills: Array.isArray(item.skills) ? item.skills : [],
+                            companies: Array.isArray(item.companies) ? item.companies : [],
+                            description: item.description || '',
+                            links: Array.isArray(item.links) ? item.links : [],
+                        }));
+                        setTrendingCareersData(mappedCareers);
+                    }
+                }
+
+                // Fetch project ideas
+                const projectsResponse = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        section: 'projects',
+                        action: 'list',
+                    }),
+                });
+
+                if (projectsResponse.ok) {
+                    const projectsData = await projectsResponse.json();
+                    if (projectsData.success && Array.isArray(projectsData.items) && projectsData.items.length > 0) {
+                        // Map API response to ProjectIdea interface (ignore id, createdAt, updatedAt)
+                        const mappedProjects: ProjectIdea[] = projectsData.items.map((item: any) => ({
+                            title: item.title || '',
+                            difficulty: item.difficulty || 'Intermediate',
+                            duration: item.duration || '',
+                            technologies: Array.isArray(item.technologies) ? item.technologies : [],
+                            description: item.description || '',
+                            features: Array.isArray(item.features) ? item.features : [],
+                            githubLinks: Array.isArray(item.githubLinks) ? item.githubLinks : [],
+                            demoLinks: Array.isArray(item.demoLinks) ? item.demoLinks : [],
+                        }));
+                        setProjectIdeasData(mappedProjects);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch career guidance data from API:', error);
+                // Fallback to localStorage or default data
+                setTrendingCareersData(loadFromStorage<TrendingCareer>(TRENDING_CAREERS_KEY, defaultTrendingCareers));
+                setProjectIdeasData(loadFromStorage<ProjectIdea>(PROJECT_IDEAS_KEY, defaultProjectIdeas));
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Option states for each step
     const [specializationOptions, setSpecializationOptions] = useState<OptionItem[]>([
@@ -1464,12 +1662,22 @@ const CareerGuidancePage: React.FC = () => {
                 {/* Trending Careers Tab */}
                 {activeTab === 'trending' && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        <TrendingCareersSection 
-                            onExploreRoadmap={(career) => {
-                                setRoadmapInput(career);
-                                generateRoadmap(career);
-                            }}
-                        />
+                        {isLoadingData ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="text-center">
+                                    <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-sm text-gray-600">Loading trending careers...</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <TrendingCareersSection 
+                                careers={trendingCareersData}
+                                onExploreRoadmap={(career) => {
+                                    setRoadmapInput(career);
+                                    generateRoadmap(career);
+                                }}
+                            />
+                        )}
                     </div>
                 )}
 
@@ -1483,7 +1691,16 @@ const CareerGuidancePage: React.FC = () => {
                 {/* Project Ideas Tab */}
                 {activeTab === 'projects' && (
                     <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        <ProjectIdeasSection />
+                        {isLoadingData ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="text-center">
+                                    <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-sm text-gray-600">Loading project ideas...</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <ProjectIdeasSection ideas={projectIdeasData} />
+                        )}
                     </div>
                 )}
 
