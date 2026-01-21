@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../App';
 import { createBidRequestProject, getBidRequestProjectsByBuyer, deleteBidRequestProject, updateBidRequestProjectStatus } from '../services/bidRequestProjectsApi';
+import { getBidsByProjectIdAsync, acceptBid, rejectBid } from '../services/bidsService';
 import type { BrowseProject } from '../types/browse';
+import type { Bid } from '../types/bids';
 
 // Skill suggestions
 const SKILL_SUGGESTIONS = [
@@ -63,6 +65,13 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
   const [activeTab, setActiveTab] = useState<'post' | 'my-projects'>('post');
   const [myProjects, setMyProjects] = useState<BrowseProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  
+  // View bids modal state
+  const [selectedProjectForBids, setSelectedProjectForBids] = useState<BrowseProject | null>(null);
+  const [showBidsModal, setShowBidsModal] = useState(false);
+  const [projectBids, setProjectBids] = useState<Bid[]>([]);
+  const [isLoadingBids, setIsLoadingBids] = useState(false);
+  const [updatingBidId, setUpdatingBidId] = useState<string | null>(null);
 
   // Filter skill suggestions based on input
   const filteredSuggestions = SKILL_SUGGESTIONS.filter(
@@ -224,6 +233,78 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
     } catch (err) {
       alert('Failed to update status');
     }
+  };
+
+  // Handle viewing bids for a project
+  const handleViewBids = async (project: BrowseProject) => {
+    setSelectedProjectForBids(project);
+    setShowBidsModal(true);
+    setIsLoadingBids(true);
+    
+    try {
+      const bids = await getBidsByProjectIdAsync(project.id);
+      setProjectBids(bids);
+    } catch (err) {
+      console.error('Error fetching bids:', err);
+      setProjectBids([]);
+    } finally {
+      setIsLoadingBids(false);
+    }
+  };
+
+  // Handle accepting a bid
+  const handleAcceptBid = async (bidId: string) => {
+    setUpdatingBidId(bidId);
+    try {
+      const result = await acceptBid(bidId);
+      if (result.success) {
+        // Update the bid status locally
+        setProjectBids(prev => prev.map(bid => 
+          bid.id === bidId ? { ...bid, status: 'accepted' } : bid
+        ));
+        // Refresh the project list to update bid counts
+        fetchMyProjects();
+      } else {
+        alert(result.error || 'Failed to accept bid');
+      }
+    } catch (err) {
+      alert('Failed to accept bid');
+    } finally {
+      setUpdatingBidId(null);
+    }
+  };
+
+  // Handle rejecting a bid
+  const handleRejectBid = async (bidId: string) => {
+    setUpdatingBidId(bidId);
+    try {
+      const result = await rejectBid(bidId);
+      if (result.success) {
+        // Update the bid status locally
+        setProjectBids(prev => prev.map(bid => 
+          bid.id === bidId ? { ...bid, status: 'rejected' } : bid
+        ));
+      } else {
+        alert(result.error || 'Failed to reject bid');
+      }
+    } catch (err) {
+      alert('Failed to reject bid');
+    } finally {
+      setUpdatingBidId(null);
+    }
+  };
+
+  // Format time ago for bids
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -630,12 +711,18 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleViewBids(project)}
+                          className="flex items-center gap-1 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                        >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          {project.bidsCount} bids
-                        </span>
+                          <span className="font-medium">{project.bidsCount} bids</span>
+                          {project.bidsCount > 0 && (
+                            <span className="text-orange-500 dark:text-orange-400">→ View</span>
+                          )}
+                        </button>
                         <span className="flex items-center gap-1">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -680,6 +767,235 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* View Bids Modal */}
+      {showBidsModal && selectedProjectForBids && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bids Received</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {selectedProjectForBids.title}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowBidsModal(false);
+                    setSelectedProjectForBids(null);
+                    setProjectBids([]);
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Project Summary */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    selectedProjectForBids.type === 'fixed'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                  }`}>
+                    {selectedProjectForBids.type === 'fixed' ? 'Fixed Price' : 'Hourly'}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Budget: <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    ${selectedProjectForBids.budget.min.toLocaleString()} - ${selectedProjectForBids.budget.max.toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Bids: <span className="font-semibold text-orange-600 dark:text-orange-400">
+                    {projectBids.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bids List */}
+            <div className="flex-1 overflow-y-auto">
+              {isLoadingBids ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-center">
+                    <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-gray-600 dark:text-gray-400">Loading bids...</p>
+                  </div>
+                </div>
+              ) : projectBids.length === 0 ? (
+                <div className="text-center py-16">
+                  <svg className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-2">No bids yet</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">
+                    Freelancers will start bidding on your project soon
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {projectBids.map((bid) => (
+                    <div key={bid.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <div className="flex flex-col md:flex-row gap-4">
+                        {/* Freelancer Info */}
+                        <div className="flex-1">
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                              <span className="text-orange-600 dark:text-orange-400 font-bold text-lg">
+                                {(bid.freelancerName || bid.freelancerEmail || 'U').charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {bid.freelancerName || bid.freelancerEmail?.split('@')[0] || 'Freelancer'}
+                                </h4>
+                                {bid.status === 'accepted' && (
+                                  <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded-full">
+                                    Accepted
+                                  </span>
+                                )}
+                                {bid.status === 'rejected' && (
+                                  <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-full">
+                                    Rejected
+                                  </span>
+                                )}
+                                {bid.status === 'pending' && (
+                                  <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 text-xs font-medium rounded-full">
+                                    Pending
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                {bid.freelancerEmail}
+                              </p>
+                              
+                              {/* Proposal */}
+                              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4">
+                                <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                                  {bid.proposal}
+                                </p>
+                              </div>
+
+                              {/* Bid Details */}
+                              <div className="flex flex-wrap gap-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="text-gray-500 dark:text-gray-400">Bid Amount:</span>
+                                  <span className="font-bold text-gray-900 dark:text-gray-100">
+                                    ${bid.bidAmount.toLocaleString()} {bid.currency}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="text-gray-500 dark:text-gray-400">Delivery:</span>
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                                    {bid.deliveryTime} {bid.deliveryTimeUnit}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    {formatTimeAgo(bid.submittedAt)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-row md:flex-col gap-2 md:min-w-[140px]">
+                          {bid.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleAcceptBid(bid.id)}
+                                disabled={updatingBidId === bid.id}
+                                className="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                {updatingBidId === bid.id ? (
+                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Accept
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleRejectBid(bid.id)}
+                                disabled={updatingBidId === bid.id}
+                                className="flex-1 md:flex-none px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {bid.status === 'accepted' && (
+                            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                              <svg className="w-8 h-8 text-green-500 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <p className="text-xs text-green-600 dark:text-green-400 font-medium">Bid Accepted</p>
+                            </div>
+                          )}
+                          {bid.status === 'rejected' && (
+                            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                              <svg className="w-8 h-8 text-red-400 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <p className="text-xs text-red-500 dark:text-red-400 font-medium">Bid Rejected</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <button
+                onClick={() => {
+                  setShowBidsModal(false);
+                  setSelectedProjectForBids(null);
+                  setProjectBids([]);
+                }}
+                className="w-full py-3 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

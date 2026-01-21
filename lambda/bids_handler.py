@@ -46,8 +46,9 @@ def response(status_code, body):
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Max-Age': '86400'
         },
         'body': json.dumps(decimal_to_float(body))
     }
@@ -487,11 +488,24 @@ def handle_check_existing_bid(body):
 # ---------- LAMBDA HANDLER ----------
 def lambda_handler(event, context):
     """Main Lambda handler - routes requests to appropriate functions"""
+    print(f"Received event: {json.dumps(event)}")
+    
+    # Handle CORS preflight request
+    http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method', '')
+    if http_method.upper() == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+                'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+                'Access-Control-Max-Age': '86400'
+            },
+            'body': json.dumps({"message": "CORS preflight"})
+        }
+    
     try:
-        # Handle CORS preflight
-        if event.get('httpMethod') == 'OPTIONS':
-            return response(200, {})
-        
         # Parse request body
         if isinstance(event.get('body'), str):
             body = json.loads(event['body'])

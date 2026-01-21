@@ -20,6 +20,7 @@ Actions:
 import json
 import boto3
 import uuid
+import traceback
 from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
@@ -46,8 +47,9 @@ def response(status_code, body):
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Max-Age': '86400'
         },
         'body': json.dumps(decimal_to_float(body))
     }
@@ -255,12 +257,22 @@ def handle_get_projects_by_buyer(body):
         })
     
     try:
-        # Use GSI to query by buyerId
-        result = bid_request_projects_table.query(
-            IndexName='buyerId-index',
-            KeyConditionExpression=Key('buyerId').eq(buyer_id)
-        )
-        projects = result.get('Items', [])
+        projects = []
+        
+        # Try using GSI first, fall back to scan if GSI doesn't exist
+        try:
+            result = bid_request_projects_table.query(
+                IndexName='buyerId-index',
+                KeyConditionExpression=Key('buyerId').eq(buyer_id)
+            )
+            projects = result.get('Items', [])
+        except Exception as gsi_error:
+            # GSI might not exist, fall back to scan
+            print(f"GSI query failed, falling back to scan: {str(gsi_error)}")
+            result = bid_request_projects_table.scan(
+                FilterExpression=Attr('buyerId').eq(buyer_id)
+            )
+            projects = result.get('Items', [])
         
         # Sort by createdAt (newest first)
         projects.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
@@ -277,11 +289,12 @@ def handle_get_projects_by_buyer(body):
         })
     except Exception as e:
         print(f"Error fetching buyer's projects: {str(e)}")
+        traceback.print_exc()
         return response(500, {
             "success": False,
             "error": {
                 "code": "DATABASE_ERROR",
-                "message": "Failed to fetch buyer's projects"
+                "message": f"Failed to fetch buyer's projects: {str(e)}"
             }
         })
 
@@ -551,9 +564,20 @@ def lambda_handler(event, context):
     """Main Lambda handler"""
     print(f"Received event: {json.dumps(event)}")
     
-    # Handle OPTIONS request for CORS
-    if event.get('httpMethod') == 'OPTIONS':
-        return response(200, {"message": "CORS preflight"})
+    # Handle OPTIONS request for CORS preflight
+    http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method', '')
+    if http_method.upper() == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+                'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+                'Access-Control-Max-Age': '86400'
+            },
+            'body': json.dumps({"message": "CORS preflight"})
+        }
     
     try:
         # Parse request body
