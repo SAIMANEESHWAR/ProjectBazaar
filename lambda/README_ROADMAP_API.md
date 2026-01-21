@@ -7,14 +7,24 @@
 Create **ONE** DynamoDB table in `ap-south-2` region:
 
 #### Table: `CareerGuidanceRoadmaps`
-- **Partition Key**: `categoryId` (String)
-- **Attributes**:
-  - `categoryId` (String) - Category ID (e.g., "ai-ml")
-  - `categoryName` (String) - Category name (e.g., "AI/ML Engineer")
-  - `icon` (String) - Emoji icon (e.g., "🤖")
-  - `weeks` (List) - Array of week objects (complete roadmap data)
-  - `createdAt` (String) - ISO timestamp
-  - `updatedAt` (String) - ISO timestamp
+- **Partition Key (Primary Key)**: `categoryId` (String)
+- **No Sort Key Required** (Simple table structure)
+
+**Table Structure:**
+```
+Partition Key: categoryId (String)
+  - Example values: "ai-ml", "web-dev", "data-science", etc.
+  - Must be unique for each category
+  - Used to retrieve/update/delete entire roadmap
+```
+
+**Attributes Stored:**
+- `categoryId` (String) - **PRIMARY KEY** - Category ID (e.g., "ai-ml")
+- `categoryName` (String) - Category name (e.g., "AI/ML Engineer")
+- `icon` (String) - Emoji icon (e.g., "🤖")
+- `weeks` (List) - Array of week objects (complete roadmap data including quiz questions)
+- `createdAt` (String) - ISO timestamp
+- `updatedAt` (String) - ISO timestamp
 
 **Note**: Categories are automatically created when you save a roadmap. The table stores everything in one place for easier management.
 
