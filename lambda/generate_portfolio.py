@@ -1251,8 +1251,10 @@ def deploy_to_vercel(portfolio_data: Dict[str, Any], user_id: str, template_id: 
             "encoding": "base64"
         }]
 
+        project_name = f"portfolio-{safe_user_id}"
+        
         payload = {
-            "name": f"portfolio-{safe_user_id}",
+            "name": project_name,
             "files": files,
             "target": "production",
             "projectSettings": {
@@ -1261,7 +1263,7 @@ def deploy_to_vercel(portfolio_data: Dict[str, Any], user_id: str, template_id: 
         }
 
         req = urllib.request.Request(
-            "https://api.vercel.com/v13/deployments",
+            "https://api.vercel.com/v13/deployments?forceNew=1",
             data=json.dumps(payload).encode(),
             headers={
                 "Authorization": f"Bearer {VERCEL_TOKEN}",
@@ -1272,10 +1274,37 @@ def deploy_to_vercel(portfolio_data: Dict[str, Any], user_id: str, template_id: 
         with urllib.request.urlopen(req, timeout=120) as r:
             res = json.loads(r.read().decode())
 
+        deployment_url = res.get('url')
+        
+        # Try to disable deployment protection on the project
+        try:
+            protection_payload = {
+                "ssoProtection": None,  # Disable SSO protection
+                "vercelAuthentication": {
+                    "deploymentType": "none"  # No authentication required
+                }
+            }
+            
+            protection_req = urllib.request.Request(
+                f"https://api.vercel.com/v9/projects/{project_name}",
+                data=json.dumps(protection_payload).encode(),
+                headers={
+                    "Authorization": f"Bearer {VERCEL_TOKEN}",
+                    "Content-Type": "application/json"
+                },
+                method="PATCH"
+            )
+            
+            with urllib.request.urlopen(protection_req, timeout=30) as pr:
+                print(f"Project protection settings updated for {project_name}")
+        except Exception as pe:
+            print(f"Could not update project protection settings: {pe}")
+            # Continue anyway, deployment still works
+
         return {
             "success": True,
-            "liveUrl": f"https://{res.get('url')}",
-            "previewUrl": f"https://{res.get('url')}"
+            "liveUrl": f"https://{deployment_url}",
+            "previewUrl": f"https://{deployment_url}"
         }
 
     except urllib.error.HTTPError as e:

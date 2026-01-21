@@ -126,29 +126,61 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
   const parseResume = async () => {
     if (!file) return;
 
+    // Start animated progress while waiting for API
+    let progressInterval: NodeJS.Timeout | null = null;
+    let currentProgress = 10;
+
+    const startProgressAnimation = () => {
+      progressInterval = setInterval(() => {
+        // Smoothly increment progress up to 85% while waiting
+        if (currentProgress < 85) {
+          currentProgress += Math.random() * 3 + 1;
+          if (currentProgress > 85) currentProgress = 85;
+          setStatus(prev => ({ ...prev, progress: Math.round(currentProgress) }));
+        }
+      }, 300);
+    };
+
+    const stopProgressAnimation = () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+    };
+
     try {
-      updateStatus('uploading', 'Uploading your resume...', 10);
+      updateStatus('uploading', 'Reading your resume file...', 10);
+      console.log('[Portfolio] Starting file read for:', file.name, 'size:', file.size);
       
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      
-      await simulateDelay(500);
+      let base64: string;
+      try {
+        // Use modern arrayBuffer API which is more reliable
+        console.log('[Portfolio] Reading file as ArrayBuffer...');
+        const arrayBuffer = await file.arrayBuffer();
+        console.log('[Portfolio] ArrayBuffer read complete, size:', arrayBuffer.byteLength);
+        
+        // Convert ArrayBuffer to base64
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binaryString = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        base64 = btoa(binaryString);
+        console.log('[Portfolio] Base64 conversion complete, length:', base64.length);
+      } catch (fileError) {
+        console.error('[Portfolio] File reading failed:', fileError);
+        throw new Error('Could not read your resume file. Please try again or use a different file.');
+      }
 
-      updateStatus('parsing', 'Parsing your resume document...', 30);
-      await simulateDelay(500);
-
-      updateStatus('extracting', 'Extracting your professional data...', 50);
+      updateStatus('extracting', 'Analyzing your resume with AI...', 20);
+      startProgressAnimation();
+      console.log('[Portfolio] Starting API call to:', PORTFOLIO_API_ENDPOINT);
 
       if (DEMO_MODE) {
-        // Demo portfolio data
         await simulateDelay(1500);
+        stopProgressAnimation();
         const demoData: PortfolioData = {
           personal: { name: 'John Developer', title: 'Full Stack Engineer', tagline: 'Building amazing web experiences', email: 'john@example.com', bio: 'Passionate developer with 5+ years of experience building scalable web applications.' },
           skills: { frontend: [{ name: 'React', level: 90 }, { name: 'TypeScript', level: 85 }], backend: [{ name: 'Node.js', level: 85 }] },
@@ -156,40 +188,73 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           projects: [{ name: 'Portfolio Builder', description: 'AI-powered portfolio generator', technologies: ['React', 'Python', 'AWS'] }],
         };
         setPortfolioData(demoData);
-        updateStatus('selecting', 'Choose your portfolio template', 60);
+        updateStatus('selecting', 'Choose your portfolio template', 100);
         return;
       }
 
-      // Call Lambda to parse resume
-      const response = await fetch(PORTFOLIO_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'parseResume',
-          userEmail: userEmail || '',
-          fileName: file.name,
-          fileType: file.type,
-          fileContent: base64,
-        }),
-      });
+      // Call Lambda to parse resume with timeout
+      let response: Response;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        
+        response = await fetch(PORTFOLIO_API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'parseResume',
+            userEmail: userEmail || '',
+            fileName: file.name,
+            fileType: file.type,
+            fileContent: base64,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        console.log('[Portfolio] API response status:', response.status);
+      } catch (fetchError) {
+        console.error('[Portfolio] Fetch failed:', fetchError);
+        stopProgressAnimation();
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Request timed out. The server is taking too long to respond. Please try again.');
+        }
+        throw new Error('Network error: Could not connect to the server. Please check your internet connection.');
+      }
 
-      const result = await response.json();
+      stopProgressAnimation();
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Portfolio] API error response:', errorText);
+        throw new Error(`Server error (${response.status}): ${errorText || 'Please try again later'}`);
+      }
+
+      let result;
+      try {
+        result = await response.json();
+        console.log('[Portfolio] API result:', result.success ? 'Success' : 'Failed', result.error || '');
+      } catch (jsonError) {
+        console.error('[Portfolio] Failed to parse API response:', jsonError);
+        throw new Error('Invalid response from server. Please try again.');
+      }
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to parse resume');
       }
 
       setPortfolioData(result.portfolioData);
-      // Store the extracted text to show to user
       if (result.extractedText) {
         setExtractedText(result.extractedText);
       }
-      updateStatus('selecting', 'Choose your portfolio template', 60);
+      updateStatus('selecting', 'Choose your portfolio template', 100);
+      console.log('[Portfolio] Resume parsing complete!');
 
     } catch (error) {
-      console.error('Parse error:', error);
-      updateStatus('error', error instanceof Error ? error.message : 'Failed to parse resume', 0);
-      setDeploymentResult({ success: false, error: error instanceof Error ? error.message : 'Parse failed' });
+      stopProgressAnimation();
+      console.error('[Portfolio] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to parse resume';
+      updateStatus('error', errorMessage, 0);
+      setDeploymentResult({ success: false, error: errorMessage });
     }
   };
 
@@ -254,11 +319,22 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
   const deployPortfolio = async () => {
     if (!portfolioData) return;
 
+    // Animated progress for deployment
+    let deployProgress = 20;
+    const deployInterval = setInterval(() => {
+      if (deployProgress < 90) {
+        deployProgress += Math.random() * 5 + 2;
+        if (deployProgress > 90) deployProgress = 90;
+        setStatus(prev => ({ ...prev, progress: Math.round(deployProgress) }));
+      }
+    }, 400);
+
     try {
-      updateStatus('deploying', 'Deploying your portfolio to the cloud...', 80);
+      updateStatus('deploying', 'Deploying your portfolio to Vercel...', 20);
 
       if (DEMO_MODE) {
         await simulateDelay(2000);
+        clearInterval(deployInterval);
         updateStatus('complete', 'Your portfolio is live!', 100);
         setDeploymentResult({
           success: true,
@@ -280,6 +356,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
         }),
       });
 
+      clearInterval(deployInterval);
       const result = await response.json();
 
       if (!result.success) {
@@ -294,6 +371,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
       });
 
     } catch (error) {
+      clearInterval(deployInterval);
       console.error('Deploy error:', error);
       updateStatus('error', error instanceof Error ? error.message : 'Deployment failed', 0);
       setDeploymentResult({ success: false, error: error instanceof Error ? error.message : 'Deployment failed' });
@@ -438,19 +516,40 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
             <div className="max-w-lg mx-auto">
               <div className="bg-[#16161f] rounded-3xl border border-white/5 p-8 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" />
-                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
-                    <svg className="w-10 h-10 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+                  <div className="absolute inset-2 rounded-full bg-violet-500/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
+                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                    <svg className="w-10 h-10 text-white animate-spin" style={{ animationDuration: '1s' }} fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                   </div>
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">{status.message}</h2>
-                <p className="text-gray-500 mb-6">Please wait while we analyze your resume...</p>
-                <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-violet-600 to-purple-600 rounded-full transition-all duration-500" style={{ width: `${status.progress}%` }} />
+                <p className="text-gray-500 mb-4">
+                  {status.progress < 30 && 'Reading your document...'}
+                  {status.progress >= 30 && status.progress < 50 && 'Extracting text content...'}
+                  {status.progress >= 50 && status.progress < 70 && 'Identifying skills & experience...'}
+                  {status.progress >= 70 && status.progress < 85 && 'Building your profile data...'}
+                  {status.progress >= 85 && 'Almost done...'}
+                </p>
+                <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-600 rounded-full transition-all duration-300 ease-out"
+                    style={{ 
+                      width: `${status.progress}%`,
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer 1.5s infinite linear'
+                    }} 
+                  />
                 </div>
+                <p className="text-xs text-gray-600">{Math.round(status.progress)}% complete</p>
+                <style>{`
+                  @keyframes shimmer {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                  }
+                `}</style>
               </div>
             </div>
           )}
@@ -587,16 +686,30 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
             <div className="max-w-lg mx-auto">
               <div className="bg-[#16161f] rounded-3xl border border-white/5 p-8 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" />
-                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
-                    <span className="text-3xl">🚀</span>
+                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+                  <div className="absolute inset-2 rounded-full bg-purple-500/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
+                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                    <span className="text-3xl animate-bounce" style={{ animationDuration: '1s' }}>🚀</span>
                   </div>
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Deploying to Vercel</h2>
-                <p className="text-gray-500 mb-6">Your portfolio is being deployed to the cloud...</p>
-                <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-violet-600 to-purple-600 rounded-full transition-all duration-500 animate-pulse" style={{ width: '80%' }} />
+                <p className="text-gray-500 mb-4">
+                  {status.progress < 40 && 'Generating your portfolio...'}
+                  {status.progress >= 40 && status.progress < 60 && 'Uploading to Vercel cloud...'}
+                  {status.progress >= 60 && status.progress < 80 && 'Configuring your domain...'}
+                  {status.progress >= 80 && 'Finalizing deployment...'}
+                </p>
+                <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-600 rounded-full transition-all duration-300 ease-out"
+                    style={{ 
+                      width: `${status.progress}%`,
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer 1.5s infinite linear'
+                    }} 
+                  />
                 </div>
+                <p className="text-xs text-gray-600">{Math.round(status.progress)}% complete</p>
               </div>
             </div>
           )}
