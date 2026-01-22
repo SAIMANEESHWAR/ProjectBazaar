@@ -1616,7 +1616,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         if (!weeklyQuiz || !roadmapData) return;
 
         let correct = 0;
-        weeklyQuiz.questions.forEach((q, idx) => {
+        weeklyQuiz.questions.forEach((q) => {
             if (q.userAnswer === q.correctAnswer) correct++;
         });
 
@@ -3023,142 +3023,16 @@ const CareerGuidancePage: React.FC = () => {
         setCertOptions(prev => prev.map(o => ({ ...o, isSelected: false })));
     };
 
-    // Generate roadmap using mock data (in production, use Gemini API)
-    const generateRoadmap = async (career: string) => {
-        setRoadmapLoading(true);
+    // Handler to continue to roadmap from career recommendation
+    const handleContinueToRoadmap = (career: string) => {
+        // Set career analysis with the recommended career
+        setCareerAnalysis({
+            careerGoal: career,
+            currentLevel: 'Beginner',
+            timeCommitment: 10,
+            preferredTechStack: []
+        });
         setActiveTab('roadmap');
-        
-        try {
-            // In production, this would call the Gemini API
-            // For now, we'll use a mock roadmap
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const mockRoadmap: Roadmap = {
-                title: `${career} Learning Roadmap`,
-                description: `A comprehensive guide to becoming a ${career}. This roadmap covers all the essential skills and knowledge you need to master.`,
-                steps: [
-                    {
-                        title: "Step 1: Foundation & Basics",
-                        description: "Build a strong foundation with core concepts and fundamental skills.",
-                        skills: ["Programming Fundamentals", "Problem Solving", "Version Control"],
-                        sub_steps: [
-                            {
-                                title: "Learn Programming Basics",
-                                description: "Start with a beginner-friendly programming language and understand core concepts.",
-                                skills: ["Variables", "Data Types", "Control Flow", "Functions"]
-                            },
-                            {
-                                title: "Version Control with Git",
-                                description: "Learn how to track changes and collaborate using Git and GitHub.",
-                                skills: ["Git Commands", "Branching", "Merging", "Pull Requests"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 2: Core Technologies",
-                        description: "Master the core technologies and frameworks used in the industry.",
-                        skills: ["Frameworks", "Libraries", "Best Practices"],
-                        sub_steps: [
-                            {
-                                title: "Learn Industry Frameworks",
-                                description: "Get hands-on experience with popular frameworks and tools.",
-                                skills: ["Framework Basics", "Component Architecture", "State Management"]
-                            },
-                            {
-                                title: "Build Projects",
-                                description: "Apply your knowledge by building real-world projects.",
-                                skills: ["Project Planning", "Implementation", "Debugging"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 3: Advanced Concepts",
-                        description: "Dive deeper into advanced topics and specialized areas.",
-                        skills: ["System Design", "Performance Optimization", "Security"],
-                        sub_steps: [
-                            {
-                                title: "System Architecture",
-                                description: "Learn how to design scalable and maintainable systems.",
-                                skills: ["Design Patterns", "Architecture", "Scalability"]
-                            },
-                            {
-                                title: "Performance & Security",
-                                description: "Optimize applications and implement security best practices.",
-                                skills: ["Optimization", "Security Practices", "Testing"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 4: Professional Skills",
-                        description: "Develop professional skills needed for career success.",
-                        skills: ["Communication", "Teamwork", "Interview Prep"],
-                        sub_steps: [
-                            {
-                                title: "Soft Skills",
-                                description: "Develop communication and collaboration skills.",
-                                skills: ["Technical Writing", "Presentation", "Team Collaboration"]
-                            },
-                            {
-                                title: "Career Development",
-                                description: "Prepare for job applications and interviews.",
-                                skills: ["Resume Building", "Portfolio", "Interview Skills"]
-                            }
-                        ]
-                    }
-                ]
-            };
-            
-            setRoadmap(mockRoadmap);
-        } catch (error) {
-            console.error("Error generating roadmap:", error);
-        } finally {
-            setRoadmapLoading(false);
-        }
-    };
-
-    // Generate virtual internship
-    const generateInternship = async () => {
-        if (!internshipField.trim()) return;
-        
-        setInternshipLoading(true);
-        
-        try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const mockInternship: InternshipData = {
-                CompanyName: "TechVenture Labs",
-                companyDescription: `TechVenture Labs is a leading technology company specializing in ${internshipField}. We focus on innovative solutions and cutting-edge technology to solve real-world problems.`,
-                YourRole: `${internshipField} Intern`,
-                phases: [
-                    {
-                        task: "Onboarding and Environment Setup - Get familiar with the team, tools, and codebase. Complete initial training modules.",
-                        deadline: "Week 1-2",
-                        topicsCovered: "Company Culture, Development Tools, Codebase Overview"
-                    },
-                    {
-                        task: "Feature Development - Work on a small feature or bug fix under guidance. Learn the development workflow.",
-                        deadline: "Week 3-4",
-                        topicsCovered: "Agile Methodology, Code Review, Testing"
-                    },
-                    {
-                        task: "Independent Project - Take ownership of a small project. Design, implement, and document your solution.",
-                        deadline: "Week 5-6",
-                        topicsCovered: "Project Management, Documentation, Presentation"
-                    },
-                    {
-                        task: "Final Presentation - Present your work to the team. Receive feedback and complete internship wrap-up.",
-                        deadline: "Week 7-8",
-                        topicsCovered: "Presentation Skills, Professional Communication"
-                    }
-                ]
-            };
-            
-            setInternship(mockInternship);
-        } catch (error) {
-            console.error("Error generating internship:", error);
-        } finally {
-            setInternshipLoading(false);
-        }
     };
 
     const tabs = [
@@ -3226,8 +3100,7 @@ const CareerGuidancePage: React.FC = () => {
                             <TrendingCareersSection 
                                 careers={trendingCareersData}
                                 onExploreRoadmap={(career) => {
-                                    setRoadmapInput(career);
-                                    generateRoadmap(career);
+                                    handleContinueToRoadmap(career);
                                 }}
                             />
                         )}
