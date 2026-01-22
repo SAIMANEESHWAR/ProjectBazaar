@@ -47,6 +47,7 @@ const ResumeBuilderContent: React.FC = () => {
     if (!printWindow) return;
 
     const previewContent = previewRef.current?.innerHTML || '';
+    const themeColor = resumeInfo.themeColor || '#f97316';
     
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -56,15 +57,136 @@ const ResumeBuilderContent: React.FC = () => {
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
+            
             body { 
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
               background: white;
               color: #1f2937;
-              padding: 40px;
+              line-height: 1.5;
             }
+            
+            /* Container styles */
+            .bg-white { background-color: white; }
+            .text-gray-900 { color: #111827; }
+            .text-gray-700 { color: #374151; }
+            .text-gray-600 { color: #4b5563; }
+            .text-gray-500 { color: #6b7280; }
+            .text-gray-400 { color: #9ca3af; }
+            
+            /* Typography */
+            .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+            .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+            .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+            .text-base { font-size: 1rem; line-height: 1.5rem; }
+            .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+            .text-xs { font-size: 0.75rem; line-height: 1rem; }
+            
+            .font-bold { font-weight: 700; }
+            .font-semibold { font-weight: 600; }
+            .font-medium { font-weight: 500; }
+            .font-normal { font-weight: 400; }
+            
+            .uppercase { text-transform: uppercase; }
+            .tracking-wider { letter-spacing: 0.05em; }
+            .leading-relaxed { line-height: 1.625; }
+            
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            
+            /* Spacing */
+            .p-8 { padding: 2rem; }
+            .p-6 { padding: 1.5rem; }
+            .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .py-0\\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+            
+            .mb-1 { margin-bottom: 0.25rem; }
+            .mb-2 { margin-bottom: 0.5rem; }
+            .mb-3 { margin-bottom: 0.75rem; }
+            .mb-4 { margin-bottom: 1rem; }
+            .mb-5 { margin-bottom: 1.25rem; }
+            .mb-6 { margin-bottom: 1.5rem; }
+            .mt-1 { margin-top: 0.25rem; }
+            .mt-2 { margin-top: 0.5rem; }
+            .mt-4 { margin-top: 1rem; }
+            .ml-2 { margin-left: 0.5rem; }
+            
+            /* Flexbox */
+            .flex { display: flex; }
+            .flex-wrap { flex-wrap: wrap; }
+            .items-center { align-items: center; }
+            .items-start { align-items: flex-start; }
+            .justify-center { justify-content: center; }
+            .justify-between { justify-content: space-between; }
+            
+            .gap-0\\.5 { gap: 0.125rem; }
+            .gap-1 { gap: 0.25rem; }
+            .gap-2 { gap: 0.5rem; }
+            .gap-3 { gap: 0.75rem; }
+            .gap-4 { gap: 1rem; }
+            
+            .whitespace-nowrap { white-space: nowrap; }
+            
+            /* Border and shapes */
+            .rounded-full { border-radius: 9999px; }
+            
+            /* Skill rating dots */
+            .w-2 { width: 0.5rem; }
+            .h-2 { height: 0.5rem; }
+            
+            /* HR styling */
+            hr {
+              border: none;
+              border-top-width: 1px;
+              border-top-style: solid;
+              margin-top: 0;
+              margin-bottom: 0;
+            }
+            
+            /* Rich text content */
+            .rich-text-content ul {
+              list-style-type: disc;
+              padding-left: 1.25rem;
+              margin: 0.375rem 0;
+            }
+            .rich-text-content ol {
+              list-style-type: decimal;
+              padding-left: 1.25rem;
+              margin: 0.375rem 0;
+            }
+            .rich-text-content li {
+              display: list-item;
+              margin: 0.25rem 0;
+              padding-left: 0.25rem;
+            }
+            .rich-text-content a {
+              color: inherit;
+              text-decoration: underline;
+            }
+            .rich-text-content p {
+              margin: 0.25rem 0;
+            }
+            
+            /* Links */
+            a { text-decoration: none; color: inherit; }
+            .hover\\:underline:hover { text-decoration: underline; }
+            
+            /* Section container */
+            section { page-break-inside: avoid; }
+            
+            /* Print styles */
             @media print {
-              body { padding: 0; }
-              @page { margin: 0.5in; }
+              body { 
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              @page { 
+                margin: 0.5in; 
+                size: letter;
+              }
+              .rounded-full {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
             }
           </style>
         </head>
@@ -77,7 +199,7 @@ const ResumeBuilderContent: React.FC = () => {
     printWindow.document.close();
     setTimeout(() => {
       printWindow.print();
-    }, 250);
+    }, 500);
   };
 
   const handleSave = () => {

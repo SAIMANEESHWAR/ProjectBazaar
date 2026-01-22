@@ -93,17 +93,18 @@ describe('Freelancers API', () => {
       expect(result.hasMore).toBe(true);
     });
 
-    it('should fallback to mock data when API fails', async () => {
+    it('should return empty list when API fails (no mock fallback)', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await getAllFreelancers();
 
+      // In production mode, no mock fallback - returns empty list
       expect(result.freelancers).toBeDefined();
       expect(Array.isArray(result.freelancers)).toBe(true);
-      expect(result.hasMore).toBe(false);
+      expect(result.freelancers.length).toBe(0);
     });
 
-    it('should handle empty response', async () => {
+    it('should return empty list when API returns empty (no mock fallback)', async () => {
       mockFetch.mockResolvedValueOnce({
         json: () => Promise.resolve({
           success: true,
@@ -118,7 +119,10 @@ describe('Freelancers API', () => {
 
       const result = await getAllFreelancers();
 
-      expect(result.freelancers).toHaveLength(0);
+      // Should return empty list from API (no mock fallback in production)
+      expect(result.freelancers).toBeDefined();
+      expect(Array.isArray(result.freelancers)).toBe(true);
+      expect(result.totalCount).toBe(0);
     });
   });
 
@@ -246,12 +250,13 @@ describe('Freelancers API', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('should fallback to mock data on API failure', async () => {
+    it('should return empty array on API failure (no mock fallback)', async () => {
       mockFetch.mockRejectedValueOnce(new Error('API Error'));
 
       const result = await getTopFreelancers(3);
 
       expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(0);
     });
   });
 
@@ -625,7 +630,7 @@ describe('Freelancers API', () => {
       expect(result?.name).toBe('田中太郎 المطور');
     });
 
-    it('should handle malformed API response', async () => {
+    it('should handle malformed API response gracefully', async () => {
       mockFetch.mockResolvedValueOnce({
         json: () => Promise.resolve({
           // Missing expected fields
@@ -634,8 +639,9 @@ describe('Freelancers API', () => {
       });
 
       const result = await getAllFreelancers();
-      // Should fallback to mock data
+      // Should return empty list (no mock fallback)
       expect(Array.isArray(result.freelancers)).toBe(true);
+      expect(result.freelancers.length).toBe(0);
     });
   });
 });
