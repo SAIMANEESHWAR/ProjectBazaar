@@ -91,7 +91,7 @@ const TemplatePicker: React.FC = () => {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full right-0 mt-2 z-50 w-[90vw] max-w-[480px] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute top-full right-0 mt-2 z-50 w-[95vw] max-w-[640px] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
               <div className="flex items-center justify-between">
@@ -130,24 +130,24 @@ const TemplatePicker: React.FC = () => {
             </div>
 
             {/* Templates Grid */}
-            <div className="p-4 max-h-[400px] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="p-5 max-h-[500px] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
                 {filteredTemplates.map((template) => (
                   <button
                     key={template.id}
                     onClick={() => handleSelectTemplate(template.id)}
-                    className={`text-left p-3 rounded-xl border-2 transition-all hover:shadow-md group ${
+                    className={`text-left p-4 rounded-xl border-2 transition-all hover:shadow-md group ${
                       resumeInfo.template === template.id
                         ? 'border-orange-500 bg-orange-50'
                         : 'border-gray-100 hover:border-gray-200 bg-gray-50 hover:bg-white'
                     }`}
                   >
                     {/* Mini Preview */}
-                    <div className="mb-2 relative">
+                    <div className="mb-3 relative">
                       <TemplateMiniPreview template={template.id} themeColor={resumeInfo.themeColor} />
                       {resumeInfo.template === template.id && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         </div>
@@ -156,10 +156,10 @@ const TemplatePicker: React.FC = () => {
                     
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 truncate">{template.name}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{template.description}</p>
+                        <p className="font-semibold text-base text-gray-900 truncate">{template.name}</p>
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-1">{template.description}</p>
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ml-1 ${
+                      <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2 font-medium ${
                         template.atsScore >= 95 ? 'bg-green-100 text-green-700' 
                         : template.atsScore >= 90 ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-orange-100 text-orange-700'
@@ -230,7 +230,7 @@ const TemplateMiniPreview: React.FC<{ template: ResumeTemplate; themeColor: stri
   const { container, variant } = getPreviewStyle();
 
   return (
-    <div className="w-full h-16 bg-white rounded-lg border border-gray-200 p-1.5 overflow-hidden" style={container}>
+    <div className="w-full h-24 bg-white rounded-lg border border-gray-200 p-2 overflow-hidden" style={container}>
       {variant === 'neon' ? (
         <div className="space-y-1">
           <div className="h-1.5 rounded" style={{ backgroundColor: themeColor, width: '50%' }} />
