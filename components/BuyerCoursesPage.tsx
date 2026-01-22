@@ -91,7 +91,7 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                         level: course.level || 'Beginner',
                         language: course.language || 'English',
                         price: typeof course.price === 'number' ? course.price : parseFloat(String(course.price || 0)),
-                        currency: course.currency || 'USD',
+                        currency: course.currency || 'INR',
                         isFree: course.isFree || course.price === 0,
                         thumbnailUrl: course.thumbnailUrl,
                         promoVideoUrl: course.promoVideoUrl,

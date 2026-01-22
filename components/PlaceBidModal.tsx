@@ -13,7 +13,7 @@ interface PlaceBidModalProps {
 const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmit }) => {
   const { userId } = useAuth();
   const [bidAmount, setBidAmount] = useState<number>(project.budget.min);
-  const [currency, setCurrency] = useState<string>(project.budget.currency || 'CAD');
+  const [currency, setCurrency] = useState<string>(project.budget.currency || 'INR');
   const [deliveryTime, setDeliveryTime] = useState<number>(7);
   const [deliveryTimeUnit, setDeliveryTimeUnit] = useState<'days' | 'weeks' | 'months'>('days');
   const [proposal, setProposal] = useState<string>('');
@@ -44,8 +44,29 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
       return;
     }
 
+    // Validate bid is within reasonable range of project budget
+    if (bidAmount < project.budget.min * 0.5) {
+      setError(`Bid amount seems too low. Project budget starts at ₹${project.budget.min.toLocaleString()}`);
+      return;
+    }
+
+    if (bidAmount > project.budget.max * 3) {
+      setError(`Bid amount seems too high. Project budget is up to ₹${project.budget.max.toLocaleString()}`);
+      return;
+    }
+
     if (proposal.trim().length < 100) {
       setError('Proposal must be at least 100 characters');
+      return;
+    }
+
+    if (proposal.trim().length > 5000) {
+      setError('Proposal must be less than 5000 characters');
+      return;
+    }
+
+    if (deliveryTime <= 0) {
+      setError('Delivery time must be greater than 0');
       return;
     }
 
@@ -113,7 +134,7 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">₹</span>
                 <input
                   type="number"
                   min="0"
@@ -129,14 +150,11 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
                 onChange={(e) => setCurrency(e.target.value)}
                 className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100"
               >
-                <option value="CAD">CAD</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                <option value="INR">INR</option>
               </select>
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Paid to you: {currency}${bidAmount.toFixed(2)} - {currency}${fee.toFixed(2)} fee = {currency}${amountAfterFee.toFixed(2)}
+              Paid to you: ₹{bidAmount.toFixed(2)} - ₹{fee.toFixed(2)} fee = ₹{amountAfterFee.toFixed(2)}
               <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>

@@ -43,7 +43,7 @@ const ChartBar: React.FC<ChartBarProps> = ({ label, value, maxValue, colorClass 
             <div 
                 className={`w-full rounded-lg ${colorClass}`}
                 style={{ height: `${(value / maxValue) * 100}%` }}
-                title={`$${value}`}
+                title={`₹${value}`}
             ></div>
         </div>
         <p className="text-xs font-medium text-gray-500">{label}</p>
@@ -244,7 +244,7 @@ const BuyerAnalyticsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                     title="Total Spent" 
-                    value={`$${userData?.totalSpent?.toFixed(2) || '0.00'}`} 
+                    value={`₹${userData?.totalSpent?.toFixed(2) || '0.00'}`} 
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} 
                     colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
@@ -262,7 +262,7 @@ const BuyerAnalyticsPage: React.FC = () => {
                 />
                 <StatCard 
                     title="Avg. Project Cost" 
-                    value={`$${avgProjectCost.toFixed(2)}`} 
+                    value={`₹${avgProjectCost.toFixed(2)}`} 
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>} 
                     colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
@@ -320,7 +320,7 @@ const BuyerAnalyticsPage: React.FC = () => {
                                     <p className="font-medium text-gray-800">{item.title}</p>
                                     <p className="text-sm text-gray-500">{item.date}</p>
                                 </div>
-                                <p className="font-bold text-orange-600">${item.price.toFixed(2)}</p>
+                                <p className="font-bold text-orange-600">₹{item.price.toFixed(2)}</p>
                             </li>
                         ))}
                     </ul>

@@ -54,11 +54,11 @@ const RoadmapManagementPage: React.FC = () => {
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryIcon, setNewCategoryIcon] = useState('📚');
-    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [_editingCategoryId, _setEditingCategoryId] = useState<string | null>(null);
     const [roadmaps, setRoadmaps] = useState<Record<string, CategoryRoadmap>>({});
     const [editingWeek, setEditingWeek] = useState<RoadmapWeek | null>(null);
     const [isAddingWeek, setIsAddingWeek] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [autoSaving, setAutoSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);

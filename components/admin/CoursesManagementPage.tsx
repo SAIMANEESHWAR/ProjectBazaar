@@ -89,7 +89,7 @@ const CoursesManagementPage: React.FC = () => {
         level: 'Beginner',
         language: 'English',
         price: '0',
-        currency: 'USD',
+        currency: 'INR',
         status: 'draft',
         visibility: 'public',
         tags: [],
@@ -139,7 +139,7 @@ const CoursesManagementPage: React.FC = () => {
                     level: course.level || 'Beginner',
                     language: course.language || 'English',
                     price: typeof course.price === 'number' ? course.price : parseFloat(String(course.price || 0)),
-                    currency: course.currency || 'USD',
+                    currency: course.currency || 'INR',
                     isFree: course.isFree || course.price === 0,
                     thumbnailUrl: course.thumbnailUrl,
                     promoVideoUrl: course.promoVideoUrl,
@@ -500,7 +500,7 @@ const CoursesManagementPage: React.FC = () => {
             level: 'Beginner',
             language: 'English',
             price: '0',
-            currency: 'USD',
+            currency: 'INR',
             status: 'draft',
             visibility: 'public',
             tags: [],
@@ -675,7 +675,7 @@ const CoursesManagementPage: React.FC = () => {
                                         onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
                                         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     >
-                                        <option value="USD">USD</option>
+                                        <option value="INR">INR</option>
                                         <option value="INR">INR</option>
                                         <option value="EUR">EUR</option>
                                     </select>

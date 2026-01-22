@@ -44,7 +44,7 @@ const HelpCenterPage: React.FC = () => {
     {
       category: 'Selling',
       question: 'How do I get paid for my projects?',
-      answer: 'Once a buyer purchases your project, the funds are added to your earnings. You can request a payout from the "Payouts" section in your seller dashboard. Minimum payout is $50.',
+      answer: 'Once a buyer purchases your project, the funds are added to your earnings. You can request a payout from the "Payouts" section in your seller dashboard. Minimum payout is ₹50.',
     },
     {
       category: 'Account',

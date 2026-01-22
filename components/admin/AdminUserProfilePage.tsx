@@ -719,7 +719,7 @@ const AdminUserProfilePage: React.FC<AdminUserProfilePageProps> = ({
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-                          ${project.price.toFixed(2)}
+                          ₹{project.price.toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">Uploaded: {project.uploadedDate}</p>
                       </div>

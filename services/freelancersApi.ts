@@ -77,17 +77,39 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
   }
 }
 
+// Flag to control whether to use mock data (set to false for production)
+const USE_MOCK_DATA = false;
+
 /**
  * Get all freelancers with optional pagination
+ * @param limit - Maximum number of freelancers to return
+ * @param offset - Offset for pagination
+ * @param includeAll - If true, includes all active users (not just sellers/freelancers)
  */
 export const getAllFreelancers = async (
   limit: number = 50, 
-  offset: number = 0
+  offset: number = 0,
+  includeAll: boolean = true  // Default to true to show all users
 ): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean }> => {
+  // If using mock data, return it directly
+  if (USE_MOCK_DATA) {
+    console.log('Using mock freelancer data');
+    return {
+      freelancers: freelancersData as Freelancer[],
+      totalCount: freelancersData.length,
+      hasMore: false,
+    };
+  }
+
   try {
-    const response = await apiRequest<FreelancersData>('GET_ALL_FREELANCERS', { limit, offset });
+    const response = await apiRequest<FreelancersData>('GET_ALL_FREELANCERS', { 
+      limit, 
+      offset,
+      includeAll 
+    });
     
     if (response.success && response.data) {
+      // Return real data from API (even if empty)
       return {
         freelancers: response.data.freelancers,
         totalCount: response.data.totalCount,
@@ -95,18 +117,19 @@ export const getAllFreelancers = async (
       };
     }
     
-    // Fallback to mock data
-    console.warn('API failed, falling back to mock data');
+    // API returned error - return empty list (no mock fallback)
+    console.error('API error, returning empty list:', response.error);
     return {
-      freelancers: freelancersData as Freelancer[],
-      totalCount: freelancersData.length,
+      freelancers: [],
+      totalCount: 0,
       hasMore: false,
     };
   } catch (error) {
     console.error('Error fetching freelancers:', error);
+    // Network error - return empty list (no mock fallback)
     return {
-      freelancers: freelancersData as Freelancer[],
-      totalCount: freelancersData.length,
+      freelancers: [],
+      totalCount: 0,
       hasMore: false,
     };
   }
@@ -116,6 +139,11 @@ export const getAllFreelancers = async (
  * Get a specific freelancer's profile
  */
 export const getFreelancerById = async (freelancerId: string): Promise<FreelancerProfile | null> => {
+  if (USE_MOCK_DATA) {
+    const mockFreelancer = (freelancersData as Freelancer[]).find(f => f.id === freelancerId);
+    return mockFreelancer || null;
+  }
+
   try {
     const response = await apiRequest<FreelancerProfile>('GET_FREELANCER_BY_ID', { freelancerId });
     
@@ -123,9 +151,7 @@ export const getFreelancerById = async (freelancerId: string): Promise<Freelance
       return response.data;
     }
     
-    // Fallback: try to find in mock data
-    const mockFreelancer = (freelancersData as Freelancer[]).find(f => f.id === freelancerId);
-    return mockFreelancer || null;
+    return null;
   } catch (error) {
     console.error('Error fetching freelancer:', error);
     return null;
@@ -136,6 +162,11 @@ export const getFreelancerById = async (freelancerId: string): Promise<Freelance
  * Get top-rated freelancers for homepage
  */
 export const getTopFreelancers = async (limit: number = 6): Promise<Freelancer[]> => {
+  if (USE_MOCK_DATA) {
+    const sorted = [...(freelancersData as Freelancer[])].sort((a, b) => b.rating - a.rating);
+    return sorted.slice(0, limit);
+  }
+
   try {
     const response = await apiRequest<FreelancersData>('GET_TOP_FREELANCERS', { limit });
     
@@ -143,13 +174,10 @@ export const getTopFreelancers = async (limit: number = 6): Promise<Freelancer[]
       return response.data.freelancers;
     }
     
-    // Fallback: return top from mock data sorted by rating
-    const sorted = [...(freelancersData as Freelancer[])].sort((a, b) => b.rating - a.rating);
-    return sorted.slice(0, limit);
+    return [];
   } catch (error) {
     console.error('Error fetching top freelancers:', error);
-    const sorted = [...(freelancersData as Freelancer[])].sort((a, b) => b.rating - a.rating);
-    return sorted.slice(0, limit);
+    return [];
   }
 };
 
@@ -165,18 +193,8 @@ export const searchFreelancers = async (params: {
   limit?: number;
   offset?: number;
 }): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean }> => {
-  try {
-    const response = await apiRequest<FreelancersData>('SEARCH_FREELANCERS', params);
-    
-    if (response.success && response.data) {
-      return {
-        freelancers: response.data.freelancers,
-        totalCount: response.data.totalCount,
-        hasMore: response.data.hasMore,
-      };
-    }
-    
-    // Fallback: filter mock data locally
+  if (USE_MOCK_DATA) {
+    // Filter mock data locally
     let filtered = [...(freelancersData as Freelancer[])];
     
     if (params.query) {
@@ -218,11 +236,29 @@ export const searchFreelancers = async (params: {
       totalCount: filtered.length,
       hasMore: offset + limit < filtered.length,
     };
+  }
+
+  try {
+    const response = await apiRequest<FreelancersData>('SEARCH_FREELANCERS', params);
+    
+    if (response.success && response.data) {
+      return {
+        freelancers: response.data.freelancers,
+        totalCount: response.data.totalCount,
+        hasMore: response.data.hasMore,
+      };
+    }
+    
+    return {
+      freelancers: [],
+      totalCount: 0,
+      hasMore: false,
+    };
   } catch (error) {
     console.error('Error searching freelancers:', error);
     return {
-      freelancers: freelancersData as Freelancer[],
-      totalCount: freelancersData.length,
+      freelancers: [],
+      totalCount: 0,
       hasMore: false,
     };
   }
@@ -232,16 +268,20 @@ export const searchFreelancers = async (params: {
  * Get unique skills from all freelancers
  */
 export const getAvailableSkills = async (): Promise<string[]> => {
-  try {
-    const { freelancers } = await getAllFreelancers(1000, 0);
-    const skillsSet = new Set<string>();
-    freelancers.forEach(f => f.skills.forEach(skill => skillsSet.add(skill)));
-    return Array.from(skillsSet).sort();
-  } catch (error) {
-    console.error('Error fetching skills:', error);
+  if (USE_MOCK_DATA) {
     const skillsSet = new Set<string>();
     (freelancersData as Freelancer[]).forEach(f => f.skills.forEach(skill => skillsSet.add(skill)));
     return Array.from(skillsSet).sort();
+  }
+
+  try {
+    const { freelancers } = await getAllFreelancers(1000, 0);
+    const skillsSet = new Set<string>();
+    freelancers.forEach(f => f.skills?.forEach(skill => skillsSet.add(skill)));
+    return Array.from(skillsSet).sort();
+  } catch (error) {
+    console.error('Error fetching skills:', error);
+    return [];
   }
 };
 
@@ -249,15 +289,19 @@ export const getAvailableSkills = async (): Promise<string[]> => {
  * Get unique countries from all freelancers
  */
 export const getAvailableCountries = async (): Promise<string[]> => {
-  try {
-    const { freelancers } = await getAllFreelancers(1000, 0);
-    const countriesSet = new Set<string>();
-    freelancers.forEach(f => countriesSet.add(f.location.country));
-    return Array.from(countriesSet).sort();
-  } catch (error) {
-    console.error('Error fetching countries:', error);
+  if (USE_MOCK_DATA) {
     const countriesSet = new Set<string>();
     (freelancersData as Freelancer[]).forEach(f => countriesSet.add(f.location.country));
     return Array.from(countriesSet).sort();
+  }
+
+  try {
+    const { freelancers } = await getAllFreelancers(1000, 0);
+    const countriesSet = new Set<string>();
+    freelancers.forEach(f => f.location?.country && countriesSet.add(f.location.country));
+    return Array.from(countriesSet).sort();
+  } catch (error) {
+    console.error('Error fetching countries:', error);
+    return [];
   }
 };

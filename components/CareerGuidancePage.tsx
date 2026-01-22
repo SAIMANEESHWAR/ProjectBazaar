@@ -9,22 +9,22 @@ interface OptionItem {
     isSelected: boolean;
 }
 
-interface RoadmapStep {
-    title: string;
-    description: string;
-    skills: string[];
-    sub_steps: {
-        title: string;
-        description: string;
-        skills: string[];
-    }[];
-}
-
-interface Roadmap {
-    title: string;
-    description: string;
-    steps: RoadmapStep[];
-}
+// RoadmapStep and Roadmap interfaces - kept for potential future use
+// interface RoadmapStep {
+//     title: string;
+//     description: string;
+//     skills: string[];
+//     sub_steps: {
+//         title: string;
+//         description: string;
+//         skills: string[];
+//     }[];
+// }
+// interface Roadmap {
+//     title: string;
+//     description: string;
+//     steps: RoadmapStep[];
+// }
 
 // New Roadmap Interfaces
 interface CareerAnalysis {
@@ -682,7 +682,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     setCareerAnalysis,
     roadmapData,
     setRoadmapData,
-    currentWeek,
+    currentWeek: _currentWeek,
     setCurrentWeek,
     weeklyQuiz,
     setWeeklyQuiz,
@@ -692,7 +692,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     setCertificate,
     isGeneratingRoadmap,
     setIsGeneratingRoadmap,
-    isGeneratingQuiz,
+    isGeneratingQuiz: _isGeneratingQuiz,
     setIsGeneratingQuiz,
     isGeneratingExam,
     setIsGeneratingExam,
@@ -878,6 +878,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 }
             } catch (err: any) {
                 console.error('Failed to load roadmap from API:', err);
+<<<<<<< HEAD
                 // Return empty roadmap instead of throwing error
                 return {
                     careerGoal: categoriesList.find(c => c.id === categoryId)?.name || categoryId,
@@ -886,6 +887,294 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                     createdAt: new Date().toISOString(),
                 };
             }
+=======
+            }
+
+            // Fallback: Try localStorage
+            try {
+                const stored = localStorage.getItem('admin_roadmaps');
+                if (stored) {
+                    const adminRoadmaps: Record<string, { categoryId: string; categoryName: string; weeks: any[] }> = JSON.parse(stored);
+                    const adminRoadmap = adminRoadmaps[categoryId];
+                    if (adminRoadmap && adminRoadmap.weeks.length > 0) {
+                        const weeksToUse = adminRoadmap.weeks.slice(0, totalWeeks).map((w, idx) => ({
+                            ...w,
+                            weekNumber: idx + 1,
+                            isCompleted: false,
+                            quizCompleted: false,
+                        }));
+                        return {
+                            careerGoal: adminRoadmap.categoryName,
+                            totalWeeks: weeksToUse.length,
+                            weeks: weeksToUse,
+                            createdAt: new Date().toISOString(),
+                        };
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load admin roadmaps from localStorage:', err);
+            }
+
+            // Fallback to static data
+            // Helper function to generate resources for each week
+            const getResourcesForWeek = (categoryId: string, weekIndex: number, _topics: string[]): WeekResource[] => {
+                // Common resources for all categories
+                const commonResources: Record<string, WeekResource[]> = {
+                    'ai-ml': [
+                        { type: 'youtube', title: 'Python for Data Science - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=LHBE6Q9XlzI' },
+                        { type: 'gfg', title: 'Python Programming - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/python-programming-language/' },
+                        { type: 'youtube', title: 'Machine Learning Course - Andrew Ng', url: 'https://www.youtube.com/watch?v=PPLop4L2eGk' },
+                        { type: 'gfg', title: 'Machine Learning - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/machine-learning/' },
+                        { type: 'documentation', title: 'NumPy Documentation', url: 'https://numpy.org/doc/stable/' },
+                        { type: 'documentation', title: 'Pandas Documentation', url: 'https://pandas.pydata.org/docs/' },
+                        { type: 'youtube', title: 'Deep Learning Specialization - DeepLearning.AI', url: 'https://www.youtube.com/watch?v=CS4cs9xVecg' },
+                        { type: 'gfg', title: 'Deep Learning - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/deep-learning/' },
+                        { type: 'practice', title: 'Kaggle Learn', url: 'https://www.kaggle.com/learn' },
+                        { type: 'practice', title: 'LeetCode ML Problems', url: 'https://leetcode.com/tag/machine-learning/' },
+                    ],
+                    'web-dev': [
+                        { type: 'youtube', title: 'HTML & CSS Full Course - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=mU6anWqZJcc' },
+                        { type: 'gfg', title: 'HTML Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/html-tutorials/' },
+                        { type: 'gfg', title: 'CSS Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/css-tutorials/' },
+                        { type: 'youtube', title: 'JavaScript Full Course - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=jS4aFq5-91M' },
+                        { type: 'gfg', title: 'JavaScript Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/javascript-tutorial/' },
+                        { type: 'youtube', title: 'React Course - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=bMknfKXIFA8' },
+                        { type: 'gfg', title: 'React Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/reactjs-tutorials/' },
+                        { type: 'documentation', title: 'React Official Docs', url: 'https://react.dev/' },
+                        { type: 'youtube', title: 'Node.js & Express - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=Oe421EPjBEo' },
+                        { type: 'gfg', title: 'Node.js Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/nodejs-tutorials/' },
+                        { type: 'practice', title: 'Frontend Mentor', url: 'https://www.frontendmentor.io/' },
+                        { type: 'practice', title: 'JavaScript30', url: 'https://javascript30.com/' },
+                    ],
+                    'data-science': [
+                        { type: 'youtube', title: 'Data Science Full Course - Simplilearn', url: 'https://www.youtube.com/watch?v=X3paOmcrTjQ' },
+                        { type: 'gfg', title: 'Data Science - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/data-science/' },
+                        { type: 'youtube', title: 'Python for Data Science - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=LHBE6Q9XlzI' },
+                        { type: 'gfg', title: 'Pandas Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/pandas-tutorial/' },
+                        { type: 'documentation', title: 'Matplotlib Documentation', url: 'https://matplotlib.org/stable/contents.html' },
+                        { type: 'documentation', title: 'Seaborn Documentation', url: 'https://seaborn.pydata.org/' },
+                        { type: 'youtube', title: 'Statistics for Data Science - StatQuest', url: 'https://www.youtube.com/c/joshstarmer' },
+                        { type: 'gfg', title: 'Statistics Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/statistics-tutorials/' },
+                        { type: 'practice', title: 'Kaggle Learn', url: 'https://www.kaggle.com/learn' },
+                        { type: 'practice', title: 'DataCamp', url: 'https://www.datacamp.com/' },
+                    ],
+                    'devops': [
+                        { type: 'youtube', title: 'DevOps Full Course - Simplilearn', url: 'https://www.youtube.com/watch?v=5jb9LqXcg4c' },
+                        { type: 'gfg', title: 'DevOps Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/devops-tutorial/' },
+                        { type: 'youtube', title: 'Docker Tutorial - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=fqMOX6JJhGo' },
+                        { type: 'gfg', title: 'Docker Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/docker-tutorial/' },
+                        { type: 'youtube', title: 'Kubernetes Tutorial - TechWorld with Nana', url: 'https://www.youtube.com/watch?v=X48VuDVv0do' },
+                        { type: 'gfg', title: 'Kubernetes Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/kubernetes-tutorial/' },
+                        { type: 'documentation', title: 'Docker Documentation', url: 'https://docs.docker.com/' },
+                        { type: 'documentation', title: 'Kubernetes Documentation', url: 'https://kubernetes.io/docs/' },
+                        { type: 'youtube', title: 'AWS Tutorial - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=ulprqHHWlng' },
+                        { type: 'gfg', title: 'AWS Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/aws-tutorial/' },
+                    ],
+                    'mobile-dev': [
+                        { type: 'youtube', title: 'React Native Tutorial - Programming with Mosh', url: 'https://www.youtube.com/watch?v=0-S5a0eXPoc' },
+                        { type: 'gfg', title: 'React Native Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/react-native-tutorial/' },
+                        { type: 'youtube', title: 'Flutter Tutorial - The Net Ninja', url: 'https://www.youtube.com/watch?v=1ukSR1GRtMU' },
+                        { type: 'gfg', title: 'Flutter Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/flutter-tutorial/' },
+                        { type: 'documentation', title: 'React Native Docs', url: 'https://reactnative.dev/docs/getting-started' },
+                        { type: 'documentation', title: 'Flutter Docs', url: 'https://docs.flutter.dev/' },
+                        { type: 'youtube', title: 'iOS Development - CodeWithChris', url: 'https://www.youtube.com/c/CodeWithChris' },
+                        { type: 'youtube', title: 'Android Development - Coding with Mitch', url: 'https://www.youtube.com/c/CodingWithMitch' },
+                        { type: 'practice', title: 'App Ideas', url: 'https://github.com/florinpop17/app-ideas' },
+                    ],
+                    'cloud-engineer': [
+                        { type: 'youtube', title: 'AWS Full Course - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=ulprqHHWlng' },
+                        { type: 'gfg', title: 'AWS Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/aws-tutorial/' },
+                        { type: 'youtube', title: 'Azure Tutorial - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=3hHmUes6z9k' },
+                        { type: 'gfg', title: 'Azure Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/azure-tutorial/' },
+                        { type: 'youtube', title: 'GCP Tutorial - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=18OP6c1hSaI' },
+                        { type: 'documentation', title: 'AWS Documentation', url: 'https://docs.aws.amazon.com/' },
+                        { type: 'documentation', title: 'Azure Documentation', url: 'https://docs.microsoft.com/azure/' },
+                        { type: 'documentation', title: 'GCP Documentation', url: 'https://cloud.google.com/docs' },
+                        { type: 'practice', title: 'AWS Hands-On Labs', url: 'https://aws.amazon.com/training/' },
+                    ],
+                    'cybersecurity': [
+                        { type: 'youtube', title: 'Cybersecurity Full Course - Simplilearn', url: 'https://www.youtube.com/watch?v=inWWhr5tnEA' },
+                        { type: 'gfg', title: 'Cybersecurity Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/cyber-security-tutorial/' },
+                        { type: 'youtube', title: 'Ethical Hacking - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=3Kq1MIfTWCE' },
+                        { type: 'gfg', title: 'Ethical Hacking - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/ethical-hacking-tutorial/' },
+                        { type: 'practice', title: 'TryHackMe', url: 'https://tryhackme.com/' },
+                        { type: 'practice', title: 'HackTheBox', url: 'https://www.hackthebox.com/' },
+                        { type: 'article', title: 'OWASP Top 10', url: 'https://owasp.org/www-project-top-ten/' },
+                    ],
+                    'blockchain': [
+                        { type: 'youtube', title: 'Blockchain Full Course - Simplilearn', url: 'https://www.youtube.com/watch?v=SyVMma1IkXM' },
+                        { type: 'gfg', title: 'Blockchain Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/blockchain-tutorial/' },
+                        { type: 'youtube', title: 'Solidity Tutorial - Dapp University', url: 'https://www.youtube.com/c/DappUniversity' },
+                        { type: 'gfg', title: 'Solidity Tutorial - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/solidity-basics/' },
+                        { type: 'documentation', title: 'Solidity Documentation', url: 'https://docs.soliditylang.org/' },
+                        { type: 'documentation', title: 'Ethereum Documentation', url: 'https://ethereum.org/en/developers/docs/' },
+                        { type: 'practice', title: 'CryptoZombies', url: 'https://cryptozombies.io/' },
+                    ],
+                    'ui-ux': [
+                        { type: 'youtube', title: 'UI/UX Design Course - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=c9Wg6Cb_YlU' },
+                        { type: 'gfg', title: 'UI/UX Design - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/ui-ux-design/' },
+                        { type: 'youtube', title: 'Figma Tutorial - Flux', url: 'https://www.youtube.com/watch?v=FTFaQWZBqQ8' },
+                        { type: 'article', title: 'Design Principles', url: 'https://www.interaction-design.org/literature/topics/design-principles' },
+                        { type: 'practice', title: 'Dribbble', url: 'https://dribbble.com/' },
+                        { type: 'practice', title: 'Behance', url: 'https://www.behance.net/' },
+                    ],
+                    'fullstack': [
+                        { type: 'youtube', title: 'Full Stack Web Development - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=zJSY8tbf_ys' },
+                        { type: 'gfg', title: 'Full Stack Development - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/full-stack-development/' },
+                        { type: 'youtube', title: 'MERN Stack Tutorial - FreeCodeCamp', url: 'https://www.youtube.com/watch?v=7CqJlxBYj-M' },
+                        { type: 'gfg', title: 'MERN Stack - GeeksforGeeks', url: 'https://www.geeksforgeeks.org/mern-stack/' },
+                        { type: 'practice', title: 'Full Stack Open', url: 'https://fullstackopen.com/en/' },
+                        { type: 'practice', title: 'The Odin Project', url: 'https://www.theodinproject.com/' },
+                    ],
+                };
+
+                const categoryResources = commonResources[categoryId] || commonResources['web-dev'];
+                
+                // Select 4-6 resources based on week index
+                const selectedResources = categoryResources.slice(weekIndex % categoryResources.length, (weekIndex % categoryResources.length) + 5);
+                if (selectedResources.length < 4) {
+                    selectedResources.push(...categoryResources.slice(0, 4 - selectedResources.length));
+                }
+                
+                return selectedResources.slice(0, 6);
+            };
+
+            // Category-specific week templates
+            const weekTemplates: Record<string, any[]> = {
+                'ai-ml': [
+                    { mainTopics: ['Python Fundamentals', 'NumPy & Pandas', 'Data Structures'], subtopics: ['Python Basics', 'NumPy Arrays', 'DataFrames', 'Data Cleaning', 'Data Visualization'], practicalTasks: ['Install Python & libraries', 'Practice NumPy operations', 'Load and clean datasets', 'Create visualizations'], miniProject: 'Build a data analysis script for a dataset' },
+                    { mainTopics: ['Machine Learning Basics', 'Scikit-learn', 'Model Training'], subtopics: ['Supervised Learning', 'Classification', 'Regression', 'Model Evaluation', 'Cross-validation'], practicalTasks: ['Train first ML model', 'Evaluate model performance', 'Tune hyperparameters', 'Compare models'], miniProject: 'Create a classification model for predicting outcomes' },
+                    { mainTopics: ['Deep Learning', 'Neural Networks', 'TensorFlow/Keras'], subtopics: ['Neural Network Basics', 'CNNs', 'RNNs', 'Transfer Learning', 'Model Architecture'], practicalTasks: ['Build first neural network', 'Train on image data', 'Use pre-trained models', 'Optimize architecture'], miniProject: 'Build an image classifier using deep learning' },
+                    { mainTopics: ['Natural Language Processing', 'Text Processing', 'NLP Models'], subtopics: ['Text Preprocessing', 'Tokenization', 'Word Embeddings', 'Transformers', 'BERT/GPT'], practicalTasks: ['Process text data', 'Build sentiment analyzer', 'Use transformer models', 'Fine-tune models'], miniProject: 'Create a text sentiment analysis application' },
+                    { mainTopics: ['Computer Vision', 'Image Processing', 'CV Models'], subtopics: ['Image Preprocessing', 'Object Detection', 'Image Segmentation', 'OpenCV', 'YOLO'], practicalTasks: ['Process images', 'Detect objects', 'Segment images', 'Build CV pipeline'], miniProject: 'Build an object detection system' },
+                    { mainTopics: ['Model Deployment', 'MLOps', 'Production Systems'], subtopics: ['Model Serving', 'API Development', 'Containerization', 'Monitoring', 'A/B Testing'], practicalTasks: ['Deploy ML model', 'Create prediction API', 'Monitor model performance', 'Set up CI/CD'], miniProject: 'Deploy an ML model to production with API' },
+                ],
+                'web-dev': [
+                    { mainTopics: ['HTML & CSS', 'Responsive Design', 'CSS Frameworks'], subtopics: ['HTML5', 'CSS3', 'Flexbox', 'Grid', 'Bootstrap', 'Tailwind'], practicalTasks: ['Build static pages', 'Create responsive layouts', 'Use CSS frameworks', 'Practice animations'], miniProject: 'Build a responsive portfolio website' },
+                    { mainTopics: ['JavaScript Fundamentals', 'DOM Manipulation', 'ES6+'], subtopics: ['Variables & Functions', 'Arrays & Objects', 'DOM API', 'Async/Await', 'Promises', 'Closures'], practicalTasks: ['Write JavaScript functions', 'Manipulate DOM', 'Handle events', 'Work with APIs'], miniProject: 'Create an interactive todo application' },
+                    { mainTopics: ['React/Vue Basics', 'Components', 'State Management'], subtopics: ['Component Lifecycle', 'Props & State', 'Hooks', 'Routing', 'Context API'], practicalTasks: ['Build components', 'Manage state', 'Add routing', 'Handle side effects'], miniProject: 'Build a single-page application with React/Vue' },
+                    { mainTopics: ['Backend Development', 'Node.js/Express', 'REST APIs'], subtopics: ['Server Setup', 'API Endpoints', 'Database Integration', 'Authentication', 'Middleware'], practicalTasks: ['Create API server', 'Connect to database', 'Implement auth', 'Add validation'], miniProject: 'Build a RESTful API with authentication' },
+                    { mainTopics: ['Database Integration', 'MongoDB/PostgreSQL', 'ORM'], subtopics: ['Database Design', 'Queries', 'Relationships', 'Migrations', 'Indexing'], practicalTasks: ['Design schema', 'Write queries', 'Handle relationships', 'Optimize queries'], miniProject: 'Create a full-stack app with database' },
+                    { mainTopics: ['Deployment', 'Hosting', 'CI/CD'], subtopics: ['Cloud Platforms', 'Docker', 'CI/CD Pipelines', 'Domain Setup', 'SSL Certificates'], practicalTasks: ['Deploy application', 'Set up CI/CD', 'Configure domain', 'Monitor performance'], miniProject: 'Deploy full-stack application to production' },
+                ],
+                'data-science': [
+                    { mainTopics: ['Python for Data Science', 'Pandas', 'Data Exploration'], subtopics: ['Data Loading', 'Data Cleaning', 'Exploratory Analysis', 'Visualization', 'Statistical Summary'], practicalTasks: ['Load datasets', 'Clean data', 'Create visualizations', 'Identify patterns'], miniProject: 'Perform EDA on a real-world dataset' },
+                    { mainTopics: ['Statistics & Probability', 'Hypothesis Testing', 'Statistical Analysis'], subtopics: ['Descriptive Stats', 'Inferential Stats', 'A/B Testing', 'Correlation', 'Regression Analysis'], practicalTasks: ['Calculate statistics', 'Run hypothesis tests', 'Analyze relationships', 'Interpret results'], miniProject: 'Conduct statistical analysis on dataset' },
+                    { mainTopics: ['Machine Learning', 'Model Building', 'Evaluation'], subtopics: ['Supervised Learning', 'Unsupervised Learning', 'Model Selection', 'Cross-validation', 'Feature Engineering'], practicalTasks: ['Build ML models', 'Evaluate performance', 'Compare models', 'Feature selection'], miniProject: 'Build and compare multiple ML models' },
+                    { mainTopics: ['Data Visualization', 'Matplotlib/Seaborn', 'Dashboards'], subtopics: ['Plotting', 'Interactive Charts', 'Dashboard Creation', 'Storytelling', 'Tableau/PowerBI'], practicalTasks: ['Create visualizations', 'Build dashboards', 'Present insights', 'Share reports'], miniProject: 'Create an interactive data dashboard' },
+                    { mainTopics: ['Big Data Tools', 'SQL', 'Data Warehousing'], subtopics: ['SQL Queries', 'Data Warehouses', 'ETL Processes', 'Data Pipelines', 'Apache Spark'], practicalTasks: ['Write complex SQL', 'Design data warehouse', 'Build ETL pipeline', 'Process large datasets'], miniProject: 'Build a data pipeline for analytics' },
+                    { mainTopics: ['Advanced Analytics', 'Time Series', 'Predictive Modeling'], subtopics: ['Time Series Analysis', 'Forecasting', 'Advanced ML', 'Model Deployment', 'A/B Testing'], practicalTasks: ['Analyze time series', 'Build forecasts', 'Deploy models', 'Monitor predictions'], miniProject: 'Create a predictive analytics solution' },
+                ],
+                'devops': [
+                    { mainTopics: ['Linux Fundamentals', 'Command Line', 'Shell Scripting'], subtopics: ['Linux Commands', 'File System', 'Permissions', 'Process Management', 'Shell Scripts'], practicalTasks: ['Master Linux commands', 'Write shell scripts', 'Manage processes', 'Configure system'], miniProject: 'Automate system tasks with shell scripts' },
+                    { mainTopics: ['Version Control', 'Git', 'CI/CD Basics'], subtopics: ['Git Workflows', 'Branching Strategies', 'GitHub Actions', 'Jenkins', 'GitLab CI'], practicalTasks: ['Set up Git workflows', 'Create CI/CD pipelines', 'Automate builds', 'Configure deployments'], miniProject: 'Set up a complete CI/CD pipeline' },
+                    { mainTopics: ['Containerization', 'Docker', 'Container Orchestration'], subtopics: ['Docker Basics', 'Docker Compose', 'Kubernetes', 'Container Registry', 'Orchestration'], practicalTasks: ['Containerize applications', 'Use Docker Compose', 'Deploy to Kubernetes', 'Manage containers'], miniProject: 'Containerize and orchestrate a microservices application' },
+                    { mainTopics: ['Cloud Platforms', 'AWS/Azure/GCP', 'Infrastructure as Code'], subtopics: ['Cloud Services', 'EC2/Compute', 'S3/Storage', 'Terraform', 'CloudFormation'], practicalTasks: ['Set up cloud infrastructure', 'Use IaC tools', 'Configure services', 'Manage resources'], miniProject: 'Deploy infrastructure using Terraform' },
+                    { mainTopics: ['Monitoring & Logging', 'Observability', 'Alerting'], subtopics: ['Prometheus', 'Grafana', 'ELK Stack', 'CloudWatch', 'Alerting Systems'], practicalTasks: ['Set up monitoring', 'Create dashboards', 'Configure alerts', 'Analyze logs'], miniProject: 'Build a complete monitoring and alerting system' },
+                    { mainTopics: ['Security', 'Compliance', 'Best Practices'], subtopics: ['Security Scanning', 'Secrets Management', 'Compliance', 'Security Policies', 'Vulnerability Management'], practicalTasks: ['Implement security measures', 'Manage secrets', 'Scan for vulnerabilities', 'Enforce policies'], miniProject: 'Secure a cloud infrastructure setup' },
+                ],
+                'mobile-dev': [
+                    { mainTopics: ['Mobile Development Basics', 'Platforms', 'Development Tools'], subtopics: ['iOS/Android', 'React Native/Flutter', 'IDE Setup', 'Emulators', 'Device Testing'], practicalTasks: ['Set up development environment', 'Create first app', 'Test on devices', 'Configure build tools'], miniProject: 'Build a simple mobile app' },
+                    { mainTopics: ['UI/UX for Mobile', 'Design Patterns', 'Navigation'], subtopics: ['Mobile Design Principles', 'Navigation Patterns', 'Responsive Layouts', 'Material Design', 'iOS Guidelines'], practicalTasks: ['Design mobile UI', 'Implement navigation', 'Create responsive layouts', 'Follow design guidelines'], miniProject: 'Create a mobile app with beautiful UI' },
+                    { mainTopics: ['State Management', 'Data Persistence', 'Local Storage'], subtopics: ['State Management', 'AsyncStorage', 'SQLite', 'Realm', 'Redux/MobX'], practicalTasks: ['Implement state management', 'Store data locally', 'Handle offline mode', 'Sync data'], miniProject: 'Build an app with offline data storage' },
+                    { mainTopics: ['API Integration', 'Networking', 'Authentication'], subtopics: ['REST APIs', 'GraphQL', 'Authentication', 'Token Management', 'Error Handling'], practicalTasks: ['Integrate APIs', 'Handle authentication', 'Manage tokens', 'Handle errors'], miniProject: 'Build an app with API integration and auth' },
+                    { mainTopics: ['Native Features', 'Device APIs', 'Permissions'], subtopics: ['Camera', 'Location', 'Notifications', 'Biometrics', 'Device Sensors'], practicalTasks: ['Access device features', 'Handle permissions', 'Use device APIs', 'Implement features'], miniProject: 'Create an app using native device features' },
+                    { mainTopics: ['App Deployment', 'App Stores', 'Testing'], subtopics: ['App Store Submission', 'Play Store', 'Beta Testing', 'App Signing', 'Release Management'], practicalTasks: ['Prepare for release', 'Submit to stores', 'Manage versions', 'Handle updates'], miniProject: 'Deploy an app to app stores' },
+                ],
+                'cloud-engineer': [
+                    { mainTopics: ['Cloud Fundamentals', 'Cloud Models', 'Service Models'], subtopics: ['IaaS, PaaS, SaaS', 'Cloud Providers', 'Regions & Zones', 'Cloud Architecture', 'Cost Management'], practicalTasks: ['Understand cloud models', 'Explore cloud providers', 'Set up accounts', 'Calculate costs'], miniProject: 'Design a cloud architecture for a startup' },
+                    { mainTopics: ['AWS Core Services', 'EC2, S3, VPC', 'Networking'], subtopics: ['EC2 Instances', 'S3 Storage', 'VPC Configuration', 'Load Balancers', 'Auto Scaling'], practicalTasks: ['Launch EC2 instances', 'Configure S3 buckets', 'Set up VPC', 'Configure networking'], miniProject: 'Deploy a scalable web application on AWS' },
+                    { mainTopics: ['Container Services', 'ECS, EKS', 'Serverless'], subtopics: ['ECS/EKS', 'Lambda Functions', 'API Gateway', 'EventBridge', 'Step Functions'], practicalTasks: ['Deploy containers', 'Create Lambda functions', 'Set up API Gateway', 'Build serverless apps'], miniProject: 'Build a serverless application with Lambda' },
+                    { mainTopics: ['Database Services', 'RDS, DynamoDB', 'Data Management'], subtopics: ['RDS Setup', 'DynamoDB', 'ElastiCache', 'Data Migration', 'Backup & Recovery'], practicalTasks: ['Set up databases', 'Configure backups', 'Migrate data', 'Optimize performance'], miniProject: 'Design and implement a database solution' },
+                    { mainTopics: ['Security & Compliance', 'IAM', 'Security Best Practices'], subtopics: ['IAM Policies', 'Security Groups', 'Encryption', 'Compliance', 'Security Monitoring'], practicalTasks: ['Configure IAM', 'Set up security', 'Enable encryption', 'Monitor security'], miniProject: 'Secure a cloud infrastructure' },
+                    { mainTopics: ['DevOps on Cloud', 'CI/CD', 'Infrastructure Automation'], subtopics: ['CodePipeline', 'CloudFormation', 'Terraform', 'Monitoring', 'Cost Optimization'], practicalTasks: ['Set up CI/CD', 'Automate infrastructure', 'Monitor services', 'Optimize costs'], miniProject: 'Build a complete CI/CD pipeline on cloud' },
+                ],
+                'cybersecurity': [
+                    { mainTopics: ['Security Fundamentals', 'Threats & Vulnerabilities', 'Security Principles'], subtopics: ['Security Concepts', 'Attack Vectors', 'Vulnerability Assessment', 'Risk Management', 'Security Policies'], practicalTasks: ['Understand threats', 'Assess vulnerabilities', 'Create security policies', 'Identify risks'], miniProject: 'Conduct a security assessment' },
+                    { mainTopics: ['Network Security', 'Firewalls', 'Intrusion Detection'], subtopics: ['Network Protocols', 'Firewall Configuration', 'IDS/IPS', 'VPN', 'Network Monitoring'], practicalTasks: ['Configure firewalls', 'Set up IDS', 'Implement VPN', 'Monitor networks'], miniProject: 'Secure a network infrastructure' },
+                    { mainTopics: ['Cryptography', 'Encryption', 'Digital Signatures'], subtopics: ['Encryption Algorithms', 'Public Key Infrastructure', 'SSL/TLS', 'Hashing', 'Key Management'], practicalTasks: ['Implement encryption', 'Set up PKI', 'Configure SSL/TLS', 'Manage keys'], miniProject: 'Implement encryption for data protection' },
+                    { mainTopics: ['Ethical Hacking', 'Penetration Testing', 'Security Tools'], subtopics: ['Penetration Testing', 'Vulnerability Scanning', 'Security Tools', 'Exploitation', 'Reporting'], practicalTasks: ['Perform pentesting', 'Use security tools', 'Identify vulnerabilities', 'Create reports'], miniProject: 'Conduct a penetration test' },
+                    { mainTopics: ['Incident Response', 'Forensics', 'Compliance'], subtopics: ['Incident Handling', 'Digital Forensics', 'Compliance Standards', 'Security Audits', 'Recovery'], practicalTasks: ['Handle incidents', 'Perform forensics', 'Ensure compliance', 'Conduct audits'], miniProject: 'Create an incident response plan' },
+                    { mainTopics: ['Security Operations', 'SIEM', 'Threat Intelligence'], subtopics: ['SIEM Tools', 'Log Analysis', 'Threat Hunting', 'Security Monitoring', 'Automation'], practicalTasks: ['Set up SIEM', 'Analyze logs', 'Hunt threats', 'Automate responses'], miniProject: 'Build a security operations center' },
+                ],
+                'blockchain': [
+                    { mainTopics: ['Blockchain Fundamentals', 'Cryptography', 'Distributed Systems'], subtopics: ['Blockchain Basics', 'Cryptographic Hash', 'Consensus Mechanisms', 'Distributed Ledger', 'Smart Contracts Intro'], practicalTasks: ['Understand blockchain', 'Study cryptography', 'Learn consensus', 'Explore blockchains'], miniProject: 'Create a simple blockchain implementation' },
+                    { mainTopics: ['Ethereum Development', 'Solidity', 'Smart Contracts'], subtopics: ['Solidity Language', 'Smart Contract Development', 'Remix IDE', 'Truffle', 'Hardhat'], practicalTasks: ['Write Solidity code', 'Deploy contracts', 'Test contracts', 'Use development tools'], miniProject: 'Build and deploy a smart contract' },
+                    { mainTopics: ['DApp Development', 'Web3.js', 'Frontend Integration'], subtopics: ['DApp Architecture', 'Web3.js', 'Ethers.js', 'MetaMask Integration', 'IPFS'], practicalTasks: ['Build DApp frontend', 'Connect to blockchain', 'Integrate wallet', 'Use IPFS'], miniProject: 'Create a decentralized application' },
+                    { mainTopics: ['DeFi Concepts', 'Token Standards', 'DeFi Protocols'], subtopics: ['ERC-20/ERC-721', 'DeFi Protocols', 'Liquidity Pools', 'Yield Farming', 'DEX'], practicalTasks: ['Create tokens', 'Interact with DeFi', 'Build DeFi features', 'Understand protocols'], miniProject: 'Build a DeFi application' },
+                    { mainTopics: ['Security & Testing', 'Auditing', 'Best Practices'], subtopics: ['Smart Contract Security', 'Common Vulnerabilities', 'Testing Strategies', 'Auditing', 'Gas Optimization'], practicalTasks: ['Test contracts', 'Find vulnerabilities', 'Optimize gas', 'Audit code'], miniProject: 'Audit and secure a smart contract' },
+                    { mainTopics: ['Blockchain Infrastructure', 'Nodes', 'Networks'], subtopics: ['Running Nodes', 'Network Participation', 'Scaling Solutions', 'Layer 2', 'Interoperability'], practicalTasks: ['Run blockchain node', 'Participate in network', 'Explore scaling', 'Use Layer 2'], miniProject: 'Set up and run a blockchain node' },
+                ],
+                'ui-ux': [
+                    { mainTopics: ['Design Fundamentals', 'Principles', 'Color Theory'], subtopics: ['Design Principles', 'Color Theory', 'Typography', 'Layout', 'Visual Hierarchy'], practicalTasks: ['Study design principles', 'Create color palettes', 'Design layouts', 'Practice typography'], miniProject: 'Design a brand identity system' },
+                    { mainTopics: ['User Research', 'Personas', 'User Journey'], subtopics: ['User Research Methods', 'Persona Creation', 'User Journey Mapping', 'Usability Testing', 'Interviews'], practicalTasks: ['Conduct research', 'Create personas', 'Map journeys', 'Run usability tests'], miniProject: 'Complete a user research project' },
+                    { mainTopics: ['Wireframing & Prototyping', 'Tools', 'Interaction Design'], subtopics: ['Wireframing', 'Prototyping', 'Figma/Sketch', 'Interaction Design', 'User Flows'], practicalTasks: ['Create wireframes', 'Build prototypes', 'Design interactions', 'Test prototypes'], miniProject: 'Design and prototype a mobile app' },
+                    { mainTopics: ['Visual Design', 'UI Design', 'Design Systems'], subtopics: ['Visual Design', 'Component Libraries', 'Design Systems', 'Style Guides', 'Iconography'], practicalTasks: ['Create UI designs', 'Build components', 'Develop design system', 'Create style guide'], miniProject: 'Build a complete design system' },
+                    { mainTopics: ['Responsive Design', 'Accessibility', 'Usability'], subtopics: ['Responsive Principles', 'Accessibility Standards', 'Usability Testing', 'Cross-platform', 'Performance'], practicalTasks: ['Design responsive layouts', 'Ensure accessibility', 'Test usability', 'Optimize performance'], miniProject: 'Design an accessible, responsive website' },
+                    { mainTopics: ['Portfolio & Presentation', 'Case Studies', 'Client Work'], subtopics: ['Portfolio Building', 'Case Study Creation', 'Presentation Skills', 'Client Communication', 'Freelancing'], practicalTasks: ['Build portfolio', 'Create case studies', 'Present work', 'Handle clients'], miniProject: 'Create a professional design portfolio' },
+                ],
+                'fullstack': [
+                    { mainTopics: ['Frontend Basics', 'HTML, CSS, JavaScript', 'Responsive Design'], subtopics: ['HTML5', 'CSS3', 'JavaScript ES6+', 'Responsive Design', 'CSS Frameworks'], practicalTasks: ['Build static pages', 'Style with CSS', 'Add interactivity', 'Make responsive'], miniProject: 'Build a responsive portfolio website' },
+                    { mainTopics: ['Frontend Framework', 'React/Vue', 'State Management'], subtopics: ['React/Vue Basics', 'Components', 'State Management', 'Routing', 'Hooks'], practicalTasks: ['Build components', 'Manage state', 'Add routing', 'Handle side effects'], miniProject: 'Create a single-page application' },
+                    { mainTopics: ['Backend Development', 'Node.js/Python', 'Server Setup'], subtopics: ['Server Development', 'API Creation', 'Middleware', 'Error Handling', 'Validation'], practicalTasks: ['Set up server', 'Create APIs', 'Handle requests', 'Add validation'], miniProject: 'Build a RESTful API server' },
+                    { mainTopics: ['Database Integration', 'SQL/NoSQL', 'ORM'], subtopics: ['Database Design', 'SQL Queries', 'MongoDB/PostgreSQL', 'ORM Usage', 'Migrations'], practicalTasks: ['Design database', 'Write queries', 'Integrate database', 'Handle migrations'], miniProject: 'Create a full-stack app with database' },
+                    { mainTopics: ['Authentication & Security', 'JWT', 'Security Best Practices'], subtopics: ['Authentication', 'Authorization', 'JWT Tokens', 'Password Hashing', 'Security Measures'], practicalTasks: ['Implement auth', 'Secure APIs', 'Handle tokens', 'Add security'], miniProject: 'Build a secure full-stack application' },
+                    { mainTopics: ['Deployment & DevOps', 'CI/CD', 'Cloud Deployment'], subtopics: ['Deployment Strategies', 'CI/CD Pipelines', 'Cloud Platforms', 'Docker', 'Monitoring'], practicalTasks: ['Deploy application', 'Set up CI/CD', 'Use containers', 'Monitor app'], miniProject: 'Deploy a full-stack application to production' },
+                ],
+            };
+
+            // Get templates for selected category or default to web-dev
+            const templates = weekTemplates[categoryId] || weekTemplates['web-dev'];
+            
+            // Generate weeks based on duration
+            const generatedWeeks: Array<Omit<WeekContent, 'isCompleted' | 'quizCompleted'>> = [];
+            for (let i = 0; i < totalWeeks; i++) {
+                const templateIndex = i % templates.length;
+                const template = templates[templateIndex];
+                const resources = getResourcesForWeek(categoryId, i, template.mainTopics);
+                generatedWeeks.push({
+                    weekNumber: i + 1,
+                    mainTopics: template.mainTopics,
+                    subtopics: template.subtopics,
+                    practicalTasks: template.practicalTasks,
+                    miniProject: template.miniProject,
+                    resources: resources,
+                });
+            }
+            
+            // Add revision week for beginners if duration > 8 weeks
+            if (level === 'Beginner' && totalWeeks > 8) {
+                const revisionResources: WeekResource[] = [
+                    { type: 'practice', title: 'LeetCode', url: 'https://leetcode.com/' },
+                    { type: 'practice', title: 'HackerRank', url: 'https://www.hackerrank.com/' },
+                    { type: 'practice', title: 'InterviewBit', url: 'https://www.interviewbit.com/' },
+                    { type: 'article', title: 'Resume Building Guide', url: 'https://www.geeksforgeeks.org/resume-building-for-freshers/' },
+                    { type: 'article', title: 'Interview Preparation', url: 'https://www.geeksforgeeks.org/interview-preparation/' },
+                ];
+                generatedWeeks.push({
+                    weekNumber: generatedWeeks.length + 1,
+                    mainTopics: ['Revision & Practice', 'Portfolio Building', 'Interview Preparation'],
+                    subtopics: ['Review All Topics', 'Build Portfolio', 'Practice Problems', 'Mock Interviews', 'Resume Building'],
+                    practicalTasks: ['Review all concepts', 'Complete portfolio projects', 'Solve coding problems', 'Prepare resume'],
+                    miniProject: 'Create a comprehensive portfolio showcasing all your projects',
+                    resources: revisionResources,
+                });
+            }
+
+            // Get category name for display
+            const categoryName = categoriesList.find(c => c.id === categoryId)?.name || categoryId;
+
+            return {
+                careerGoal: categoryName,
+                totalWeeks: generatedWeeks.length,
+                weeks: generatedWeeks.map(w => ({
+                    ...w,
+                    isCompleted: false,
+                    quizCompleted: false,
+                })),
+                createdAt: new Date().toISOString(),
+            };
+>>>>>>> 077b1bf9949a459efa800f3c3fb4afb7e1b43216
         };
 
         try {
@@ -950,7 +1239,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         if (!weeklyQuiz || !roadmapData) return;
 
         let correct = 0;
-        weeklyQuiz.questions.forEach((q, idx) => {
+        weeklyQuiz.questions.forEach((q) => {
             if (q.userAnswer === q.correctAnswer) correct++;
         });
 
@@ -2408,142 +2697,16 @@ const CareerGuidancePage: React.FC = () => {
         setCertOptions(prev => prev.map(o => ({ ...o, isSelected: false })));
     };
 
-    // Generate roadmap using mock data (in production, use Gemini API)
-    const generateRoadmap = async (career: string) => {
-        setRoadmapLoading(true);
+    // Handler to continue to roadmap from career recommendation
+    const handleContinueToRoadmap = (career: string) => {
+        // Set career analysis with the recommended career
+        setCareerAnalysis({
+            careerGoal: career,
+            currentLevel: 'Beginner',
+            timeCommitment: 10,
+            preferredTechStack: []
+        });
         setActiveTab('roadmap');
-        
-        try {
-            // In production, this would call the Gemini API
-            // For now, we'll use a mock roadmap
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const mockRoadmap: Roadmap = {
-                title: `${career} Learning Roadmap`,
-                description: `A comprehensive guide to becoming a ${career}. This roadmap covers all the essential skills and knowledge you need to master.`,
-                steps: [
-                    {
-                        title: "Step 1: Foundation & Basics",
-                        description: "Build a strong foundation with core concepts and fundamental skills.",
-                        skills: ["Programming Fundamentals", "Problem Solving", "Version Control"],
-                        sub_steps: [
-                            {
-                                title: "Learn Programming Basics",
-                                description: "Start with a beginner-friendly programming language and understand core concepts.",
-                                skills: ["Variables", "Data Types", "Control Flow", "Functions"]
-                            },
-                            {
-                                title: "Version Control with Git",
-                                description: "Learn how to track changes and collaborate using Git and GitHub.",
-                                skills: ["Git Commands", "Branching", "Merging", "Pull Requests"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 2: Core Technologies",
-                        description: "Master the core technologies and frameworks used in the industry.",
-                        skills: ["Frameworks", "Libraries", "Best Practices"],
-                        sub_steps: [
-                            {
-                                title: "Learn Industry Frameworks",
-                                description: "Get hands-on experience with popular frameworks and tools.",
-                                skills: ["Framework Basics", "Component Architecture", "State Management"]
-                            },
-                            {
-                                title: "Build Projects",
-                                description: "Apply your knowledge by building real-world projects.",
-                                skills: ["Project Planning", "Implementation", "Debugging"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 3: Advanced Concepts",
-                        description: "Dive deeper into advanced topics and specialized areas.",
-                        skills: ["System Design", "Performance Optimization", "Security"],
-                        sub_steps: [
-                            {
-                                title: "System Architecture",
-                                description: "Learn how to design scalable and maintainable systems.",
-                                skills: ["Design Patterns", "Architecture", "Scalability"]
-                            },
-                            {
-                                title: "Performance & Security",
-                                description: "Optimize applications and implement security best practices.",
-                                skills: ["Optimization", "Security Practices", "Testing"]
-                            }
-                        ]
-                    },
-                    {
-                        title: "Step 4: Professional Skills",
-                        description: "Develop professional skills needed for career success.",
-                        skills: ["Communication", "Teamwork", "Interview Prep"],
-                        sub_steps: [
-                            {
-                                title: "Soft Skills",
-                                description: "Develop communication and collaboration skills.",
-                                skills: ["Technical Writing", "Presentation", "Team Collaboration"]
-                            },
-                            {
-                                title: "Career Development",
-                                description: "Prepare for job applications and interviews.",
-                                skills: ["Resume Building", "Portfolio", "Interview Skills"]
-                            }
-                        ]
-                    }
-                ]
-            };
-            
-            setRoadmap(mockRoadmap);
-        } catch (error) {
-            console.error("Error generating roadmap:", error);
-        } finally {
-            setRoadmapLoading(false);
-        }
-    };
-
-    // Generate virtual internship
-    const generateInternship = async () => {
-        if (!internshipField.trim()) return;
-        
-        setInternshipLoading(true);
-        
-        try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const mockInternship: InternshipData = {
-                CompanyName: "TechVenture Labs",
-                companyDescription: `TechVenture Labs is a leading technology company specializing in ${internshipField}. We focus on innovative solutions and cutting-edge technology to solve real-world problems.`,
-                YourRole: `${internshipField} Intern`,
-                phases: [
-                    {
-                        task: "Onboarding and Environment Setup - Get familiar with the team, tools, and codebase. Complete initial training modules.",
-                        deadline: "Week 1-2",
-                        topicsCovered: "Company Culture, Development Tools, Codebase Overview"
-                    },
-                    {
-                        task: "Feature Development - Work on a small feature or bug fix under guidance. Learn the development workflow.",
-                        deadline: "Week 3-4",
-                        topicsCovered: "Agile Methodology, Code Review, Testing"
-                    },
-                    {
-                        task: "Independent Project - Take ownership of a small project. Design, implement, and document your solution.",
-                        deadline: "Week 5-6",
-                        topicsCovered: "Project Management, Documentation, Presentation"
-                    },
-                    {
-                        task: "Final Presentation - Present your work to the team. Receive feedback and complete internship wrap-up.",
-                        deadline: "Week 7-8",
-                        topicsCovered: "Presentation Skills, Professional Communication"
-                    }
-                ]
-            };
-            
-            setInternship(mockInternship);
-        } catch (error) {
-            console.error("Error generating internship:", error);
-        } finally {
-            setInternshipLoading(false);
-        }
     };
 
     const tabs = [
@@ -2611,8 +2774,7 @@ const CareerGuidancePage: React.FC = () => {
                             <TrendingCareersSection 
                                 careers={trendingCareersData}
                                 onExploreRoadmap={(career) => {
-                                    setRoadmapInput(career);
-                                    generateRoadmap(career);
+                                    handleContinueToRoadmap(career);
                                 }}
                             />
                         )}

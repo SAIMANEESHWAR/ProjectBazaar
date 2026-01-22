@@ -623,7 +623,7 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
                                                         <span className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 font-medium">
                                                             {project.category}
                                                         </span>
-                                                        <span className="font-semibold text-gray-700">${project.price.toFixed(2)}</span>
+                                                        <span className="font-semibold text-gray-700">₹{project.price.toFixed(2)}</span>
                                                         <span className="text-gray-400">•</span>
                                                         <span>Uploaded: {project.uploadedDate}</span>
                                                     </div>
@@ -789,7 +789,7 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
                                     <p className="text-xs text-gray-400 mt-1">Uploaded: {project.uploadedDate}</p>
                                 </div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <span className="text-xl font-bold text-orange-600">${project.price.toFixed(2)}</span>
+                                    <span className="text-xl font-bold text-orange-600">₹{project.price.toFixed(2)}</span>
                                 </div>
                                 <button
                                     onClick={() => onViewProjectDetails?.(project)}

@@ -37,7 +37,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
         </div>
         <div className="flex justify-between items-center">
           <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-            ${price}
+            ₹{price}
           </p>
           <button onClick={() => navigateTo('auth')} className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gradient-to-r from-orange-500 to-orange-600 hover:text-white transition-all duration-300">
             View Details

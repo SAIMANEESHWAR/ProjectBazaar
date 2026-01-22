@@ -214,9 +214,9 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
                     <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100">
                         <div className="flex items-baseline gap-4 mb-4">
                             <div>
-                                <p className="text-4xl font-bold text-gray-900">${finalPrice.toFixed(2)}</p>
+                                <p className="text-4xl font-bold text-gray-900">₹{finalPrice.toFixed(2)}</p>
                                 {project.originalPrice && (
-                                    <p className="text-lg text-gray-500 line-through mt-1">${project.originalPrice.toFixed(2)}</p>
+                                    <p className="text-lg text-gray-500 line-through mt-1">₹{project.originalPrice.toFixed(2)}</p>
                                 )}
                             </div>
                             {discount > 0 && (

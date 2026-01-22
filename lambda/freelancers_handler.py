@@ -33,16 +33,21 @@ def decimal_to_float(obj):
         return [decimal_to_float(i) for i in obj]
     return obj
 
+# CORS headers for cross-origin requests
+CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Requested-With',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400'
+}
+
 # Response helper function
 def response(status_code, body):
     return {
         'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
-        },
+        'headers': CORS_HEADERS,
         'body': json.dumps(decimal_to_float(body))
     }
 
@@ -159,31 +164,48 @@ def handle_get_all_freelancers(body):
     """Get all freelancers with optional pagination"""
     limit = int(body.get('limit', 50))
     offset = int(body.get('offset', 0))
+    include_all = body.get('includeAll', True)  # Default to True to get all users
     
     try:
-        # Scan users table for sellers/freelancers
-        # Filter: role is 'seller' OR has projectsCount > 0 OR status is 'active'
-        result = users_table.scan(
-            FilterExpression=(
-                Attr('role').eq('seller') | 
-                Attr('role').eq('freelancer') |
-                Attr('projectsCount').gt(0)
-            ) & Attr('status').eq('active')
-        )
+        # Scan users table - get ALL users without strict filters
+        # This ensures real users show up in the browse page
+        
+        if include_all:
+            # Include ALL users from the database (no filter)
+            result = users_table.scan()
+        else:
+            # Filter for sellers/freelancers only
+            result = users_table.scan(
+                FilterExpression=(
+                    Attr('role').eq('seller') | 
+                    Attr('role').eq('freelancer') |
+                    Attr('projectsCount').gt(0) |
+                    Attr('skills').exists()
+                )
+            )
         
         users = result.get('Items', [])
         
         # Handle pagination with last_evaluated_key for large datasets
         while 'LastEvaluatedKey' in result:
-            result = users_table.scan(
-                FilterExpression=(
-                    Attr('role').eq('seller') | 
-                    Attr('role').eq('freelancer') |
-                    Attr('projectsCount').gt(0)
-                ) & Attr('status').eq('active'),
-                ExclusiveStartKey=result['LastEvaluatedKey']
-            )
+            if include_all:
+                result = users_table.scan(
+                    ExclusiveStartKey=result['LastEvaluatedKey']
+                )
+            else:
+                result = users_table.scan(
+                    FilterExpression=(
+                        Attr('role').eq('seller') | 
+                        Attr('role').eq('freelancer') |
+                        Attr('projectsCount').gt(0) |
+                        Attr('skills').exists()
+                    ),
+                    ExclusiveStartKey=result['LastEvaluatedKey']
+                )
             users.extend(result.get('Items', []))
+        
+        # Filter out blocked/deleted users
+        users = [u for u in users if u.get('status', 'active') not in ['blocked', 'deleted']]
         
         # Format freelancers
         freelancers = [format_freelancer(user) for user in users]
@@ -289,13 +311,19 @@ def handle_get_top_freelancers(body):
     limit = int(body.get('limit', 6))
     
     try:
-        # Get all active sellers
+        # Get all active users who could be freelancers
         result = users_table.scan(
             FilterExpression=(
-                Attr('role').eq('seller') | 
-                Attr('role').eq('freelancer') |
-                Attr('projectsCount').gt(0)
-            ) & Attr('status').eq('active')
+                (
+                    Attr('role').eq('seller') | 
+                    Attr('role').eq('freelancer') |
+                    Attr('projectsCount').gt(0) |
+                    Attr('skills').exists()
+                ) & (
+                    Attr('status').eq('active') | 
+                    Attr('status').not_exists()
+                )
+            )
         )
         
         users = result.get('Items', [])
@@ -352,13 +380,19 @@ def handle_search_freelancers(body):
     offset = int(body.get('offset', 0))
     
     try:
-        # Get all freelancers first
+        # Get all potential freelancers
         result = users_table.scan(
             FilterExpression=(
-                Attr('role').eq('seller') | 
-                Attr('role').eq('freelancer') |
-                Attr('projectsCount').gt(0)
-            ) & Attr('status').eq('active')
+                (
+                    Attr('role').eq('seller') | 
+                    Attr('role').eq('freelancer') |
+                    Attr('projectsCount').gt(0) |
+                    Attr('skills').exists()
+                ) & (
+                    Attr('status').eq('active') | 
+                    Attr('status').not_exists()
+                )
+            )
         )
         
         users = result.get('Items', [])
@@ -425,13 +459,158 @@ def handle_search_freelancers(body):
         })
 
 
+# ---------- SEED FREELANCERS ----------
+def handle_seed_freelancers(body):
+    """Add sample freelancer users to the database for testing/demo purposes"""
+    import uuid
+    
+    sample_freelancers = [
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'john.smith@projectbazaar.com',
+            'fullName': 'John Smith',
+            'username': 'johnsmith',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['React', 'Node.js', 'TypeScript', 'MongoDB'],
+            'hourlyRate': 25,
+            'currency': 'USD',
+            'country': 'India',
+            'city': 'Mohali',
+            'bio': 'Full-stack developer with 5+ years of experience building scalable web applications.',
+            'profileImage': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
+            'isVerified': True,
+            'createdAt': datetime.now().isoformat()
+        },
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'sarah.johnson@projectbazaar.com',
+            'fullName': 'Sarah Johnson',
+            'username': 'sarahj',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['Python', 'Django', 'PostgreSQL', 'AWS'],
+            'hourlyRate': 30,
+            'currency': 'USD',
+            'country': 'India',
+            'city': 'Bangalore',
+            'bio': 'Backend specialist with expertise in building robust APIs and cloud infrastructure.',
+            'profileImage': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face',
+            'isVerified': True,
+            'createdAt': datetime.now().isoformat()
+        },
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'mike.chen@projectbazaar.com',
+            'fullName': 'Mike Chen',
+            'username': 'mikechen',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['Vue.js', 'Nuxt.js', 'Firebase', 'Tailwind CSS'],
+            'hourlyRate': 22,
+            'currency': 'USD',
+            'country': 'India',
+            'city': 'Mumbai',
+            'bio': 'Frontend developer passionate about creating beautiful and responsive user interfaces.',
+            'profileImage': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face',
+            'isVerified': False,
+            'createdAt': datetime.now().isoformat()
+        },
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'emma.wilson@projectbazaar.com',
+            'fullName': 'Emma Wilson',
+            'username': 'emmaw',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['Angular', 'RxJS', 'GraphQL', 'Docker'],
+            'hourlyRate': 35,
+            'currency': 'USD',
+            'country': 'USA',
+            'city': 'San Francisco',
+            'bio': 'Senior software architect with a track record of delivering enterprise-grade solutions.',
+            'profileImage': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face',
+            'isVerified': True,
+            'createdAt': datetime.now().isoformat()
+        },
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'david.kumar@projectbazaar.com',
+            'fullName': 'David Kumar',
+            'username': 'davidk',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['Java', 'Spring Boot', 'Microservices', 'Kubernetes'],
+            'hourlyRate': 28,
+            'currency': 'USD',
+            'country': 'India',
+            'city': 'Delhi',
+            'bio': 'Java expert with deep knowledge of microservices architecture and DevOps practices.',
+            'profileImage': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=face',
+            'isVerified': True,
+            'createdAt': datetime.now().isoformat()
+        },
+        {
+            'userId': str(uuid.uuid4()),
+            'email': 'lisa.anderson@projectbazaar.com',
+            'fullName': 'Lisa Anderson',
+            'username': 'lisaa',
+            'role': 'freelancer',
+            'status': 'active',
+            'skills': ['Swift', 'iOS', 'SwiftUI', 'Core Data'],
+            'hourlyRate': 32,
+            'currency': 'USD',
+            'country': 'UK',
+            'city': 'London',
+            'bio': 'iOS developer creating intuitive mobile experiences for startups and enterprises.',
+            'profileImage': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face',
+            'isVerified': True,
+            'createdAt': datetime.now().isoformat()
+        }
+    ]
+    
+    try:
+        added_count = 0
+        for freelancer in sample_freelancers:
+            # Check if user with this email already exists
+            existing = users_table.scan(
+                FilterExpression=Attr('email').eq(freelancer['email'])
+            )
+            
+            if existing.get('Items', []):
+                continue  # Skip if exists
+            
+            users_table.put_item(Item=freelancer)
+            added_count += 1
+        
+        return response(200, {
+            "success": True,
+            "message": f"Added {added_count} sample freelancers to the database",
+            "totalSamples": len(sample_freelancers),
+            "addedCount": added_count
+        })
+    except Exception as e:
+        print(f"Error seeding freelancers: {str(e)}")
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "DATABASE_ERROR",
+                "message": f"Failed to seed freelancers: {str(e)}"
+            }
+        })
+
+
 # ---------- LAMBDA HANDLER ----------
 def lambda_handler(event, context):
     """Main Lambda handler - routes requests to appropriate functions"""
     try:
-        # Handle CORS preflight
+        # Handle CORS preflight OPTIONS request
         if event.get('httpMethod') == 'OPTIONS':
-            return response(200, {})
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': ''
+            }
         
         # Parse request body
         if isinstance(event.get('body'), str):
@@ -456,6 +635,7 @@ def lambda_handler(event, context):
             'GET_FREELANCER_BY_ID': handle_get_freelancer_by_id,
             'GET_TOP_FREELANCERS': handle_get_top_freelancers,
             'SEARCH_FREELANCERS': handle_search_freelancers,
+            'SEED_FREELANCERS': handle_seed_freelancers,
         }
         
         handler = action_handlers.get(action)

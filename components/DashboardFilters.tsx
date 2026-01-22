@@ -297,7 +297,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                         className="w-full flex items-center justify-between mb-3 group"
                     >
                         <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
-                            Price Range: <span className="text-orange-500 font-semibold">${priceRange[0].toLocaleString()}</span> - <span className="text-orange-500 font-semibold">${priceRange[1].toLocaleString()}</span>
+                            Price Range: <span className="text-orange-500 font-semibold">₹{priceRange[0].toLocaleString()}</span> - <span className="text-orange-500 font-semibold">₹{priceRange[1].toLocaleString()}</span>
                         </label>
                         <svg 
                             className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.price ? 'rotate-180' : ''}`}

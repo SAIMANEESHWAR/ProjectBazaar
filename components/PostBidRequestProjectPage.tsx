@@ -48,7 +48,7 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
   const [projectType, setProjectType] = useState<'fixed' | 'hourly'>('fixed');
   const [budgetMin, setBudgetMin] = useState<number>(100);
   const [budgetMax, setBudgetMax] = useState<number>(500);
-  const [currency] = useState('USD');
+  const [currency] = useState('INR');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [category, setCategory] = useState('Web Development');
@@ -72,6 +72,10 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
   const [projectBids, setProjectBids] = useState<Bid[]>([]);
   const [isLoadingBids, setIsLoadingBids] = useState(false);
   const [updatingBidId, setUpdatingBidId] = useState<string | null>(null);
+  
+  // Confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   // Filter skill suggestions based on input
   const filteredSuggestions = SKILL_SUGGESTIONS.filter(
@@ -201,21 +205,30 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
     }
   };
 
-  // Handle project deletion
-  const handleDeleteProject = async (projectId: string) => {
+  // Handle project deletion - show confirmation modal
+  const handleDeleteProject = (projectId: string) => {
     if (!userId) return;
+    setShowDeleteConfirm(projectId);
+  };
+
+  // Confirm and execute project deletion
+  const confirmDeleteProject = async () => {
+    if (!userId || !showDeleteConfirm) return;
     
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    setDeletingProjectId(showDeleteConfirm);
     
     try {
-      const result = await deleteBidRequestProject(projectId, userId);
+      const result = await deleteBidRequestProject(showDeleteConfirm, userId);
       if (result.success) {
-        setMyProjects(prev => prev.filter(p => p.id !== projectId));
+        setMyProjects(prev => prev.filter(p => p.id !== showDeleteConfirm));
+        setShowDeleteConfirm(null);
       } else {
-        alert(result.error || 'Failed to delete project');
+        setError(result.error || 'Failed to delete project');
       }
     } catch (err) {
-      alert('Failed to delete project');
+      setError('Failed to delete project');
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
@@ -226,12 +239,17 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
     try {
       const result = await updateBidRequestProjectStatus(projectId, userId, status);
       if (result.success) {
-        fetchMyProjects();
+        // Update local state immediately for better UX
+        setMyProjects(prev => prev.map(p => 
+          p.id === projectId ? { ...p, status } : p
+        ));
       } else {
-        alert(result.error || 'Failed to update status');
+        setError(result.error || 'Failed to update status');
+        setTimeout(() => setError(null), 5000);
       }
     } catch (err) {
-      alert('Failed to update status');
+      setError('Failed to update status');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -265,10 +283,12 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
         // Refresh the project list to update bid counts
         fetchMyProjects();
       } else {
-        alert(result.error || 'Failed to accept bid');
+        setError(result.error || 'Failed to accept bid');
+        setTimeout(() => setError(null), 5000);
       }
     } catch (err) {
-      alert('Failed to accept bid');
+      setError('Failed to accept bid');
+      setTimeout(() => setError(null), 5000);
     } finally {
       setUpdatingBidId(null);
     }
@@ -285,10 +305,12 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
           bid.id === bidId ? { ...bid, status: 'rejected' } : bid
         ));
       } else {
-        alert(result.error || 'Failed to reject bid');
+        setError(result.error || 'Failed to reject bid');
+        setTimeout(() => setError(null), 5000);
       }
     } catch (err) {
-      alert('Failed to reject bid');
+      setError('Failed to reject bid');
+      setTimeout(() => setError(null), 5000);
     } finally {
       setUpdatingBidId(null);
     }
@@ -734,7 +756,7 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
                     <div className="flex flex-col items-end gap-3">
                       <div className="text-right">
                         <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          ${project.budget.min.toLocaleString()} - ${project.budget.max.toLocaleString()}
+                          ₹{project.budget.min.toLocaleString()} - ₹{project.budget.max.toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {project.type === 'fixed' ? 'Fixed Price' : 'Per Hour'}
@@ -742,14 +764,19 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
                       </div>
                       <div className="flex gap-2">
                         <select
+                          value={(project as any).status || 'open'}
                           onChange={(e) => handleStatusUpdate(project.id, e.target.value as any)}
-                          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-300"
-                          defaultValue="open"
+                          className={`px-3 py-1.5 text-sm border rounded-lg dark:bg-gray-700 transition-colors ${
+                            (project as any).status === 'completed' ? 'border-green-300 dark:border-green-600 text-green-700 dark:text-green-400' :
+                            (project as any).status === 'in_progress' ? 'border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-400' :
+                            (project as any).status === 'cancelled' ? 'border-red-300 dark:border-red-600 text-red-700 dark:text-red-400' :
+                            'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                          }`}
                         >
-                          <option value="open">Open</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
+                          <option value="open">🟢 Open</option>
+                          <option value="in_progress">🔵 In Progress</option>
+                          <option value="completed">✅ Completed</option>
+                          <option value="cancelled">❌ Cancelled</option>
                         </select>
                         <button
                           onClick={() => handleDeleteProject(project.id)}
@@ -767,6 +794,71 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Global Error Toast */}
+      {error && activeTab === 'my-projects' && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-4">
+          <div className="bg-red-500 text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 hover:bg-red-600 rounded p-1 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Project Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Delete Project?</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Are you sure you want to delete this project? All associated bids will also be removed. This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={deletingProjectId !== null}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteProject}
+                disabled={deletingProjectId !== null}
+                className="flex-1 px-4 py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deletingProjectId ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Project'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -812,7 +904,7 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Budget: <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    ${selectedProjectForBids.budget.min.toLocaleString()} - ${selectedProjectForBids.budget.max.toLocaleString()}
+                    ₹{selectedProjectForBids.budget.min.toLocaleString()} - ₹{selectedProjectForBids.budget.max.toLocaleString()}
                   </span>
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -898,7 +990,7 @@ const PostBidRequestProjectPage: React.FC<PostBidRequestProjectPageProps> = ({ o
                                   </svg>
                                   <span className="text-gray-500 dark:text-gray-400">Bid Amount:</span>
                                   <span className="font-bold text-gray-900 dark:text-gray-100">
-                                    ${bid.bidAmount.toLocaleString()} {bid.currency}
+                                    ₹{bid.bidAmount.toLocaleString()}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2">

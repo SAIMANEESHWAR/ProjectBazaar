@@ -1194,7 +1194,7 @@ const SellerDashboard: React.FC = () => {
                                                             {project.sales}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">
-                                                            ${project.price.toFixed(2)}
+                                                            ₹{project.price.toFixed(2)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                             <div className="flex items-center gap-2">
@@ -1342,7 +1342,7 @@ const SellerDashboard: React.FC = () => {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <InputField 
                             id="price" 
-                            label="Price (USD)" 
+                            label="Price (INR)" 
                             type="number" 
                             step="0.01"
                             placeholder="e.g., 49.99" 
@@ -1352,7 +1352,7 @@ const SellerDashboard: React.FC = () => {
                         />
                         <InputField 
                             id="originalPrice" 
-                            label="Original Price (USD) - Optional" 
+                            label="Original Price (INR) - Optional" 
                             type="number" 
                             step="0.01"
                             placeholder="e.g., 59.99 (for discount)" 

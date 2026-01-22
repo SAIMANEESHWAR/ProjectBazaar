@@ -198,7 +198,7 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
         <div className="flex justify-between items-center pt-5 border-t border-gray-100 mt-auto">
           <div>
             <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-              ${price.toFixed(2)}
+              ₹{price.toFixed(2)}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">One-time purchase</p>
           </div>

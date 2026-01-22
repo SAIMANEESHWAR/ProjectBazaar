@@ -39,6 +39,21 @@ def decimal_to_float(obj):
         return [decimal_to_float(i) for i in obj]
     return obj
 
+
+# Helper to sanitize input strings (basic XSS prevention)
+def sanitize_string(value):
+    """Remove or escape potentially dangerous characters"""
+    if not isinstance(value, str):
+        return value
+    # Remove script tags and other dangerous HTML
+    import re
+    # Remove script tags
+    value = re.sub(r'<script[^>]*>.*?</script>', '', value, flags=re.IGNORECASE | re.DOTALL)
+    # Remove event handlers
+    value = re.sub(r'\son\w+\s*=', ' ', value, flags=re.IGNORECASE)
+    # Limit length to prevent abuse
+    return value[:10000]  # Max 10KB per field
+
 # Response helper function
 def response(status_code, body):
     return {
@@ -74,6 +89,65 @@ def handle_create_bid(body):
     project_id = body['projectId']
     freelancer_id = body['freelancerId']
     
+    # Additional validations
+    bid_amount = float(body['bidAmount'])
+    if bid_amount <= 0:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Bid amount must be greater than 0"
+            }
+        })
+    
+    if bid_amount > 99999999:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Bid amount exceeds maximum allowed"
+            }
+        })
+    
+    delivery_time = int(body['deliveryTime'])
+    if delivery_time <= 0:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Delivery time must be greater than 0"
+            }
+        })
+    
+    delivery_unit = body['deliveryTimeUnit']
+    if delivery_unit not in ['hours', 'days', 'weeks', 'months']:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid delivery time unit"
+            }
+        })
+    
+    proposal = str(body['proposal']).strip()
+    if len(proposal) < 100:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Proposal must be at least 100 characters"
+            }
+        })
+    
+    if len(proposal) > 5000:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Proposal must be less than 5000 characters"
+            }
+        })
+    
     # Check if freelancer has already bid on this project
     existing_bid = check_existing_bid(freelancer_id, project_id)
     if existing_bid:
@@ -86,6 +160,23 @@ def handle_create_bid(body):
             "existingBid": existing_bid
         })
     
+    # Check if project is still open for bidding
+    try:
+        bid_request_projects_table = dynamodb.Table('BidRequestProjects')
+        project_result = bid_request_projects_table.get_item(Key={'projectId': project_id})
+        if 'Item' in project_result:
+            project_status = project_result['Item'].get('status', 'open')
+            if project_status != 'open':
+                return response(400, {
+                    "success": False,
+                    "error": {
+                        "code": "PROJECT_CLOSED",
+                        "message": f"This project is no longer accepting bids (status: {project_status})"
+                    }
+                })
+    except Exception as proj_check_error:
+        print(f"Warning: Could not verify project status: {str(proj_check_error)}")
+    
     # Create the bid
     bid_id = str(uuid.uuid4())
     timestamp = datetime.utcnow().isoformat() + "Z"
@@ -94,13 +185,13 @@ def handle_create_bid(body):
         'bidId': bid_id,
         'projectId': project_id,
         'freelancerId': freelancer_id,
-        'freelancerName': body['freelancerName'],
-        'freelancerEmail': body['freelancerEmail'],
-        'bidAmount': Decimal(str(body['bidAmount'])),
+        'freelancerName': sanitize_string(body['freelancerName'])[:100],
+        'freelancerEmail': sanitize_string(body['freelancerEmail'])[:254],
+        'bidAmount': Decimal(str(bid_amount)),
         'currency': body.get('currency', 'USD'),
-        'deliveryTime': int(body['deliveryTime']),
-        'deliveryTimeUnit': body['deliveryTimeUnit'],
-        'proposal': body['proposal'],
+        'deliveryTime': delivery_time,
+        'deliveryTimeUnit': delivery_unit,
+        'proposal': sanitize_string(proposal),
         'status': 'pending',
         'submittedAt': timestamp,
         'updatedAt': timestamp
@@ -338,6 +429,21 @@ def handle_update_bid_status(body):
     try:
         timestamp = datetime.utcnow().isoformat() + "Z"
         
+        # First, get the bid to find the projectId
+        bid_result = bids_table.get_item(Key={'bidId': bid_id})
+        if 'Item' not in bid_result:
+            return response(404, {
+                "success": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": "Bid not found"
+                }
+            })
+        
+        bid = bid_result['Item']
+        project_id = bid['projectId']
+        
+        # Update the bid status
         bids_table.update_item(
             Key={'bidId': bid_id},
             UpdateExpression="SET #status = :s, updatedAt = :u",
@@ -348,13 +454,56 @@ def handle_update_bid_status(body):
             }
         )
         
+        # If bid is ACCEPTED, reject all other pending bids and update project status
+        rejected_bids = []
+        if new_status == 'accepted':
+            # Get all other bids for this project
+            other_bids_result = bids_table.query(
+                IndexName='projectId-index',
+                KeyConditionExpression=Key('projectId').eq(project_id)
+            )
+            
+            # Reject all other pending bids
+            for other_bid in other_bids_result.get('Items', []):
+                if other_bid['bidId'] != bid_id and other_bid.get('status') == 'pending':
+                    bids_table.update_item(
+                        Key={'bidId': other_bid['bidId']},
+                        UpdateExpression="SET #status = :s, updatedAt = :u",
+                        ExpressionAttributeNames={'#status': 'status'},
+                        ExpressionAttributeValues={
+                            ':s': 'rejected',
+                            ':u': timestamp
+                        }
+                    )
+                    rejected_bids.append(other_bid['bidId'])
+            
+            # Update project status to 'in_progress'
+            try:
+                bid_request_projects_table = dynamodb.Table('BidRequestProjects')
+                bid_request_projects_table.update_item(
+                    Key={'projectId': project_id},
+                    UpdateExpression="SET #status = :s, updatedAt = :u, acceptedBidId = :bid, acceptedFreelancerId = :freelancer",
+                    ExpressionAttributeNames={'#status': 'status'},
+                    ExpressionAttributeValues={
+                        ':s': 'in_progress',
+                        ':u': timestamp,
+                        ':bid': bid_id,
+                        ':freelancer': bid['freelancerId']
+                    }
+                )
+            except Exception as proj_error:
+                print(f"Warning: Could not update project status: {str(proj_error)}")
+        
         return response(200, {
             "success": True,
             "message": f"Bid status updated to {new_status}",
             "data": {
                 "bidId": bid_id,
+                "projectId": project_id,
                 "status": new_status,
-                "updatedAt": timestamp
+                "updatedAt": timestamp,
+                "rejectedBids": rejected_bids if new_status == 'accepted' else [],
+                "projectStatusUpdated": new_status == 'accepted'
             }
         })
     except Exception as e:

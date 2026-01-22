@@ -215,13 +215,13 @@ const ProjectDetailsView: React.FC<ProjectDetailsViewProps> = ({ project, onBack
                         <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
                           {project.type === 'fixed' ? (
                             <>
-                              ${project.budget.min.toLocaleString()}
-                              {project.budget.max !== project.budget.min && ` - $${project.budget.max.toLocaleString()}`}
+                              ₹{project.budget.min.toLocaleString()}
+                              {project.budget.max !== project.budget.min && ` - ₹${project.budget.max.toLocaleString()}`}
                             </>
                           ) : (
                             <>
-                              ${project.budget.min}/{project.budget.currency}/hr
-                              {project.budget.max !== project.budget.min && ` - $${project.budget.max}/${project.budget.currency}/hr`}
+                              ₹{project.budget.min}/hr
+                              {project.budget.max !== project.budget.min && ` - ₹${project.budget.max}/hr`}
                             </>
                           )}
                         </div>

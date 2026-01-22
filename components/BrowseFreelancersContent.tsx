@@ -3,6 +3,7 @@ import Pagination from './Pagination';
 import OrangeCheckbox from './OrangeCheckbox';
 import type { Freelancer } from '../types/browse';
 import { getAllFreelancers, searchFreelancers } from '../services/freelancersApi';
+import { useAuth } from '../App';
 
 type SortOption = 'most-relevant' | 'highest-rated' | 'lowest-price';
 
@@ -11,6 +12,7 @@ interface BrowseFreelancersContentProps {
 }
 
 export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> = () => {
+  const { userId } = useAuth();
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,15 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     country: true
   });
   const filterRef = useRef<HTMLDivElement>(null);
+  
+  // Modal states
+  const [selectedFreelancer, setSelectedFreelancer] = useState<Freelancer | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
 
   // Fetch freelancers from API
   useEffect(() => {
@@ -168,6 +179,84 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     setSelectedCountry('');
     setSearchQuery('');
     setSortOption('most-relevant');
+  };
+
+  // Handle Invite to Bid
+  const handleInviteToBid = (freelancer: Freelancer) => {
+    if (!userId) {
+      alert('Please login to invite freelancers to bid');
+      return;
+    }
+    setSelectedFreelancer(freelancer);
+    setInviteMessage(`Hi ${freelancer.name},\n\nI would like to invite you to bid on my project. Your skills in ${freelancer.skills.slice(0, 3).join(', ')} make you a great fit for what I'm looking for.\n\nPlease check out my project and submit your bid if interested.\n\nBest regards`);
+    setShowInviteModal(true);
+    setSendSuccess(null);
+  };
+
+  // Handle Contact
+  const handleContact = (freelancer: Freelancer) => {
+    if (!userId) {
+      alert('Please login to contact freelancers');
+      return;
+    }
+    setSelectedFreelancer(freelancer);
+    setContactMessage('');
+    setShowContactModal(true);
+    setSendSuccess(null);
+  };
+
+  // Send Invite
+  const sendInvite = async () => {
+    if (!selectedFreelancer || !inviteMessage.trim()) return;
+    
+    setIsSending(true);
+    try {
+      // Simulate API call - in production, this would call a notification/messaging API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Log the invitation (in production, save to database)
+      console.log('Invitation sent to:', selectedFreelancer.name, 'Message:', inviteMessage);
+      
+      setSendSuccess(`Invitation sent to ${selectedFreelancer.name}!`);
+      setTimeout(() => {
+        setShowInviteModal(false);
+        setSelectedFreelancer(null);
+        setInviteMessage('');
+        setSendSuccess(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Error sending invite:', err);
+      alert('Failed to send invitation. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Send Message
+  const sendMessage = async () => {
+    if (!selectedFreelancer || !contactMessage.trim()) return;
+    
+    setIsSending(true);
+    try {
+      // Simulate API call - in production, this would call a messaging API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Log the message (in production, save to database)
+      console.log('Message sent to:', selectedFreelancer.name, 'Message:', contactMessage);
+      
+      setSendSuccess(`Message sent to ${selectedFreelancer.name}!`);
+      setTimeout(() => {
+        setShowContactModal(false);
+        setSelectedFreelancer(null);
+        setContactMessage('');
+        setSendSuccess(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const hasActiveFilters = selectedSkills.length > 0 || selectedCountry !== '' || hourlyRateRange[0] > 10 || hourlyRateRange[1] < 100;
@@ -574,10 +663,16 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
 
                         {/* Actions */}
                         <div className="flex gap-3">
-                          <button className="flex-1 px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors duration-200">
+                          <button 
+                            onClick={() => handleInviteToBid(freelancer)}
+                            className="flex-1 px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors duration-200"
+                          >
                             Invite to Bid
                           </button>
-                          <button className="flex-1 px-4 py-2 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                          <button 
+                            onClick={() => handleContact(freelancer)}
+                            className="flex-1 px-4 py-2 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                          >
                             Contact
                           </button>
                         </div>
@@ -614,6 +709,211 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
           )}
         </div>
       </div>
+
+      {/* Invite to Bid Modal */}
+      {showInviteModal && selectedFreelancer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Invite to Bid
+              </h3>
+              <button
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setSelectedFreelancer(null);
+                  setSendSuccess(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <img
+                src={selectedFreelancer.profileImage}
+                alt={selectedFreelancer.name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-orange-500"
+              />
+              <div>
+                <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedFreelancer.username}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedFreelancer.skills.slice(0, 3).map(skill => (
+                    <span key={skill} className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {sendSuccess ? (
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-lg font-semibold text-green-600 dark:text-green-400">{sendSuccess}</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Invitation Message
+                  </label>
+                  <textarea
+                    value={inviteMessage}
+                    onChange={(e) => setInviteMessage(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm resize-none"
+                    placeholder="Write your invitation message..."
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowInviteModal(false);
+                      setSelectedFreelancer(null);
+                    }}
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendInvite}
+                    disabled={isSending || !inviteMessage.trim()}
+                    className="flex-1 px-4 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isSending ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        Send Invitation
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && selectedFreelancer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Contact {selectedFreelancer.name}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowContactModal(false);
+                  setSelectedFreelancer(null);
+                  setSendSuccess(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <img
+                src={selectedFreelancer.profileImage}
+                alt={selectedFreelancer.name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-orange-500"
+              />
+              <div>
+                <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedFreelancer.username}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">${selectedFreelancer.hourlyRate}/hr</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">•</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{selectedFreelancer.location.city}, {selectedFreelancer.location.country}</span>
+                </div>
+              </div>
+            </div>
+
+            {sendSuccess ? (
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-lg font-semibold text-green-600 dark:text-green-400">{sendSuccess}</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Your Message
+                  </label>
+                  <textarea
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm resize-none"
+                    placeholder={`Hi ${selectedFreelancer.name}, I'd like to discuss a potential project with you...`}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {contactMessage.length}/500 characters
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowContactModal(false);
+                      setSelectedFreelancer(null);
+                    }}
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendMessage}
+                    disabled={isSending || !contactMessage.trim() || contactMessage.length > 500}
+                    className="flex-1 px-4 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isSending ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Send Message
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -36,5 +36,10 @@ export interface BrowseProject {
   ownerName?: string;
   ownerProfilePicture?: string;
   thumbnailUrl?: string;
+  // Optional fields
+  category?: string;
+  status?: 'open' | 'in_progress' | 'completed' | 'cancelled';
+  deadline?: string;
+  estimatedDuration?: string;
 }
 

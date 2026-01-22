@@ -31,7 +31,7 @@ const PayoutsPage: React.FC = () => {
                     <div className="bg-white border border-gray-200 rounded-xl p-6 h-full flex flex-col justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-500">Available Balance</p>
-                            <p className="text-4xl font-bold text-gray-900 mt-2">$1,600.00</p>
+                            <p className="text-4xl font-bold text-gray-900 mt-2">₹1,600.00</p>
                             <p className="text-xs text-gray-400 mt-1">Next payout on July 15, 2024</p>
                         </div>
                         <button className="w-full mt-6 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-colors">
@@ -73,7 +73,7 @@ const PayoutsPage: React.FC = () => {
                             {payoutHistory.map((payout) => (
                                 <tr key={payout.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payout.date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">${payout.amount.toFixed(2)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">₹{payout.amount.toFixed(2)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payout.method}</td>
                                     <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={payout.status} /></td>
                                 </tr>

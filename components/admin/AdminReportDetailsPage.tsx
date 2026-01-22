@@ -413,7 +413,7 @@ const AdminReportDetailsPage: React.FC<AdminReportDetailsPageProps> = ({ report,
                                             </div>
                                             <p className="text-sm font-medium text-green-700">Price</p>
                                         </div>
-                                        <p className="text-xl font-bold text-green-900">${projectDetails.price?.toFixed(2) || '0.00'}</p>
+                                        <p className="text-xl font-bold text-green-900">₹{projectDetails.price?.toFixed(2) || '0.00'}</p>
                                     </div>
 
                                     <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">

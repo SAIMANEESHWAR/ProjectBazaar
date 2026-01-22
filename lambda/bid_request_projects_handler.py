@@ -559,6 +559,53 @@ def handle_increment_bids_count(body):
         })
 
 
+# ---------- DECREMENT BIDS COUNT ----------
+def handle_decrement_bids_count(body):
+    """Decrement the bids count for a project (called when a bid is withdrawn/deleted)"""
+    project_id = body.get('projectId')
+    
+    if not project_id:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Missing required field: projectId"
+            }
+        })
+    
+    try:
+        # Use conditional expression to ensure count doesn't go below 0
+        bid_request_projects_table.update_item(
+            Key={'projectId': project_id},
+            UpdateExpression="SET bidsCount = if_not_exists(bidsCount, :zero) - :dec",
+            ConditionExpression="bidsCount > :zero",
+            ExpressionAttributeValues={
+                ":dec": 1,
+                ":zero": 0
+            }
+        )
+        
+        return response(200, {
+            "success": True,
+            "message": "Bids count decremented"
+        })
+    except bid_request_projects_table.meta.client.exceptions.ConditionalCheckFailedException:
+        # Bid count is already 0, just return success
+        return response(200, {
+            "success": True,
+            "message": "Bids count already at zero"
+        })
+    except Exception as e:
+        print(f"Error decrementing bids count: {str(e)}")
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "DATABASE_ERROR",
+                "message": "Failed to decrement bids count"
+            }
+        })
+
+
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
     """Main Lambda handler"""
@@ -598,6 +645,7 @@ def lambda_handler(event, context):
             'UPDATE_PROJECT_STATUS': handle_update_project_status,
             'DELETE_PROJECT': handle_delete_project,
             'INCREMENT_BIDS_COUNT': handle_increment_bids_count,
+            'DECREMENT_BIDS_COUNT': handle_decrement_bids_count,
         }
         
         handler = handlers.get(action)

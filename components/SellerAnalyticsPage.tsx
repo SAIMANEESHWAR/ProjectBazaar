@@ -227,7 +227,7 @@ const SellerAnalyticsPage: React.FC = () => {
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-sm font-medium text-gray-700">Revenue Generated</span>
-                                    <span className="text-sm font-semibold text-green-600">${selectedProject.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span className="text-sm font-semibold text-green-600">₹{selectedProject.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-3">
                                     <div 
@@ -271,7 +271,7 @@ const SellerAnalyticsPage: React.FC = () => {
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span className="text-sm text-gray-500">Price</span>
-                                <span className="text-sm font-medium text-gray-900">${selectedProject.price?.toFixed(2) || '0.00'}</span>
+                                <span className="text-sm font-medium text-gray-900">₹{selectedProject.price?.toFixed(2) || '0.00'}</span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span className="text-sm text-gray-500">Status</span>
@@ -290,7 +290,7 @@ const SellerAnalyticsPage: React.FC = () => {
                             <div className="flex justify-between items-center py-2">
                                 <span className="text-sm text-gray-500">Average Sale Value</span>
                                 <span className="text-sm font-medium text-gray-900">
-                                    ${selectedProject.purchasesCount && selectedProject.purchasesCount > 0 
+                                    ₹{selectedProject.purchasesCount && selectedProject.purchasesCount > 0 
                                         ? (selectedProject.revenue / selectedProject.purchasesCount).toFixed(2)
                                         : '0.00'}
                                 </span>
@@ -449,7 +449,7 @@ const SellerAnalyticsPage: React.FC = () => {
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs text-gray-500">Revenue</span>
                                                 <span className="text-sm font-semibold text-green-600">
-                                                    ${project.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ₹{project.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         </div>

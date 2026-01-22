@@ -1896,7 +1896,7 @@ const SettingsPage: React.FC = () => {
                                             <div>
                                                 <span className="text-sm font-medium text-gray-700">Hourly Rate: </span>
                                                 <span className="text-sm text-gray-600">
-                                                    {freelancerData.primaryCurrency === 'INR' ? '₹' : '$'}{freelancerData.hourlyRate}/hr
+                                                    ₹{freelancerData.hourlyRate}/hr
                                                 </span>
                                             </div>
                                         )}
@@ -2017,7 +2017,7 @@ const SettingsPage: React.FC = () => {
                                                 let budgetDisplay = 'Budget not specified';
                                                 if (project.budget && typeof project.budget === 'object') {
                                                     const budget = project.budget as { minimum?: number; maximum?: number; currency?: { sign?: string } };
-                                                    const sign = budget.currency?.sign || project.currency?.sign || '$';
+                                                    const sign = budget.currency?.sign || project.currency?.sign || '₹';
                                                     if (budget.minimum !== undefined) {
                                                         budgetDisplay = `${sign}${budget.minimum}${budget.maximum ? ` - ${budget.maximum}` : '+'}`;
                                                     }

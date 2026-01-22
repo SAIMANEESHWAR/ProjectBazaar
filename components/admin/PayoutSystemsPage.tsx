@@ -432,15 +432,15 @@ const PayoutSystemsPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-200">
                             <p className="text-sm text-blue-700 font-medium mb-1">Total Earnings</p>
-                            <p className="text-3xl font-bold text-blue-900">${selectedSellerData.totalEarnings.toFixed(2)}</p>
+                            <p className="text-3xl font-bold text-blue-900">₹{selectedSellerData.totalEarnings.toFixed(2)}</p>
                         </div>
                         <div className="bg-gradient-to-br from-yellow-50 to-white rounded-xl p-5 border border-yellow-200">
                             <p className="text-sm text-yellow-700 font-medium mb-1">Pending</p>
-                            <p className="text-3xl font-bold text-yellow-900">${selectedSellerData.pendingEarnings.toFixed(2)}</p>
+                            <p className="text-3xl font-bold text-yellow-900">₹{selectedSellerData.pendingEarnings.toFixed(2)}</p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-5 border border-green-200">
                             <p className="text-sm text-green-700 font-medium mb-1">Paid</p>
-                            <p className="text-3xl font-bold text-green-900">${selectedSellerData.paidEarnings.toFixed(2)}</p>
+                            <p className="text-3xl font-bold text-green-900">₹{selectedSellerData.paidEarnings.toFixed(2)}</p>
                         </div>
                     </div>
 
@@ -464,12 +464,12 @@ const PayoutSystemsPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <p className="text-gray-500">Total Amount</p>
-                                                <p className="font-semibold text-gray-900">${purchase.amount.toFixed(2)}</p>
+                                                <p className="font-semibold text-gray-900">₹{purchase.amount.toFixed(2)}</p>
                                             </div>
                                             <div>
                                                 <p className="text-gray-500">Seller Earnings</p>
-                                                <p className="font-semibold text-green-600">${purchase.sellerEarnings.toFixed(2)}</p>
-                                                <p className="text-xs text-gray-500">Commission: ${purchase.commission.toFixed(2)}</p>
+                                                <p className="font-semibold text-green-600">₹{purchase.sellerEarnings.toFixed(2)}</p>
+                                                <p className="text-xs text-gray-500">Commission: ₹{purchase.commission.toFixed(2)}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -495,7 +495,7 @@ const PayoutSystemsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Total Remaining</p>
-                            <p className="text-2xl font-bold text-gray-900">${totalRemainingToPay.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-gray-900">₹{totalRemainingToPay.toFixed(2)}</p>
                         </div>
                     </div>
                 </div>
@@ -509,7 +509,7 @@ const PayoutSystemsPage: React.FC = () => {
                         <div>
                             <p className="text-sm text-yellow-700 font-medium">Pending Requests</p>
                             <p className="text-2xl font-bold text-yellow-900">{payoutRequests.filter(p => p.status === 'pending').length}</p>
-                            <p className="text-xs text-yellow-600 mt-1">${totalPendingAmount.toFixed(2)}</p>
+                            <p className="text-xs text-yellow-600 mt-1">₹{totalPendingAmount.toFixed(2)}</p>
                         </div>
                     </div>
                 </div>
@@ -616,13 +616,13 @@ const PayoutSystemsPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-gray-900">${seller.totalEarnings.toFixed(2)}</span>
+                                            <span className="text-sm font-bold text-gray-900">₹{seller.totalEarnings.toFixed(2)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-yellow-600">${seller.pendingEarnings.toFixed(2)}</span>
+                                            <span className="text-sm font-bold text-yellow-600">₹{seller.pendingEarnings.toFixed(2)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-green-600">${seller.paidEarnings.toFixed(2)}</span>
+                                            <span className="text-sm font-bold text-green-600">₹{seller.paidEarnings.toFixed(2)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-sm text-gray-900">{seller.purchases.length}</span>
@@ -668,7 +668,7 @@ const PayoutSystemsPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-2xl font-bold text-gray-900">${request.amount.toFixed(2)}</p>
+                                    <p className="text-2xl font-bold text-gray-900">₹{request.amount.toFixed(2)}</p>
                                     <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${
                                         request.status === 'approved' ? 'bg-blue-100 text-blue-800 border-blue-300' :
                                         'bg-yellow-100 text-yellow-800 border-yellow-300'
@@ -781,7 +781,7 @@ const PayoutSystemsPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-bold text-gray-900">${request.amount.toFixed(2)}</span>
+                                            <span className="text-sm font-bold text-gray-900">₹{request.amount.toFixed(2)}</span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">

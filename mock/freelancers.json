@@ -1,9 +1,10 @@
 [
   {
     "id": "f1",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
+    "profileImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face",
     "name": "John Smith",
     "username": "johnsmith",
+    "email": "john.smith@example.com",
     "isVerified": true,
     "rating": 4.9,
     "reviewsCount": 234,
@@ -14,13 +15,15 @@
       "country": "India",
       "city": "Mohali"
     },
-    "skills": ["React", "Node.js", "TypeScript", "MongoDB"]
+    "skills": ["React", "Node.js", "TypeScript", "MongoDB"],
+    "bio": "Full-stack developer with 5+ years of experience building scalable web applications."
   },
   {
     "id": "f2",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    "profileImage": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face",
     "name": "Sarah Johnson",
     "username": "sarahj",
+    "email": "sarah.johnson@example.com",
     "isVerified": true,
     "rating": 4.8,
     "reviewsCount": 189,
@@ -31,13 +34,15 @@
       "country": "India",
       "city": "Surat"
     },
-    "skills": ["Python", "Django", "PostgreSQL", "AWS"]
+    "skills": ["Python", "Django", "PostgreSQL", "AWS"],
+    "bio": "Backend specialist with expertise in building robust APIs and cloud infrastructure."
   },
   {
     "id": "f3",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    "profileImage": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face",
     "name": "Mike Chen",
     "username": "mikechen",
+    "email": "mike.chen@example.com",
     "isVerified": false,
     "rating": 4.7,
     "reviewsCount": 156,
@@ -48,13 +53,15 @@
       "country": "India",
       "city": "Bangalore"
     },
-    "skills": ["Vue.js", "Nuxt.js", "Firebase", "Tailwind CSS"]
+    "skills": ["Vue.js", "Nuxt.js", "Firebase", "Tailwind CSS"],
+    "bio": "Frontend developer passionate about creating beautiful and responsive user interfaces."
   },
   {
     "id": "f4",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+    "profileImage": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face",
     "name": "Emma Wilson",
     "username": "emmaw",
+    "email": "emma.wilson@example.com",
     "isVerified": true,
     "rating": 5.0,
     "reviewsCount": 312,
@@ -65,13 +72,15 @@
       "country": "India",
       "city": "Mumbai"
     },
-    "skills": ["Angular", "RxJS", "GraphQL", "Docker"]
+    "skills": ["Angular", "RxJS", "GraphQL", "Docker"],
+    "bio": "Senior software architect with a track record of delivering enterprise-grade solutions."
   },
   {
     "id": "f5",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
+    "profileImage": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=face",
     "name": "David Kumar",
     "username": "davidk",
+    "email": "david.kumar@example.com",
     "isVerified": true,
     "rating": 4.6,
     "reviewsCount": 98,
@@ -82,13 +91,15 @@
       "country": "India",
       "city": "Delhi"
     },
-    "skills": ["PHP", "Laravel", "MySQL", "Redis"]
+    "skills": ["PHP", "Laravel", "MySQL", "Redis"],
+    "bio": "Web developer specializing in PHP/Laravel with strong database optimization skills."
   },
   {
     "id": "f6",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa",
+    "profileImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face",
     "name": "Lisa Anderson",
     "username": "lisaa",
+    "email": "lisa.anderson@example.com",
     "isVerified": false,
     "rating": 4.8,
     "reviewsCount": 145,
@@ -99,13 +110,15 @@
       "country": "India",
       "city": "Chennai"
     },
-    "skills": ["Java", "Spring Boot", "Microservices", "Kubernetes"]
+    "skills": ["Java", "Spring Boot", "Microservices", "Kubernetes"],
+    "bio": "Java expert with deep knowledge of microservices architecture and DevOps practices."
   },
   {
     "id": "f7",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Robert",
+    "profileImage": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&crop=face",
     "name": "Robert Singh",
     "username": "roberts",
+    "email": "robert.singh@example.com",
     "isVerified": true,
     "rating": 4.9,
     "reviewsCount": 267,
@@ -116,13 +129,15 @@
       "country": "India",
       "city": "Pune"
     },
-    "skills": ["Ruby", "Rails", "PostgreSQL", "Elasticsearch"]
+    "skills": ["Ruby", "Rails", "PostgreSQL", "Elasticsearch"],
+    "bio": "Ruby on Rails specialist with experience building high-traffic web applications."
   },
   {
     "id": "f8",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Amy",
+    "profileImage": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=face",
     "name": "Amy Lee",
     "username": "amylee",
+    "email": "amy.lee@example.com",
     "isVerified": true,
     "rating": 4.7,
     "reviewsCount": 178,
@@ -133,13 +148,15 @@
       "country": "India",
       "city": "Hyderabad"
     },
-    "skills": ["JavaScript", "Express.js", "MongoDB", "Socket.io"]
+    "skills": ["JavaScript", "Express.js", "MongoDB", "Socket.io"],
+    "bio": "Real-time application developer with expertise in WebSocket and event-driven architectures."
   },
   {
     "id": "f9",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
+    "profileImage": "https://images.unsplash.com/photo-1552058544-f2b08422138a?w=200&h=200&fit=crop&crop=face",
     "name": "James Patel",
     "username": "jamesp",
+    "email": "james.patel@example.com",
     "isVerified": false,
     "rating": 4.5,
     "reviewsCount": 87,
@@ -150,13 +167,15 @@
       "country": "India",
       "city": "Ahmedabad"
     },
-    "skills": ["C#", ".NET", "SQL Server", "Azure"]
+    "skills": ["C#", ".NET", "SQL Server", "Azure"],
+    "bio": "Microsoft stack developer with experience in enterprise software development."
   },
   {
     "id": "f10",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria",
+    "profileImage": "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop&crop=face",
     "name": "Maria Garcia",
     "username": "mariag",
+    "email": "maria.garcia@example.com",
     "isVerified": true,
     "rating": 4.9,
     "reviewsCount": 201,
@@ -164,16 +183,18 @@
     "hourlyRate": 26,
     "currency": "USD",
     "location": {
-      "country": "India",
-      "city": "Kolkata"
+      "country": "USA",
+      "city": "New York"
     },
-    "skills": ["Next.js", "React", "Prisma", "Vercel"]
+    "skills": ["Next.js", "React", "Prisma", "Vercel"],
+    "bio": "Modern web developer focused on performance and developer experience."
   },
   {
     "id": "f11",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Tom",
+    "profileImage": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop&crop=face",
     "name": "Tom Brown",
     "username": "tomb",
+    "email": "tom.brown@example.com",
     "isVerified": true,
     "rating": 4.8,
     "reviewsCount": 223,
@@ -181,16 +202,18 @@
     "hourlyRate": 23,
     "currency": "USD",
     "location": {
-      "country": "India",
-      "city": "Jaipur"
+      "country": "USA",
+      "city": "San Francisco"
     },
-    "skills": ["Go", "Gin", "PostgreSQL", "Docker"]
+    "skills": ["Go", "Gin", "PostgreSQL", "Docker"],
+    "bio": "Systems programmer building high-performance backend services in Go."
   },
   {
     "id": "f12",
-    "profileImage": "https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica",
+    "profileImage": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=face",
     "name": "Jessica White",
     "username": "jessicaw",
+    "email": "jessica.white@example.com",
     "isVerified": false,
     "rating": 4.6,
     "reviewsCount": 112,
@@ -198,10 +221,11 @@
     "hourlyRate": 19,
     "currency": "USD",
     "location": {
-      "country": "India",
-      "city": "Lucknow"
+      "country": "UK",
+      "city": "London"
     },
-    "skills": ["Swift", "iOS", "UIKit", "Core Data"]
+    "skills": ["Swift", "iOS", "UIKit", "Core Data"],
+    "bio": "iOS developer creating intuitive mobile experiences for startups and enterprises."
   }
 ]
 

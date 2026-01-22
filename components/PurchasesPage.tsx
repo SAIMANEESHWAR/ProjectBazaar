@@ -509,7 +509,7 @@ const PurchasesPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-bold text-gray-900">
-                                                ${project.price.toFixed(2)}
+                                                ₹{project.price.toFixed(2)}
                                             </div>
                                         </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -650,7 +650,7 @@ const PurchasesPage: React.FC = () => {
                                             <div className="flex items-center justify-between text-sm">
                                                 <span className="text-gray-600">Price:</span>
                                                 <span className="text-lg font-bold text-orange-600">
-                                                    ${project.price.toFixed(2)}
+                                                    ₹{project.price.toFixed(2)}
                                                 </span>
                                             </div>
                                             <div className="flex items-center justify-between text-sm">

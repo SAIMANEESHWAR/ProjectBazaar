@@ -189,11 +189,11 @@ const RevenueAnalyticsPage: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                             <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-200">
                                 <p className="text-sm text-blue-700 font-medium mb-1">Total Revenue</p>
-                                <p className="text-3xl font-bold text-blue-900">${seller.totalRevenue.toFixed(2)}</p>
+                                <p className="text-3xl font-bold text-blue-900">₹{seller.totalRevenue.toFixed(2)}</p>
                             </div>
                             <div className="bg-gradient-to-br from-orange-50 to-white rounded-xl p-5 border border-orange-200">
                                 <p className="text-sm text-orange-700 font-medium mb-1">Commission Earned</p>
-                                <p className="text-3xl font-bold text-orange-900">${seller.commissionEarned.toFixed(2)}</p>
+                                <p className="text-3xl font-bold text-orange-900">₹{seller.commissionEarned.toFixed(2)}</p>
                             </div>
                             <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-5 border border-green-200">
                                 <p className="text-sm text-green-700 font-medium mb-1">Transactions</p>
@@ -221,12 +221,12 @@ const RevenueAnalyticsPage: React.FC = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500">Total Amount</p>
-                                                    <p className="font-semibold text-gray-900">${txn.totalAmount.toFixed(2)}</p>
+                                                    <p className="font-semibold text-gray-900">₹{txn.totalAmount.toFixed(2)}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-gray-500">Commission</p>
-                                                    <p className="font-semibold text-orange-600">${txn.commission.toFixed(2)}</p>
-                                                    <p className="text-xs text-gray-500">Seller: ${txn.sellerEarnings.toFixed(2)}</p>
+                                                    <p className="font-semibold text-orange-600">₹{txn.commission.toFixed(2)}</p>
+                                                    <p className="text-xs text-gray-500">Seller: ₹{txn.sellerEarnings.toFixed(2)}</p>
                                                 </div>
                                             </div>
                                             <div className="mt-2">
@@ -260,7 +260,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -273,7 +273,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-orange-700 font-medium">Commission</p>
-                            <p className="text-2xl font-bold text-orange-900">${totalCommission.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-orange-900">₹{totalCommission.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -286,7 +286,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-green-700 font-medium">Paid</p>
-                            <p className="text-2xl font-bold text-green-900">${paidRevenue.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-green-900">₹{paidRevenue.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -299,7 +299,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-yellow-700 font-medium">Pending</p>
-                            <p className="text-2xl font-bold text-yellow-900">${pendingRevenue.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-yellow-900">₹{pendingRevenue.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
@@ -315,10 +315,10 @@ const RevenueAnalyticsPage: React.FC = () => {
                                 <div
                                     className="w-full bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg hover:from-orange-600 hover:to-orange-500 transition-all cursor-pointer relative group"
                                     style={{ height: `${(month.revenue / maxRevenue) * 100}%` }}
-                                    title={`${month.month}: Revenue $${month.revenue.toLocaleString()}, Commission $${month.commission.toLocaleString()}`}
+                                    title={`${month.month}: Revenue ₹${month.revenue.toLocaleString()}, Commission ₹${month.commission.toLocaleString()}`}
                                 >
                                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                        ${month.revenue.toLocaleString()}
+                                        ₹{month.revenue.toLocaleString()}
                                     </div>
                                 </div>
                                 <div
@@ -327,7 +327,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                                 />
                             </div>
                             <span className="text-xs text-gray-500 mt-2">{month.month}</span>
-                            <span className="text-xs font-medium text-gray-700 mt-1">${(month.revenue / 1000).toFixed(0)}k</span>
+                            <span className="text-xs font-medium text-gray-700 mt-1">₹{(month.revenue / 1000).toFixed(0)}k</span>
                         </div>
                     ))}
                 </div>
@@ -374,7 +374,7 @@ const RevenueAnalyticsPage: React.FC = () => {
                     </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-sm font-bold text-gray-900">${seller.totalRevenue.toFixed(2)}</span>
+                                        <span className="text-sm font-bold text-gray-900">₹{seller.totalRevenue.toFixed(2)}</span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-sm font-bold text-orange-600">${seller.commissionEarned.toFixed(2)}</span>
@@ -437,8 +437,8 @@ const RevenueAnalyticsPage: React.FC = () => {
                                             <div className="text-xs text-gray-500">{txn.sellerEmail}</div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${txn.totalAmount.toFixed(2)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600">${txn.commission.toFixed(2)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">₹{txn.totalAmount.toFixed(2)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600">₹{txn.commission.toFixed(2)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                             txn.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'

@@ -961,7 +961,7 @@ const FraudManagementPage: React.FC<FraudManagementPageProps> = ({ onViewReport 
                                             </div>
                                             <div>
                                                 <p className="text-sm text-gray-500">Price</p>
-                                                <p className="text-base font-semibold text-gray-900">${selectedProjectDetails.price?.toFixed(2) || '0.00'}</p>
+                                                <p className="text-base font-semibold text-gray-900">₹{selectedProjectDetails.price?.toFixed(2) || '0.00'}</p>
                                             </div>
                                             {selectedProjectDetails.description && (
                                                 <div className="md:col-span-2">

@@ -849,10 +849,10 @@ const MyProjectsPage: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <span className="text-base font-bold text-gray-900">${project.price.toFixed(2)}</span>
+                                                        <span className="text-base font-bold text-gray-900">₹{project.price.toFixed(2)}</span>
                                                         {project.sales > 0 && (
                                                             <span className="text-xs text-green-600 font-medium">
-                                                                ${(project.price * project.sales).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} revenue
+                                                                ₹{(project.price * project.sales).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} revenue
                                                             </span>
                                                         )}
                                                     </div>
@@ -891,7 +891,7 @@ const MyProjectsPage: React.FC = () => {
                                             <span className="font-semibold text-gray-900">{projects.reduce((sum, p) => sum + p.sales, 0)}</span> total sales
                                         </div>
                                         <div>
-                                            <span className="font-semibold text-gray-900">${projects.reduce((sum, p) => sum + (p.price * p.sales), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> total revenue
+                                            <span className="font-semibold text-gray-900">₹{projects.reduce((sum, p) => sum + (p.price * p.sales), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> total revenue
                                         </div>
                                     </div>
                                 </div>

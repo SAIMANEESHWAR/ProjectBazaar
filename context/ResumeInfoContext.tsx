@@ -36,6 +36,38 @@ export interface Project {
   link?: string;
 }
 
+export type ResumeTemplate = 
+  | 'classic'      // Jake's Resume style - clean, traditional
+  | 'modern'       // Awesome CV style - contemporary with accents
+  | 'professional' // ModernCV Classic - corporate/banking
+  | 'minimal'      // Wilson style - simple, elegant
+  | 'executive'    // Senior leadership style
+  | 'tech'         // Developer-focused
+  | 'academic'     // Research/education focused
+  | 'creative'     // Modern professional
+  | 'elegant'      // Sophisticated serif design
+  | 'bold'         // Strong impactful headings
+  | 'compact'      // Space-efficient dense layout
+  | 'timeline'     // Visual timeline experience
+  | 'sidebar'      // Left sidebar for contact/skills
+  | 'infographic'  // Visual skills representation
+  | 'corporate'    // Big company style
+  | 'startup'      // Modern tech startup
+  | 'consultant'   // Business consulting
+  | 'healthcare'   // Medical professional
+  | 'finance'      // Banking/finance
+  | 'marketing'    // Marketing/advertising
+  | 'gradient'     // Modern gradient header
+  | 'boxed'        // Sections in boxes
+  | 'metro'        // Metro tile style
+  | 'swiss'        // Swiss minimalist design
+  | 'retro'        // Vintage typewriter
+  | 'architect'    // Blueprint technical
+  | 'magazine'     // Editorial magazine
+  | 'neon'         // Dark mode neon
+  | 'legal'        // Law professional
+  | 'newspaper';   // Column layout
+
 export interface ResumeInfo {
   id?: string;
   firstName: string;
@@ -47,7 +79,9 @@ export interface ResumeInfo {
   linkedIn?: string;
   github?: string;
   portfolio?: string;
+  profileImage?: string; // Base64 encoded image or URL
   themeColor: string;
+  template: ResumeTemplate;
   summary: string;
   experience: Experience[];
   education: Education[];
@@ -78,7 +112,9 @@ const defaultResumeInfo: ResumeInfo = {
   linkedIn: '',
   github: '',
   portfolio: '',
+  profileImage: '',
   themeColor: '#f97316',
+  template: 'classic',
   summary: '',
   experience: [],
   education: [],

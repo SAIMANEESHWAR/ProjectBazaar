@@ -309,17 +309,17 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
 
     // Start animated progress while waiting for API
     let progressInterval: NodeJS.Timeout | null = null;
-    let currentProgress = 10;
+    let currentProgress = 5;
 
-    const startProgressAnimation = () => {
+    const startProgressAnimation = (targetMax: number = 85) => {
       progressInterval = setInterval(() => {
-        // Smoothly increment progress up to 85% while waiting
-        if (currentProgress < 85) {
-          currentProgress += Math.random() * 3 + 1;
-          if (currentProgress > 85) currentProgress = 85;
+        // Smoothly increment progress up to targetMax while waiting
+        if (currentProgress < targetMax) {
+          currentProgress += Math.random() * 2 + 0.5;
+          if (currentProgress > targetMax) currentProgress = targetMax;
           setStatus(prev => ({ ...prev, progress: Math.round(currentProgress) }));
         }
-      }, 300);
+      }, 200);
     };
 
     const stopProgressAnimation = () => {
@@ -330,33 +330,111 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
     };
 
     try {
-      updateStatus('uploading', 'Reading your resume file...', 10);
+      updateStatus('uploading', 'Reading your resume file...', 5);
+      startProgressAnimation(15); // Start animation immediately for file reading
       console.log('[Portfolio] Starting file read for:', file.name, 'size:', file.size);
       
       let base64: string;
       try {
-        // Use modern arrayBuffer API which is more reliable
-        console.log('[Portfolio] Reading file as ArrayBuffer...');
-        const arrayBuffer = await file.arrayBuffer();
-        console.log('[Portfolio] ArrayBuffer read complete, size:', arrayBuffer.byteLength);
-        
-        // Convert ArrayBuffer to base64
-        const uint8Array = new Uint8Array(arrayBuffer);
-        let binaryString = '';
-        const chunkSize = 8192;
-        for (let i = 0; i < uint8Array.length; i += chunkSize) {
-          const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
-        }
-        base64 = btoa(binaryString);
+        // Use FileReader.readAsDataURL() which is native and non-blocking
+        console.log('[Portfolio] Reading file as DataURL...');
+        base64 = await new Promise<string>((resolve, reject) => {
+          console.log('[Portfolio] Creating FileReader...');
+          const reader = new FileReader();
+          let hasCompleted = false;
+          
+          // Add timeout for file reading (30 seconds)
+          const fileReadTimeout = setTimeout(() => {
+            console.log('[Portfolio] FileReader TIMEOUT triggered after 30s, readyState:', reader.readyState);
+            if (!hasCompleted) {
+              hasCompleted = true;
+              reader.abort();
+              reject(new Error('File reading timed out. The file may be too large or corrupted.'));
+            }
+          }, 30000);
+          
+          reader.onloadstart = () => {
+            console.log('[Portfolio] FileReader onloadstart fired');
+          };
+          
+          reader.onload = () => {
+            console.log('[Portfolio] FileReader onload fired, readyState:', reader.readyState);
+            if (hasCompleted) return;
+            hasCompleted = true;
+            clearTimeout(fileReadTimeout);
+            try {
+              const result = reader.result as string;
+              console.log('[Portfolio] FileReader result type:', typeof result, 'length:', result?.length);
+              if (!result) {
+                reject(new Error('FileReader returned empty result'));
+                return;
+              }
+              // Extract base64 data from data URL (remove "data:application/pdf;base64," prefix)
+              const base64Data = result.split(',')[1];
+              if (!base64Data || base64Data.length === 0) {
+                console.log('[Portfolio] Failed to extract base64, result prefix:', result.substring(0, 100));
+                reject(new Error('Failed to extract base64 data from file. Please try a different file.'));
+                return;
+              }
+              console.log('[Portfolio] FileReader complete, base64 length:', base64Data.length);
+              resolve(base64Data);
+            } catch (e) {
+              console.error('[Portfolio] Error in onload:', e);
+              reject(new Error('Failed to process file content'));
+            }
+          };
+          
+          reader.onloadend = () => {
+            console.log('[Portfolio] FileReader onloadend fired, readyState:', reader.readyState, 'error:', reader.error);
+          };
+          
+          reader.onerror = () => {
+            console.error('[Portfolio] FileReader onerror fired, error:', reader.error);
+            if (hasCompleted) return;
+            hasCompleted = true;
+            clearTimeout(fileReadTimeout);
+            reject(new Error('FileReader failed: ' + (reader.error?.message || 'Unknown error')));
+          };
+          
+          reader.onabort = () => {
+            console.log('[Portfolio] FileReader onabort fired');
+            if (hasCompleted) return;
+            hasCompleted = true;
+            clearTimeout(fileReadTimeout);
+            reject(new Error('File reading was aborted'));
+          };
+          
+          reader.onprogress = (e) => {
+            console.log('[Portfolio] FileReader onprogress:', e.loaded, '/', e.total);
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 10) + 5;
+              setStatus(prev => ({ ...prev, progress: Math.min(percent, 15) }));
+            }
+          };
+          
+          // Start reading
+          console.log('[Portfolio] Calling reader.readAsDataURL...');
+          try {
+            reader.readAsDataURL(file);
+            console.log('[Portfolio] readAsDataURL called, readyState:', reader.readyState);
+          } catch (readError) {
+            console.error('[Portfolio] readAsDataURL threw:', readError);
+            hasCompleted = true;
+            clearTimeout(fileReadTimeout);
+            reject(new Error('Failed to start reading file'));
+          }
+        });
         console.log('[Portfolio] Base64 conversion complete, length:', base64.length);
       } catch (fileError) {
         console.error('[Portfolio] File reading failed:', fileError);
-        throw new Error('Could not read your resume file. Please try again or use a different file.');
+        stopProgressAnimation();
+        throw new Error(fileError instanceof Error ? fileError.message : 'Could not read your resume file. Please try again or use a different file.');
       }
 
+      stopProgressAnimation();
+      currentProgress = 20;
       updateStatus('extracting', 'Analyzing your resume with AI...', 20);
-      startProgressAnimation();
+      startProgressAnimation(85); // Resume animation for API call
       console.log('[Portfolio] Starting API call to:', PORTFOLIO_API_ENDPOINT);
 
       if (DEMO_MODE) {
@@ -376,28 +454,42 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
       // Call Lambda to parse resume with timeout
       let response: Response;
       try {
+        console.log('[Portfolio] Preparing API request...');
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        const timeoutId = setTimeout(() => {
+          console.log('[Portfolio] API request timeout triggered');
+          controller.abort();
+        }, 120000); // 2 minute timeout
         
-        response = await fetch(PORTFOLIO_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        const requestBody = JSON.stringify({
           action: 'parseResume',
           userEmail: userEmail || '',
           fileName: file.name,
           fileType: file.type,
           fileContent: base64,
-        }),
+        });
+        console.log('[Portfolio] Request body size:', requestBody.length, 'bytes');
+        
+        response = await fetch(PORTFOLIO_API_ENDPOINT, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+          body: requestBody,
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        console.log('[Portfolio] API response status:', response.status);
+        console.log('[Portfolio] API response status:', response.status, response.statusText);
       } catch (fetchError) {
         console.error('[Portfolio] Fetch failed:', fetchError);
         stopProgressAnimation();
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Request timed out. The server is taking too long to respond. Please try again.');
+        if (fetchError instanceof Error) {
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Request timed out. The server is taking too long to respond. Please try again.');
+          }
+          if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
+            throw new Error('Network error: Could not connect to the server. Please check your internet connection and try again.');
+          }
         }
         throw new Error('Network error: Could not connect to the server. Please check your internet connection.');
       }
