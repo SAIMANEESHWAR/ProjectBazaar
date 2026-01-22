@@ -1737,7 +1737,7 @@ export const MagazineTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeCol
       </div>
       {resumeInfo.summary && (
         <section className="mb-6">
-          <p className="text-sm leading-relaxed text-gray-700 first-letter:text-4xl first-letter:font-bold first-letter:float-left first-letter:mr-2" style={{ firstLetter: { color: themeColor } }}>{resumeInfo.summary}</p>
+          <p className="text-sm leading-relaxed text-gray-700 first-letter:text-4xl first-letter:font-bold first-letter:float-left first-letter:mr-2">{resumeInfo.summary}</p>
         </section>
       )}
       <div className="grid grid-cols-3 gap-6">

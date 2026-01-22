@@ -215,7 +215,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Log the invitation (in production, save to database)
-      console.log('Invitation sent to:', selectedFreelancer.email, 'Message:', inviteMessage);
+      console.log('Invitation sent to:', selectedFreelancer.name, 'Message:', inviteMessage);
       
       setSendSuccess(`Invitation sent to ${selectedFreelancer.name}!`);
       setTimeout(() => {
@@ -242,7 +242,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Log the message (in production, save to database)
-      console.log('Message sent to:', selectedFreelancer.email, 'Message:', contactMessage);
+      console.log('Message sent to:', selectedFreelancer.name, 'Message:', contactMessage);
       
       setSendSuccess(`Message sent to ${selectedFreelancer.name}!`);
       setTimeout(() => {
