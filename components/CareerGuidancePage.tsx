@@ -9,18 +9,17 @@ interface OptionItem {
     isSelected: boolean;
 }
 
-interface RoadmapStep {
-    title: string;
-    description: string;
-    skills: string[];
-    sub_steps: {
-        title: string;
-        description: string;
-        skills: string[];
-    }[];
-}
-
-// Roadmap interface - kept for potential future use
+// RoadmapStep and Roadmap interfaces - kept for potential future use
+// interface RoadmapStep {
+//     title: string;
+//     description: string;
+//     skills: string[];
+//     sub_steps: {
+//         title: string;
+//         description: string;
+//         skills: string[];
+//     }[];
+// }
 // interface Roadmap {
 //     title: string;
 //     description: string;
@@ -820,10 +819,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
             // Fallback to static data
             // Helper function to generate resources for each week
-            const getResourcesForWeek = (categoryId: string, _weekIndex: number, _topics: string[]): WeekResource[] => {
-                const _resources: WeekResource[] = [];
-                const _topic = _topics[0]?.toLowerCase() || '';
-                
+            const getResourcesForWeek = (categoryId: string, weekIndex: number, _topics: string[]): WeekResource[] => {
                 // Common resources for all categories
                 const commonResources: Record<string, WeekResource[]> = {
                     'ai-ml': [
