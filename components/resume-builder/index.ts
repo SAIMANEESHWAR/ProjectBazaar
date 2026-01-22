@@ -8,3 +8,5 @@ export { default as ProjectsForm } from './ProjectsForm';
 export { default as ResumePreview } from './ResumePreview';
 export { default as ThemeColorPicker } from './ThemeColorPicker';
 export { default as RichTextEditor } from './RichTextEditor';
+export { default as TemplatePicker } from './TemplatePicker';
+export * from './ResumeTemplates';

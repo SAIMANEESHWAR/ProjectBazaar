@@ -9,6 +9,7 @@ import SkillsForm from './SkillsForm';
 import ProjectsForm from './ProjectsForm';
 import ResumePreview from './ResumePreview';
 import ThemeColorPicker from './ThemeColorPicker';
+import TemplatePicker from './TemplatePicker';
 
 const STEPS = [
   { id: 1, name: 'Personal', icon: '👤' },
@@ -47,14 +48,13 @@ const ResumeBuilderContent: React.FC = () => {
     if (!printWindow) return;
 
     const previewContent = previewRef.current?.innerHTML || '';
-    const themeColor = resumeInfo.themeColor || '#f97316';
     
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>${resumeInfo.firstName} ${resumeInfo.lastName} - Resume</title>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             
@@ -67,13 +67,21 @@ const ResumeBuilderContent: React.FC = () => {
             
             /* Container styles */
             .bg-white { background-color: white; }
+            .text-white { color: white; }
             .text-gray-900 { color: #111827; }
+            .text-gray-800 { color: #1f2937; }
             .text-gray-700 { color: #374151; }
             .text-gray-600 { color: #4b5563; }
             .text-gray-500 { color: #6b7280; }
             .text-gray-400 { color: #9ca3af; }
+            .text-gray-300 { color: #d1d5db; }
+            .text-gray-200 { color: #e5e7eb; }
+            .text-gray-100 { color: #f3f4f6; }
+            .bg-gray-100 { background-color: #f3f4f6; }
+            .bg-gray-50 { background-color: #f9fafb; }
             
             /* Typography */
+            .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
             .text-2xl { font-size: 1.5rem; line-height: 2rem; }
             .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
             .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
@@ -85,19 +93,32 @@ const ResumeBuilderContent: React.FC = () => {
             .font-semibold { font-weight: 600; }
             .font-medium { font-weight: 500; }
             .font-normal { font-weight: 400; }
+            .font-mono { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; }
+            .italic { font-style: italic; }
             
             .uppercase { text-transform: uppercase; }
             .tracking-wider { letter-spacing: 0.05em; }
+            .tracking-widest { letter-spacing: 0.1em; }
+            .tracking-wide { letter-spacing: 0.025em; }
             .leading-relaxed { line-height: 1.625; }
+            .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
             
             .text-center { text-align: center; }
             .text-right { text-align: right; }
+            .text-left { text-align: left; }
             
             /* Spacing */
             .p-8 { padding: 2rem; }
             .p-6 { padding: 1.5rem; }
+            .p-4 { padding: 1rem; }
+            .p-3 { padding: 0.75rem; }
+            .p-2 { padding: 0.5rem; }
             .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+            .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
             .py-0\\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+            .pl-4 { padding-left: 1rem; }
+            .pl-6 { padding-left: 1.5rem; }
             
             .mb-1 { margin-bottom: 0.25rem; }
             .mb-2 { margin-bottom: 0.5rem; }
@@ -105,16 +126,32 @@ const ResumeBuilderContent: React.FC = () => {
             .mb-4 { margin-bottom: 1rem; }
             .mb-5 { margin-bottom: 1.25rem; }
             .mb-6 { margin-bottom: 1.5rem; }
+            .mb-8 { margin-bottom: 2rem; }
+            .mt-0\\.5 { margin-top: 0.125rem; }
             .mt-1 { margin-top: 0.25rem; }
             .mt-2 { margin-top: 0.5rem; }
+            .mt-3 { margin-top: 0.75rem; }
             .mt-4 { margin-top: 1rem; }
+            .mt-6 { margin-top: 1.5rem; }
+            .ml-1 { margin-left: 0.25rem; }
             .ml-2 { margin-left: 0.5rem; }
+            .pb-1 { padding-bottom: 0.25rem; }
+            .pb-2 { padding-bottom: 0.5rem; }
+            .pb-4 { padding-bottom: 1rem; }
+            .max-w-2xl { max-width: 42rem; }
+            .mx-auto { margin-left: auto; margin-right: auto; }
             
-            /* Flexbox */
+            /* Flexbox & Grid */
             .flex { display: flex; }
+            .grid { display: grid; }
+            .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .flex-wrap { flex-wrap: wrap; }
+            .flex-1 { flex: 1 1 0%; }
+            .flex-shrink-0 { flex-shrink: 0; }
             .items-center { align-items: center; }
             .items-start { align-items: flex-start; }
+            .items-end { align-items: flex-end; }
+            .items-baseline { align-items: baseline; }
             .justify-center { justify-content: center; }
             .justify-between { justify-content: space-between; }
             
@@ -123,15 +160,45 @@ const ResumeBuilderContent: React.FC = () => {
             .gap-2 { gap: 0.5rem; }
             .gap-3 { gap: 0.75rem; }
             .gap-4 { gap: 1rem; }
+            .gap-6 { gap: 1.5rem; }
+            .space-y-2 > * + * { margin-top: 0.5rem; }
             
             .whitespace-nowrap { white-space: nowrap; }
             
             /* Border and shapes */
             .rounded-full { border-radius: 9999px; }
+            .rounded-lg { border-radius: 0.5rem; }
+            .rounded { border-radius: 0.25rem; }
+            .overflow-hidden { overflow: hidden; }
             
-            /* Skill rating dots */
+            .border { border-width: 1px; border-style: solid; }
+            .border-l { border-left-width: 1px; border-left-style: solid; }
+            .border-l-2 { border-left-width: 2px; border-left-style: solid; }
+            .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+            .border-b-2 { border-bottom-width: 2px; border-bottom-style: solid; }
+            .border-t { border-top-width: 1px; border-top-style: solid; }
+            .border-gray-200 { border-color: #e5e7eb; }
+            .border-gray-300 { border-color: #d1d5db; }
+            
+            /* Sizing */
             .w-2 { width: 0.5rem; }
+            .w-3 { width: 0.75rem; }
+            .w-16 { width: 4rem; }
+            .w-full { width: 100%; }
+            .h-1 { height: 0.25rem; }
+            .h-1\\.5 { height: 0.375rem; }
             .h-2 { height: 0.5rem; }
+            .h-3 { height: 0.75rem; }
+            .h-full { height: 100%; }
+            .h-16 { height: 4rem; }
+            
+            /* Positioning */
+            .relative { position: relative; }
+            .absolute { position: absolute; }
+            .top-1 { top: 0.25rem; }
+            .left-0 { left: 0; }
+            .left-1\\.5 { left: 0.375rem; }
+            .top-4 { top: 1rem; }
             
             /* HR styling */
             hr {
@@ -180,12 +247,16 @@ const ResumeBuilderContent: React.FC = () => {
                 print-color-adjust: exact !important;
               }
               @page { 
-                margin: 0.5in; 
+                margin: 0.4in; 
                 size: letter;
               }
-              .rounded-full {
+              .rounded-full, .rounded-lg, .rounded {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+              }
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
             }
           </style>
@@ -253,6 +324,7 @@ const ResumeBuilderContent: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            <TemplatePicker />
             <ThemeColorPicker />
             
             <button
