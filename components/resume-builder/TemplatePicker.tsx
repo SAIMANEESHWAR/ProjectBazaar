@@ -74,54 +74,70 @@ const TemplatePicker: React.FC = () => {
 
   return (
     <div className="relative">
+      {/* Trigger Button - Mobile optimized */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
+        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
         </svg>
-        <span>{currentTemplate.name}</span>
-        <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">ATS {currentTemplate.atsScore}%</span>
-        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <span className="hidden sm:inline">{currentTemplate.name}</span>
+        <span className="sm:hidden">Template</span>
+        <span className="hidden xs:inline text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">{currentTemplate.atsScore}%</span>
+        <svg className={`w-3 sm:w-4 h-3 sm:h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {isOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full right-0 mt-2 z-50 w-[90vw] max-w-[520px] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+          
+          {/* Modal - Full screen on mobile, dropdown on desktop */}
+          <div className="fixed inset-3 sm:inset-auto sm:absolute sm:top-full sm:right-0 sm:mt-2 z-50 sm:w-[520px] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-none">
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
+            <div className="p-3 sm:p-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-gray-900">Choose Template</h3>
-                  <p className="text-xs text-gray-500">30 ATS-friendly templates • All tested for compatibility</p>
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">Choose Template</h3>
+                  <p className="text-[10px] sm:text-xs text-gray-500">30 ATS-friendly templates</p>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  ATS Optimized
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    ATS Optimized
+                  </div>
+                  {/* Mobile close button */}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="sm:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
               
               {/* Category Tabs */}
-              <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-thin">
+              <div className="flex gap-1 sm:gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-hide">
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategory(cat.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                       activeCategory === cat.id
                         ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    <span className="text-[11px]">{cat.icon}</span>
+                    <span className="text-[10px] sm:text-[11px]">{cat.icon}</span>
                     <span>{cat.name}</span>
-                    <span className={`px-1 py-0.5 rounded-full text-[10px] ${activeCategory === cat.id ? 'bg-orange-400' : 'bg-gray-200'}`}>
+                    <span className={`px-1 py-0.5 rounded-full text-[9px] sm:text-[10px] ${activeCategory === cat.id ? 'bg-orange-400' : 'bg-gray-200'}`}>
                       {templates.filter(t => t.category === cat.id).length}
                     </span>
                   </button>
@@ -129,37 +145,37 @@ const TemplatePicker: React.FC = () => {
               </div>
             </div>
 
-            {/* Templates Grid */}
-            <div className="p-4 max-h-[420px] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
+            {/* Templates Grid - Scrollable */}
+            <div className="p-3 sm:p-4 overflow-y-auto flex-1 sm:max-h-[420px]">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {filteredTemplates.map((template) => (
                   <button
                     key={template.id}
                     onClick={() => handleSelectTemplate(template.id)}
-                    className={`text-left p-3 rounded-xl border-2 transition-all hover:shadow-md group ${
+                    className={`text-left p-2 sm:p-3 rounded-xl border-2 transition-all hover:shadow-md group ${
                       resumeInfo.template === template.id
                         ? 'border-orange-500 bg-orange-50'
                         : 'border-gray-100 hover:border-gray-200 bg-gray-50 hover:bg-white'
                     }`}
                   >
                     {/* Mini Preview */}
-                    <div className="mb-2 relative">
+                    <div className="mb-1.5 sm:mb-2 relative">
                       <TemplateMiniPreview template={template.id} themeColor={resumeInfo.themeColor} />
                       {resumeInfo.template === template.id && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-4 h-4 sm:w-5 sm:h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         </div>
                       )}
                     </div>
                     
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-1">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 truncate">{template.name}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{template.description}</p>
+                        <p className="font-medium text-xs sm:text-sm text-gray-900 truncate">{template.name}</p>
+                        <p className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5 line-clamp-1 hidden sm:block">{template.description}</p>
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ml-1 ${
+                      <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full whitespace-nowrap ${
                         template.atsScore >= 95 ? 'bg-green-100 text-green-700' 
                         : template.atsScore >= 90 ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-orange-100 text-orange-700'
@@ -170,8 +186,8 @@ const TemplatePicker: React.FC = () => {
               </div>
             </div>
 
-            {/* Footer Info */}
-            <div className="p-3 bg-blue-50 border-t border-blue-100">
+            {/* Footer Info - Hidden on mobile for space */}
+            <div className="hidden sm:block p-3 bg-blue-50 border-t border-blue-100 flex-shrink-0">
               <div className="flex items-start gap-2">
                 <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

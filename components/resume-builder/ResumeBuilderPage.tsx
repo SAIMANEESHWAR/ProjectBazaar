@@ -12,15 +12,20 @@ import ThemeColorPicker from './ThemeColorPicker';
 import TemplatePicker from './TemplatePicker';
 
 const STEPS = [
-  { id: 1, name: 'Personal', icon: '👤' },
-  { id: 2, name: 'Summary', icon: '📝' },
-  { id: 3, name: 'Experience', icon: '💼' },
-  { id: 4, name: 'Education', icon: '🎓' },
-  { id: 5, name: 'Skills', icon: '⚡' },
-  { id: 6, name: 'Projects', icon: '🚀' },
+  { id: 1, name: 'Personal', shortName: 'Info', icon: '👤' },
+  { id: 2, name: 'Summary', shortName: 'Sum', icon: '📝' },
+  { id: 3, name: 'Experience', shortName: 'Exp', icon: '💼' },
+  { id: 4, name: 'Education', shortName: 'Edu', icon: '🎓' },
+  { id: 5, name: 'Skills', shortName: 'Skills', icon: '⚡' },
+  { id: 6, name: 'Projects', shortName: 'Proj', icon: '🚀' },
 ];
 
-const ResumeBuilderContent: React.FC = () => {
+interface ResumeBuilderContentProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack }) => {
   const { navigateTo } = useNavigation();
   useAuth();
   const { resumeInfo, saveResume, savedResumes, loadResume, resetResume, deleteResume } = useResumeInfo();
@@ -28,7 +33,17 @@ const ResumeBuilderContent: React.FC = () => {
   const [activeStep, setActiveStep] = useState(1);
   const [enableNext, setEnableNext] = useState(true);
   const [showSavedResumes, setShowSavedResumes] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigateTo('dashboard');
+    }
+  };
 
   const handleNext = () => {
     if (activeStep < STEPS.length) {
@@ -298,53 +313,138 @@ const ResumeBuilderContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigateTo('dashboard')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </button>
-            <div className="h-6 w-px bg-gray-200" />
+    <div className={embedded ? "h-full bg-gray-50 overflow-auto" : "min-h-screen bg-gray-50"}>
+      {/* Header - Simplified when embedded in dashboard */}
+      {embedded ? (
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+          <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">AI Resume Builder</h1>
-                <p className="text-xs text-gray-500">Create your professional resume</p>
+                <h1 className="text-base font-bold text-gray-900">AI Resume Builder</h1>
+                <p className="text-xs text-gray-500 hidden sm:block">Create your professional resume</p>
               </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <TemplatePicker />
-            <ThemeColorPicker />
             
-            <button
-              onClick={() => setShowSavedResumes(!showSavedResumes)}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-              My Resumes ({savedResumes.length})
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <TemplatePicker />
+              <ThemeColorPicker />
+              <button
+                onClick={() => setShowSavedResumes(!showSavedResumes)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <span className="hidden sm:inline">My Resumes</span> ({savedResumes.length})
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : (
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <button onClick={handleBack} className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="hidden sm:inline">Back</span>
+                </button>
+                <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate">Resume Builder</h1>
+                    <p className="text-[10px] sm:text-xs text-gray-500 hidden md:block">Create your professional resume</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Desktop Actions */}
+              <div className="hidden md:flex items-center gap-3">
+                <TemplatePicker />
+                <ThemeColorPicker />
+                
+                <button
+                  onClick={() => setShowSavedResumes(!showSavedResumes)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  My Resumes ({savedResumes.length})
+                </button>
+              </div>
 
-      {/* Saved Resumes Dropdown */}
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {showMobileMenu ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            </div>
+
+            {/* Mobile Menu Dropdown */}
+            {showMobileMenu && (
+              <div className="md:hidden mt-3 pt-3 border-t border-gray-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <TemplatePicker />
+                  <ThemeColorPicker />
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSavedResumes(!showSavedResumes);
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  My Resumes ({savedResumes.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMobilePreview(true);
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Preview Resume
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* Saved Resumes Dropdown - Mobile optimized */}
       {showSavedResumes && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowSavedResumes(false)} />
-          <div className="fixed top-20 right-6 z-50 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 max-h-96 overflow-y-auto">
+          <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={() => setShowSavedResumes(false)} />
+          <div className="fixed inset-x-3 top-20 sm:inset-auto sm:top-20 sm:right-6 z-50 sm:w-80 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Saved Resumes</h3>
               <button
@@ -412,72 +512,166 @@ const ResumeBuilderContent: React.FC = () => {
         </>
       )}
 
+      {/* Mobile Preview Modal */}
+      {showMobilePreview && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobilePreview(false)} />
+          <div className="fixed inset-3 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="font-bold text-gray-900">Resume Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download
+                </button>
+                <button
+                  onClick={() => setShowMobilePreview(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-gray-100">
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <ResumePreview />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="py-8 px-6">
+      <main className="py-4 sm:py-8 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          {/* Hero */}
-          <div className="text-center mb-8">
+          {/* Hero - Hidden on mobile for space efficiency */}
+          <div className="text-center mb-4 sm:mb-8 hidden sm:block">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-100 mb-4">
               <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
               <span className="text-sm text-orange-600 font-medium">AI-Powered Resume Builder</span>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               Build Your <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">Professional Resume</span>
             </h2>
-            <p className="text-gray-500">
+            <p className="text-gray-500 text-sm sm:text-base">
               Create a stunning resume with AI-powered suggestions in minutes
             </p>
           </div>
 
-          {/* Step Progress */}
-          <div className="flex items-center justify-center gap-2 mb-8 overflow-x-auto pb-2">
-            {STEPS.map((step, index) => (
-              <React.Fragment key={step.id}>
-                <button
-                  onClick={() => setActiveStep(step.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                    activeStep === step.id
-                      ? 'bg-orange-100 text-orange-700 border border-orange-200'
-                      : step.id < activeStep
-                      ? 'bg-green-50 text-green-600 border border-green-100'
-                      : 'bg-gray-100 text-gray-500 border border-transparent'
-                  }`}
-                >
-                  <span>{step.id < activeStep ? '✓' : step.icon}</span>
-                  <span className="hidden sm:inline">{step.name}</span>
-                </button>
-                {index < STEPS.length - 1 && (
-                  <div className={`w-6 h-0.5 ${step.id < activeStep ? 'bg-green-300' : 'bg-gray-200'}`} />
-                )}
-              </React.Fragment>
-            ))}
+          {/* Step Progress - Mobile optimized */}
+          <div className="mb-4 sm:mb-8">
+            {/* Mobile: Compact step indicator */}
+            <div className="sm:hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500">Step {activeStep} of {STEPS.length}</span>
+                <span className="text-xs font-medium text-orange-600">{STEPS[activeStep - 1].name}</span>
+              </div>
+              <div className="flex gap-1">
+                {STEPS.map((step) => (
+                  <button
+                    key={step.id}
+                    onClick={() => setActiveStep(step.id)}
+                    className={`flex-1 h-1.5 rounded-full transition-all ${
+                      activeStep === step.id
+                        ? 'bg-orange-500'
+                        : step.id < activeStep
+                        ? 'bg-green-500'
+                        : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Mobile step navigation */}
+              <div className="flex gap-1 mt-3 overflow-x-auto pb-2 scrollbar-hide">
+                {STEPS.map((step) => (
+                  <button
+                    key={step.id}
+                    onClick={() => setActiveStep(step.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                      activeStep === step.id
+                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                        : step.id < activeStep
+                        ? 'bg-green-50 text-green-600 border border-green-100'
+                        : 'bg-gray-100 text-gray-500 border border-transparent'
+                    }`}
+                  >
+                    <span className="text-[10px]">{step.id < activeStep ? '✓' : step.icon}</span>
+                    <span>{step.shortName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop: Full step progress */}
+            <div className="hidden sm:flex items-center justify-center gap-2 overflow-x-auto pb-2">
+              {STEPS.map((step, index) => (
+                <React.Fragment key={step.id}>
+                  <button
+                    onClick={() => setActiveStep(step.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                      activeStep === step.id
+                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                        : step.id < activeStep
+                        ? 'bg-green-50 text-green-600 border border-green-100'
+                        : 'bg-gray-100 text-gray-500 border border-transparent'
+                    }`}
+                  >
+                    <span>{step.id < activeStep ? '✓' : step.icon}</span>
+                    <span>{step.name}</span>
+                  </button>
+                  {index < STEPS.length - 1 && (
+                    <div className={`w-6 h-0.5 ${step.id < activeStep ? 'bg-green-300' : 'bg-gray-200'}`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
 
           {/* Two Column Layout */}
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-2 gap-4 sm:gap-8">
             {/* Form Section */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {renderStepContent()}
 
-              {/* Navigation Buttons */}
-              <div className="flex items-center justify-between">
+              {/* Navigation Buttons - Mobile optimized */}
+              <div className="space-y-3">
+                {/* Row 1: Preview button (mobile/tablet only) */}
                 <button
-                  onClick={handlePrev}
-                  disabled={activeStep === 1}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={() => setShowMobilePreview(true)}
+                  className="lg:hidden w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-orange-600 border border-orange-200 rounded-xl hover:bg-orange-50 transition-all"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
-                  Previous
+                  Preview Resume
                 </button>
 
-                <div className="flex items-center gap-3">
+                {/* Row 2: Navigation buttons */}
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={handlePrev}
+                    disabled={activeStep === 1}
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="hidden sm:inline">Previous</span>
+                  </button>
+
                   <button
                     onClick={handleSave}
-                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-orange-600 border border-orange-200 rounded-xl hover:bg-orange-50 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium text-orange-600 border border-orange-200 rounded-xl hover:bg-orange-50 transition-all"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                     </svg>
                     Save
@@ -487,30 +681,30 @@ const ResumeBuilderContent: React.FC = () => {
                     <button
                       onClick={handleNext}
                       disabled={!enableNext}
-                      className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
                     >
                       Next
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
                   ) : (
                     <button
                       onClick={handleDownload}
-                      className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg shadow-green-500/25"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl transition-all shadow-lg shadow-green-500/25"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      Download PDF
+                      Download
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Preview Section */}
-            <div className="lg:sticky lg:top-24 lg:self-start">
+            {/* Preview Section - Hidden on mobile, shown in modal */}
+            <div className="hidden lg:block lg:sticky lg:top-24 lg:self-start">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-900">Live Preview</h2>
                 <button
@@ -544,10 +738,15 @@ const ResumeBuilderContent: React.FC = () => {
   );
 };
 
-const ResumeBuilderPage: React.FC = () => {
+interface ResumeBuilderPageProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+const ResumeBuilderPage: React.FC<ResumeBuilderPageProps> = ({ embedded = false, onBack }) => {
   return (
     <ResumeInfoProvider>
-      <ResumeBuilderContent />
+      <ResumeBuilderContent embedded={embedded} onBack={onBack} />
     </ResumeInfoProvider>
   );
 };

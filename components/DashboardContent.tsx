@@ -559,7 +559,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded />;
             case 'build-resume':
-                return <ResumeBuilderPage />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
                 return <CareerGuidancePage />;
             case 'mock-assessment':
@@ -657,7 +657,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded />;
             case 'build-resume':
-                return <ResumeBuilderPage />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
                 return <CareerGuidancePage />;
             case 'mock-assessment':
