@@ -10,6 +10,7 @@ import AdminProjectDetailsPage from './AdminProjectDetailsPage';
 import AdminReportDetailsPage from './AdminReportDetailsPage';
 import CoursesManagementPage from './CoursesManagementPage';
 import CodingQuestionsManagementPage from './CodingQuestionsManagementPage';
+import MockAssessmentsManagementPage from './MockAssessmentsManagementPage';
 import CareerContentManagementPage from './CareerContentManagementPage';
 import RoadmapManagementPage from './RoadmapManagementPage';
 import type { BuyerProject } from '../BuyerProjectCard';
@@ -55,6 +56,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'payout-systems': 'Payout Systems',
         'courses': 'Courses Management',
         'coding-questions': 'Coding Interview Questions',
+        'mock-assessments': 'Mock Assessments Management',
         'career-guidance': 'Career Guidance Content',
         'roadmap-management': 'Roadmap Management',
         'user-profile': selectedUser ? `${selectedUser.name}'s Profile` : 'User Profile',
@@ -247,6 +249,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'payout-systems' && <PayoutSystemsPage />}
                 {activeView === 'courses' && <CoursesManagementPage />}
                 {activeView === 'coding-questions' && <CodingQuestionsManagementPage />}
+                {activeView === 'mock-assessments' && <MockAssessmentsManagementPage />}
                 {activeView === 'career-guidance' && <CareerContentManagementPage />}
                 {activeView === 'roadmap-management' && <RoadmapManagementPage />}
             </div>

@@ -10,6 +10,7 @@ export type AdminView =
     | 'payout-systems'
     | 'courses'
     | 'coding-questions'
+    | 'mock-assessments'
     | 'career-guidance'
     | 'roadmap-management'
     | 'user-profile'

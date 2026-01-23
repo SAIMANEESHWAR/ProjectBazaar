@@ -1,0 +1,8 @@
+# Requirements for mock_assessment_handler Lambda function
+# Note: boto3 is pre-installed in AWS Lambda Python runtime
+
+# No additional dependencies required
+# boto3 is included in AWS Lambda Python runtime
+
+# If you need to test locally, install:
+# pip install boto3
