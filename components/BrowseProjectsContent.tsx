@@ -1008,7 +1008,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       </svg>
                       Bid Statistics
                     </h4>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                       <div className="text-center">
                         <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                           ₹{bidStatsCache.get(selectedProject.id)!.averageBid.toLocaleString()}
