@@ -1473,73 +1473,74 @@ const CodingInterviewQuestionsPage: React.FC = () => {
         {/* Progress & Banner Section */}
         <div className="flex flex-col lg:flex-row gap-6 mb-8">
           {/* Progress Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-6">
-            <div className="relative">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
+            <div className="relative flex-shrink-0">
               <ProgressRing progress={(userProgress.solved / userProgress.total) * 100} />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {Math.round((userProgress.solved / userProgress.total) * 100)}%
                 </span>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Your Progress</span>
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Your Progress</span>
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="flex gap-6">
-                <div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Solved</span>
-                  <p className="text-lg font-semibold text-teal-600 dark:text-teal-400">{userProgress.solved}/{userProgress.total}</p>
+              <div className="flex gap-3 sm:gap-6">
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Solved</span>
+                  <p className="text-sm sm:text-lg font-semibold text-teal-600 dark:text-teal-400">{userProgress.solved}/{userProgress.total}</p>
                 </div>
-                <div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Attempted</span>
-                  <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">{userProgress.attempted}</p>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Attempted</span>
+                  <p className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400">{userProgress.attempted}</p>
                 </div>
-                <div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Accuracy</span>
-                  <p className="text-lg font-semibold text-green-600 dark:text-green-400">{userProgress.accuracy.toFixed(2)}%</p>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Accuracy</span>
+                  <p className="text-sm sm:text-lg font-semibold text-green-600 dark:text-green-400">{userProgress.accuracy.toFixed(2)}%</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Career Banner */}
-          <div className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-2xl p-6 flex items-center justify-between overflow-hidden relative border border-gray-800">
+          <div className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 overflow-hidden relative border border-gray-800">
             <div className="absolute inset-0">
               <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-gray-500/10 rounded-full blur-3xl"></div>
               {/* Subtle pattern overlay */}
               <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
             </div>
-            <div className="relative z-10 flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                  <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-lg">Unlock All Company Questions</h3>
-                  <p className="text-gray-400 text-sm">Get access to 500+ questions from Google, Amazon, Meta & more</p>
+                  <h3 className="text-white font-bold text-base sm:text-lg">Unlock All Company Questions</h3>
+                  <p className="text-gray-400 text-xs sm:text-sm">Get access to 500+ questions from Google, Amazon, Meta & more</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-4">
-                {['google', 'amazon', 'meta', 'microsoft', 'apple'].map((company) => (
-                  <div key={company} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden">
-                    <img src={`/company_logos/${company}.png`} alt={company} className="w-6 h-6 object-contain" />
+              <div className="flex items-center gap-1.5 sm:gap-2 ml-0 sm:ml-4">
+                {['google', 'amazon', 'meta', 'microsoft'].map((company) => (
+                  <div key={company} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden">
+                    <img src={`/company_logos/${company}.png`} alt={company} className="w-4 h-4 sm:w-6 sm:h-6 object-contain" />
                   </div>
                 ))}
-                <span className="text-gray-400 text-sm ml-1">+15 more</span>
+                <span className="text-gray-400 text-xs sm:text-sm ml-1 hidden sm:inline">+16 more</span>
               </div>
             </div>
-            <button className="relative z-10 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-lg transition-all shadow-lg flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button className="relative z-10 w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Upgrade to Pro
+              <span className="hidden sm:inline">Upgrade to Pro</span>
+              <span className="sm:hidden">Upgrade</span>
             </button>
           </div>
         </div>
@@ -1547,48 +1548,49 @@ const CodingInterviewQuestionsPage: React.FC = () => {
         {/* Tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="border-b border-gray-200 dark:border-gray-700">
-            <div className="flex">
+            <div className="flex overflow-x-auto scrollbar-hide">
               {[
-                { id: 'all', label: 'All Questions', icon: '≡' },
-                { id: 'bookmarks', label: 'Bookmarks', icon: '🔖' },
-                { id: 'attempted', label: 'Attempted', icon: '□' },
-                { id: 'solved', label: 'Solved', icon: '☑' },
+                { id: 'all', label: 'All Questions', shortLabel: 'All', icon: '≡' },
+                { id: 'bookmarks', label: 'Bookmarks', shortLabel: 'Saved', icon: '🔖' },
+                { id: 'attempted', label: 'Attempted', shortLabel: 'Tried', icon: '□' },
+                { id: 'solved', label: 'Solved', shortLabel: 'Done', icon: '☑' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors border-b-2 ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'text-teal-600 dark:text-teal-400 border-teal-500'
                       : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.shortLabel}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Filters Section */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-wrap items-center gap-4">
+          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
               {/* Search */}
-              <div className="relative flex-1 min-w-[200px] max-w-md">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-md">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search for problems or keywords"
+                  placeholder="Search problems..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
 
               {/* Filter Dropdowns */}
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Dropdown
                   label="Difficulty"
                   options={[
