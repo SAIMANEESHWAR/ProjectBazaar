@@ -23,9 +23,10 @@ const STEPS = [
 interface ResumeBuilderContentProps {
   embedded?: boolean;
   onBack?: () => void;
+  toggleSidebar?: () => void;
 }
 
-const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack }) => {
+const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack, toggleSidebar }) => {
   const { navigateTo } = useNavigation();
   useAuth();
   const { resumeInfo, saveResume, savedResumes, loadResume, resetResume, deleteResume } = useResumeInfo();
@@ -318,7 +319,19 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
       {embedded ? (
         <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
           <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Mobile Menu Button */}
+              {toggleSidebar && (
+                <button
+                  onClick={toggleSidebar}
+                  className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Toggle sidebar"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              )}
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -741,12 +754,13 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
 interface ResumeBuilderPageProps {
   embedded?: boolean;
   onBack?: () => void;
+  toggleSidebar?: () => void;
 }
 
-const ResumeBuilderPage: React.FC<ResumeBuilderPageProps> = ({ embedded = false, onBack }) => {
+const ResumeBuilderPage: React.FC<ResumeBuilderPageProps> = ({ embedded = false, onBack, toggleSidebar }) => {
   return (
     <ResumeInfoProvider>
-      <ResumeBuilderContent embedded={embedded} onBack={onBack} />
+      <ResumeBuilderContent embedded={embedded} onBack={onBack} toggleSidebar={toggleSidebar} />
     </ResumeInfoProvider>
   );
 };

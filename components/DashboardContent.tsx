@@ -559,7 +559,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
-                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
@@ -660,7 +660,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
-                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
