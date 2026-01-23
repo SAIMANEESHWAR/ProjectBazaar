@@ -45,10 +45,9 @@ interface AdminSidebarProps {
     isCollapsed: boolean;
     onClose: () => void;
     onToggle: () => void;
-    onCollapseToggle: () => void;
 }
 
-const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeView, setActiveView, isOpen, isCollapsed, onCollapseToggle }) => {
+const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeView, setActiveView, isOpen, isCollapsed }) => {
     const { userEmail, logout } = useAuth();
 
     const isExpanded = isOpen && !isCollapsed;

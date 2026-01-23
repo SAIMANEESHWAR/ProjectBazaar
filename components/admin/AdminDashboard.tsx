@@ -26,7 +26,6 @@ const AdminDashboard: React.FC = () => {
         }
         return true;
     });
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     const handleNavClick = (view: AdminView) => {
         setActiveView(view);
@@ -69,10 +68,9 @@ const AdminDashboard: React.FC = () => {
                 activeView={activeView}
                 setActiveView={handleNavClick}
                 isOpen={isSidebarOpen}
-                isCollapsed={isSidebarCollapsed}
+                isCollapsed={false}
                 onClose={() => setIsSidebarOpen(false)}
                 onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
             
             <div className="flex-1 flex flex-col overflow-hidden">
