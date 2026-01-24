@@ -927,6 +927,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [fullScreenExitCount, setFullScreenExitCount] = useState(0);
   const [showFullScreenWarning, setShowFullScreenWarning] = useState(false);
   const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
+  const [showUnansweredConfirmModal, setShowUnansweredConfirmModal] = useState(false);
   
   // Custom test case input for programming questions
   const [customTestInput, setCustomTestInput] = useState('');
@@ -936,6 +937,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   // Code hints feature
   const [showHints, setShowHints] = useState(false);
   const [hintsUsed, setHintsUsed] = useState<Record<number, number>>({});
+  
+  // Question instructions visibility
+  const [showQuestionInstructions, setShowQuestionInstructions] = useState(false);
   
   // Maximum warnings before auto-submit
   const MAX_TAB_SWITCHES = 1;
@@ -1038,6 +1042,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   // New feature states
   const [testMode, setTestMode] = useState<TestMode>('timed');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>('medium');
+  const [antiCheatMode, setAntiCheatMode] = useState<boolean>(true);
   const [showExplanations, setShowExplanations] = useState(false);
   const [userProgress, setUserProgress] = useState<UserProgress>({
     level: 5,
@@ -1155,7 +1160,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   // Timer effect
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (view === 'test' && timeLeft > 0) {
+    if (view === 'test' && timeLeft > 0 && testMode === 'timed') {
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -1167,11 +1172,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [view, timeLeft]);
+  }, [view, timeLeft, testMode]);
 
   // Tab switch detection effect
   useEffect(() => {
-    if (view !== 'test') return;
+    if (view !== 'test' || !antiCheatMode) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -1207,11 +1212,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [view]);
+  }, [view, antiCheatMode]);
 
   // Copy/paste prevention effect
   useEffect(() => {
-    if (view !== 'test') return;
+    if (view !== 'test' || !antiCheatMode) return;
 
     const preventCopyPaste = (e: ClipboardEvent) => {
       e.preventDefault();
@@ -1250,11 +1255,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       document.removeEventListener('contextmenu', preventContextMenu);
       document.removeEventListener('keydown', preventKeyboardShortcuts);
     };
-  }, [view]);
+  }, [view, antiCheatMode]);
 
   // Fullscreen mode management
   useEffect(() => {
-    if (view !== 'test') return;
+    if (view !== 'test' || !antiCheatMode) return;
 
     const handleFullScreenChange = () => {
       const isCurrentlyFullScreen = !!document.fullscreenElement;
@@ -1278,7 +1283,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     return () => {
       document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
-  }, [view, isFullScreen]);
+  }, [view, isFullScreen, antiCheatMode]);
 
   // Enter fullscreen mode function
   const enterFullScreen = useCallback(async () => {
@@ -1357,8 +1362,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     setCustomTestInput('');
     setCustomTestOutput('');
     
-    // Enter fullscreen mode
-    enterFullScreen();
+    // Enter fullscreen mode only if anti-cheat is enabled
+    if (antiCheatMode) {
+      enterFullScreen();
+    }
   };
 
   const handleAnswerSelect = (optionIndex: number) => {
@@ -1378,6 +1385,37 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   };
 
   const handleSubmitTest = () => {
+    const questions = getQuestions();
+    
+    // Check for unanswered questions
+    const unansweredQuestions: number[] = [];
+    questions.forEach((q, index) => {
+      if (isProgrammingQuestion(q)) {
+        // For programming questions, check if code was written
+        const code = codeAnswers[index] || '';
+        const hasCode = code.trim().length > 0;
+        if (!hasCode) {
+          unansweredQuestions.push(index + 1);
+        }
+      } else {
+        // For MCQ questions, check if answer is selected
+        if (answers[index] === undefined) {
+          unansweredQuestions.push(index + 1);
+        }
+      }
+    });
+    
+    // If there are unanswered questions, show confirmation modal
+    if (unansweredQuestions.length > 0) {
+      setShowUnansweredConfirmModal(true);
+      return;
+    }
+    
+    // Proceed with submission if all questions are answered
+    proceedWithSubmission();
+  };
+
+  const proceedWithSubmission = () => {
     // Exit fullscreen when test is submitted
     exitFullScreen();
     
@@ -1429,9 +1467,27 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     setTestResult(result);
     setTestHistory(prev => [result, ...prev]); // Save to history
     
-    // Update user progress with XP earned (reduced if violations occurred)
-    const violationPenalty = tabSwitchCount * 10 + fullScreenExitCount * 5;
-    const xpEarned = Math.max(0, Math.round(score * 2) - violationPenalty);
+    // Calculate XP based on anti-cheat mode and timer mode
+    const baseXP = score * 2;
+    
+    // Anti-cheat mode multiplier: More XP if anti-cheat is enabled (honest mode)
+    const antiCheatMultiplier = antiCheatMode ? 1.5 : 0.5;
+    
+    // Timer mode multiplier: More XP if timed mode (challenging)
+    const timerMultiplier = testMode === 'timed' ? 1.2 : 0.8;
+    
+    // Apply multipliers
+    let calculatedXP = baseXP * antiCheatMultiplier * timerMultiplier;
+    
+    // Apply violation penalties only in anti-cheat mode
+    const violationPenalty = antiCheatMode ? (tabSwitchCount * 10 + fullScreenExitCount * 5) : 0;
+    
+    // Final XP earned
+    const xpEarned = Math.max(0, Math.round(calculatedXP - violationPenalty));
+    
+    // Store XP earned in result
+    result.xpEarned = xpEarned;
+    
     setUserProgress(prev => ({
       ...prev,
       currentXP: prev.currentXP + xpEarned,
@@ -1485,7 +1541,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const renderAssessmentCard = (assessment: Assessment) => (
     <div
       key={assessment.id}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all duration-300 relative group"
+      onClick={() => handleStartTest(assessment)}
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all duration-300 relative group cursor-pointer"
     >
       {assessment.popular && (
         <div className="absolute -top-3 right-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1">
@@ -1529,13 +1586,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       </div>
 
       <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-        <button
-          onClick={() => handleStartTest(assessment)}
+        <div
           className="w-full text-orange-600 dark:text-orange-400 font-medium hover:text-orange-700 dark:hover:text-orange-300 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
         >
           Attempt Now
           <ArrowRightIcon />
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -1725,54 +1781,86 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             </div>
           </div>
 
-          {/* Category Tabs & Filters */}
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => { setSelectedCategory(cat); setShowCompanyTests(false); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition capitalize ${
-                    selectedCategory === cat && !showCompanyTests
-                      ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  {cat === 'all' ? 'All Tests' : cat}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowCompanyTests(!showCompanyTests)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-                showCompanyTests
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700'
-              }`}
-            >
-              💼 Company Tests
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                <button
-                  onClick={() => setTestMode('timed')}
-                  className={`px-2.5 py-1 rounded text-xs transition ${
-                    testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'
-                  }`}
-                >
-                  ⏱️ Timed
-                </button>
-                <button
-                  onClick={() => setTestMode('practice')}
-                  className={`px-2.5 py-1 rounded text-xs transition ${
-                    testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'
-                  }`}
-                >
-                  📚 Practice
-                </button>
+          {/* Main Test Type Toggle */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Type:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
+                  <button
+                    onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      showCompanyTests
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Company Tests
+                  </button>
+                  <button
+                    onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      !showCompanyTests
+                        ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Technical Tests
+                  </button>
+                </div>
+              </div>
+              
+              {/* Test Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setTestMode('timed')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                      testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    ⏱️ Timed
+                  </button>
+                  <button
+                    onClick={() => setTestMode('practice')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                      testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    📚 Practice
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Sub-category Filters - Only show for Technical Tests */}
+            {!showCompanyTests && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
+                        selectedCategory === cat
+                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
+                      }`}
+                    >
+                      {cat === 'all' ? 'All' : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Difficulty Selector */}
@@ -1831,28 +1919,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             {assessments
               .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
               .map(renderAssessmentCard)}
-          </div>
-
-          {/* Study Resources Section */}
-          <div className="mt-10 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-gray-800 dark:to-gray-850 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                📚 Study Resources
-                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">Learn & Practice</span>
-              </h3>
-              <button className="text-xs text-orange-600 dark:text-orange-400 hover:underline">View All →</button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {studyResources.map((resource) => (
-                <div key={resource.id} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 hover:shadow-md transition cursor-pointer">
-                  <div className="text-xl mb-2">
-                    {resource.type === 'video' ? '🎥' : resource.type === 'article' ? '📄' : resource.type === 'flashcard' ? '🃏' : '💻'}
-                  </div>
-                  <p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-2">{resource.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{resource.duration}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
@@ -2487,6 +2553,39 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           </div>
         </div>
 
+        {/* Anti-Cheat Mode Selection */}
+        <div className="mb-5">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+            <span>🛡️</span> Proctoring Mode
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setAntiCheatMode(true)}
+              className={`p-4 rounded-xl border-2 transition ${
+                antiCheatMode
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <div className="text-2xl mb-1">🛡️</div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Anti-Cheat</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">No copy/paste, tab switch detection</p>
+            </button>
+            <button
+              onClick={() => setAntiCheatMode(false)}
+              className={`p-4 rounded-xl border-2 transition ${
+                !antiCheatMode
+                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <div className="text-2xl mb-1">🔓</div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Cheated Mode</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Copy/paste, tab switch allowed</p>
+            </button>
+          </div>
+        </div>
+
         {/* Difficulty Selection */}
         <div className="mb-5">
           <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -2518,14 +2617,24 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
         {/* XP Reward Preview */}
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-4 mb-5 border border-purple-200 dark:border-purple-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">⚡</span>
-              <span className="text-sm text-purple-700 dark:text-purple-400">Potential XP Reward</span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚡</span>
+                <span className="text-sm text-purple-700 dark:text-purple-400">Potential XP Reward</span>
+              </div>
+              <span className="font-bold text-purple-700 dark:text-purple-400">
+                +{Math.round((selectedDifficulty === 'easy' ? 50 : selectedDifficulty === 'medium' ? 100 : 150) * (antiCheatMode ? 1.5 : 0.5) * (testMode === 'timed' ? 1.2 : 0.8))} - {Math.round((selectedDifficulty === 'easy' ? 100 : selectedDifficulty === 'medium' ? 200 : 300) * (antiCheatMode ? 1.5 : 0.5) * (testMode === 'timed' ? 1.2 : 0.8))} XP
+              </span>
             </div>
-            <span className="font-bold text-purple-700 dark:text-purple-400">
-              +{selectedDifficulty === 'easy' ? 50 : selectedDifficulty === 'medium' ? 100 : 150} - {selectedDifficulty === 'easy' ? 100 : selectedDifficulty === 'medium' ? 200 : 300} XP
-            </span>
+            <div className="text-xs text-purple-600 dark:text-purple-400 space-y-1">
+              <div className="flex items-center gap-2">
+                <span>{antiCheatMode ? '🛡️ Anti-Cheat Mode: 1.5x' : '🔓 Cheated Mode: 0.5x'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>{testMode === 'timed' ? '⏱️ Timed Mode: 1.2x' : '📚 Practice Mode: 0.8x'}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2545,6 +2654,18 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <span className="font-medium text-gray-900 dark:text-white">3.</span>
               <span>Review explanations after the test to learn from mistakes.</span>
             </li>
+            {antiCheatMode && (
+              <li className="flex gap-2">
+                <span className="font-medium text-gray-900 dark:text-white">4.</span>
+                <span><strong>Anti-Cheat Mode:</strong> Copy/paste, tab switching, and fullscreen exit are restricted. Violations may result in auto-submission.</span>
+              </li>
+            )}
+            {!antiCheatMode && (
+              <li className="flex gap-2">
+                <span className="font-medium text-gray-900 dark:text-white">4.</span>
+                <span><strong>Cheated Mode:</strong> Copy/paste and tab switching are allowed. No restrictions applied.</span>
+              </li>
+            )}
           </ol>
         </div>
 
@@ -2643,6 +2764,73 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       </div>
     </div>
   );
+
+  // Unanswered questions confirmation modal
+  const renderUnansweredConfirmModal = () => {
+    const questions = getQuestions();
+    const unansweredQuestions: number[] = [];
+    questions.forEach((q, index) => {
+      if (isProgrammingQuestion(q)) {
+        const code = codeAnswers[index] || '';
+        const hasCode = code.trim().length > 0;
+        if (!hasCode) {
+          unansweredQuestions.push(index + 1);
+        }
+      } else {
+        if (answers[index] === undefined) {
+          unansweredQuestions.push(index + 1);
+        }
+      }
+    });
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+            <svg className="w-8 h-8 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-3">
+            Unanswered Questions Detected
+          </h2>
+          
+          <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+            You have <strong className="text-orange-600 dark:text-orange-400">{unansweredQuestions.length}</strong> unanswered question{unansweredQuestions.length > 1 ? 's' : ''}.
+          </p>
+          
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 mb-6">
+            <p className="text-sm font-semibold text-orange-900 dark:text-orange-300 mb-2">Unanswered Questions:</p>
+            <p className="text-sm text-orange-800 dark:text-orange-400">
+              {unansweredQuestions.length <= 5 
+                ? `Question${unansweredQuestions.length > 1 ? 's' : ''}: ${unansweredQuestions.join(', ')}`
+                : `Questions: ${unansweredQuestions.slice(0, 5).join(', ')} and ${unansweredQuestions.length - 5} more...`
+              }
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowUnansweredConfirmModal(false)}
+              className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+            >
+              Go Back to Test
+            </button>
+            <button
+              onClick={() => {
+                setShowUnansweredConfirmModal(false);
+                proceedWithSubmission();
+              }}
+              className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-xl hover:from-orange-600 hover:to-orange-700 transition shadow-lg shadow-orange-500/30"
+            >
+              Submit Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Fullscreen exit warning modal
   const renderFullScreenWarningModal = () => (
@@ -2834,21 +3022,23 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Timer */}
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
-                timeLeft < 300 
-                  ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' 
-                  : timeLeft < 600 
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
-                  : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-              }`}>
-                <ClockIcon />
-                <span className={`font-mono text-sm ${
-                  timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'
+              {/* Timer - Only show in timed mode */}
+              {testMode === 'timed' && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                  timeLeft < 300 
+                    ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700' 
+                    : timeLeft < 600 
+                    ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
                 }`}>
-                  {formatTime(timeLeft)}
-                </span>
-              </div>
+                  <ClockIcon />
+                  <span className={`font-mono text-sm ${
+                    timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'
+                  }`}>
+                    {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -3022,9 +3212,18 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         style={{ width: `${leftPanelWidth}%`, flexShrink: 0 }}
                       >
                         {/* Tabs */}
-                        <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#262626]">
+                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#262626]">
                           <button className="px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                             Description
+                          </button>
+                          <button
+                            onClick={() => setShowQuestionInstructions(!showQuestionInstructions)}
+                            className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 flex items-center justify-center transition-colors"
+                            title="Show question instructions"
+                          >
+                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                           </button>
                         </div>
                         
@@ -3090,6 +3289,60 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                                   <li key={i} className="font-mono text-xs">{constraint}</li>
                                 ))}
                               </ul>
+                            </div>
+                          )}
+                          
+                          {/* Question Instructions Panel */}
+                          {showQuestionInstructions && (
+                            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Question Instructions</h4>
+                                  <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1.5">
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Read the problem statement carefully and understand the requirements.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Check the examples to understand the expected input/output format.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Review the constraints to understand the problem limits.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>You can use hints, but they may reduce your score.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Test your solution with the provided test cases before submitting.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Topic: <span className="font-medium">{currentQuestion.topic}</span></span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                      <span>Difficulty: <span className="font-medium capitalize">{currentQuestion.difficulty || 'N/A'}</span></span>
+                                    </li>
+                                  </ul>
+                                </div>
+                                <button
+                                  onClick={() => setShowQuestionInstructions(false)}
+                                  className="flex-shrink-0 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                                >
+                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3334,13 +3587,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           {/* Action Buttons */}
                           <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-[#2d2d2d]">
                             <div className="flex items-center gap-3">
-                              {/* Proctoring Status */}
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <div className={`w-2 h-2 rounded-full ${tabSwitchCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
-                                <span className={tabSwitchCount > 0 ? 'text-amber-400' : 'text-gray-400'}>
-                                  {tabSwitchCount > 0 ? `${tabSwitchCount} warning${tabSwitchCount > 1 ? 's' : ''}` : 'Proctored'}
-                                </span>
-                              </div>
+                              {/* Proctoring Status - Only show in anti-cheat mode */}
+                              {antiCheatMode && (
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <div className={`w-2 h-2 rounded-full ${tabSwitchCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
+                                  <span className={tabSwitchCount > 0 ? 'text-amber-400' : 'text-gray-400'}>
+                                    {tabSwitchCount > 0 ? `${tabSwitchCount} warning${tabSwitchCount > 1 ? 's' : ''}` : 'Proctored'}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -3378,9 +3633,68 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   ) : (
                     /* MCQ Question - Options */
                 <div className="p-5">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed mb-5 whitespace-pre-line">
-                    {currentQuestion.question}
-                  </h3>
+                      <div className="flex items-start gap-3 mb-5">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed whitespace-pre-line flex-1">
+                          {currentQuestion.question}
+                        </h3>
+                        <button
+                          onClick={() => setShowQuestionInstructions(!showQuestionInstructions)}
+                          className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 flex items-center justify-center transition-colors group"
+                          title="Show question instructions"
+                        >
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* Question Instructions Panel */}
+                      {showQuestionInstructions && (
+                        <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Question Instructions</h4>
+                              <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1.5">
+                                <li className="flex items-start gap-2">
+                                  <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                  <span>Read the question carefully before selecting your answer.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                  <span>You can flag questions to review them later.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                  <span>You can change your answer before submitting the test.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                  <span>Topic: <span className="font-medium">{currentQuestion.topic}</span></span>
+                                </li>
+                                {currentQuestion.difficulty && (
+                                  <li className="flex items-start gap-2">
+                                    <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
+                                    <span>Difficulty: <span className="font-medium capitalize">{currentQuestion.difficulty}</span></span>
+                                  </li>
+                                )}
+                              </ul>
+                            </div>
+                            <button
+                              onClick={() => setShowQuestionInstructions(false)}
+                              className="flex-shrink-0 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                            >
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   <div className="space-y-2.5">
                       {(currentQuestion as Question).options.map((option, index) => {
                       const isSelected = answers[currentQuestionIndex] === index;
@@ -3467,65 +3781,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           </div>
         </div>
 
-        {/* Proctoring Status Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700 px-4 py-2 z-40">
-          <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
-            <div className="flex items-center gap-6">
-              {/* Fullscreen Status */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isFullScreen ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
-                <span className={isFullScreen ? 'text-emerald-400' : 'text-amber-400'}>
-                  {isFullScreen ? 'Fullscreen Active' : 'Not Fullscreen'}
-                </span>
-                {!isFullScreen && (
-                  <button
-                    onClick={enterFullScreen}
-                    className="ml-1 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] transition"
-                  >
-                    Enter
-                  </button>
-                )}
-              </div>
-
-              {/* Tab Switch Status */}
-              <div className="flex items-center gap-2">
-                <svg className={`w-3.5 h-3.5 ${tabSwitchCount > 0 ? 'text-red-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span className={tabSwitchCount > 0 ? 'text-red-400' : 'text-gray-400'}>
-                  Tab Switches: {tabSwitchCount}/{MAX_TAB_SWITCHES}
-                </span>
-              </div>
-
-              {/* Copy-Paste Attempts */}
-              {copyPasteAttempts > 0 && (
-                <div className="flex items-center gap-2">
-                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  <span className="text-amber-400">
-                    Blocked Actions: {copyPasteAttempts}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4">
-              <span className="text-gray-500">
-                Exam Proctoring Active
-              </span>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-gray-400">Recording</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Warning Modals */}
-        {showTabWarningModal && renderTabWarningModal()}
-        {showFullScreenWarning && renderFullScreenWarningModal()}
+        {showTabWarningModal && antiCheatMode && renderTabWarningModal()}
+        {showFullScreenWarning && antiCheatMode && renderFullScreenWarningModal()}
+        {showUnansweredConfirmModal && renderUnansweredConfirmModal()}
       </div>
     );
   };
@@ -3749,7 +4008,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm opacity-80">XP Earned from this test</p>
-                <p className="text-3xl font-bold">+{Math.round(testResult.score * 2)} XP</p>
+                <p className="text-3xl font-bold">+{testResult.xpEarned || Math.round(testResult.score * 2)} XP</p>
               </div>
               <div className="text-right">
                 <p className="text-sm opacity-80">New Level Progress</p>

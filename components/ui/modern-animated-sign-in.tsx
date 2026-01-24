@@ -361,6 +361,11 @@ const AnimatedForm = memo(function AnimatedForm({
   const [visible, setVisible] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
 
+  // Clear errors when fields change (e.g., switching between login and signup)
+  useEffect(() => {
+    setErrors({});
+  }, [fields]);
+
   const toggleVisibility = () => setVisible(!visible);
 
   const validateForm = (event: FormEvent<HTMLFormElement>) => {
@@ -493,7 +498,7 @@ const AnimatedForm = memo(function AnimatedForm({
                     <button
                       type='button'
                       onClick={toggleVisibility}
-                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-white/70 hover:text-white'
+                      className='absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-gray-600 hover:text-gray-900 dark:text-white/70 dark:hover:text-white transition-colors'
                     >
                       {visible ? (
                         <Eye className='h-5 w-5' />
@@ -529,10 +534,9 @@ const AnimatedForm = memo(function AnimatedForm({
           overflow='visible'
         >
           <button
-            className='bg-gradient-to-br relative group/btn from-zinc-200 dark:from-zinc-900
-            dark:to-zinc-900 to-zinc-200 block dark:bg-zinc-800 w-full text-white
-            rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] 
-              dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset] outline-hidden hover:cursor-pointer'
+            className='bg-black relative group/btn block w-full text-white
+            rounded-md h-10 font-medium shadow-lg outline-hidden hover:cursor-pointer
+            hover:bg-gray-900 transition-colors duration-200 border border-gray-800'
             type='submit'
           >
             {submitButton} &rarr;

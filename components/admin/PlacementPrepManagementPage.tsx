@@ -429,8 +429,11 @@ const PlacementPrepManagementPage: React.FC = () => {
     }, []);
 
     // ================= FORM HANDLERS =================
+<<<<<<< HEAD
     // Note: handleAddTopic is handled inline in the form
 
+=======
+>>>>>>> fe9ad6dec27062fde7439e3ad22364420bb33dbb
     const handleEditTopic = (index: number) => {
         setEditingTopicIndex(index);
         setTopicForm({ ...topics[index] });

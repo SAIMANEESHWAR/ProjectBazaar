@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ProjectDashboardCard from './ProjectDashboardCard';
 import { useNavigation, usePremium, useAuth } from '../App';
 import { fetchProjectDetails, ProjectDetails } from '../services/buyerApi';
@@ -119,6 +119,7 @@ const API_ENDPOINT = 'https://qh71ruloa8.execute-api.ap-south-2.amazonaws.com/de
 const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Seller';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GET_REPORTS_ENDPOINT = 'https://0en59tzhoa.execute-api.ap-south-2.amazonaws.com/default/Get_ReportDetails_by_sellerid_buyerId_ReportId';
+const ADMIN_APPROVAL_ENDPOINT = 'https://wt58x2f09d.execute-api.ap-south-2.amazonaws.com/default/Admin_approved_or_rejected';
 const MAX_IMAGE_SIZE_MB = 10;
 
 type ViewMode = 'grid' | 'table';
@@ -135,6 +136,7 @@ const SellerDashboard: React.FC = () => {
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [showPremiumModal, setShowPremiumModal] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'Draft' | 'In Review' | 'Approved' | 'Rejected' | 'Disabled'>('all');
     const [isDragging, setIsDragging] = useState(false);
     const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
     const [, setDragOverIndex] = useState<number | null>(null);
@@ -243,7 +245,9 @@ const SellerDashboard: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [isDraftSave, setIsDraftSave] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<string>('');
+    const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
     // Upload single image to S3 and return the URL
     const uploadImageToS3 = async (file: File, index: number): Promise<string> => {
@@ -315,6 +319,8 @@ const SellerDashboard: React.FC = () => {
         activatedProjects: 0,
         rejectedProjects: 0,
         disabledProjects: 0,
+        draftProjects: 0,
+        inReviewProjects: 0,
         totalProjectsSold: 0,
         totalRevenue: 0
     });
@@ -327,7 +333,10 @@ const SellerDashboard: React.FC = () => {
         const projectStatus = apiProject.status?.toLowerCase();
         
         // Priority: adminApprovalStatus > status
-        if (approvalStatus === 'approved' || (approvalStatus === undefined && projectStatus === 'active')) {
+        // Explicitly check for draft status first
+        if (projectStatus === 'draft') {
+            status = 'Draft';
+        } else if (approvalStatus === 'approved' || (approvalStatus === undefined && projectStatus === 'active')) {
             status = 'Approved';
         } else if (approvalStatus === 'rejected') {
             status = 'Rejected';
@@ -473,6 +482,8 @@ const SellerDashboard: React.FC = () => {
                 let activatedCount = 0;
                 let rejectedCount = 0;
                 let disabledCount = 0;
+                let draftCount = 0;
+                let inReviewCount = 0;
                 let totalSold = 0;
                 let totalRev = 0;
                 
@@ -484,6 +495,10 @@ const SellerDashboard: React.FC = () => {
                         rejectedCount++;
                     } else if (project.status === 'Disabled') {
                         disabledCount++;
+                    } else if (project.status === 'Draft') {
+                        draftCount++;
+                    } else if (project.status === 'In Review') {
+                        inReviewCount++;
                     }
                     
                     // Calculate sales and revenue
@@ -496,6 +511,8 @@ const SellerDashboard: React.FC = () => {
                     activatedProjects: activatedCount,
                     rejectedProjects: rejectedCount,
                     disabledProjects: disabledCount,
+                    draftProjects: draftCount,
+                    inReviewProjects: inReviewCount,
                     totalProjectsSold: totalSold,
                     totalRevenue: totalRev
                 });
@@ -506,6 +523,8 @@ const SellerDashboard: React.FC = () => {
                     activatedProjects: 0,
                     rejectedProjects: 0,
                     disabledProjects: 0,
+                    draftProjects: 0,
+                    inReviewProjects: 0,
                     totalProjectsSold: 0,
                     totalRevenue: 0
                 });
@@ -569,6 +588,21 @@ const SellerDashboard: React.FC = () => {
     }, [userId]);
 
     const MAX_IMAGES = 5;
+    const MIN_IMAGES = 2;
+    
+    // Validation function to check if all required fields are filled
+    const isFormValid = useMemo(() => {
+        const hasTitle = formData.title.trim() !== '';
+        const hasCategory = formData.category.trim() !== '';
+        const hasDescription = formData.description.trim() !== '';
+        const hasTags = tags.length >= 1;
+        const hasPrice = formData.price.trim() !== '' && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) > 0;
+        const hasYoutubeUrl = formData.youtubeVideoUrl.trim() !== '';
+        const hasGithubUrl = formData.githubUrl.trim() !== '' && githubValidated;
+        const hasValidImages = imageFiles.length >= MIN_IMAGES && imageFiles.length <= MAX_IMAGES;
+        
+        return hasTitle && hasCategory && hasDescription && hasTags && hasPrice && hasYoutubeUrl && hasGithubUrl && hasValidImages;
+    }, [formData, tags, githubValidated, imageFiles.length]);
 
     const addImages = (files: FileList | File[]) => {
         const fileArray = Array.from(files);
@@ -787,10 +821,130 @@ const SellerDashboard: React.FC = () => {
         setGithubValidationError(null);
     };
 
+    const handleSaveDraft = async () => {
+        setSubmitError(null);
+        setSubmitSuccess(false);
+        setIsDraftSave(true);
+
+        if (!userId || !userEmail) {
+            setSubmitError('You must be logged in to save a project');
+            return;
+        }
+
+        // Allow unlimited uploads if user has profile image or is premium
+        if (!isPremium && !userProfileImage && uploadedProjects.length >= MAX_FREE_PROJECTS) {
+            setShowPremiumModal(true);
+            return;
+        }
+
+        // For drafts, only title is required
+        if (!formData.title.trim()) {
+            setSubmitError('Please enter a project title to save as draft');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setUploadProgress('Saving draft...');
+
+        try {
+            // Upload images if any are provided (optional for drafts)
+            // Start with existing image URLs (from draft) that are already uploaded
+            const imageUrls: string[] = imagePreviews.filter(url => url.startsWith('http')); // Keep existing URLs
+            
+            if (imageFiles.length > 0) {
+                setUploadProgress(`Uploading ${imageFiles.length} image(s) to cloud...`);
+                for (let i = 0; i < imageFiles.length; i++) {
+                    try {
+                        const imageUrl = await uploadImageToS3(imageFiles[i], i);
+                        imageUrls.push(imageUrl);
+                    } catch (uploadError) {
+                        console.error(`Failed to upload image ${i + 1}:`, uploadError);
+                        // For drafts, continue even if image upload fails
+                    }
+                }
+            }
+
+            setUploadProgress('Saving draft...');
+
+            // Prepare request body for draft
+            const requestBody: any = {
+                sellerId: userId,
+                sellerEmail: userEmail,
+                isDraft: true,
+                title: formData.title.trim(),
+                category: formData.category.trim() || undefined,
+                description: formData.description.trim() || undefined,
+                tags: tags.length > 0 ? tags.join(', ') : undefined,
+                price: formData.price.trim() ? parseFloat(formData.price) : undefined,
+                originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : undefined,
+                githubUrl: formData.githubUrl.trim() || undefined,
+                youtubeVideoUrl: formData.youtubeVideoUrl.trim() || undefined,
+                thumbnailUrl: imageUrls[0] || undefined,
+                imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+                pptUrl: resourceUrls.ppt.trim() || undefined,
+                documentationUrl: resourceUrls.documentation.trim() || undefined,
+                executionVideoUrl: resourceUrls.executionVideo.trim() || undefined,
+                researchPaperUrl: resourceUrls.researchPaper.trim() || undefined,
+                customResources: customResources.filter(r => r.label.trim() && r.url.trim()).map(r => ({
+                    label: r.label.trim(),
+                    url: r.url.trim()
+                }))
+            };
+
+            // If editing existing draft, include projectId
+            if (editingProjectId) {
+                requestBody.projectId = editingProjectId;
+            }
+
+            // Remove undefined/empty values
+            Object.keys(requestBody).forEach(key => {
+                const value = requestBody[key as keyof typeof requestBody];
+                if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+                    delete requestBody[key as keyof typeof requestBody];
+                }
+            });
+
+            const response = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setSubmitSuccess(true);
+                // Don't reset form for drafts - user might want to continue editing
+                // Refresh projects list to show the draft
+                await fetchProjects();
+                
+                // Show success message
+                setTimeout(() => {
+                    setSubmitSuccess(false);
+                }, 3000);
+            } else {
+                setSubmitError(data.error?.message || 'Failed to save draft. Please try again.');
+            }
+        } catch (error) {
+            console.error('Draft save error:', error);
+            if (error instanceof Error) {
+                setSubmitError(error.message);
+            } else {
+                setSubmitError('Network error. Please check your connection and try again.');
+            }
+        } finally {
+            setIsSubmitting(false);
+            setUploadProgress('');
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError(null);
         setSubmitSuccess(false);
+        setIsDraftSave(false);
 
         if (!userId || !userEmail) {
             setSubmitError('You must be logged in to upload a project');
@@ -861,25 +1015,29 @@ const SellerDashboard: React.FC = () => {
 
         try {
             // 1. Upload all images to S3 first
-            setUploadProgress(`Uploading ${imageFiles.length} image(s) to cloud...`);
-            const imageUrls: string[] = [];
+            // Start with existing image URLs (from draft) that are already uploaded
+            const imageUrls: string[] = imagePreviews.filter(url => url.startsWith('http')); // Keep existing URLs
             
-            for (let i = 0; i < imageFiles.length; i++) {
-                try {
-                    const imageUrl = await uploadImageToS3(imageFiles[i], i);
-                    imageUrls.push(imageUrl);
-                } catch (uploadError) {
-                    console.error(`Failed to upload image ${i + 1}:`, uploadError);
-                    throw new Error(`Failed to upload image ${i + 1}. Please try again.`);
+            if (imageFiles.length > 0) {
+                setUploadProgress(`Uploading ${imageFiles.length} image(s) to cloud...`);
+                for (let i = 0; i < imageFiles.length; i++) {
+                    try {
+                        const imageUrl = await uploadImageToS3(imageFiles[i], i);
+                        imageUrls.push(imageUrl);
+                    } catch (uploadError) {
+                        console.error(`Failed to upload image ${i + 1}:`, uploadError);
+                        throw new Error(`Failed to upload image ${i + 1}. Please try again.`);
+                    }
                 }
             }
 
             setUploadProgress('Submitting project...');
 
             // 2. Prepare request body with S3 image URLs
-            const requestBody = {
+            const requestBody: any = {
                 sellerId: userId,
                 sellerEmail: userEmail,
+                isDraft: false, // Explicitly set to false for submission
                 title: formData.title.trim(),
                 category: formData.category.trim(),
                 description: formData.description.trim(),
@@ -903,6 +1061,11 @@ const SellerDashboard: React.FC = () => {
                 }))
             };
 
+            // If editing existing draft, include projectId
+            if (editingProjectId) {
+                requestBody.projectId = editingProjectId;
+            }
+
             // Remove undefined/empty values
             Object.keys(requestBody).forEach(key => {
                 const value = requestBody[key as keyof typeof requestBody];
@@ -924,31 +1087,7 @@ const SellerDashboard: React.FC = () => {
             if (data.success) {
                 setSubmitSuccess(true);
                 // Reset form
-                setFormData({
-                    title: '',
-                    category: '',
-                    description: '',
-                    price: '',
-                    originalPrice: '',
-                    youtubeVideoUrl: '',
-                    githubUrl: ''
-                });
-                setTags([]);
-                setTagInput('');
-                setSelectedResources([]);
-                setResourceUrls({
-                    ppt: '',
-                    documentation: '',
-                    executionVideo: '',
-                    researchPaper: ''
-                });
-                setCustomResources([]);
-                setGithubValidated(false);
-                setGithubValidationError(null);
-                // Revoke object URLs to prevent memory leaks
-                imagePreviews.forEach(url => URL.revokeObjectURL(url));
-                setImageFiles([]);
-                setImagePreviews([]);
+                resetForm();
                 
                 // Refresh projects list to get the latest from API
                 await fetchProjects();
@@ -974,16 +1113,211 @@ const SellerDashboard: React.FC = () => {
         }
     };
 
+    const resetForm = () => {
+        setFormData({
+            title: '',
+            category: '',
+            description: '',
+            price: '',
+            originalPrice: '',
+            youtubeVideoUrl: '',
+            githubUrl: ''
+        });
+        setTags([]);
+        setTagInput('');
+        setSelectedResources([]);
+        setResourceUrls({
+            ppt: '',
+            documentation: '',
+            executionVideo: '',
+            researchPaper: ''
+        });
+        setCustomResources([]);
+        setGithubValidated(false);
+        setGithubValidationError(null);
+        // Revoke object URLs to prevent memory leaks
+        imagePreviews.forEach(url => URL.revokeObjectURL(url));
+        setImageFiles([]);
+        setImagePreviews([]);
+        setSubmitError(null);
+        setSubmitSuccess(false);
+        setEditingProjectId(null);
+    };
+
     const handleUploadClick = () => {
         // Allow unlimited uploads if user has profile image or is premium
         if (!isPremium && !userProfileImage && uploadedProjects.length >= MAX_FREE_PROJECTS) {
             setShowPremiumModal(true);
         } else {
+            // Reset form when starting new upload
+            resetForm();
             setShowUploadForm(true);
         }
     };
 
+    const loadDraftProject = async (projectId: string) => {
+        try {
+            setIsLoadingProjects(true);
+            // Fetch full project details
+            const projectDetails = await fetchProjectDetails(projectId);
+            
+            if (!projectDetails) {
+                setSubmitError('Failed to load draft project');
+                return;
+            }
 
+            // Type assertion to access additional fields that may exist in API response
+            const projectData = projectDetails as any;
+
+            // Check if it's a draft
+            if (projectData.status?.toLowerCase() !== 'draft') {
+                setSubmitError('Only draft projects can be edited');
+                return;
+            }
+
+            // Set editing project ID
+            setEditingProjectId(projectId);
+
+            // Load form data
+            setFormData({
+                title: projectData.title || '',
+                category: projectData.category || '',
+                description: projectData.description || '',
+                price: projectData.price?.toString() || '',
+                originalPrice: projectData.originalPrice?.toString() || '',
+                youtubeVideoUrl: projectData.youtubeVideoUrl || '',
+                githubUrl: projectData.githubUrl || ''
+            });
+
+            // Load tags
+            if (projectData.tags) {
+                const tagsArray = Array.isArray(projectData.tags) 
+                    ? projectData.tags 
+                    : (typeof projectData.tags === 'string' 
+                        ? projectData.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+                        : []);
+                setTags(tagsArray);
+            }
+
+            // Load resource URLs
+            if (projectData.resources) {
+                const resources = projectData.resources;
+                const selected: ResourceType[] = [];
+                const urls: Record<ResourceType, string> = {
+                    ppt: '',
+                    documentation: '',
+                    executionVideo: '',
+                    researchPaper: ''
+                };
+
+                if (resources.pptUrl) {
+                    selected.push('ppt');
+                    urls.ppt = resources.pptUrl;
+                }
+                if (resources.documentationUrl) {
+                    selected.push('documentation');
+                    urls.documentation = resources.documentationUrl;
+                }
+                if (resources.executionVideoUrl) {
+                    selected.push('executionVideo');
+                    urls.executionVideo = resources.executionVideoUrl;
+                }
+                if (resources.researchPaperUrl) {
+                    selected.push('researchPaper');
+                    urls.researchPaper = resources.researchPaperUrl;
+                }
+
+                setSelectedResources(selected);
+                setResourceUrls(urls);
+
+                // Load custom resources
+                if (resources.customResources && Array.isArray(resources.customResources)) {
+                    setCustomResources(resources.customResources.map((r: any, index: number) => ({
+                        id: `custom-${Date.now()}-${index}`,
+                        label: r.label || '',
+                        url: r.url || ''
+                    })));
+                }
+            }
+
+            // Load images
+            if (projectData.images && Array.isArray(projectData.images) && projectData.images.length > 0) {
+                // For existing images, we'll use the URLs directly as previews
+                // Note: We can't convert URLs back to File objects, so we'll just show them as previews
+                setImagePreviews(projectData.images);
+                // Set imageFiles as empty since we can't recreate File objects from URLs
+                setImageFiles([]);
+            }
+
+            // If GitHub URL exists, validate it
+            if (projectData.githubUrl) {
+                setGithubValidated(true);
+                setGithubValidationError(null);
+            }
+
+            // Show upload form
+            setShowUploadForm(true);
+            setSubmitError(null);
+        } catch (error) {
+            console.error('Error loading draft project:', error);
+            setSubmitError('Failed to load draft project. Please try again.');
+        } finally {
+            setIsLoadingProjects(false);
+        }
+    };
+
+    // Handle project status toggle (Active/Disabled)
+    const handleToggleProjectStatus = async (projectId: string, isActive: boolean) => {
+        try {
+            const response = await fetch(ADMIN_APPROVAL_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    projectId: projectId,
+                    adminApprovalStatus: isActive ? 'approved' : 'disabled'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to update project status: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update local state immediately for better UX
+                setUploadedProjects(prevProjects => 
+                    prevProjects.map(p => {
+                        if (p.id === projectId) {
+                            return {
+                                ...p,
+                                status: isActive ? 'Approved' : 'Disabled' as const
+                            };
+                        }
+                        return p;
+                    })
+                );
+                
+                // Refresh projects list to ensure data consistency with backend
+                setTimeout(() => {
+                    fetchProjects();
+                }, 500);
+            } else {
+                const errorMessage = data.error?.message || data.message || 'Failed to update project status';
+                setSubmitError(errorMessage);
+                setTimeout(() => setSubmitError(null), 5000);
+                throw new Error(errorMessage);
+            }
+        } catch (error) {
+            console.error('Error updating project status:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update project status. Please try again.';
+            setSubmitError(errorMessage);
+            setTimeout(() => setSubmitError(null), 5000);
+            throw error; // Re-throw to let the component handle it
+        }
+    };
 
     return (
         <div className="mt-8 space-y-8">
@@ -1084,6 +1418,26 @@ const SellerDashboard: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Error Message (shown when form is closed) */}
+                    {submitError && !showUploadForm && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p className="text-sm text-red-600">{submitError}</p>
+                            </div>
+                            <button
+                                onClick={() => setSubmitError(null)}
+                                className="text-red-600 hover:text-red-800"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
+
                     {isLoadingProjects ? (
                         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
                             <svg className="animate-spin h-12 w-12 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1104,29 +1458,201 @@ const SellerDashboard: React.FC = () => {
                         </div>
                     ) : uploadedProjects.length > 0 ? (
                         <>
-                            {/* Grid View */}
-                            {viewMode === 'grid' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {uploadedProjects.map((project) => (
-                                        <ProjectDashboardCard
-                                            key={project.id}
-                                            name={project.name}
-                                            domain={project.domain}
-                                            description={project.description}
-                                            logo={project.logo}
-                                            tags={project.tags}
-                                            status={project.status}
-                                            sales={project.sales}
-                                            price={project.price}
-                                            category={project.category}
-                                            adminComment={project.adminComment}
-                                            adminAction={project.adminAction}
-                                        />
+                            {/* Status Filter - Improved UI */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                    <label className="text-sm font-semibold text-gray-700">Filter by Status</label>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {/* All Projects Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('all')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'all'
+                                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md hover:from-orange-600 hover:to-orange-700'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                        <span>All</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'all'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {uploadedProjects.length}
+                                        </span>
+                                    </button>
+
+                                    {/* Draft Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('Draft')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'Draft'
+                                                ? 'bg-gray-700 text-white shadow-md hover:bg-gray-800'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span>Drafts</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'Draft'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {stats.draftProjects}
+                                        </span>
+                                    </button>
+
+                                    {/* In Review Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('In Review')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'In Review'
+                                                ? 'bg-orange-500 text-white shadow-md hover:bg-orange-600'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>In Review</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'In Review'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {stats.inReviewProjects}
+                                        </span>
+                                    </button>
+
+                                    {/* Approved Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('Approved')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'Approved'
+                                                ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-green-300 hover:bg-green-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>Approved</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'Approved'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {stats.activatedProjects}
+                                        </span>
+                                    </button>
+
+                                    {/* Rejected Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('Rejected')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'Rejected'
+                                                ? 'bg-red-500 text-white shadow-md hover:bg-red-600'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-red-300 hover:bg-red-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>Rejected</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'Rejected'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {stats.rejectedProjects}
+                                        </span>
+                                    </button>
+
+                                    {/* Disabled Filter */}
+                                    <button
+                                        onClick={() => setStatusFilter('Disabled')}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                                            statusFilter === 'Disabled'
+                                                ? 'bg-gray-500 text-white shadow-md hover:bg-gray-600'
+                                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                        </svg>
+                                        <span>Disabled</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            statusFilter === 'Disabled'
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-600'
+                                        }`}>
+                                            {stats.disabledProjects}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Filtered Projects */}
+                            {(() => {
+                                const filteredProjects = statusFilter === 'all' 
+                                    ? uploadedProjects 
+                                    : uploadedProjects.filter(p => p.status === statusFilter);
+                                
+                                if (filteredProjects.length === 0) {
+                                    return (
+                                        <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
+                                            <p className="text-gray-500 text-lg font-medium">
+                                                No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found.
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                
+                                return (
+                                    <>
+                                        {/* Grid View */}
+                                        {viewMode === 'grid' && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {filteredProjects.map((project) => (
+                                                    <div
+                                                        key={project.id}
+                                                        onClick={() => {
+                                                            if (project.status === 'Draft') {
+                                                                loadDraftProject(project.id);
+                                                            }
+                                                        }}
+                                                        className={project.status === 'Draft' ? 'cursor-pointer' : ''}
+                                                    >
+                                                        <ProjectDashboardCard
+                                                            name={project.name}
+                                                            domain={project.domain}
+                                                            description={project.description}
+                                                            logo={project.logo}
+                                                            tags={project.tags}
+                                                            status={project.status}
+                                                            sales={project.sales}
+                                                            price={project.price}
+                                                            category={project.category}
+                                                            adminComment={project.adminComment}
+                                                            adminAction={project.adminAction}
+                                                            projectId={project.id}
+                                                            onToggleStatus={handleToggleProjectStatus}
+                                                        />
+                                                    </div>
                                     ))}
                                 </div>
                             )}
 
-                            {/* Table View */}
+                                        {/* Table View */}
                             {viewMode === 'table' && (
                                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                                     <div className="overflow-x-auto">
@@ -1151,8 +1677,31 @@ const SellerDashboard: React.FC = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {uploadedProjects.map((project) => (
-                                                    <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                                                {(() => {
+                                                    const filteredProjects = statusFilter === 'all' 
+                                                        ? uploadedProjects 
+                                                        : uploadedProjects.filter(p => p.status === statusFilter);
+                                                    
+                                                    if (filteredProjects.length === 0) {
+                                                        return (
+                                                            <tr>
+                                                                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                                                    No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found.
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+                                                    
+                                                    return filteredProjects.map((project) => (
+                                                        <tr 
+                                                            key={project.id} 
+                                                            className={`hover:bg-gray-50 transition-colors ${project.status === 'Draft' ? 'cursor-pointer' : ''}`}
+                                                            onClick={() => {
+                                                                if (project.status === 'Draft') {
+                                                                    loadDraftProject(project.id);
+                                                                }
+                                                            }}
+                                                        >
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <p className="text-sm font-medium text-gray-900">{project.name}</p>
                                                             <p className="text-sm text-gray-500">{project.category}</p>
@@ -1211,12 +1760,16 @@ const SellerDashboard: React.FC = () => {
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                    ));
+                                                })()}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                             )}
+                                        </>
+                                    );
+                                })()}
                         </>
                     ) : (
                         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
@@ -1234,13 +1787,14 @@ const SellerDashboard: React.FC = () => {
             {showUploadForm && (
                 <form className="space-y-8" onSubmit={handleSubmit}>
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Upload New Project</h2>
+                        <h2 className="text-2xl font-bold text-gray-900">
+                            {editingProjectId ? 'Edit Draft Project' : 'Upload New Project'}
+                        </h2>
                         <button
                             type="button"
                             onClick={() => {
+                                resetForm();
                                 setShowUploadForm(false);
-                                setSubmitError(null);
-                                setSubmitSuccess(false);
                             }}
                             className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                         >
@@ -1260,7 +1814,9 @@ const SellerDashboard: React.FC = () => {
                     {/* Success Message */}
                     {submitSuccess && (
                         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-green-600">Project uploaded successfully! Submitting for review...</p>
+                            <p className="text-sm text-green-600">
+                                {isDraftSave ? 'Draft saved successfully! You can continue editing or submit for review when ready.' : 'Project uploaded successfully! Submitting for review...'}
+                            </p>
                         </div>
                     )}
 
@@ -1706,14 +2262,15 @@ const SellerDashboard: React.FC = () => {
                         </button>
                         <button 
                             type="button" 
-                            disabled={isSubmitting}
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting || !formData.title.trim()}
                             className="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Save as Draft
                         </button>
                         <button 
                             type="submit" 
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !isFormValid}
                             className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[180px] justify-center"
                         >
                             {isSubmitting ? (

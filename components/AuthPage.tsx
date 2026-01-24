@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, FormEvent, ReactNode } from 'react';
+import React, { useState, ChangeEvent, FormEvent, ReactNode, useEffect } from 'react';
 import { useNavigation, useAuth } from '../App';
 import {
   Ripple,
@@ -201,6 +201,11 @@ const AuthPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const isLogin = authMode === 'login';
+
+  // Clear error when switching between login and signup
+  useEffect(() => {
+    setError(null);
+  }, [authMode]);
 
   const handleSignup = async () => {
     setLoading(true);
@@ -481,7 +486,7 @@ const AuthPage: React.FC = () => {
         </button>
 
         <div className='w-full max-w-md flex flex-col items-center px-2 sm:px-0 max-h-full overflow-hidden'>
-          <div className='w-full flex-shrink-0'>
+          <div className='w-full flex-shrink-0' key={authMode}>
             <AuthTabs
               formFields={formFields}
               goTo={isLogin ? goToForgotPassword : toggleAuthMode}

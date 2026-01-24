@@ -302,7 +302,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         <div className="mt-6 flex justify-between">
           <div className="flex bg-orange-50 rounded-lg p-1">
             <ToggleButton
-              text="All"
+              text="Projects"
               active={browseView === 'all' || (!browseView && buyerProjectView === 'all')}
               onClick={() => {
                 if (setBrowseView) {
@@ -322,7 +322,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               }}
             />
             <ToggleButton
-              text="Projects"
+              text="Project Bids"
               active={browseView === 'projects'}
               onClick={() => {
                 if (setBrowseView) {
@@ -334,12 +334,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             />
           </div>
 
-          <input
-            className="border px-4 py-2 rounded-lg"
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          {/* Hide search bar when Projects tab is active (BrowseProjectsContent has its own search bar) */}
+          {browseView !== 'projects' && (
+            <input
+              className="border px-4 py-2 rounded-lg"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          )}
         </div>
       )}
     </div>

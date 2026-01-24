@@ -329,16 +329,16 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     <div>
       {/* Search Bar */}
       <div className="mb-6">
-        <div className="relative">
+        <div className="relative max-w-md">
           <input
             type="text"
             placeholder="Search for freelancers"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-6 py-4 pl-14 border-2 border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-800 dark:text-gray-100 text-lg"
+            className="w-full px-4 py-2.5 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-800 dark:text-gray-100 text-sm transition-all"
           />
           <svg
-            className="absolute left-5 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -589,94 +589,107 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
 
           {paginatedFreelancers.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {paginatedFreelancers.map((freelancer) => (
                   <div
                     key={freelancer.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-300 group"
                   >
-                    <div className="flex items-start gap-4">
+                    {/* Header Section */}
+                    <div className="flex items-start gap-3 mb-4">
                       {/* Profile Image */}
-                      <img
-                        src={freelancer.profileImage}
-                        alt={freelancer.name}
-                        className="w-20 h-20 rounded-full object-cover border-2 border-orange-500"
-                      />
-
-                      {/* Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                            {freelancer.name}
-                          </h3>
-                          {freelancer.isVerified && (
-                            <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={freelancer.profileImage}
+                          alt={freelancer.name}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-orange-200 dark:border-orange-800 group-hover:border-orange-500 dark:group-hover:border-orange-400 transition-colors"
+                        />
+                        {freelancer.isVerified && (
+                          <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">@{freelancer.username}</p>
-
-                        {/* Rating */}
-                        <div className="flex items-center gap-2 mb-3">
-                          {renderStars(freelancer.rating)}
-                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {freelancer.rating}
-                          </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            ({freelancer.reviewsCount} reviews)
-                          </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            • {freelancer.successRate}% Success
-                          </span>
-                        </div>
-
-                        {/* Hourly Rate */}
-                        <div className="mb-3">
-                          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                            ${freelancer.hourlyRate}
-                          </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">/{freelancer.currency}/hr</span>
-                        </div>
-
-                        {/* Location */}
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          {freelancer.location.city}, {freelancer.location.country}
-                        </p>
-
-                        {/* Skills */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {freelancer.skills.slice(0, 4).map((skill) => (
-                            <span
-                              key={skill}
-                              className="px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {freelancer.skills.length > 4 && (
-                            <span className="px-3 py-1 text-gray-500 dark:text-gray-400 text-xs">
-                              +{freelancer.skills.length - 4} more
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3">
-                          <button 
-                            onClick={() => handleInviteToBid(freelancer)}
-                            className="flex-1 px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors duration-200"
-                          >
-                            Invite to Bid
-                          </button>
-                          <button 
-                            onClick={() => handleContact(freelancer)}
-                            className="flex-1 px-4 py-2 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                          >
-                            Contact
-                          </button>
-                        </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Name and Username */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">
+                            {freelancer.name}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">@{freelancer.username}</p>
+                      </div>
+                    </div>
+
+                    {/* Rating and Success Rate */}
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center gap-1">
+                        {renderStars(freelancer.rating)}
+                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 ml-0.5">
+                          {freelancer.rating}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                        {freelancer.reviewsCount} reviews
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                        {freelancer.successRate}% Success
+                      </span>
+                    </div>
+
+                    {/* Hourly Rate */}
+                    <div className="mb-3">
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        ${freelancer.hourlyRate}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">/{freelancer.currency}/hr</span>
+                    </div>
+
+                    {/* Location */}
+                    <div className="flex items-center gap-1.5 mb-3 text-xs text-gray-600 dark:text-gray-400">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="truncate">{freelancer.location.city}, {freelancer.location.country}</span>
+                    </div>
+
+                    {/* Skills */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {freelancer.skills.slice(0, 3).map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-md"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {freelancer.skills.length > 3 && (
+                        <span className="px-2.5 py-1 text-gray-500 dark:text-gray-400 text-xs font-medium">
+                          +{freelancer.skills.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleInviteToBid(freelancer)}
+                        className="flex-1 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        Invite to Bid
+                      </button>
+                      <button 
+                        onClick={() => handleContact(freelancer)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                      >
+                        Contact
+                      </button>
                     </div>
                   </div>
                 ))}

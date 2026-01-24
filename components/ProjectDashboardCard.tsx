@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ProjectDashboardCardProps {
     name: string;
@@ -12,10 +12,21 @@ interface ProjectDashboardCardProps {
     category?: string;
     adminComment?: string;
     adminAction?: string;
+    projectId?: string;
+    onToggleStatus?: (projectId: string, isActive: boolean) => Promise<void>;
 }
 
-const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category, adminComment, adminAction }) => {
-    const [isEnabled, setIsEnabled] = useState(true);
+const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category, adminComment, adminAction, projectId, onToggleStatus }) => {
+    // Determine initial state: Active if status is 'Approved' or 'Live', Disabled otherwise
+    const isInitiallyActive = status === 'Approved' || status === 'Live';
+    const [isEnabled, setIsEnabled] = useState(isInitiallyActive);
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    // Sync toggle state with status prop when it changes
+    useEffect(() => {
+        const shouldBeActive = status === 'Approved' || status === 'Live';
+        setIsEnabled(shouldBeActive);
+    }, [status]);
 
     return (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between h-full transition-all duration-300 shadow-sm hover:shadow-2xl hover:-translate-y-2 group">
@@ -112,25 +123,42 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                     </div>
                 )}
             </div>
-            <div className="mt-6 pt-6 border-t border-gray-100 flex justify-between items-center">
-                <button className="text-sm font-semibold text-gray-700 bg-gray-50 px-5 py-2.5 rounded-xl hover:bg-orange-500 hover:text-white transition-all duration-300 border border-gray-200 hover:border-orange-500">
-                    Documentation
-                </button>
-                <div className="flex items-center gap-3">
-                    <span className={`text-xs font-medium ${isEnabled ? 'text-green-600' : 'text-gray-400'}`}>
-                        {isEnabled ? 'Active' : 'Disabled'}
-                    </span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={isEnabled}
-                            onChange={() => setIsEnabled(!isEnabled)}
-                            className="sr-only peer" 
-                        />
-                        <div className="w-12 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner"></div>
-                    </label>
+            {/* Only show toggle if project was not disabled by admin */}
+            {/* Hide toggle if: admin disabled it (adminAction === 'project_disabled') OR status is Disabled with admin comment */}
+            {adminAction !== 'project_disabled' && !(status === 'Disabled' && adminComment) && (
+                <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end items-center">
+                    <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium ${isEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                            {isEnabled ? 'Active' : 'Disabled'}
+                        </span>
+                        <label className={`relative inline-flex items-center ${isUpdating || !projectId || !onToggleStatus || status === 'Draft' || status === 'In Review' || status === 'Rejected' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                            <input 
+                                type="checkbox" 
+                                checked={isEnabled}
+                                onChange={async () => {
+                                    if (!projectId || !onToggleStatus || isUpdating || status === 'Draft' || status === 'In Review' || status === 'Rejected') {
+                                        return;
+                                    }
+                                    const newState = !isEnabled;
+                                    setIsUpdating(true);
+                                    try {
+                                        await onToggleStatus(projectId, newState);
+                                        setIsEnabled(newState);
+                                    } catch (error) {
+                                        console.error('Failed to update project status:', error);
+                                        // Revert on error
+                                    } finally {
+                                        setIsUpdating(false);
+                                    }
+                                }}
+                                disabled={isUpdating || !projectId || !onToggleStatus || status === 'Draft' || status === 'In Review' || status === 'Rejected'}
+                                className="sr-only peer" 
+                            />
+                            <div className={`w-12 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner ${isUpdating ? 'opacity-50' : ''}`}></div>
+                        </label>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
