@@ -355,15 +355,7 @@ const dailyChallengeData: DailyChallenge = {
   expiresAt: '2026-01-18T23:59:59',
 };
 
-// Study resources
-const studyResources: StudyResource[] = [
-  { id: '1', title: 'Understanding Java Collections', type: 'video', topic: 'Java', duration: '15 min' },
-  { id: '2', title: 'React Hooks Deep Dive', type: 'article', topic: 'React', duration: '10 min' },
-  { id: '3', title: 'SQL Joins Flashcards', type: 'flashcard', topic: 'SQL', duration: '5 min' },
-  { id: '4', title: 'Python Basics Practice', type: 'practice', topic: 'Python', duration: '20 min' },
-  { id: '5', title: 'Data Structures Overview', type: 'video', topic: 'DSA', duration: '25 min' },
-  { id: '6', title: 'System Design Fundamentals', type: 'article', topic: 'System Design', duration: '15 min' },
-];
+
 
 // ============================================
 // QUESTION BANKS
@@ -926,7 +918,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [fullScreenExitCount, setFullScreenExitCount] = useState(0);
   const [showFullScreenWarning, setShowFullScreenWarning] = useState(false);
-  const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
+  const [, setCopyPasteAttempts] = useState(0);
   const [showUnansweredConfirmModal, setShowUnansweredConfirmModal] = useState(false);
 
   // Custom test case input for programming questions
@@ -1630,8 +1622,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setActiveTab('assessment')}
                 className={`px-5 py-2 rounded-lg font-medium transition text-sm ${activeTab === 'assessment'
-                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 Free Mock Assessment
@@ -1639,8 +1631,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setActiveTab('interview')}
                 className={`px-5 py-2 rounded-lg font-medium transition text-sm ${activeTab === 'interview'
-                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 Mock Interview
@@ -1648,8 +1640,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setActiveTab('history')}
                 className={`px-5 py-2 rounded-lg font-medium transition text-sm ${activeTab === 'history'
-                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 History
@@ -1758,8 +1750,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 <div
                   key={badge.id}
                   className={`group flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 ${badge.earned
-                      ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 border-2 border-amber-300 dark:border-amber-600 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30'
-                      : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 grayscale opacity-40 hover:opacity-60'
+                    ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 border-2 border-amber-300 dark:border-amber-600 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30'
+                    : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 grayscale opacity-40 hover:opacity-60'
                     }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                   title={`${badge.name}${badge.earned ? ' ✓' : ' (Locked)'}`}
@@ -1787,8 +1779,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   <button
                     onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
                     className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${showCompanyTests
-                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1799,8 +1791,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   <button
                     onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
                     className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${!showCompanyTests
-                        ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1843,8 +1835,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${selectedCategory === cat
-                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
-                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
+                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
+                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
                         }`}
                     >
                       {cat === 'all' ? 'All' : cat}
@@ -1863,8 +1855,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 key={diff}
                 onClick={() => setSelectedDifficulty(diff)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${selectedDifficulty === diff
-                    ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
               >
                 {diff}
@@ -2025,8 +2017,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <div
                 key={badge.id}
                 className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
-                    ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
-                    : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
+                  ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
+                  : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
                   }`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -2038,8 +2030,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 <div className="relative flex items-start gap-4">
                   {/* Badge Icon */}
                   <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${badge.earned
-                      ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
-                      : 'bg-gray-100 dark:bg-gray-700 grayscale'
+                    ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
+                    : 'bg-gray-100 dark:bg-gray-700 grayscale'
                     }`}>
                     {badge.image ? (
                       <img
@@ -2250,8 +2242,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               </p>
             </div>
             <span className={`px-2 py-0.5 rounded text-xs ${isPassed
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
               }`}>
               {isPassed ? 'Passed' : 'Failed'}
             </span>
@@ -2345,8 +2337,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
             <div className="flex items-center gap-2">
               <span className={`px-2.5 py-1 rounded text-xs ${isPassed
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                 }`}>
                 {isPassed ? 'Passed' : 'Failed'}
               </span>
@@ -2387,8 +2379,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setHistoryViewMode('list')}
                 className={`px-3 py-1.5 rounded text-xs transition ${historyViewMode === 'list'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2398,8 +2390,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setHistoryViewMode('grid')}
                 className={`px-3 py-1.5 rounded text-xs transition ${historyViewMode === 'grid'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2514,8 +2506,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             <button
               onClick={() => setTestMode('timed')}
               className={`p-4 rounded-xl border-2 transition ${testMode === 'timed'
-                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <div className="text-2xl mb-1">⏱️</div>
@@ -2525,8 +2517,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             <button
               onClick={() => setTestMode('practice')}
               className={`p-4 rounded-xl border-2 transition ${testMode === 'practice'
-                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <div className="text-2xl mb-1">📚</div>
@@ -2545,8 +2537,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             <button
               onClick={() => setAntiCheatMode(true)}
               className={`p-4 rounded-xl border-2 transition ${antiCheatMode
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <div className="text-2xl mb-1">🛡️</div>
@@ -2556,8 +2548,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             <button
               onClick={() => setAntiCheatMode(false)}
               className={`p-4 rounded-xl border-2 transition ${!antiCheatMode
-                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <div className="text-2xl mb-1">🔓</div>
@@ -2578,12 +2570,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 key={diff}
                 onClick={() => setSelectedDifficulty(diff)}
                 className={`flex-1 py-3 px-4 rounded-xl border-2 transition capitalize ${selectedDifficulty === diff
-                    ? diff === 'easy'
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
-                      : diff === 'medium'
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
-                        : 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? diff === 'easy'
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                    : diff === 'medium'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                      : 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
               >
                 <div className="text-lg mb-0.5">
@@ -3012,10 +3004,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     key={index}
                     onClick={() => setCurrentQuestionIndex(index)}
                     className={`relative aspect-square rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center ${isActive
-                        ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-500/40'
-                        : isAnswered
-                          ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40'
-                          : 'bg-slate-700/40 text-slate-400 hover:bg-slate-600/60 hover:text-white'
+                      ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-500/40'
+                      : isAnswered
+                        ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-slate-700/40 text-slate-400 hover:bg-slate-600/60 hover:text-white'
                       }`}
                   >
                     {index + 1}
@@ -3079,10 +3071,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               {/* Timer - Only show in timed mode */}
               {testMode === 'timed' && (
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${timeLeft < 300
-                    ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700'
-                    : timeLeft < 600
-                      ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
-                      : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                  ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700'
+                  : timeLeft < 600
+                    ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
                   }`}>
                   <ClockIcon />
                   <span className={`font-mono text-sm ${timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'
@@ -3136,10 +3128,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           key={index}
                           onClick={() => setCurrentQuestionIndex(index)}
                           className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${isActive
-                              ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
-                              : isAnswered
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                            ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
+                            : isAnswered
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
                             }`}
                         >
                           {index + 1}
@@ -3175,10 +3167,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           key={index}
                           onClick={() => setCurrentQuestionIndex(index)}
                           className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${isActive
-                              ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30'
-                              : isAnswered
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                            ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                            : isAnswered
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
                             }`}
                         >
                           {index + 1}
@@ -3222,8 +3214,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     <button
                       onClick={handleFlagQuestion}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm ${flaggedQuestions.has(currentQuestionIndex)
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
                         }`}
                     >
                       <FlagIcon />
@@ -3281,10 +3273,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           {/* Difficulty Badge */}
                           <div className="flex items-center gap-3 mb-4">
                             <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${currentQuestion.difficulty === 'easy'
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : currentQuestion.difficulty === 'medium'
-                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : currentQuestion.difficulty === 'medium'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                               }`}>
                               {currentQuestion.difficulty?.charAt(0).toUpperCase() + currentQuestion.difficulty?.slice(1)}
                             </span>
@@ -3520,8 +3512,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                                   }
                                 }}
                                 className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition ${showHints
-                                    ? 'bg-purple-600 text-white'
-                                    : 'text-purple-400 hover:text-purple-300 hover:bg-purple-900/30'
+                                  ? 'bg-purple-600 text-white'
+                                  : 'text-purple-400 hover:text-purple-300 hover:bg-purple-900/30'
                                   }`}
                                 title="Get hints (may affect score)"
                               >
@@ -3532,8 +3524,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                               </button>
                               {codeTestResults[currentQuestionIndex] && (
                                 <span className={`text-xs font-medium ${codeTestResults[currentQuestionIndex].every(r => r.passed)
-                                    ? 'text-emerald-400'
-                                    : 'text-red-400'
+                                  ? 'text-emerald-400'
+                                  : 'text-red-400'
                                   }`}>
                                   {codeTestResults[currentQuestionIndex].filter(r => r.passed).length}/{codeTestResults[currentQuestionIndex].length} passed
                                 </span>
@@ -3748,14 +3740,14 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                               key={index}
                               onClick={() => handleAnswerSelect(index)}
                               className={`w-full px-4 py-3 rounded-xl text-left transition-all duration-200 flex items-center gap-3 group ${isSelected
-                                  ? 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-300 dark:border-orange-500'
-                                  : 'bg-gray-50 dark:bg-gray-700/50 border border-transparent hover:bg-white dark:hover:bg-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
+                                ? 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-300 dark:border-orange-500'
+                                : 'bg-gray-50 dark:bg-gray-700/50 border border-transparent hover:bg-white dark:hover:bg-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
                                 }`}
                             >
                               <div
                                 className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all duration-200 flex-shrink-0 ${isSelected
-                                    ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
-                                    : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-500 group-hover:border-orange-300 group-hover:text-orange-600 dark:group-hover:border-orange-500 dark:group-hover:text-orange-400'
+                                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
+                                  : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-500 group-hover:border-orange-300 group-hover:text-orange-600 dark:group-hover:border-orange-500 dark:group-hover:text-orange-400'
                                   }`}
                               >
                                 {optionLabel}
@@ -4071,8 +4063,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <button
                 onClick={() => setShowExplanations(!showExplanations)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${showExplanations
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
               >
                 {showExplanations ? 'Hide Explanations' : 'Show Explanations'}
@@ -4114,10 +4106,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                                 <div
                                   key={optIdx}
                                   className={`px-3 py-2 rounded-lg text-xs ${optIdx === (q as Question).correctAnswer
-                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                                      : optIdx === result?.userAnswer && !isCorrect
-                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-700'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                                    : optIdx === result?.userAnswer && !isCorrect
+                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-700'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                     }`}
                                 >
                                   <span className="font-medium">{String.fromCharCode(65 + optIdx)}.</span> {opt}
@@ -4457,8 +4449,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           <div
             key={badge.id}
             className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
-                ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
-                : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
+              ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
+              : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
               }`}
             style={{ animationDelay: `${index * 50}ms` }}
           >
@@ -4468,8 +4460,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
             <div className="relative flex items-start gap-4">
               <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${badge.earned
-                  ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
-                  : 'bg-gray-100 dark:bg-gray-700 grayscale'
+                ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
+                : 'bg-gray-100 dark:bg-gray-700 grayscale'
                 }`}>
                 {badge.image ? (
                   <img

@@ -247,7 +247,7 @@ const PlacementPrepManagementPage: React.FC = () => {
     const [phaseForm, setPhaseForm] = useState<PlacementPhase>(createEmptyPhase());
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
     const [taskForm, setTaskForm] = useState<PhaseTask>(createEmptyTask());
-    const [editingPhaseResourceIndex, setEditingPhaseResourceIndex] = useState<string | null>(null);
+    // const [editingPhaseResourceIndex, setEditingPhaseResourceIndex] = useState<string | null>(null);
     const [editingTaskLinkIndex, setEditingTaskLinkIndex] = useState<number | null>(null);
     const [taskLinkForm, setTaskLinkForm] = useState<PlacementResource>(createEmptyResource());
     const [isAddingTaskLink, setIsAddingTaskLink] = useState(false);
@@ -665,6 +665,7 @@ const PlacementPrepManagementPage: React.FC = () => {
     // ================= PHASE RESOURCE HANDLERS =================
     // Note: Phase resources are automatically synced from topics based on relatedTopics
     // These handlers are kept for future use if direct phase resource management is needed
+    /*
     const handleAddPhaseResource = (phaseId: string) => {
         setEditingPhaseResourceIndex(phaseId);
         setResourceForm(createEmptyResource());
@@ -700,6 +701,7 @@ const PlacementPrepManagementPage: React.FC = () => {
             setPhases(updatedPhases);
         }
     };
+    */
 
     // ================= RENDER =================
     if (loading) {
@@ -749,8 +751,8 @@ const PlacementPrepManagementPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('phases')}
                     className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === 'phases'
-                            ? 'bg-white text-orange-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                         }`}
                 >
                     📅 Phases & Tasks
@@ -758,8 +760,8 @@ const PlacementPrepManagementPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('topics')}
                     className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === 'topics'
-                            ? 'bg-white text-orange-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                         }`}
                 >
                     📚 Topics & Resources
@@ -1448,8 +1450,8 @@ const PlacementPrepManagementPage: React.FC = () => {
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <h3 className="text-lg font-semibold text-gray-900">{topic.title}</h3>
                                                     <span className={`px-2 py-1 rounded text-xs font-medium ${topic.importance === 'Critical' ? 'bg-red-100 text-red-700' :
-                                                            topic.importance === 'Important' ? 'bg-orange-100 text-orange-700' :
-                                                                'bg-blue-100 text-blue-700'
+                                                        topic.importance === 'Important' ? 'bg-orange-100 text-orange-700' :
+                                                            'bg-blue-100 text-blue-700'
                                                         }`}>
                                                         {topic.importance}
                                                     </span>
