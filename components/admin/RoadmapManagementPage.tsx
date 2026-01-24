@@ -22,6 +22,7 @@ interface RoadmapWeek {
     subtopics: string[];
     practicalTasks: string[];
     miniProject: string;
+    roadmap?: string;
     resources?: WeekResource[];
     quiz?: QuizQuestion[];
 }
@@ -30,6 +31,7 @@ interface CategoryRoadmap {
     categoryId: string;
     categoryName: string;
     weeks: RoadmapWeek[];
+    programs?: Record<string, { weeks: RoadmapWeek[] }>;
 }
 
 interface Category {
@@ -42,7 +44,7 @@ interface Category {
 // API CONFIGURATION
 // ============================================
 
-const API_ENDPOINT = ' https://07wee2lkxj.execute-api.ap-south-2.amazonaws.com/default/Roadmaps_get_post_put'; // Replace with your API Gateway URL
+const API_ENDPOINT = 'https://07wee2lkxj.execute-api.ap-south-2.amazonaws.com/default/Roadmaps_get_post_put'; // Replace with your API Gateway URL
 
 // ============================================
 // MAIN COMPONENT
@@ -56,13 +58,14 @@ const RoadmapManagementPage: React.FC = () => {
     const [newCategoryIcon, setNewCategoryIcon] = useState('📚');
     const [_editingCategoryId, _setEditingCategoryId] = useState<string | null>(null);
     const [roadmaps, setRoadmaps] = useState<Record<string, CategoryRoadmap>>({});
-    const [editingWeek, setEditingWeek] = useState<RoadmapWeek | null>(null);
+    const [editingWeeks, setEditingWeeks] = useState<RoadmapWeek[]>([]);
     const [isAddingWeek, setIsAddingWeek] = useState(false);
     const [_loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [autoSaving, setAutoSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [currentEditingDuration, setCurrentEditingDuration] = useState<number | null>(null);
 
     // Load roadmaps and categories from API
     useEffect(() => {
@@ -167,7 +170,7 @@ const RoadmapManagementPage: React.FC = () => {
         }
     };
 
-    const saveRoadmap = async (categoryId: string, autoSave = false) => {
+    const saveRoadmap = async (categoryId: string, autoSave = false, programDuration: number | null = null, weeksToSave: RoadmapWeek[] | null = null) => {
         const roadmap = roadmaps[categoryId];
         if (!roadmap) return;
 
@@ -186,10 +189,19 @@ const RoadmapManagementPage: React.FC = () => {
                 categoryId: roadmap.categoryId,
                 categoryName: roadmap.categoryName || category?.name || '',
                 icon: category?.icon || '📚',
-                weeks: roadmap.weeks,
+                weeks: weeksToSave !== null ? weeksToSave : roadmap.weeks,
+                programDuration: programDuration ? str(programDuration) : null,
             });
 
             if (data.success) {
+                // Update local state with the returned roadmap to ensure sync
+                if (data.roadmap) {
+                    setRoadmaps(prev => ({
+                        ...prev,
+                        [categoryId]: data.roadmap
+                    }));
+                }
+
                 if (!autoSave) {
                     setSuccess('Roadmap saved successfully!');
                     setTimeout(() => setSuccess(null), 3000);
@@ -204,6 +216,9 @@ const RoadmapManagementPage: React.FC = () => {
             setAutoSaving(false);
         }
     };
+
+    // Helper to convert to string since Decimal might be returned
+    const str = (v: any) => String(v);
 
     const saveAllRoadmaps = async () => {
         try {
@@ -232,9 +247,13 @@ const RoadmapManagementPage: React.FC = () => {
                 categoryId: selectedCategory,
                 categoryName: categories.find(c => c.id === selectedCategory)?.name || selectedCategory,
                 weeks: [],
+                programs: {},
             };
         }
-        return roadmaps[selectedCategory];
+        return {
+            ...roadmaps[selectedCategory],
+            programs: roadmaps[selectedCategory].programs || {},
+        };
     };
 
     const handleAddCategory = async () => {
@@ -256,7 +275,7 @@ const RoadmapManagementPage: React.FC = () => {
                 name: newCategoryName.trim(),
                 icon: newCategoryIcon,
             };
-            
+
             // Save empty roadmap to create category
             const data = await apiCall({
                 resource: 'roadmap',
@@ -325,36 +344,58 @@ const RoadmapManagementPage: React.FC = () => {
         }
     };
 
-    const handleAddWeek = () => {
+    const handleEditWeekRange = (upToWeek: number) => {
         const currentRoadmap = getCurrentRoadmap();
-        const newWeek: RoadmapWeek = {
-            weekNumber: currentRoadmap.weeks.length + 1,
-            mainTopics: [],
-            subtopics: [],
-            practicalTasks: [],
-            miniProject: '',
-            resources: [],
-            quiz: [],
-        };
-        setEditingWeek(newWeek);
-        setIsAddingWeek(true);
-    };
+        setCurrentEditingDuration(upToWeek);
 
-    const handleEditWeek = (week: RoadmapWeek) => {
-        setEditingWeek({ ...week });
+        // Try to get weeks from specific program first
+        const programWeeks = currentRoadmap.programs?.[str(upToWeek)]?.weeks;
+
+        const weeks: RoadmapWeek[] = [];
+        for (let i = 1; i <= upToWeek; i++) {
+            // Priority: 1. Program-specific week, 2. Global week (if compatible), 3. Template
+            const existingInProgram = programWeeks?.find(w => w.weekNumber === i);
+            const existingGlobal = currentRoadmap.weeks.find(w => w.weekNumber === i);
+
+            const existing = existingInProgram || existingGlobal;
+
+            if (existing) {
+                weeks.push({ ...existing });
+            } else {
+                weeks.push({
+                    weekNumber: i,
+                    mainTopics: [],
+                    subtopics: [],
+                    practicalTasks: [],
+                    miniProject: '',
+                    roadmap: '',
+                    resources: [],
+                    quiz: [],
+                });
+            }
+        }
+        setEditingWeeks(weeks);
         setIsAddingWeek(false);
     };
 
-    const handleDeleteWeek = async (weekNumber: number) => {
-        if (window.confirm('Are you sure you want to delete this week?')) {
+    const handleAddWeek = () => {
+        const currentRoadmap = getCurrentRoadmap();
+        handleEditWeekRange(currentRoadmap.weeks.length + 1);
+        setIsAddingWeek(true);
+    };
+
+    const handleDeleteWeek = async (duration: number) => {
+        if (window.confirm(`Are you sure you want to delete the ${duration}-week program path?`)) {
             const currentRoadmap = getCurrentRoadmap();
-            const updatedWeeks = currentRoadmap.weeks
-                .filter(w => w.weekNumber !== weekNumber)
-                .map((w, idx) => ({ ...w, weekNumber: idx + 1 }));
-            
+
+            const updatedPrograms = { ...(currentRoadmap.programs || {}) };
+            delete updatedPrograms[str(duration)];
+
             const updatedRoadmap = {
                 ...currentRoadmap,
-                weeks: updatedWeeks,
+                programs: updatedPrograms,
+                // Also update global weeks if this was the 8-week program
+                weeks: duration === 8 ? [] : currentRoadmap.weeks
             };
 
             setRoadmaps({
@@ -362,48 +403,51 @@ const RoadmapManagementPage: React.FC = () => {
                 [selectedCategory]: updatedRoadmap,
             });
 
-            // Auto-save to database
-            await saveRoadmap(selectedCategory, true);
-            setSuccess('Week deleted successfully!');
+            // Auto-save to database (pass duration and empty weeks to indicate which program was cleared)
+            await saveRoadmap(selectedCategory, true, duration, []);
+            setSuccess(`${duration}-week program cleared!`);
             setTimeout(() => setSuccess(null), 2000);
         }
     };
 
-    const handleSaveWeek = async () => {
-        if (!editingWeek) return;
+    const handleSaveWeeks = async () => {
+        if (editingWeeks.length === 0) return;
 
-        // Validate week data
-        if (editingWeek.mainTopics.length === 0) {
-            setError('Please add at least one main topic');
-            return;
-        }
-        if (editingWeek.subtopics.length === 0) {
-            setError('Please add at least one subtopic');
-            return;
-        }
-        if (editingWeek.practicalTasks.length === 0) {
-            setError('Please add at least one practical task');
-            return;
-        }
-        if (!editingWeek.miniProject.trim()) {
-            setError('Please enter a mini project description');
-            return;
+        // Validate all editingWeeks
+        for (const week of editingWeeks) {
+            if (week.mainTopics.length === 0) {
+                setError(`Week ${week.weekNumber}: Please add at least one main topic`);
+                return;
+            }
+            if (week.subtopics.length === 0) {
+                setError(`Week ${week.weekNumber}: Please add at least one subtopic`);
+                return;
+            }
+            if (week.practicalTasks.length === 0) {
+                setError(`Week ${week.weekNumber}: Please add at least one practical task`);
+                return;
+            }
+            if (!week.miniProject.trim()) {
+                setError(`Week ${week.weekNumber}: Please enter a mini project description`);
+                return;
+            }
         }
 
         const currentRoadmap = getCurrentRoadmap();
-        let updatedWeeks: RoadmapWeek[];
 
-        if (isAddingWeek) {
-            updatedWeeks = [...currentRoadmap.weeks, editingWeek];
-        } else {
-            updatedWeeks = currentRoadmap.weeks.map(w =>
-                w.weekNumber === editingWeek.weekNumber ? editingWeek : w
-            );
+        // Update the local programs map
+        const updatedPrograms = { ...(currentRoadmap.programs || {}) };
+        if (currentEditingDuration) {
+            updatedPrograms[str(currentEditingDuration)] = {
+                weeks: [...editingWeeks]
+            };
         }
 
         const updatedRoadmap = {
             ...currentRoadmap,
-            weeks: updatedWeeks.sort((a, b) => a.weekNumber - b.weekNumber),
+            programs: updatedPrograms,
+            // Also update global weeks if this is an 8-week program (for compatibility)
+            weeks: currentEditingDuration === 8 ? [...editingWeeks] : currentRoadmap.weeks
         };
 
         setRoadmaps({
@@ -411,103 +455,122 @@ const RoadmapManagementPage: React.FC = () => {
             [selectedCategory]: updatedRoadmap,
         });
 
-        setEditingWeek(null);
+        // Auto-save to database with program duration and the specific editing content
+        await saveRoadmap(selectedCategory, true, currentEditingDuration, [...editingWeeks]);
+
+        setEditingWeeks([]);
         setIsAddingWeek(false);
-        
-        // Auto-save to database
-        await saveRoadmap(selectedCategory, true);
-        setSuccess('Week saved successfully!');
+        setCurrentEditingDuration(null);
+        setSuccess('Roadmap weeks updated successfully!');
         setTimeout(() => setSuccess(null), 2000);
     };
 
-    const handleAddArrayItem = (field: 'mainTopics' | 'subtopics' | 'practicalTasks', value: string) => {
-        if (!editingWeek || !value.trim()) return;
-        setEditingWeek({
-            ...editingWeek,
-            [field]: [...editingWeek[field], value.trim()],
-        });
+    const handleAddArrayItem = (weekIdx: number, field: 'mainTopics' | 'subtopics' | 'practicalTasks', value: string) => {
+        if (editingWeeks.length === 0 || !value.trim()) return;
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            [field]: [...updated[weekIdx][field], value.trim()],
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleRemoveArrayItem = (field: 'mainTopics' | 'subtopics' | 'practicalTasks', index: number) => {
-        if (!editingWeek) return;
-        setEditingWeek({
-            ...editingWeek,
-            [field]: editingWeek[field].filter((_, i) => i !== index),
-        });
+    const handleRemoveArrayItem = (weekIdx: number, field: 'mainTopics' | 'subtopics' | 'practicalTasks', itemIdx: number) => {
+        if (editingWeeks.length === 0) return;
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            [field]: updated[weekIdx][field].filter((_, i) => i !== itemIdx),
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleAddResource = () => {
-        if (!editingWeek) return;
+    const handleAddResource = (weekIdx: number) => {
+        if (editingWeeks.length === 0) return;
         const newResource: WeekResource = {
             type: 'gfg',
             title: '',
             url: '',
         };
-        setEditingWeek({
-            ...editingWeek,
-            resources: [...(editingWeek.resources || []), newResource],
-        });
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            resources: [...(updated[weekIdx].resources || []), newResource],
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleUpdateResource = (index: number, field: keyof WeekResource, value: string) => {
-        if (!editingWeek || !editingWeek.resources) return;
-        const updated = [...editingWeek.resources];
-        updated[index] = { ...updated[index], [field]: value };
-        setEditingWeek({
-            ...editingWeek,
-            resources: updated,
-        });
+    const handleUpdateResource = (weekIdx: number, resIdx: number, field: keyof WeekResource, value: string) => {
+        if (editingWeeks.length === 0 || !editingWeeks[weekIdx].resources) return;
+        const updated = [...editingWeeks];
+        const updatedResources = [...(updated[weekIdx].resources || [])];
+        updatedResources[resIdx] = { ...updatedResources[resIdx], [field]: value };
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            resources: updatedResources,
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleRemoveResource = (index: number) => {
-        if (!editingWeek || !editingWeek.resources) return;
-        setEditingWeek({
-            ...editingWeek,
-            resources: editingWeek.resources.filter((_, i) => i !== index),
-        });
+    const handleRemoveResource = (weekIdx: number, resIdx: number) => {
+        if (editingWeeks.length === 0 || !editingWeeks[weekIdx].resources) return;
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            resources: (updated[weekIdx].resources || []).filter((_, i) => i !== resIdx),
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleAddQuizQuestion = () => {
-        if (!editingWeek) return;
+    const handleAddQuizQuestion = (weekIdx: number) => {
+        if (editingWeeks.length === 0) return;
         const newQuestion: QuizQuestion = {
             question: '',
             options: ['', '', '', ''],
             correctAnswer: 0,
         };
-        setEditingWeek({
-            ...editingWeek,
-            quiz: [...(editingWeek.quiz || []), newQuestion],
-        });
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            quiz: [...(updated[weekIdx].quiz || []), newQuestion],
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleUpdateQuizQuestion = (index: number, field: keyof QuizQuestion, value: any) => {
-        if (!editingWeek || !editingWeek.quiz) return;
-        const updated = [...editingWeek.quiz];
-        updated[index] = { ...updated[index], [field]: value };
-        setEditingWeek({
-            ...editingWeek,
-            quiz: updated,
-        });
+    const handleUpdateQuizQuestion = (weekIdx: number, qIdx: number, field: keyof QuizQuestion, value: any) => {
+        if (editingWeeks.length === 0 || !editingWeeks[weekIdx].quiz) return;
+        const updated = [...editingWeeks];
+        const updatedQuiz = [...(updated[weekIdx].quiz || [])];
+        updatedQuiz[qIdx] = { ...updatedQuiz[qIdx], [field]: value };
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            quiz: updatedQuiz,
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleUpdateQuizOption = (questionIndex: number, optionIndex: number, value: string) => {
-        if (!editingWeek || !editingWeek.quiz) return;
-        const updated = [...editingWeek.quiz];
-        const newOptions = [...updated[questionIndex].options];
-        newOptions[optionIndex] = value;
-        updated[questionIndex] = { ...updated[questionIndex], options: newOptions };
-        setEditingWeek({
-            ...editingWeek,
-            quiz: updated,
-        });
+    const handleUpdateQuizOption = (weekIdx: number, qIdx: number, optIdx: number, value: string) => {
+        if (editingWeeks.length === 0 || !editingWeeks[weekIdx].quiz) return;
+        const updated = [...editingWeeks];
+        const updatedQuiz = [...(updated[weekIdx].quiz || [])];
+        const newOptions = [...updatedQuiz[qIdx].options];
+        newOptions[optIdx] = value;
+        updatedQuiz[qIdx] = { ...updatedQuiz[qIdx], options: newOptions };
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            quiz: updatedQuiz,
+        };
+        setEditingWeeks(updated);
     };
 
-    const handleRemoveQuizQuestion = (index: number) => {
-        if (!editingWeek || !editingWeek.quiz) return;
-        setEditingWeek({
-            ...editingWeek,
-            quiz: editingWeek.quiz.filter((_, i) => i !== index),
-        });
+    const handleRemoveQuizQuestion = (weekIdx: number, qIdx: number) => {
+        if (editingWeeks.length === 0 || !editingWeeks[weekIdx].quiz) return;
+        const updated = [...editingWeeks];
+        updated[weekIdx] = {
+            ...updated[weekIdx],
+            quiz: (updated[weekIdx].quiz || []).filter((_, i) => i !== qIdx),
+        };
+        setEditingWeeks(updated);
     };
 
     const currentRoadmap = getCurrentRoadmap();
@@ -515,41 +578,41 @@ const RoadmapManagementPage: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between flex-wrap gap-4">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-900">Roadmap Management</h2>
-                                    <p className="text-gray-600 mt-1">Manage learning roadmaps, categories, weeks, and quiz questions</p>
-                                </div>
-                                <div className="flex gap-3">
-                                    {autoSaving && (
-                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                            <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                                            Auto-saving...
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={saveAllRoadmaps}
-                                        disabled={saving || autoSaving}
-                                        className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {saving ? (
-                                            <>
-                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                                Save All Changes
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Roadmap Management</h2>
+                        <p className="text-gray-600 mt-1">Manage learning roadmaps, categories, weeks, and quiz questions</p>
+                    </div>
+                    <div className="flex gap-3">
+                        {autoSaving && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                Auto-saving...
                             </div>
-                        </div>
+                        )}
+                        <button
+                            onClick={saveAllRoadmaps}
+                            disabled={saving || autoSaving}
+                            className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {saving ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Save All Changes
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Alerts */}
             {error && (
@@ -577,7 +640,7 @@ const RoadmapManagementPage: React.FC = () => {
                                 <span>+</span> Add
                             </button>
                         </div>
-                        
+
                         {/* Add Category Form */}
                         {isAddingCategory && (
                             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -624,11 +687,10 @@ const RoadmapManagementPage: React.FC = () => {
                             {categories.map(category => (
                                 <div
                                     key={category.id}
-                                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
-                                        selectedCategory === category.id
-                                            ? 'bg-orange-500 text-white'
-                                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                                    }`}
+                                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${selectedCategory === category.id
+                                        ? 'bg-orange-500 text-white'
+                                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                                        }`}
                                 >
                                     <button
                                         onClick={() => setSelectedCategory(category.id)}
@@ -647,7 +709,7 @@ const RoadmapManagementPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        
+
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-sm text-gray-600">
@@ -667,462 +729,535 @@ const RoadmapManagementPage: React.FC = () => {
 
                 {/* Main Content - Weeks List or Edit Form */}
                 <div className="lg:col-span-3">
-                    {editingWeek ? (
-                        /* Comprehensive Week Form */
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                    {editingWeeks.length > 0 ? (
+                        /* Comprehensive Multi-Week Form - DESIGNER GRADE UI */
+                        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col h-[85vh]">
+                            {/* Premium Header */}
+                            <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-8 py-6 flex items-center justify-between shadow-lg z-10">
                                 <div>
-                                    <h3 className="text-2xl font-bold text-gray-900">
-                                        {isAddingWeek ? '➕ Add New Week' : `✏️ Edit Week ${editingWeek.weekNumber}`}
+                                    <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                                        <span className="bg-orange-500 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                            </svg>
+                                        </span>
+                                        Roadmap Architecture: Weeks 1 - {editingWeeks.length}
                                     </h3>
-                                    <p className="text-sm text-gray-500 mt-1">Fill in all the details for this week</p>
+                                    <p className="text-gray-400 text-sm mt-1 font-medium italic opacity-80">Orchestrating a cumulative learning journey</p>
                                 </div>
                                 <button
                                     onClick={() => {
-                                        setEditingWeek(null);
+                                        setEditingWeeks([]);
                                         setIsAddingWeek(false);
                                     }}
-                                    className="px-4 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-3 text-gray-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all duration-300"
                                 >
-                                    ✕ Close
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
                             </div>
 
-                            <div className="space-y-8 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
-                                {/* Main Topics */}
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Main Topics *
-                                    </label>
+                            <div className="flex-1 flex overflow-hidden">
+                                {/* Sticky Sidebar Navigator */}
+                                <div className="w-64 bg-gray-50 border-r border-gray-100 p-6 overflow-y-auto hidden md:block">
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6 px-2">Journey Navigator</h4>
                                     <div className="space-y-2">
-                                        {editingWeek.mainTopics.map((topic, idx) => (
-                                            <div key={idx} className="flex items-center gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={topic}
-                                                    onChange={(e) => {
-                                                        const updated = [...editingWeek.mainTopics];
-                                                        updated[idx] = e.target.value;
-                                                        setEditingWeek({ ...editingWeek, mainTopics: updated });
-                                                    }}
-                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                                                />
-                                                <button
-                                                    onClick={() => handleRemoveArrayItem('mainTopics', idx)}
-                                                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Add main topic..."
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        handleAddArrayItem('mainTopics', e.currentTarget.value);
-                                                        e.currentTarget.value = '';
-                                                    }
-                                                }}
-                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                                    if (input) {
-                                                        handleAddArrayItem('mainTopics', input.value);
-                                                        input.value = '';
-                                                    }
-                                                }}
-                                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                        {editingWeeks.map((_, idx) => (
+                                            <a
+                                                key={idx}
+                                                href={`#week-section-${idx}`}
+                                                className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all duration-300 border border-transparent hover:border-gray-100"
                                             >
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Subtopics */}
-                                <div className="bg-green-50 border border-green-200 rounded-xl p-5">
-                                    <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                        <span>📋</span> Subtopics *
-                                    </label>
-                                    <div className="flex flex-wrap gap-2 mb-3">
-                                        {editingWeek.subtopics.map((subtopic, idx) => (
-                                            <div key={idx} className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full border border-green-300">
-                                                <input
-                                                    type="text"
-                                                    value={subtopic}
-                                                    onChange={(e) => {
-                                                        const updated = [...editingWeek.subtopics];
-                                                        updated[idx] = e.target.value;
-                                                        setEditingWeek({ ...editingWeek, subtopics: updated });
-                                                    }}
-                                                    className="text-sm outline-none bg-transparent min-w-[150px]"
-                                                    placeholder="Subtopic..."
-                                                />
-                                                <button
-                                                    onClick={() => handleRemoveArrayItem('subtopics', idx)}
-                                                    className="text-red-500 hover:text-red-700 text-sm font-bold ml-1"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
+                                                <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-400 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-all">
+                                                    {idx + 1}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-gray-700">Week {idx + 1}</span>
+                                                    <span className="text-[10px] text-gray-400">Configure content</span>
+                                                </div>
+                                            </a>
                                         ))}
                                     </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="➕ Add subtopic (Press Enter or click Add)"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleAddArrayItem('subtopics', e.currentTarget.value);
-                                                    e.currentTarget.value = '';
-                                                }
-                                            }}
-                                            className="flex-1 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none bg-white"
-                                        />
-                                        <button
-                                            onClick={(e) => {
-                                                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                                if (input && input.value.trim()) {
-                                                    handleAddArrayItem('subtopics', input.value);
-                                                    input.value = '';
-                                                    input.focus();
-                                                }
-                                            }}
-                                            className="px-5 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium shadow-sm"
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
                                 </div>
 
-                                {/* Practical Tasks */}
-                                <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
-                                    <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                        <span>✅</span> Practical Tasks *
-                                    </label>
-                                    <div className="space-y-3">
-                                        {editingWeek.practicalTasks.map((task, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 bg-white rounded-lg p-2">
-                                                <span className="text-sm text-gray-500 w-8">{idx + 1}.</span>
-                                                <input
-                                                    type="text"
-                                                    value={task}
-                                                    onChange={(e) => {
-                                                        const updated = [...editingWeek.practicalTasks];
-                                                        updated[idx] = e.target.value;
-                                                        setEditingWeek({ ...editingWeek, practicalTasks: updated });
-                                                    }}
-                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
-                                                    placeholder="Enter practical task..."
-                                                />
-                                                <button
-                                                    onClick={() => handleRemoveArrayItem('practicalTasks', idx)}
-                                                    className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="➕ Add new practical task (Press Enter or click Add)"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        handleAddArrayItem('practicalTasks', e.currentTarget.value);
-                                                        e.currentTarget.value = '';
-                                                    }
-                                                }}
-                                                className="flex-1 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white"
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                                    if (input && input.value.trim()) {
-                                                        handleAddArrayItem('practicalTasks', input.value);
-                                                        input.value = '';
-                                                        input.focus();
-                                                    }
-                                                }}
-                                                className="px-5 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium shadow-sm"
-                                            >
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* Scrollable Content */}
+                                <div className="flex-1 overflow-y-auto bg-white p-8 space-y-20 scroll-smooth custom-scrollbar">
+                                    {editingWeeks.map((editingWeek, weekIdx) => (
+                                        <section key={weekIdx} id={`#week-section-${weekIdx}`} className="relative">
+                                            {/* Decorative Connector Line */}
+                                            {weekIdx < editingWeeks.length - 1 && (
+                                                <div className="absolute left-[2.25rem] top-12 bottom-[-5rem] w-0.5 bg-gradient-to-b from-orange-200 to-transparent z-0 opacity-50"></div>
+                                            )}
 
-                                {/* Mini Project */}
-                                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
-                                    <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                        <span>🚀</span> Mini Project *
-                                    </label>
-                                    <textarea
-                                        value={editingWeek.miniProject}
-                                        onChange={(e) => setEditingWeek({ ...editingWeek, miniProject: e.target.value })}
-                                        rows={4}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none bg-white resize-none"
-                                        placeholder="Describe the mini project for this week in detail..."
-                                    />
-                                    <p className="text-xs text-gray-500 mt-2">Provide a clear description of what students will build this week</p>
-                                </div>
-
-                                {/* Resources */}
-                                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <label className="block text-base font-bold text-gray-900 flex items-center gap-2">
-                                            <span>🔗</span> Learning Resources
-                                        </label>
-                                        <button
-                                            onClick={handleAddResource}
-                                            className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors shadow-sm flex items-center gap-2"
-                                        >
-                                            <span>+</span> Add Resource
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {(editingWeek.resources || []).map((resource, idx) => (
-                                            <div key={idx} className="p-4 bg-white border-2 border-indigo-200 rounded-lg hover:border-indigo-400 transition-colors">
-                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                                    <div className="md:col-span-2">
-                                                        <label className="text-xs text-gray-600 mb-1 block">Type</label>
-                                                        <select
-                                                            value={resource.type}
-                                                            onChange={(e) => handleUpdateResource(idx, 'type', e.target.value)}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-                                                        >
-                                                            <option value="gfg">📖 GeeksforGeeks</option>
-                                                            <option value="youtube">▶️ YouTube</option>
-                                                            <option value="documentation">📘 Documentation</option>
-                                                            <option value="practice">💪 Practice</option>
-                                                            <option value="article">📄 Article</option>
-                                                        </select>
+                                            <div className="flex gap-8 relative z-10 transition-all duration-500 hover:translate-x-1">
+                                                {/* Week Indicator Circle */}
+                                                <div className="flex-shrink-0 mt-2">
+                                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black shadow-lg shadow-orange-500/20 text-lg">
+                                                        {weekIdx + 1}
                                                     </div>
-                                                    <div className="md:col-span-4">
-                                                        <label className="text-xs text-gray-600 mb-1 block">Title</label>
-                                                        <input
-                                                            type="text"
-                                                            value={resource.title}
-                                                            onChange={(e) => handleUpdateResource(idx, 'title', e.target.value)}
-                                                            placeholder="Resource title..."
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-                                                        />
+                                                </div>
+
+                                                <div className="flex-1 space-y-12 pb-12">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <h4 className="text-2xl font-black text-gray-900 tracking-tight italic">WEEK {weekIdx + 1} MODULE</h4>
+                                                            <p className="text-gray-400 text-sm font-medium">Define the core curriculum for this stage</p>
+                                                        </div>
+                                                        <span className="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">Stage {weekIdx + 1}</span>
                                                     </div>
-                                                    <div className="md:col-span-5">
-                                                        <label className="text-xs text-gray-600 mb-1 block">URL</label>
+                                                    {/* Main Topics */}
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                            Main Topics *
+                                                        </label>
+                                                        <div className="space-y-2">
+                                                            {editingWeek.mainTopics.map((topic, idx) => (
+                                                                <div key={idx} className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={topic}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...editingWeeks];
+                                                                            const updatedTopics = [...updated[weekIdx].mainTopics];
+                                                                            updatedTopics[idx] = e.target.value;
+                                                                            updated[weekIdx] = { ...updated[weekIdx], mainTopics: updatedTopics };
+                                                                            setEditingWeeks(updated);
+                                                                        }}
+                                                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleRemoveArrayItem(weekIdx, 'mainTopics', idx)}
+                                                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                                                    >
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Add main topic..."
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            handleAddArrayItem(weekIdx, 'mainTopics', e.currentTarget.value);
+                                                                            e.currentTarget.value = '';
+                                                                        }
+                                                                    }}
+                                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                                                />
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                                        if (input) {
+                                                                            handleAddArrayItem(weekIdx, 'mainTopics', input.value);
+                                                                            input.value = '';
+                                                                        }
+                                                                    }}
+                                                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                                                >
+                                                                    Add
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Subtopics */}
+                                                    <div className="bg-green-50/50 border border-green-200 rounded-xl p-5">
+                                                        <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                                            <span>📋</span> Subtopics *
+                                                        </label>
+                                                        <div className="flex flex-wrap gap-2 mb-3">
+                                                            {editingWeek.subtopics.map((subtopic, idx) => (
+                                                                <div key={idx} className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full border border-green-300">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={subtopic}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...editingWeeks];
+                                                                            const updatedSub = [...updated[weekIdx].subtopics];
+                                                                            updatedSub[idx] = e.target.value;
+                                                                            updated[weekIdx] = { ...updated[weekIdx], subtopics: updatedSub };
+                                                                            setEditingWeeks(updated);
+                                                                        }}
+                                                                        className="text-sm outline-none bg-transparent min-w-[150px]"
+                                                                        placeholder="Subtopic..."
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleRemoveArrayItem(weekIdx, 'subtopics', idx)}
+                                                                        className="text-red-500 hover:text-red-700 text-sm font-bold ml-1"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                         <div className="flex gap-2">
                                                             <input
-                                                                type="url"
-                                                                value={resource.url}
-                                                                onChange={(e) => handleUpdateResource(idx, 'url', e.target.value)}
-                                                                placeholder="https://..."
-                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                                                type="text"
+                                                                placeholder="➕ Add subtopic"
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        handleAddArrayItem(weekIdx, 'subtopics', e.currentTarget.value);
+                                                                        e.currentTarget.value = '';
+                                                                    }
+                                                                }}
+                                                                className="flex-1 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
                                                             />
                                                             <button
-                                                                onClick={() => handleRemoveResource(idx)}
-                                                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
-                                                                title="Remove resource"
+                                                                onClick={(e) => {
+                                                                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                                    if (input && input.value.trim()) {
+                                                                        handleAddArrayItem(weekIdx, 'subtopics', input.value);
+                                                                        input.value = '';
+                                                                    }
+                                                                }}
+                                                                className="px-5 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
                                                             >
-                                                                ✕
+                                                                Add
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    <div className="md:col-span-1"></div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {(!editingWeek.resources || editingWeek.resources.length === 0) && (
-                                            <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg bg-white">
-                                                No resources added. Click "Add Resource" to add learning materials.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {/* Quiz Questions */}
-                                <div className="bg-pink-50 border border-pink-200 rounded-xl p-5">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <label className="block text-base font-bold text-gray-900 flex items-center gap-2">
-                                            <span>❓</span> Quiz Questions (Optional)
-                                        </label>
-                                        <button
-                                            onClick={handleAddQuizQuestion}
-                                            className="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600 transition-colors shadow-sm flex items-center gap-2"
-                                        >
-                                            <span>+</span> Add Question
-                                        </button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {(editingWeek.quiz || []).map((question, qIdx) => (
-                                            <div key={qIdx} className="p-5 bg-white border-2 border-pink-200 rounded-xl hover:border-pink-400 transition-colors">
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-bold">
-                                                            Q{qIdx + 1}
-                                                        </span>
-                                                        <span className="text-sm text-gray-500">Question {qIdx + 1}</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleRemoveQuizQuestion(qIdx)}
-                                                        className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors font-medium"
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                                <div className="mb-4">
-                                                    <label className="text-xs text-gray-600 mb-1 block font-semibold">Question Text *</label>
-                                                    <textarea
-                                                        value={question.question}
-                                                        onChange={(e) => handleUpdateQuizQuestion(qIdx, 'question', e.target.value)}
-                                                        placeholder="Enter the question text..."
-                                                        rows={2}
-                                                        className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none resize-none"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs text-gray-600 mb-2 block font-semibold">Options (Select correct answer) *</label>
-                                                    <div className="space-y-2">
-                                                        {question.options.map((option, optIdx) => (
-                                                            <div key={optIdx} className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                                                                question.correctAnswer === optIdx
-                                                                    ? 'bg-green-50 border-green-400 shadow-sm'
-                                                                    : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                                                            }`}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={`correct-${qIdx}`}
-                                                                    checked={question.correctAnswer === optIdx}
-                                                                    onChange={() => handleUpdateQuizQuestion(qIdx, 'correctAnswer', optIdx)}
-                                                                    className="w-5 h-5 text-pink-600 cursor-pointer"
-                                                                />
+                                                    {/* Practical Tasks */}
+                                                    <div className="bg-purple-50/50 border border-purple-200 rounded-xl p-5">
+                                                        <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                                            <span>✅</span> Practical Tasks *
+                                                        </label>
+                                                        <div className="space-y-3">
+                                                            {editingWeek.practicalTasks.map((task, idx) => (
+                                                                <div key={idx} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-gray-200">
+                                                                    <span className="text-sm text-gray-500 w-8">{idx + 1}.</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={task}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...editingWeeks];
+                                                                            const updatedTasks = [...updated[weekIdx].practicalTasks];
+                                                                            updatedTasks[idx] = e.target.value;
+                                                                            updated[weekIdx] = { ...updated[weekIdx], practicalTasks: updatedTasks };
+                                                                            setEditingWeeks(updated);
+                                                                        }}
+                                                                        className="flex-1 px-3 py-2 border-none outline-none bg-transparent"
+                                                                        placeholder="Enter practical task..."
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleRemoveArrayItem(weekIdx, 'practicalTasks', idx)}
+                                                                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <div className="flex gap-2">
                                                                 <input
                                                                     type="text"
-                                                                    value={option}
-                                                                    onChange={(e) => handleUpdateQuizOption(qIdx, optIdx, e.target.value)}
-                                                                    placeholder={`Option ${optIdx + 1}...`}
-                                                                    className={`flex-1 px-3 py-2 border rounded-lg outline-none ${
-                                                                        question.correctAnswer === optIdx
-                                                                            ? 'border-green-400 bg-white focus:ring-2 focus:ring-green-500'
-                                                                            : 'border-gray-300 bg-white focus:ring-2 focus:ring-pink-500'
-                                                                    }`}
+                                                                    placeholder="➕ Add new practical task"
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            handleAddArrayItem(weekIdx, 'practicalTasks', e.currentTarget.value);
+                                                                            e.currentTarget.value = '';
+                                                                        }
+                                                                    }}
+                                                                    className="flex-1 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white"
                                                                 />
-                                                                {question.correctAnswer === optIdx && (
-                                                                    <span className="px-2 py-1 bg-green-500 text-white rounded text-xs font-bold flex items-center gap-1">
-                                                                        <span>✓</span> Correct
-                                                                    </span>
-                                                                )}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                                        if (input && input.value.trim()) {
+                                                                            handleAddArrayItem(weekIdx, 'practicalTasks', input.value);
+                                                                            input.value = '';
+                                                                        }
+                                                                    }}
+                                                                    className="px-5 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium border border-purple-200 pl-2"
+                                                                >
+                                                                    Add
+                                                                </button>
                                                             </div>
-                                                        ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        {/* Mini Project */}
+                                                        <div className="bg-yellow-50/50 border border-yellow-200 rounded-xl p-5">
+                                                            <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                                                <span>🚀</span> Mini Project *
+                                                            </label>
+                                                            <textarea
+                                                                value={editingWeek.miniProject}
+                                                                onChange={(e) => {
+                                                                    const updated = [...editingWeeks];
+                                                                    updated[weekIdx] = { ...updated[weekIdx], miniProject: e.target.value };
+                                                                    setEditingWeeks(updated);
+                                                                }}
+                                                                rows={3}
+                                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none bg-white resize-none"
+                                                                placeholder="Describe the mini project..."
+                                                            />
+                                                        </div>
+
+                                                        {/* Week Roadmap */}
+                                                        <div className="bg-orange-50/50 border border-orange-200 rounded-xl p-5">
+                                                            <label className="block text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                                                <span>🗺️</span> Week Roadmap *
+                                                            </label>
+                                                            <textarea
+                                                                value={editingWeek.roadmap || ''}
+                                                                onChange={(e) => {
+                                                                    const updated = [...editingWeeks];
+                                                                    updated[weekIdx] = { ...updated[weekIdx], roadmap: e.target.value };
+                                                                    setEditingWeeks(updated);
+                                                                }}
+                                                                rows={3}
+                                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white resize-none"
+                                                                placeholder="Enter detailed roadmap explanation..."
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Resources */}
+                                                    <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-5">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <label className="block text-base font-bold text-gray-900 flex items-center gap-2">
+                                                                <span>🔗</span> Learning Resources
+                                                            </label>
+                                                            <button
+                                                                onClick={() => handleAddResource(weekIdx)}
+                                                                className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors shadow-sm"
+                                                            >
+                                                                + Add Resource
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            {(editingWeek.resources || []).map((resource, resIdx) => (
+                                                                <div key={resIdx} className="p-4 bg-white border border-gray-200 rounded-lg">
+                                                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                                                        <div className="md:col-span-3">
+                                                                            <select
+                                                                                value={resource.type}
+                                                                                onChange={(e) => handleUpdateResource(weekIdx, resIdx, 'type', e.target.value)}
+                                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                                                                            >
+                                                                                <option value="gfg">📖 GeeksforGeeks</option>
+                                                                                <option value="youtube">▶️ YouTube</option>
+                                                                                <option value="documentation">📘 Documentation</option>
+                                                                                <option value="practice">💪 Practice</option>
+                                                                                <option value="article">📄 Article</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div className="md:col-span-4">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={resource.title}
+                                                                                onChange={(e) => handleUpdateResource(weekIdx, resIdx, 'title', e.target.value)}
+                                                                                placeholder="Resource title..."
+                                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="md:col-span-5 flex gap-2">
+                                                                            <input
+                                                                                type="url"
+                                                                                value={resource.url}
+                                                                                onChange={(e) => handleUpdateResource(weekIdx, resIdx, 'url', e.target.value)}
+                                                                                placeholder="https://..."
+                                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => handleRemoveResource(weekIdx, resIdx)}
+                                                                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                                                            >
+                                                                                ✕
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Quiz */}
+                                                    <div className="bg-pink-50/50 border border-pink-200 rounded-xl p-5">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <label className="block text-base font-bold text-gray-900 flex items-center gap-2">
+                                                                <span>❓</span> Quiz Questions
+                                                            </label>
+                                                            <button
+                                                                onClick={() => handleAddQuizQuestion(weekIdx)}
+                                                                className="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600"
+                                                            >
+                                                                + Add Question
+                                                            </button>
+                                                        </div>
+                                                        <div className="space-y-4">
+                                                            {(editingWeek.quiz || []).map((question, qIdx) => (
+                                                                <div key={qIdx} className="p-5 bg-white border border-gray-200 rounded-xl">
+                                                                    <div className="flex items-start justify-between mb-4">
+                                                                        <span className="font-bold text-gray-900">Q{qIdx + 1}</span>
+                                                                        <button
+                                                                            onClick={() => handleRemoveQuizQuestion(weekIdx, qIdx)}
+                                                                            className="text-red-500 text-xs font-bold hover:underline"
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
+                                                                    <textarea
+                                                                        value={question.question}
+                                                                        onChange={(e) => handleUpdateQuizQuestion(weekIdx, qIdx, 'question', e.target.value)}
+                                                                        placeholder="Enter question text..."
+                                                                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg mb-4 text-sm"
+                                                                    />
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                        {question.options.map((option, optIdx) => (
+                                                                            <div key={optIdx} className="flex items-center gap-2">
+                                                                                <input
+                                                                                    type="radio"
+                                                                                    name={`correct-${weekIdx}-${qIdx}`}
+                                                                                    checked={question.correctAnswer === optIdx}
+                                                                                    onChange={() => handleUpdateQuizQuestion(weekIdx, qIdx, 'correctAnswer', optIdx)}
+                                                                                />
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={option}
+                                                                                    onChange={(e) => handleUpdateQuizOption(weekIdx, qIdx, optIdx, e.target.value)}
+                                                                                    placeholder={`Option ${optIdx + 1}`}
+                                                                                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                        {(!editingWeek.quiz || editingWeek.quiz.length === 0) && (
-                                            <div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg bg-white">
-                                                <p className="mb-2">No quiz questions added yet.</p>
-                                                <p>Click "Add Question" to create quiz questions for this week.</p>
-                                            </div>
-                                        )}
-                                    </div>
+                                        </section>
+                                    ))}
                                 </div>
+                            </div>
 
-                                {/* Save Button */}
-                                <div className="flex gap-4 pt-6 border-t-2 border-gray-300 sticky bottom-0 bg-white pb-2">
-                                    <button
-                                        onClick={handleSaveWeek}
-                                        className="flex-1 px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-bold text-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Save Week & Continue
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setEditingWeek(null);
-                                            setIsAddingWeek(false);
-                                        }}
-                                        className="px-8 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
+                            {/* Global Save Button */}
+                            <div className="flex gap-4 pt-8 mt-6 border-t-2 border-gray-100 sticky bottom-0 bg-white shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] pb-2 rounded-b-xl px-4">
+                                <button
+                                    onClick={handleSaveWeeks}
+                                    className="flex-1 px-8 py-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl font-black text-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 uppercase tracking-widest transform hover:-translate-y-1 active:scale-95"
+                                >
+                                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Apply All Roadmap Changes
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setEditingWeeks([]);
+                                        setIsAddingWeek(false);
+                                    }}
+                                    className="px-10 py-5 bg-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-200 transition-all border-2 border-gray-200"
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     ) : (
                         /* Weeks List */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-4">
-                                {currentRoadmap.categoryName} - Roadmap Weeks
-                            </h3>
-                            {currentRoadmap.weeks.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <p className="text-gray-500 mb-4">No weeks added yet.</p>
-                                    <button
-                                        onClick={handleAddWeek}
-                                        className="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600"
-                                    >
-                                        Add First Week
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {currentRoadmap.weeks.map((week) => (
-                                        <div key={week.weekNumber} className="border border-gray-200 rounded-lg p-4">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                                                        Week {week.weekNumber}
-                                                    </h4>
-                                                    <div className="space-y-2 text-sm">
-                                                        <div>
-                                                            <span className="font-semibold">Main Topics:</span>{' '}
-                                                            {week.mainTopics.join(', ')}
-                                                        </div>
-                                                        <div>
-                                                            <span className="font-semibold">Mini Project:</span>{' '}
-                                                            {week.miniProject}
-                                                        </div>
-                                                        {week.resources && week.resources.length > 0 && (
-                                                            <div>
-                                                                <span className="font-semibold">Resources:</span>{' '}
-                                                                {week.resources.length} resource(s)
-                                                            </div>
-                                                        )}
-                                                        {week.quiz && week.quiz.length > 0 && (
-                                                            <div>
-                                                                <span className="font-semibold">Quiz Questions:</span>{' '}
-                                                                {week.quiz.length} question(s)
-                                                            </div>
-                                                        )}
-                                                    </div>
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-bold text-gray-900">
+                                    {currentRoadmap.categoryName} - Unified Curriculum Map
+                                </h3>
+                                <p className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full font-medium">
+                                    Independent Duration Paths
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => {
+                                    // A card for 'Week N' represents the N-week program path
+                                    let programWeeks = currentRoadmap.programs?.[str(weekNum)]?.weeks || [];
+
+                                    // Fallback: For 8-week, also check legacy global weeks if programs slot is empty
+                                    if (programWeeks.length === 0 && weekNum === 8) {
+                                        programWeeks = currentRoadmap.weeks || [];
+                                    }
+
+                                    const hasData = programWeeks.length > 0;
+                                    // Display the last week of the program as the representative 'target'
+                                    const weekDisplay = programWeeks[programWeeks.length - 1];
+
+                                    return (
+                                        <div
+                                            key={weekNum}
+                                            className={`relative flex flex-col p-5 rounded-2xl border-2 transition-all duration-300 ${hasData
+                                                ? 'bg-white border-orange-200 shadow-md hover:shadow-lg'
+                                                : 'bg-gray-50 border-gray-200 border-dashed hover:border-blue-200'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${hasData ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'
+                                                    }`}>
+                                                    {weekNum}
                                                 </div>
-                                                <div className="flex gap-2 ml-4">
-                                                    <button
-                                                        onClick={() => handleEditWeek(week)}
-                                                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-colors shadow-sm hover:shadow-md"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteWeek(week.weekNumber)}
-                                                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition-colors shadow-sm hover:shadow-md"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
+                                                {hasData && (
+                                                    <span className="flex h-2 w-2 relative">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                    </span>
+                                                )}
                                             </div>
+
+                                            <h4 className="font-bold text-gray-900 mb-2 truncate" title={`${weekNum}-Week Program Path`}>
+                                                {weekNum}-Week Journey
+                                            </h4>
+
+                                            {hasData ? (
+                                                <>
+                                                    <div className="flex-1 space-y-2 mb-4">
+                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Program Overview:</p>
+                                                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                                                            <span className="font-semibold text-gray-800">📜 Topics:</span> {
+                                                                Array.from(new Set(
+                                                                    programWeeks.flatMap(w => w.mainTopics || [])
+                                                                )).join(', ') || 'No topics set.'
+                                                            }
+                                                        </p>
+                                                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed italic border-l-2 border-orange-200 pl-2">
+                                                            <span className="font-semibold text-gray-800">🎯 Final Target:</span> {weekDisplay?.roadmap || 'No target set.'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="mt-auto flex gap-2 pt-4 border-t border-gray-100">
+                                                        <button
+                                                            onClick={() => handleEditWeekRange(weekNum)}
+                                                            className="flex-1 text-xs font-bold py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteWeek(weekNum)}
+                                                            className="px-3 py-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                                                            title="Clear week data"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="flex-1 flex flex-col justify-center items-center py-6 text-center">
+                                                    <p className="text-xs text-gray-400 mb-4 px-2">No roadmap content configured for this week yet.</p>
+                                                    <button
+                                                        onClick={() => handleEditWeekRange(weekNum)}
+                                                        className="w-full py-2.5 bg-white border-2 border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:border-orange-400 hover:text-orange-500 transition-all shadow-sm"
+                                                    >
+                                                        + Add Roadmap
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1132,4 +1267,3 @@ const RoadmapManagementPage: React.FC = () => {
 };
 
 export default RoadmapManagementPage;
-

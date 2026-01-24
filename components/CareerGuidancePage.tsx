@@ -47,6 +47,7 @@ interface WeekContent {
     subtopics: string[];
     practicalTasks: string[];
     miniProject: string;
+    roadmap?: string;
     resources?: WeekResource[];
     quiz?: QuizQuestion[];
     isCompleted: boolean;
@@ -681,10 +682,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 }) => {
     // API keys no longer needed - using static data
 
-    // Step 1: Category Selection and Duration Input
+    // Step 1: Category Selection (Duration fixed at 8 weeks)
     const [selectedCategory, setSelectedCategory] = useState<string>('');
-    const [duration, setDuration] = useState<number>(8);
-    const [currentLevel, setCurrentLevel] = useState<'Beginner' | 'Intermediate' | 'Advanced'>('Beginner');
     const [categories, setCategories] = useState<Array<{ id: string; name: string; icon: string }>>([]);
     const [_loadingCategories, setLoadingCategories] = useState(true);
 
@@ -763,21 +762,19 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
             setRoadmapError('Please select a category');
             return;
         }
-        if (duration < 4 || duration > 24) {
-            setRoadmapError('Duration must be between 4 and 24 weeks');
-            return;
-        }
+        // Always use 8 weeks (fixed program duration)
+        const fixedDuration = 8;
 
         const categoryName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
         const analysis: CareerAnalysis = {
             careerGoal: categoryName,
-            currentLevel: currentLevel,
+            currentLevel: 'Beginner', // Default, not exposed to user
             timeCommitment: 10,
             preferredTechStack: [],
         };
         setCareerAnalysis(analysis);
         setRoadmapStep('roadmap');
-        generateRoadmap(analysis, duration);
+        generateRoadmap(analysis, fixedDuration);
     };
 
     // Generate static roadmap based on career goal and duration
@@ -798,27 +795,21 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         resource: 'roadmap',
                         action: 'get',
                         categoryId: categoryId,
+                        duration: String(totalWeeks),
                     }),
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success && data.roadmap) {
-                        // If roadmap has weeks, use them (limit to requested duration)
                         if (data.roadmap.weeks && data.roadmap.weeks.length > 0) {
-                            // Preserve weekNumber from API, but ensure it's a number
-                            const weeksToUse = data.roadmap.weeks.slice(0, totalWeeks).map((w: any, idx: number) => ({
+                            // Use the weeks exactly as they come from the duration-specific API
+                            const weeksToUse = data.roadmap.weeks.map((w: any) => ({
                                 ...w,
-                                weekNumber: typeof w.weekNumber === 'number' ? w.weekNumber : (idx + 1),
-                                mainTopics: w.mainTopics || [],
-                                subtopics: w.subtopics || [],
-                                practicalTasks: w.practicalTasks || [],
-                                miniProject: w.miniProject || '',
-                                resources: w.resources || [],
-                                quiz: w.quiz || [],
                                 isCompleted: false,
                                 quizCompleted: false,
                             }));
+
                             return {
                                 careerGoal: data.roadmap.categoryName || categoriesList.find(c => c.id === categoryId)?.name || categoryId,
                                 totalWeeks: weeksToUse.length,
@@ -1545,66 +1536,37 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 )}
                             </div>
 
-                            {/* Duration Input */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Learning Duration: {duration} weeks
-                                </label>
+                            {/* Program Info Badge */}
+                            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-5">
                                 <div className="flex items-center gap-4">
-                                    <input
-                                        type="range"
-                                        min="4"
-                                        max="24"
-                                        value={duration}
-                                        onChange={(e) => setDuration(parseInt(e.target.value))}
-                                        className="flex-1"
-                                    />
-                                    <div className="w-20 text-center">
-                                        <input
-                                            type="number"
-                                            min="4"
-                                            max="24"
-                                            value={duration}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                if (val >= 4 && val <= 24) {
-                                                    setDuration(val);
-                                                }
-                                            }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                                        />
+                                    <div className="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center">
+                                        <span className="text-2xl">🎯</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900">8-Week Comprehensive Program</h4>
+                                        <p className="text-sm text-gray-600">Industry-aligned curriculum designed for skill mastery</p>
                                     </div>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">Recommended: 8-12 weeks for beginners, 12-16 weeks for intermediate</p>
                             </div>
 
-                            {/* Current Level */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Current Level *</label>
-                                <select
-                                    value={currentLevel}
-                                    onChange={(e) => setCurrentLevel(e.target.value as 'Beginner' | 'Intermediate' | 'Advanced')}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                                >
-                                    <option value="Beginner">Beginner</option>
-                                    <option value="Intermediate">Intermediate</option>
-                                    <option value="Advanced">Advanced</option>
-                                </select>
-                            </div>
-
-                            {/* Generate Button */}
+                            {/* Generate Button - Premium Styling */}
                             <button
                                 onClick={handleGenerateRoadmap}
                                 disabled={!selectedCategory || isGeneratingRoadmap}
-                                className="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="w-full py-5 bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
                             >
                                 {isGeneratingRoadmap ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        Generating Roadmap...
+                                    <span className="flex items-center justify-center gap-3">
+                                        <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Generating Your Roadmap...
                                     </span>
                                 ) : (
-                                    'Generate Learning Roadmap →'
+                                    <>
+                                        <span>Start Your Learning Journey</span>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        </svg>
+                                    </>
                                 )}
                             </button>
                         </div>
@@ -1736,83 +1698,104 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         )}
                                     </div>
 
-                                    <div className="ml-16 space-y-4">
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900 mb-2">Main Topics</h4>
-                                            <ul className="list-disc list-inside space-y-1 text-gray-700">
-                                                {week.mainTopics.map((topic, i) => (
-                                                    <li key={i}>{topic}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900 mb-2">Subtopics</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {week.subtopics.map((subtopic, i) => (
-                                                    <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
-                                                        {subtopic}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900 mb-2">Practical Tasks</h4>
-                                            <ul className="list-disc list-inside space-y-1 text-gray-700">
-                                                {week.practicalTasks.map((task, i) => (
-                                                    <li key={i}>{task}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                            <h4 className="font-semibold text-gray-900 mb-1">Mini Project</h4>
-                                            <p className="text-sm text-gray-700">{week.miniProject}</p>
-                                        </div>
-
-                                        {/* Resources Section */}
-                                        {week.resources && week.resources.length > 0 && (
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                                    <span>📚</span> Learning Resources
+                                    <div className="ml-16 space-y-6">
+                                        {/* Cumulative Learning Progress UI */}
+                                        {week.weekNumber > 1 && (
+                                            <div className="p-4 bg-gray-50 border-l-4 border-gray-300 rounded-r-xl">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 bg-gray-300 rounded-full"></span>
+                                                    Baseline: Knowledge from Weeks 1-{week.weekNumber - 1}
                                                 </h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {week.resources.map((resource, resIdx) => {
-                                                        const getIcon = () => {
-                                                            switch (resource.type) {
-                                                                case 'gfg': return '📖';
-                                                                case 'youtube': return '▶️';
-                                                                case 'documentation': return '📘';
-                                                                case 'practice': return '💪';
-                                                                case 'article': return '📄';
-                                                                default: return '🔗';
-                                                            }
-                                                        };
-                                                        const getColor = () => {
-                                                            switch (resource.type) {
-                                                                case 'gfg': return 'bg-green-100 text-green-700 border-green-300';
-                                                                case 'youtube': return 'bg-red-100 text-red-700 border-red-300';
-                                                                case 'documentation': return 'bg-blue-100 text-blue-700 border-blue-300';
-                                                                case 'practice': return 'bg-purple-100 text-purple-700 border-purple-300';
-                                                                case 'article': return 'bg-orange-100 text-orange-700 border-orange-300';
-                                                                default: return 'bg-gray-100 text-gray-700 border-gray-300';
-                                                            }
-                                                        };
-                                                        return (
-                                                            <a
-                                                                key={resIdx}
-                                                                href={resource.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className={`flex items-center gap-2 p-3 rounded-lg border-2 hover:shadow-md transition-all ${getColor()}`}
-                                                            >
-                                                                <span className="text-lg">{getIcon()}</span>
-                                                                <span className="text-sm font-medium flex-1">{resource.title}</span>
-                                                                <span className="text-xs opacity-75">↗</span>
-                                                            </a>
-                                                        );
-                                                    })}
+                                                <div className="flex flex-wrap gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-help" title="These topics were covered in previous weeks and were built upon to reach this stage.">
+                                                    {Array.from(new Set(
+                                                        roadmapData.weeks
+                                                            .slice(0, week.weekNumber - 1)
+                                                            .flatMap(w => w.mainTopics || [])
+                                                    )).slice(0, 10).map((topic, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-gray-500 font-medium">
+                                                            {topic}
+                                                        </span>
+                                                    ))}
+                                                    {week.weekNumber > 2 && <span className="text-[10px] text-gray-400 self-center">...and more</span>}
                                                 </div>
                                             </div>
                                         )}
+
+                                        <div className="relative">
+                                            <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                                <span className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-xs">🚀</span>
+                                                Current Stage Objective
+                                            </h4>
+
+                                            {week.roadmap && (
+                                                <div className="bg-white border-2 border-orange-100 rounded-2xl p-5 mb-6 shadow-sm relative overflow-hidden">
+                                                    <div className="absolute top-0 right-0 p-2 opacity-10">
+                                                        <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" /></svg>
+                                                    </div>
+                                                    <p className="text-gray-700 leading-relaxed text-sm relative z-10 whitespace-pre-wrap">
+                                                        {week.roadmap}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-4">
+                                                    <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl">
+                                                        <h5 className="font-black text-[10px] text-blue-600 uppercase tracking-widest mb-3">Key Concepts</h5>
+                                                        <ul className="space-y-2">
+                                                            {week.mainTopics.map((topic, i) => (
+                                                                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                                                                    {topic}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+
+                                                    <div className="p-4 bg-purple-50/50 border border-purple-100 rounded-2xl">
+                                                        <h5 className="font-black text-[10px] text-purple-600 uppercase tracking-widest mb-3">Active Tasks</h5>
+                                                        <ul className="space-y-2">
+                                                            {week.practicalTasks.map((task, i) => (
+                                                                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                                                    <span className="mt-1 w-4 h-4 rounded border border-purple-300 flex-shrink-0 flex items-center justify-center text-[10px]">✓</span>
+                                                                    {task}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <div className="p-4 bg-yellow-50/50 border border-yellow-200 rounded-2xl">
+                                                        <h5 className="font-black text-[10px] text-yellow-700 uppercase tracking-widest mb-3">Stage Milestone (Project)</h5>
+                                                        <p className="text-sm text-gray-700 font-medium leading-relaxed italic">
+                                                            "{week.miniProject}"
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Learning Resources Integrated */}
+                                                    {week.resources && week.resources.length > 0 && (
+                                                        <div className="p-4 bg-green-50/50 border border-green-200 rounded-2xl">
+                                                            <h5 className="font-black text-[10px] text-green-700 uppercase tracking-widest mb-3">Support Materials</h5>
+                                                            <div className="flex flex-col gap-2">
+                                                                {week.resources.map((resource, resIdx) => (
+                                                                    <a
+                                                                        key={resIdx}
+                                                                        href={resource.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center justify-between p-2 bg-white border border-green-100 rounded-lg hover:border-green-300 transition-all group"
+                                                                    >
+                                                                        <span className="text-xs font-bold text-gray-700 truncate pr-2">{resource.title}</span>
+                                                                        <span className="text-[10px] text-green-500 opacity-0 group-hover:opacity-100 transition-opacity">Launch ↗</span>
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

@@ -53,10 +53,7 @@ interface PlacementPrepSectionProps {
 
 // Progress tracking key
 const PLACEMENT_PROGRESS_KEY = 'placement_prep_progress';
-const USER_PROGRESS_API_ENDPOINT = 'https://5xg2r5rgol.execute-api.ap-south-2.amazonaws.com/default/PlacementPrep'; // Reusing existing or need a new one?
-// Actually I should probably use a dedicated endpoint or the same one with a different action.
-// The user asked for a new lambda code, so I'll assume they will deploy it to a new URL or I'll use a placeholder.
-const USER_SYNC_API_ENDPOINT = 'https://5xg2r5rgol.execute-api.ap-south-2.amazonaws.com/default/UserPlacementProgress'; // Placeholder URL for the new Lambda
+const USER_SYNC_API_ENDPOINT = 'https://t1vy5sinc2.execute-api.ap-south-2.amazonaws.com/default/User_placement_progress';
 
 interface PhaseProgress {
     phaseId: string;

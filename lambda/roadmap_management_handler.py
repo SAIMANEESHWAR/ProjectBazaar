@@ -93,14 +93,30 @@ def handle_delete_category(category_id: str):
             'error': str(e)
         })
 
-def handle_get_roadmap(category_id: str):
-    """Get complete roadmap for a category - returns all data including category, weeks, resources, and quiz questions"""
+def handle_get_roadmap(category_id: str, duration: str = None):
+    """Get complete roadmap for a category - returns all data including category, weeks, resources, and quiz questions.
+    If duration is provided, it returns the specific weeks for that program duration from the 'programs' map.
+    """
     try:
         table = dynamodb.Table(ROADMAP_TABLE)
         db_response = table.get_item(Key={'categoryId': category_id})
         
         if 'Item' in db_response:
             roadmap = db_response['Item']
+            
+            # If a specific duration is requested, swap the top-level 'weeks' with that program's weeks
+            if duration:
+                programs = roadmap.get('programs', {})
+                specific_program = programs.get(str(duration), {})
+                duration_weeks = specific_program.get('weeks', [])
+                
+                # Fallback: If requested duration is 8 and specific slot is empty, use global weeks
+                if not duration_weeks and str(duration) == '8':
+                    duration_weeks = roadmap.get('weeks', [])
+                
+                roadmap['weeks'] = duration_weeks
+                roadmap['selectedDuration'] = duration
+            
             # Sort weeks by weekNumber
             if 'weeks' in roadmap and isinstance(roadmap['weeks'], list):
                 roadmap['weeks'].sort(key=lambda x: x.get('weekNumber', 0))
@@ -110,6 +126,8 @@ def handle_get_roadmap(category_id: str):
                 roadmap['icon'] = '📚'
             if 'weeks' not in roadmap:
                 roadmap['weeks'] = []
+            if 'programs' not in roadmap:
+                roadmap['programs'] = {}
             
             return response(200, {
                 'success': True,
@@ -124,6 +142,7 @@ def handle_get_roadmap(category_id: str):
                     'categoryName': '',
                     'icon': '📚',
                     'weeks': [],
+                    'programs': {},
                     'createdAt': datetime.utcnow().isoformat(),
                     'updatedAt': datetime.utcnow().isoformat()
                 }
@@ -155,12 +174,16 @@ def handle_get_roadmap(category_id: str):
         })
 
 def handle_save_roadmap(event_body: Dict):
-    """Save or update complete roadmap for a category - stores everything including category, weeks, resources, and quiz questions"""
+    """Save or update complete roadmap for a category.
+    Supports duration-specific roadmaps via 'programDuration' and 'weeks'.
+    """
     try:
         category_id = event_body.get('categoryId')
         category_name = event_body.get('categoryName', '')
         icon = event_body.get('icon', '📚')
         weeks = event_body.get('weeks', [])
+        program_duration = event_body.get('programDuration') # e.g., "8", "4", "3"
+        
         
         if not category_id:
             return response(400, {
@@ -188,6 +211,7 @@ def handle_save_roadmap(event_body: Dict):
                 'subtopics': [str(s).strip() for s in week.get('subtopics', []) if str(s).strip()],
                 'practicalTasks': [str(t).strip() for t in week.get('practicalTasks', []) if str(t).strip()],
                 'miniProject': str(week.get('miniProject', '')).strip(),
+                'roadmap': str(week.get('roadmap', '')).strip(),
                 'resources': [],
                 'quiz': []
             }
@@ -232,7 +256,7 @@ def handle_save_roadmap(event_body: Dict):
         # Sort weeks by weekNumber
         normalized_weeks.sort(key=lambda x: x.get('weekNumber', 0))
         
-        # Get existing item to preserve createdAt
+        # Get existing item
         table = dynamodb.Table(ROADMAP_TABLE)
         try:
             existing_response = table.get_item(Key={'categoryId': category_id})
@@ -245,13 +269,32 @@ def handle_save_roadmap(event_body: Dict):
                 raise
         except:
             existing_item = {}
+
+        # Update the specific program if duration provided
+        programs = existing_item.get('programs', {})
+        if program_duration:
+            programs[str(program_duration)] = {
+                'weeks': normalized_weeks,
+                'updatedAt': datetime.utcnow().isoformat()
+            }
         
-        # Prepare item with all data - category info, weeks, resources, quiz questions
+        # Determine what to use for top-level 'weeks'
+        # Only overwrite global weeks if: no duration specified, OR duration is 8
+        if not program_duration:
+            global_weeks = normalized_weeks
+        elif str(program_duration) == '8':
+            global_weeks = normalized_weeks
+        else:
+            # Preserve existing global weeks for non-8 duration saves
+            global_weeks = existing_item.get('weeks', [])
+        
+        # Prepare item with all data
         item = {
             'categoryId': category_id,
             'categoryName': category_name,
             'icon': icon,
-            'weeks': normalized_weeks,
+            'weeks': global_weeks,
+            'programs': programs,
             'updatedAt': datetime.utcnow().isoformat(),
             'createdAt': existing_item.get('createdAt', datetime.utcnow().isoformat())
         }
@@ -381,8 +424,9 @@ def lambda_handler(event, context):
         elif resource == 'roadmap':
             if action == 'get':
                 category_id = body.get('categoryId')
+                duration = body.get('duration')
                 if category_id:
-                    return handle_get_roadmap(category_id)
+                    return handle_get_roadmap(category_id, duration)
                 return response(400, {'success': False, 'error': 'Category ID required for get'})
             
             elif action == 'save' or action == 'create' or action == 'update':
