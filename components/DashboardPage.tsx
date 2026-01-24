@@ -4,6 +4,8 @@ import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
 import { fetchUserData, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem } from '../services/buyerApi';
 
+const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+
 export type DashboardView = 'dashboard' | 'purchases' | 'wishlist' | 'cart' | 'analytics' | 'settings' | 'my-projects' | 'earnings' | 'payouts' | 'project-details' | 'seller-profile' | 'help-center' | 'courses' | 'course-details' | 'hackathons' | 'build-portfolio' | 'build-resume' | 'my-courses' | 'career-guidance' | 'mock-assessment' | 'coding-questions' | 'post-project';
 
 interface WishlistContextType {
@@ -228,13 +230,76 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
     );
 };
 
+// Toast Component
+interface ToastProps {
+    message: string;
+    isVisible: boolean;
+    onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose }) => {
+    useEffect(() => {
+        if (isVisible) {
+            const timer = setTimeout(() => {
+                onClose();
+            }, 4000); // Auto-dismiss after 4 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [isVisible, onClose]);
+
+    if (!isVisible) return null;
+
+    return (
+        <div 
+            className="fixed top-4 right-4 z-50 transition-all duration-300 ease-out"
+            style={{
+                animation: 'slideInRight 0.3s ease-out',
+            }}
+        >
+            <style>{`
+                @keyframes slideInRight {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+            `}</style>
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] max-w-md">
+                <div className="flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div className="flex-1">
+                    <p className="font-semibold text-sm">{message}</p>
+                </div>
+                <button
+                    onClick={onClose}
+                    className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const DashboardPage: React.FC = () => {
-    const { userId } = useAuth();
+    const { userId, userEmail } = useAuth();
     // Dashboard page defaults to buyer mode
     const [dashboardMode, setDashboardMode] = useState<'buyer' | 'seller'>('buyer');
     const [activeView, setActiveView] = useState<DashboardView>('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+    const [showWelcomeToast, setShowWelcomeToast] = useState(false);
+    const [userName, setUserName] = useState<string>('');
 
     // Close sidebar on mobile when clicking a nav item
     const handleNavClick = (view: DashboardView) => {
@@ -250,10 +315,58 @@ const DashboardPage: React.FC = () => {
         setActiveView('dashboard');
     };
 
+    // Fetch user name and show welcome toast on mount
+    useEffect(() => {
+        const showWelcomeMessage = async () => {
+            // Check if we've already shown the welcome message in this session
+            const hasShownWelcome = sessionStorage.getItem('welcomeShown');
+            if (hasShownWelcome || !userId) {
+                return;
+            }
+
+            try {
+                // Fetch user details to get name
+                const response = await fetch(GET_USER_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ userId }),
+                });
+
+                const data = await response.json();
+                const user = data.data || data.user || data;
+                
+                if (user) {
+                    const name = user.fullName || user.name || userEmail?.split('@')[0] || 'User';
+                    setUserName(name);
+                    setShowWelcomeToast(true);
+                    // Mark as shown in this session
+                    sessionStorage.setItem('welcomeShown', 'true');
+                }
+            } catch (error) {
+                console.error('Error fetching user details:', error);
+                // Still show welcome with email if fetch fails
+                const name = userEmail?.split('@')[0] || 'User';
+                setUserName(name);
+                setShowWelcomeToast(true);
+                sessionStorage.setItem('welcomeShown', 'true');
+            }
+        };
+
+        showWelcomeMessage();
+    }, [userId, userEmail]);
+
     return (
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
+                {/* Welcome Toast */}
+                <Toast
+                    message={`Welcome, ${userName}!`}
+                    isVisible={showWelcomeToast}
+                    onClose={() => setShowWelcomeToast(false)}
+                />
                 {/* Overlay for mobile */}
                 {isSidebarOpen && (
                     <div 
