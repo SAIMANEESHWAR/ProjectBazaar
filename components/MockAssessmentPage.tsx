@@ -1,7 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 
-// Confetti celebration functions (dynamically imported)
+// Lambda API endpoint for Mock Assessments
+const MOCK_ASSESSMENTS_API = 'https://w7k9vplo2j.execute-api.ap-south-2.amazonaws.com/default/mock_assessment_handler';
+
+// Logo helper (same as admin page)
+const technologyLogoMap: Record<string, string> = {
+  'java': 'java', 'python': 'python', 'javascript': 'javascript', 'typescript': 'typescript',
+  'c++': 'cplusplus', 'cpp': 'cplusplus', 'c': 'c', 'go': 'go', 'rust': 'rust',
+  'react': 'react', 'vue': 'vuedotjs', 'angular': 'angular', 'node.js': 'nodedotjs',
+  'next.js': 'nextdotjs', 'express': 'express', 'django': 'django', 'flask': 'flask',
+  'spring': 'spring', 'mysql': 'mysql', 'postgresql': 'postgresql', 'mongodb': 'mongodb',
+  'redis': 'redis', 'docker': 'docker', 'kubernetes': 'kubernetes', 'aws': 'amazonaws',
+  'azure': 'microsoftazure', 'gcp': 'googlecloud', 'git': 'git', 'google': 'google',
+  'microsoft': 'microsoft', 'amazon': 'amazon', 'apple': 'apple', 'meta': 'meta',
+  'netflix': 'netflix', 'uber': 'uber', 'linkedin': 'linkedin',
+};
+
+const getLogoFromTitle = (title: string): string => {
+  if (!title) return '';
+  const titleLower = title.toLowerCase().trim();
+  if (technologyLogoMap[titleLower]) return `https://cdn.simpleicons.org/${technologyLogoMap[titleLower]}/000000`;
+  for (const [key, iconName] of Object.entries(technologyLogoMap)) {
+    if (titleLower.includes(key) || key.includes(titleLower)) return `https://cdn.simpleicons.org/${iconName}/000000`;
+  }
+  return '';
+};
 const triggerConfetti = async () => {
   const confetti = (await import('canvas-confetti')).default;
   confetti({
@@ -96,6 +120,7 @@ interface Assessment {
   difficulty?: DifficultyLevel;
   company?: string;
   xpReward?: number;
+  questions?: AnyQuestion[]; // Added questions field
 }
 
 interface Question {
@@ -263,48 +288,13 @@ interface UserProgress {
 
 
 // ============================================
-// MOCK DATA - Assessments
+// MOCK DATA - Assessments (REMOVED - FETCHED FROM API)
 // ============================================
 
-const assessments: Assessment[] = [
-  { id: 'sde', title: 'SDE', logo: '/mock_assessments_logo/sde_interview.png', time: '5 Minutes', objective: 5, programming: 2, registrations: 68675, category: 'technical' },
-  { id: 'react', title: 'React', logo: '/mock_assessments_logo/react.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 2262, category: 'framework' },
-  { id: 'java', title: 'Java', logo: '/mock_assessments_logo/java.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 6626, category: 'language' },
-  { id: 'sql', title: 'SQL', logo: '/mock_assessments_logo/sql.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 15902, category: 'database' },
-  { id: 'javascript', title: 'JavaScript', logo: '/mock_assessments_logo/nodejs.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 4594, category: 'language' },
-  { id: 'cpp', title: 'C++', logo: '/mock_assessments_logo/cpp.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 2416, category: 'language' },
-  { id: 'html', title: 'HTML', logo: '/mock_assessments_logo/html.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 4343, category: 'language' },
-  { id: 'oops', title: 'OOPs', logo: '/mock_assessments_logo/oops.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 3346, category: 'technical' },
-  { id: 'datastructures', title: 'Data Structures', logo: '/mock_assessments_logo/data_structures.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 11608, category: 'technical' },
-  { id: 'css', title: 'CSS', logo: '/mock_assessments_logo/css.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 1467, category: 'language' },
-  { id: 'android', title: 'Android', logo: '/mock_assessments_logo/android.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 1890, category: 'framework' },
-  { id: 'dsml', title: 'DSML', logo: '/mock_assessments_logo/dsml_interview.png', time: '30 Minutes', objective: 10, programming: 0, registrations: 2100, category: 'technical', popular: true },
-  { id: 'python', title: 'Python', logo: '/mock_assessments_logo/python.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 8500, category: 'language' },
-  { id: 'aws', title: 'AWS', logo: '/mock_assessments_logo/aws.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 3200, category: 'devops' },
-  { id: 'dbms', title: 'DBMS', logo: '/mock_assessments_logo/dbms.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 4100, category: 'database' },
-  { id: 'machinelearning', title: 'Machine Learning', logo: '/mock_assessments_logo/machine_learning.png', time: '45 Minutes', objective: 15, programming: 0, registrations: 5600, category: 'technical' },
-  { id: 'spring', title: 'Spring Boot', logo: '/mock_assessments_logo/spring.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 2800, category: 'framework' },
-  { id: 'networking', title: 'Networking', logo: '/mock_assessments_logo/networking.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 1950, category: 'technical' },
-  { id: 'cloudcomputing', title: 'Cloud Computing', logo: '/mock_assessments_logo/cloud_computing.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 3400, category: 'devops' },
-  { id: 'datascience', title: 'Data Science', logo: '/mock_assessments_logo/data_science.png', time: '45 Minutes', objective: 15, programming: 0, registrations: 4800, category: 'technical' },
-  { id: 'softwaretesting', title: 'Software Testing', logo: '/mock_assessments_logo/software_testing.png', time: '30 Minutes', objective: 15, programming: 0, registrations: 2200, category: 'technical' },
-];
+// Static data removed
 
 // Company-specific assessments
-const companyAssessments: Assessment[] = [
-  { id: 'google', title: 'Google Interview Prep', logo: '/company_logos/google.png', time: '45 Minutes', objective: 20, programming: 5, registrations: 25000, category: 'company', company: 'Google', xpReward: 200 },
-  { id: 'amazon', title: 'Amazon SDE Assessment', logo: '/company_logos/amazon.png', time: '60 Minutes', objective: 25, programming: 5, registrations: 32000, category: 'company', company: 'Amazon', xpReward: 250 },
-  { id: 'microsoft', title: 'Microsoft Coding Round', logo: '/company_logos/microsoft.png', time: '45 Minutes', objective: 20, programming: 3, registrations: 28000, category: 'company', company: 'Microsoft', xpReward: 200 },
-  { id: 'meta', title: 'Meta Interview Prep', logo: '/company_logos/meta.png', time: '50 Minutes', objective: 18, programming: 4, registrations: 18000, category: 'company', company: 'Meta', xpReward: 220 },
-  { id: 'flipkart', title: 'Flipkart SDE Test', logo: '/company_logos/flipkart.png', time: '40 Minutes', objective: 15, programming: 3, registrations: 15000, category: 'company', company: 'Flipkart', xpReward: 180 },
-  { id: 'infosys', title: 'Infosys Assessment', logo: '/company_logos/infosys.png', time: '35 Minutes', objective: 20, programming: 2, registrations: 45000, category: 'company', company: 'Infosys', xpReward: 150 },
-  { id: 'accenture', title: 'Accenture Assessment', logo: '/company_logos/accenture.jpg', time: '40 Minutes', objective: 25, programming: 2, registrations: 55000, category: 'company', company: 'Accenture', xpReward: 150 },
-  { id: 'deloitte', title: 'Deloitte Test', logo: '/company_logos/deloitte.png', time: '35 Minutes', objective: 20, programming: 2, registrations: 38000, category: 'company', company: 'Deloitte', xpReward: 140 },
-  { id: 'oracle', title: 'Oracle Technical Round', logo: '/company_logos/oracle.png', time: '45 Minutes', objective: 20, programming: 3, registrations: 22000, category: 'company', company: 'Oracle', xpReward: 180 },
-  { id: 'ibm', title: 'IBM Cognitive Assessment', logo: '/company_logos/ibm.png', time: '40 Minutes', objective: 22, programming: 2, registrations: 35000, category: 'company', company: 'IBM', xpReward: 160 },
-  { id: 'cisco', title: 'Cisco Technical Test', logo: '/company_logos/cisco.jpg', time: '45 Minutes', objective: 18, programming: 4, registrations: 18000, category: 'company', company: 'Cisco', xpReward: 180 },
-  { id: 'salesforce', title: 'Salesforce Developer', logo: '/company_logos/salesforce.png', time: '50 Minutes', objective: 20, programming: 3, registrations: 15000, category: 'company', company: 'Salesforce', xpReward: 200 },
-];
+// Company assessments data removed
 
 // Badges data
 const allBadges: Badge[] = [
@@ -354,409 +344,19 @@ const dailyChallengeData: DailyChallenge = {
 // QUESTION BANKS
 // ============================================
 
-const questionBanks: Record<string, Question[]> = {
-  java: [
-    { id: 1, question: 'Which statement is true about Java?', options: ['Platform independent programming language', 'Sequence dependent programming language', 'Code dependent programming language', 'Platform dependent programming language'], correctAnswer: 0, topic: 'Java Basics', explanation: 'Java is platform independent because Java code is compiled to bytecode which runs on the JVM (Java Virtual Machine). The JVM is available for different platforms, making Java "Write Once, Run Anywhere".', difficulty: 'easy' },
-    { id: 2, question: 'What is the component used for compiling, debugging, and executing Java programs?', options: ['JRE', 'JVM', 'JDK', 'JIT'], correctAnswer: 2, topic: 'Java Architecture', explanation: 'JDK (Java Development Kit) contains JRE + development tools like compiler (javac), debugger, etc. JRE is for running Java programs, JVM is the virtual machine, and JIT is the Just-In-Time compiler.', difficulty: 'easy' },
-    { id: 3, question: 'Which of the following is not a Java feature?', options: ['Object-oriented', 'Use of pointers', 'Portable', 'Dynamic and Extensible'], correctAnswer: 1, topic: 'Java Features', explanation: 'Java does not support pointers explicitly for security reasons. Pointers can be used to access memory directly which can lead to security vulnerabilities. Java uses references instead.', difficulty: 'easy' },
-    { id: 4, question: 'What is the default value of a boolean variable in Java?', options: ['true', 'false', '0', 'null'], correctAnswer: 1, topic: 'Data Types', explanation: 'In Java, boolean instance variables are initialized to false by default. Local variables must be explicitly initialized before use.', difficulty: 'easy' },
-    { id: 5, question: 'Which keyword is used to prevent method overriding in Java?', options: ['static', 'final', 'abstract', 'const'], correctAnswer: 1, topic: 'OOP Concepts', explanation: 'The "final" keyword prevents method overriding. When a method is declared final, it cannot be overridden by subclasses. "const" is not a keyword in Java.', difficulty: 'medium' },
-    { id: 6, question: 'What is the parent class of all classes in Java?', options: ['Object', 'Class', 'Main', 'Parent'], correctAnswer: 0, topic: 'Inheritance', explanation: 'java.lang.Object is the root of the class hierarchy. Every class has Object as a superclass. All objects inherit methods like toString(), equals(), hashCode() from Object.', difficulty: 'easy' },
-    { id: 7, question: 'Which collection class allows you to grow or shrink its size and provides indexed access?', options: ['HashSet', 'HashMap', 'ArrayList', 'LinkedList'], correctAnswer: 2, topic: 'Collections', explanation: 'ArrayList is a resizable array implementation of the List interface. It provides O(1) indexed access and dynamic resizing. LinkedList also allows dynamic sizing but has O(n) indexed access.', difficulty: 'medium' },
-    { id: 8, question: 'What is the purpose of the "this" keyword in Java?', options: ['To refer to the parent class', 'To refer to the current object', 'To create a new object', 'To refer to a static method'], correctAnswer: 1, topic: 'Keywords', explanation: '"this" is a reference variable that refers to the current object. It is used to differentiate between instance variables and parameters when they have the same name.', difficulty: 'easy' },
-    { id: 9, question: 'Which exception is thrown when dividing by zero in Java?', options: ['NullPointerException', 'ArithmeticException', 'NumberFormatException', 'ClassNotFoundException'], correctAnswer: 1, topic: 'Exception Handling', explanation: 'ArithmeticException is thrown when an exceptional arithmetic condition occurs, such as dividing an integer by zero. Note: Dividing a float/double by zero gives Infinity, not an exception.', difficulty: 'easy' },
-    { id: 10, question: 'What is method overloading?', options: ['Methods with same name in parent and child class', 'Methods with same name but different parameters', 'Methods with different names', 'None of the above'], correctAnswer: 1, topic: 'Polymorphism', explanation: 'Method overloading is compile-time polymorphism where multiple methods have the same name but different parameters (number, type, or order). It is different from overriding which involves inheritance.', difficulty: 'medium' },
-    { id: 11, question: 'Which access modifier makes a member accessible only within the same class?', options: ['public', 'protected', 'private', 'default'], correctAnswer: 2, topic: 'Access Modifiers', explanation: 'private access modifier restricts access to the declaring class only. public allows access from anywhere, protected allows same package + subclasses, default (no modifier) allows same package only.', difficulty: 'easy' },
-    { id: 12, question: 'What is the output of 10 + 20 + "Hello" in Java?', options: ['1020Hello', '30Hello', 'Hello1020', 'Compilation Error'], correctAnswer: 1, topic: 'String Operations', explanation: 'Java evaluates left to right. 10 + 20 = 30 (integer addition), then 30 + "Hello" = "30Hello" (string concatenation). If it was "Hello" + 10 + 20, result would be "Hello1020".', difficulty: 'medium' },
-    { id: 13, question: 'Which interface must be implemented for serialization in Java?', options: ['Runnable', 'Comparable', 'Serializable', 'Cloneable'], correctAnswer: 2, topic: 'Serialization', explanation: 'Serializable is a marker interface (no methods) that indicates a class can be serialized. Serialization is the process of converting an object to a byte stream for storage or transmission.', difficulty: 'medium' },
-    { id: 14, question: 'What is the default value of an int variable in Java?', options: ['0', '1', 'null', 'undefined'], correctAnswer: 0, topic: 'Data Types', explanation: 'All numeric primitive types (byte, short, int, long, float, double) have a default value of 0 (or 0.0 for floating-point). Only object references have null as default.', difficulty: 'easy' },
-    { id: 15, question: 'Which keyword is used to create a thread in Java?', options: ['thread', 'runnable', 'extends Thread', 'All of the above'], correctAnswer: 3, topic: 'Multithreading', explanation: 'Threads can be created by extending the Thread class or implementing Runnable interface. Both approaches are valid. The class can then be instantiated and started with start() method.', difficulty: 'hard' },
-  ],
-  python: [
-    { id: 1, question: 'What is Python?', options: ['A compiled language', 'An interpreted high-level language', 'A low-level language', 'A markup language'], correctAnswer: 1, topic: 'Python Basics' },
-    { id: 2, question: 'Which of the following is used to define a block of code in Python?', options: ['Curly braces', 'Parentheses', 'Indentation', 'Quotation marks'], correctAnswer: 2, topic: 'Syntax' },
-    { id: 3, question: 'What is the output of print(2 ** 3)?', options: ['5', '6', '8', '9'], correctAnswer: 2, topic: 'Operators' },
-    { id: 4, question: 'Which data type is immutable in Python?', options: ['List', 'Dictionary', 'Set', 'Tuple'], correctAnswer: 3, topic: 'Data Types' },
-    { id: 5, question: 'What keyword is used to create a function in Python?', options: ['function', 'def', 'func', 'define'], correctAnswer: 1, topic: 'Functions' },
-    { id: 6, question: 'Which method is used to add an element to the end of a list?', options: ['add()', 'insert()', 'append()', 'extend()'], correctAnswer: 2, topic: 'Lists' },
-    { id: 7, question: 'What is the correct way to create a dictionary in Python?', options: ['dict = []', 'dict = {}', 'dict = ()', 'dict = <>'], correctAnswer: 1, topic: 'Dictionaries' },
-    { id: 8, question: 'Which of the following is NOT a valid variable name in Python?', options: ['_myvar', 'myVar', '2myvar', 'my_var'], correctAnswer: 2, topic: 'Variables' },
-    { id: 9, question: 'What does the len() function do?', options: ['Returns the length of an object', 'Returns the type of an object', 'Converts to integer', 'None of the above'], correctAnswer: 0, topic: 'Built-in Functions' },
-    { id: 10, question: 'Which statement is used for exception handling in Python?', options: ['try-catch', 'try-except', 'catch-throw', 'error-handle'], correctAnswer: 1, topic: 'Exception Handling' },
-    { id: 11, question: 'What is the output of bool("")?', options: ['True', 'False', 'None', 'Error'], correctAnswer: 1, topic: 'Boolean' },
-    { id: 12, question: 'Which operator is used for floor division in Python?', options: ['/', '//', '%', '**'], correctAnswer: 1, topic: 'Operators' },
-    { id: 13, question: 'What is a lambda function?', options: ['A named function', 'An anonymous function', 'A recursive function', 'A generator function'], correctAnswer: 1, topic: 'Functions' },
-    { id: 14, question: 'Which module is used for regular expressions in Python?', options: ['regex', 're', 'regexp', 'regular'], correctAnswer: 1, topic: 'Modules' },
-    { id: 15, question: 'What is the purpose of __init__ method?', options: ['Destructor', 'Constructor', 'Iterator', 'Generator'], correctAnswer: 1, topic: 'OOP' },
-  ],
-  react: [
-    { id: 1, question: 'What is React?', options: ['A backend framework', 'A JavaScript library for building UIs', 'A database', 'A programming language'], correctAnswer: 1, topic: 'React Basics' },
-    { id: 2, question: 'What is JSX?', options: ['JavaScript XML', 'Java Syntax Extension', 'JSON XML', 'JavaScript Extension'], correctAnswer: 0, topic: 'JSX' },
-    { id: 3, question: 'Which hook is used for state management in functional components?', options: ['useEffect', 'useState', 'useContext', 'useReducer'], correctAnswer: 1, topic: 'Hooks' },
-    { id: 4, question: 'What is the virtual DOM?', options: ['A copy of the real DOM', 'A lightweight representation of the real DOM', 'A browser feature', 'A React component'], correctAnswer: 1, topic: 'Virtual DOM' },
-    { id: 5, question: 'Which method is called when a component is first mounted?', options: ['componentDidUpdate', 'componentWillMount', 'componentDidMount', 'render'], correctAnswer: 2, topic: 'Lifecycle' },
-    { id: 6, question: 'What is the purpose of keys in React lists?', options: ['Styling', 'Unique identification of elements', 'Event handling', 'State management'], correctAnswer: 1, topic: 'Lists' },
-    { id: 7, question: 'Which hook is used for side effects?', options: ['useState', 'useEffect', 'useMemo', 'useCallback'], correctAnswer: 1, topic: 'Hooks' },
-    { id: 8, question: 'What is props in React?', options: ['State variables', 'Read-only properties passed to components', 'Event handlers', 'CSS styles'], correctAnswer: 1, topic: 'Props' },
-    { id: 9, question: 'What is the correct way to update state in React?', options: ['this.state.name = "new"', 'this.setState({ name: "new" })', 'state.name = "new"', 'setState.name("new")'], correctAnswer: 1, topic: 'State' },
-    { id: 10, question: 'What is a controlled component?', options: ['Component controlled by Redux', 'Component where form data is handled by state', 'Component with props', 'Component without state'], correctAnswer: 1, topic: 'Forms' },
-    { id: 11, question: 'Which hook is used to access context?', options: ['useReducer', 'useContext', 'useMemo', 'useRef'], correctAnswer: 1, topic: 'Context' },
-    { id: 12, question: 'What is React Fragment used for?', options: ['Styling components', 'Grouping children without extra DOM nodes', 'State management', 'Routing'], correctAnswer: 1, topic: 'Fragments' },
-    { id: 13, question: 'What is the purpose of useRef hook?', options: ['State management', 'Accessing DOM elements directly', 'Context API', 'Memoization'], correctAnswer: 1, topic: 'Refs' },
-    { id: 14, question: 'Which tool is commonly used for React routing?', options: ['React Router', 'Redux', 'Axios', 'Webpack'], correctAnswer: 0, topic: 'Routing' },
-    { id: 15, question: 'What is HOC in React?', options: ['High Order Component', 'Higher Order Component', 'Hierarchical Order Component', 'None'], correctAnswer: 1, topic: 'Patterns' },
-  ],
-  sql: [
-    { id: 1, question: 'What does SQL stand for?', options: ['Structured Query Language', 'Simple Query Language', 'Standard Query Language', 'System Query Language'], correctAnswer: 0, topic: 'SQL Basics' },
-    { id: 2, question: 'Which SQL statement is used to retrieve data?', options: ['GET', 'FETCH', 'SELECT', 'RETRIEVE'], correctAnswer: 2, topic: 'Queries' },
-    { id: 3, question: 'Which clause is used to filter records?', options: ['FILTER', 'WHERE', 'HAVING', 'CONDITION'], correctAnswer: 1, topic: 'Filtering' },
-    { id: 4, question: 'What is a primary key?', options: ['A foreign key', 'A unique identifier for a record', 'A composite key', 'An index'], correctAnswer: 1, topic: 'Keys' },
-    { id: 5, question: 'Which JOIN returns all records from both tables?', options: ['INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL OUTER JOIN'], correctAnswer: 3, topic: 'Joins' },
-    { id: 6, question: 'Which SQL statement is used to insert data?', options: ['ADD', 'INSERT INTO', 'PUT', 'CREATE'], correctAnswer: 1, topic: 'DML' },
-    { id: 7, question: 'What does GROUP BY do?', options: ['Sorts data', 'Groups rows with same values', 'Filters data', 'Joins tables'], correctAnswer: 1, topic: 'Aggregation' },
-    { id: 8, question: 'Which function returns the number of rows?', options: ['SUM()', 'COUNT()', 'TOTAL()', 'NUM()'], correctAnswer: 1, topic: 'Functions' },
-    { id: 9, question: 'What is a foreign key?', options: ['Primary key of another table', 'Unique identifier', 'Index column', 'Auto increment field'], correctAnswer: 0, topic: 'Keys' },
-    { id: 10, question: 'Which command is used to delete a table?', options: ['DELETE TABLE', 'DROP TABLE', 'REMOVE TABLE', 'TRUNCATE TABLE'], correctAnswer: 1, topic: 'DDL' },
-    { id: 11, question: 'What is normalization?', options: ['Adding redundancy', 'Reducing redundancy', 'Indexing', 'Partitioning'], correctAnswer: 1, topic: 'Database Design' },
-    { id: 12, question: 'Which clause is used with aggregate functions for filtering?', options: ['WHERE', 'HAVING', 'FILTER', 'GROUP'], correctAnswer: 1, topic: 'Aggregation' },
-    { id: 13, question: 'What is an index used for?', options: ['Storing data', 'Faster data retrieval', 'Data validation', 'Data encryption'], correctAnswer: 1, topic: 'Indexing' },
-    { id: 14, question: 'Which SQL keyword is used to sort results?', options: ['SORT BY', 'ORDER BY', 'ARRANGE BY', 'GROUP BY'], correctAnswer: 1, topic: 'Sorting' },
-    { id: 15, question: 'What is a transaction in SQL?', options: ['A query', 'A unit of work', 'A table', 'A database'], correctAnswer: 1, topic: 'Transactions' },
-  ],
-};
+// Static questionBanks removed
+
 
 // Default questions for assessments without specific banks
-const defaultQuestions: Question[] = [
-  { id: 1, question: 'Which of the following is a correct concept?', options: ['Option A', 'Option B', 'Option C', 'Option D'], correctAnswer: 0, topic: 'General' },
-  { id: 2, question: 'What is the primary purpose of this technology?', options: ['Performance', 'Security', 'Scalability', 'All of the above'], correctAnswer: 3, topic: 'Concepts' },
-  { id: 3, question: 'Which best practice should be followed?', options: ['Practice A', 'Practice B', 'Practice C', 'Practice D'], correctAnswer: 1, topic: 'Best Practices' },
-  { id: 4, question: 'What is the recommended approach?', options: ['Approach 1', 'Approach 2', 'Approach 3', 'Approach 4'], correctAnswer: 2, topic: 'Methodology' },
-  { id: 5, question: 'Which tool is commonly used?', options: ['Tool A', 'Tool B', 'Tool C', 'Tool D'], correctAnswer: 0, topic: 'Tools' },
-  { id: 6, question: 'What is the correct syntax?', options: ['Syntax A', 'Syntax B', 'Syntax C', 'Syntax D'], correctAnswer: 1, topic: 'Syntax' },
-  { id: 7, question: 'Which feature is most important?', options: ['Feature 1', 'Feature 2', 'Feature 3', 'Feature 4'], correctAnswer: 0, topic: 'Features' },
-  { id: 8, question: 'What is the expected output?', options: ['Output A', 'Output B', 'Output C', 'Output D'], correctAnswer: 2, topic: 'Output' },
-  { id: 9, question: 'Which error is commonly encountered?', options: ['Error A', 'Error B', 'Error C', 'Error D'], correctAnswer: 1, topic: 'Debugging' },
-  { id: 10, question: 'What is the recommended version?', options: ['v1.0', 'v2.0', 'v3.0', 'Latest'], correctAnswer: 3, topic: 'Versioning' },
-  { id: 11, question: 'Which pattern should be used?', options: ['Pattern A', 'Pattern B', 'Pattern C', 'Pattern D'], correctAnswer: 0, topic: 'Patterns' },
-  { id: 12, question: 'What is the correct implementation?', options: ['Implementation 1', 'Implementation 2', 'Implementation 3', 'Implementation 4'], correctAnswer: 1, topic: 'Implementation' },
-  { id: 13, question: 'Which optimization technique is best?', options: ['Technique A', 'Technique B', 'Technique C', 'Technique D'], correctAnswer: 2, topic: 'Optimization' },
-  { id: 14, question: 'What is the security consideration?', options: ['Security A', 'Security B', 'Security C', 'All of the above'], correctAnswer: 3, topic: 'Security' },
-  { id: 15, question: 'Which testing approach is recommended?', options: ['Unit Testing', 'Integration Testing', 'E2E Testing', 'All of the above'], correctAnswer: 3, topic: 'Testing' },
-];
+// Static defaultQuestions removed
+
 
 // ============================================
 // PROGRAMMING QUESTION BANKS
 // ============================================
 
-const programmingQuestionBanks: Record<string, ProgrammingQuestion[]> = {
-  sde: [
-    {
-      id: 101,
-      question: 'Two Sum\n\nGiven an array of integers nums and an integer target, return the indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.',
-      topic: 'Arrays',
-      type: 'programming',
-      difficulty: 'easy',
-      constraints: '2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9',
-      examples: [
-        { input: 'nums = [2,7,11,15], target = 9', output: '[0, 1]', explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].' },
-        { input: 'nums = [3,2,4], target = 6', output: '[1, 2]' },
-      ],
-      starterCode: {
-        python: `def two_sum(nums, target):
-    # Write your solution here
-    pass
+// Static programmingQuestionBanks removed
 
-# Read input
-nums = list(map(int, input().split(',')))
-target = int(input())
-result = two_sum(nums, target)
-print(result)`,
-        javascript: `function twoSum(nums, target) {
-    // Write your solution here
-}
-
-// Read input
-const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-const lines = [];
-rl.on('line', (line) => lines.push(line));
-rl.on('close', () => {
-    const nums = lines[0].split(',').map(Number);
-    const target = parseInt(lines[1]);
-    console.log(JSON.stringify(twoSum(nums, target)));
-});`,
-        java: `import java.util.*;
-
-public class Main {
-    public static int[] twoSum(int[] nums, int target) {
-        // Write your solution here
-        return new int[]{};
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String[] parts = sc.nextLine().split(",");
-        int[] nums = new int[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            nums[i] = Integer.parseInt(parts[i].trim());
-        }
-        int target = sc.nextInt();
-        int[] result = twoSum(nums, target);
-        System.out.println(Arrays.toString(result));
-    }
-}`,
-        cpp: `#include <iostream>
-#include <vector>
-#include <sstream>
-using namespace std;
-
-vector<int> twoSum(vector<int>& nums, int target) {
-    // Write your solution here
-    return {};
-}
-
-int main() {
-    string line;
-    getline(cin, line);
-    vector<int> nums;
-    stringstream ss(line);
-    string token;
-    while (getline(ss, token, ',')) {
-        nums.push_back(stoi(token));
-    }
-    int target;
-    cin >> target;
-    vector<int> result = twoSum(nums, target);
-    cout << "[" << result[0] << ", " << result[1] << "]" << endl;
-    return 0;
-}`,
-      },
-      testCases: [
-        { input: '2,7,11,15\n9', expectedOutput: '[0, 1]' },
-        { input: '3,2,4\n6', expectedOutput: '[1, 2]' },
-        { input: '3,3\n6', expectedOutput: '[0, 1]', hidden: true },
-      ],
-    },
-    {
-      id: 102,
-      question: 'Reverse a String\n\nWrite a function that reverses a string. The input string is given as an array of characters.\n\nYou must do this by modifying the input array in-place with O(1) extra memory.',
-      topic: 'Strings',
-      type: 'programming',
-      difficulty: 'easy',
-      examples: [
-        { input: 's = ["h","e","l","l","o"]', output: '["o","l","l","e","h"]' },
-        { input: 's = ["H","a","n","n","a","h"]', output: '["h","a","n","n","a","H"]' },
-      ],
-      starterCode: {
-        python: `def reverse_string(s):
-    # Write your solution here - modify s in-place
-    pass
-
-# Read input
-s = list(input().strip())
-reverse_string(s)
-print(s)`,
-        javascript: `function reverseString(s) {
-    // Write your solution here - modify s in-place
-}
-
-const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-rl.on('line', (line) => {
-    const s = line.split('');
-    reverseString(s);
-    console.log(JSON.stringify(s));
-    rl.close();
-});`,
-        java: `import java.util.*;
-
-public class Main {
-    public static void reverseString(char[] s) {
-        // Write your solution here - modify s in-place
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        char[] s = sc.nextLine().toCharArray();
-        reverseString(s);
-        System.out.println(Arrays.toString(s));
-    }
-}`,
-        cpp: `#include <iostream>
-#include <vector>
-#include <algorithm>
-using namespace std;
-
-void reverseString(vector<char>& s) {
-    // Write your solution here - modify s in-place
-}
-
-int main() {
-    string input;
-    getline(cin, input);
-    vector<char> s(input.begin(), input.end());
-    reverseString(s);
-    cout << "[";
-    for (int i = 0; i < s.size(); i++) {
-        cout << "\\"" << s[i] << "\\"";
-        if (i < s.size() - 1) cout << ",";
-    }
-    cout << "]" << endl;
-    return 0;
-}`,
-      },
-      testCases: [
-        { input: 'hello', expectedOutput: "['o', 'l', 'l', 'e', 'h']" },
-        { input: 'Hannah', expectedOutput: "['h', 'a', 'n', 'n', 'a', 'H']" },
-      ],
-    },
-  ],
-  google: [
-    {
-      id: 201,
-      question: 'Valid Parentheses\n\nGiven a string s containing just the characters \'(\', \')\', \'{\', \'}\', \'[\' and \']\', determine if the input string is valid.\n\nAn input string is valid if:\n1. Open brackets must be closed by the same type of brackets.\n2. Open brackets must be closed in the correct order.\n3. Every close bracket has a corresponding open bracket of the same type.',
-      topic: 'Stacks',
-      type: 'programming',
-      difficulty: 'easy',
-      examples: [
-        { input: 's = "()"', output: 'true' },
-        { input: 's = "()[]{}"', output: 'true' },
-        { input: 's = "(]"', output: 'false' },
-      ],
-      starterCode: {
-        python: `def is_valid(s):
-    # Write your solution here
-    pass
-
-# Read input
-s = input().strip()
-print(str(is_valid(s)).lower())`,
-        javascript: `function isValid(s) {
-    // Write your solution here
-}
-
-const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-rl.on('line', (line) => {
-    console.log(isValid(line.trim()));
-    rl.close();
-});`,
-        java: `import java.util.*;
-
-public class Main {
-    public static boolean isValid(String s) {
-        // Write your solution here
-        return false;
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String s = sc.nextLine();
-        System.out.println(isValid(s));
-    }
-}`,
-        cpp: `#include <iostream>
-#include <stack>
-#include <string>
-using namespace std;
-
-bool isValid(string s) {
-    // Write your solution here
-    return false;
-}
-
-int main() {
-    string s;
-    getline(cin, s);
-    cout << (isValid(s) ? "true" : "false") << endl;
-    return 0;
-}`,
-      },
-      testCases: [
-        { input: '()', expectedOutput: 'true' },
-        { input: '()[]{}', expectedOutput: 'true' },
-        { input: '(]', expectedOutput: 'false' },
-        { input: '([)]', expectedOutput: 'false', hidden: true },
-        { input: '{[]}', expectedOutput: 'true', hidden: true },
-      ],
-    },
-  ],
-  amazon: [
-    {
-      id: 301,
-      question: 'FizzBuzz\n\nGiven an integer n, return a string array answer (1-indexed) where:\n\n- answer[i] == "FizzBuzz" if i is divisible by 3 and 5.\n- answer[i] == "Fizz" if i is divisible by 3.\n- answer[i] == "Buzz" if i is divisible by 5.\n- answer[i] == i (as a string) if none of the above conditions are true.',
-      topic: 'Math',
-      type: 'programming',
-      difficulty: 'easy',
-      examples: [
-        { input: 'n = 3', output: '["1","2","Fizz"]' },
-        { input: 'n = 5', output: '["1","2","Fizz","4","Buzz"]' },
-        { input: 'n = 15', output: '["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]' },
-      ],
-      starterCode: {
-        python: `def fizz_buzz(n):
-    # Write your solution here
-    pass
-
-# Read input
-n = int(input())
-result = fizz_buzz(n)
-print(result)`,
-        javascript: `function fizzBuzz(n) {
-    // Write your solution here
-}
-
-const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-rl.on('line', (line) => {
-    console.log(JSON.stringify(fizzBuzz(parseInt(line))));
-    rl.close();
-});`,
-        java: `import java.util.*;
-
-public class Main {
-    public static List<String> fizzBuzz(int n) {
-        // Write your solution here
-        return new ArrayList<>();
-    }
-    
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        System.out.println(fizzBuzz(n));
-    }
-}`,
-        cpp: `#include <iostream>
-#include <vector>
-#include <string>
-using namespace std;
-
-vector<string> fizzBuzz(int n) {
-    // Write your solution here
-    return {};
-}
-
-int main() {
-    int n;
-    cin >> n;
-    vector<string> result = fizzBuzz(n);
-    cout << "[";
-    for (int i = 0; i < result.size(); i++) {
-        cout << "\\"" << result[i] << "\\"";
-        if (i < result.size() - 1) cout << ",";
-    }
-    cout << "]" << endl;
-    return 0;
-}`,
-      },
-      testCases: [
-        { input: '3', expectedOutput: '["1", "2", "Fizz"]' },
-        { input: '5', expectedOutput: '["1", "2", "Fizz", "4", "Buzz"]' },
-        { input: '15', expectedOutput: '["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"]', hidden: true },
-      ],
-    },
-  ],
-};
 
 // ============================================
 // ICONS
@@ -1045,14 +645,86 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCompanyTests, setShowCompanyTests] = useState(false);
 
+  // Data State
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [companyAssessments, setCompanyAssessments] = useState<Assessment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch assessments from API
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetch(MOCK_ASSESSMENTS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'list_assessments' })
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch assessments');
+
+        const data = await response.json();
+        console.log('API Response:', data);
+
+        // Determine the array of assessments from various possible response structures
+        let fetchedAssessments: any[] = [];
+
+        if (data.body && typeof data.body === 'string') {
+          // Handle Lambda Proxy integration where body is a string
+          try {
+            const parsedBody = JSON.parse(data.body);
+            fetchedAssessments = parsedBody.assessments || parsedBody.data?.assessments || [];
+          } catch (e) {
+            console.error('Error parsing response body:', e);
+          }
+        } else if (Array.isArray(data.assessments)) {
+          // Direct { assessments: [...] }
+          fetchedAssessments = data.assessments;
+        } else if (data.data && Array.isArray(data.data.assessments)) {
+          // Nested { data: { assessments: [...] } }
+          fetchedAssessments = data.data.assessments;
+        } else if (data.success === true && data.data) {
+          // New Lambda Format: { success: true, data: { assessments: [...] } }
+          if (Array.isArray(data.data.assessments)) {
+            fetchedAssessments = data.data.assessments;
+          } else if (Array.isArray(data.data)) {
+            fetchedAssessments = data.data;
+          }
+        } else if (data.status === 'success' && Array.isArray(data.data)) {
+          // Old Format fallback
+          fetchedAssessments = data.data;
+        }
+
+        if (Array.isArray(fetchedAssessments)) {
+          const allAssessments = fetchedAssessments.map((a: any) => ({
+            ...a,
+            logo: a.logo || getLogoFromTitle(a.company || a.title),
+            questions: a.questions || []
+          }));
+
+          setAssessments(allAssessments.filter((a: Assessment) => a.category !== 'company'));
+          setCompanyAssessments(allAssessments.filter((a: Assessment) => a.category === 'company'));
+        } else {
+          throw new Error('Invalid data format received: ' + JSON.stringify(data).substring(0, 100));
+        }
+      } catch (err) {
+        console.error('Error fetching assessments:', err);
+        setError('Failed to load assessments. Please check your connection.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAssessments();
+  }, []);
+
+  // Get questions for current assessment
   // Get questions for current assessment
   const getQuestions = useCallback((): AnyQuestion[] => {
-    if (!selectedAssessment) return defaultQuestions;
-    const mcqQuestions = questionBanks[selectedAssessment.id] || defaultQuestions;
-    const programmingQuestions = programmingQuestionBanks[selectedAssessment.id] || [];
-
-    // Combine MCQ and programming questions
-    return [...mcqQuestions, ...programmingQuestions];
+    if (!selectedAssessment) return [];
+    return selectedAssessment.questions || [];
   }, [selectedAssessment]);
 
   // Check if current question is a programming question
@@ -1321,8 +993,59 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartTest = (assessment: Assessment) => {
+  // Fetch questions for specific assessment
+  const fetchQuestions = async (assessmentId: string | number) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(MOCK_ASSESSMENTS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get_questions',
+          assessmentId: assessmentId
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch questions');
+
+      const data = await response.json();
+      let questions = [];
+
+      if (data.body) {
+        try {
+          const parsed = JSON.parse(data.body);
+          questions = parsed.data || parsed.questions || [];
+        } catch (e) { questions = []; }
+      } else {
+        questions = data.data || data.questions || [];
+      }
+
+      return questions;
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStartTest = async (assessment: Assessment) => {
     setSelectedAssessment(assessment);
+
+    // If questions are not already loaded in the assessment object, fetch them
+    if (!assessment.questions || assessment.questions.length === 0) {
+      const fetchedQuestions = await fetchQuestions(assessment.id);
+      if (fetchedQuestions.length > 0) {
+        // Update the elected assessment with fetched questions
+        setSelectedAssessment(prev => prev ? ({ ...prev, questions: fetchedQuestions }) : assessment);
+        // Also update the main list so we don't fetch again
+        setAssessments(prev => prev.map(a => a.id === assessment.id ? { ...a, questions: fetchedQuestions } : a));
+        setCompanyAssessments(prev => prev.map(a => a.id === assessment.id ? { ...a, questions: fetchedQuestions } : a));
+      }
+    }
+
     setShowInstructions(true);
   };
 
@@ -1551,7 +1274,13 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             alt={assessment.title}
             className="w-16 h-16 object-contain"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64?text=' + assessment.title[0];
+              // Generate a simple SVG placeholder with the first letter
+              const letter = (assessment.title[0] || '?').toUpperCase();
+              const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+                <rect width="64" height="64" fill="#f3f4f6"/>
+                <text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial" font-size="32" fill="#9ca3af">${letter}</text>
+              </svg>`;
+              (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(svg)}`;
             }}
           />
         </div>
@@ -1648,511 +1377,519 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
       {activeTab === 'assessment' && (
         <div className="max-w-7xl mx-auto px-4 py-6">
-          {/* Top Stats Bar */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            {/* XP Progress Card */}
-            <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">⚡</span>
-                  <div>
-                    <p className="text-xs opacity-80">Level {userProgress.level}</p>
-                    <p className="font-semibold">{userProgress.currentXP} / {userProgress.nextLevelXP} XP</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs opacity-80">Streak</p>
-                  <p className="font-bold text-lg">🔥 {userProgress.streak} days</p>
-                </div>
-              </div>
-              <div className="w-full bg-white/30 rounded-full h-2">
-                <div
-                  className="bg-white rounded-full h-2 transition-all duration-500"
-                  style={{ width: `${(userProgress.currentXP / userProgress.nextLevelXP) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Daily Challenge Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-lg">📅</div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Daily Challenge</p>
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">{dailyChallenge.title}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">+{dailyChallenge.xpReward} XP</p>
-                  <button
-                    onClick={() => navigateToView('daily-challenge')}
-                    className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition mt-1"
-                  >
-                    {dailyChallenge.completed ? 'Completed ✓' : 'Start'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Stats Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-4">
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{userProgress.testsCompleted}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Tests</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-emerald-600">{userProgress.avgScore}%</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Avg Score</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-amber-600">{userProgress.badges.length}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Badges</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => navigateToView('leaderboard')}
-                  className="text-xs px-3 py-1.5 border border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
-                >
-                  Leaderboard →
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Badges Preview */}
-          <div className="bg-gradient-to-br from-white to-amber-50/30 dark:from-gray-800 dark:to-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/30 mb-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🏆</span>
-                <h3 className="font-semibold text-gray-900 dark:text-white">Your Badges</h3>
-                <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">
-                  {allBadges.filter(b => b.earned).length}/{allBadges.length}
-                </span>
-              </div>
-              <button
-                onClick={() => navigateToView('achievements')}
-                className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors flex items-center gap-1"
-              >
-                View All
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </button>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {allBadges.slice(0, 8).map((badge, index) => (
-                <div
-                  key={badge.id}
-                  className={`group flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 ${badge.earned
-                    ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 border-2 border-amber-300 dark:border-amber-600 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30'
-                    : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 grayscale opacity-40 hover:opacity-60'
-                    }`}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  title={`${badge.name}${badge.earned ? ' ✓' : ' (Locked)'}`}
-                >
-                  {badge.image ? (
-                    <img
-                      src={badge.image}
-                      alt={badge.name}
-                      className={`w-10 h-10 object-contain transition-transform duration-300 group-hover:scale-110 ${badge.earned ? 'drop-shadow-md' : ''}`}
-                    />
-                  ) : (
-                    <span className="text-2xl transition-transform duration-300 group-hover:scale-110">{badge.icon}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Main Test Type Toggle */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Type:</span>
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
-                  <button
-                    onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
-                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${showCompanyTests
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Company Tests
-                  </button>
-                  <button
-                    onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
-                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${!showCompanyTests
-                      ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                      }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    Technical Tests
-                  </button>
-                </div>
-              </div>
-
-              {/* Test Mode Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setTestMode('timed')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                  >
-                    ⏱️ Timed
-                  </button>
-                  <button
-                    onClick={() => setTestMode('practice')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                  >
-                    📚 Practice
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Sub-category Filters - Only show for Technical Tests */}
-            {!showCompanyTests && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
-                <div className="flex flex-wrap gap-2">
-                  {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${selectedCategory === cat
-                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
-                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
-                        }`}
-                    >
-                      {cat === 'all' ? 'All' : cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Difficulty Selector */}
-          <div className="flex items-center gap-2 mb-6">
-            <span className="text-xs text-gray-500 dark:text-gray-400">Difficulty:</span>
-            {(['easy', 'medium', 'hard'] as DifficultyLevel[]).map((diff) => (
-              <button
-                key={diff}
-                onClick={() => setSelectedDifficulty(diff)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${selectedDifficulty === diff
-                  ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-              >
-                {diff}
-              </button>
-            ))}
-          </div>
-
-          {/* Company Tests Section */}
-          {showCompanyTests && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                💼 Company-Specific Assessments
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Interview Prep</span>
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {companyAssessments.map((assessment) => (
-                  <div
-                    key={assessment.id}
-                    onClick={() => { setSelectedAssessment(assessment); setShowInstructions(true); }}
-                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                        <img src={assessment.logo} alt={assessment.title} className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/mock_assessments_logo/sde_interview.png'; }} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400">{assessment.title}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{assessment.company}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                      <span>⏱️ {assessment.time}</span>
-                      <span className="text-blue-600 dark:text-blue-400 font-medium">+{assessment.xpReward} XP</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-500">Loading assessments...</p>
             </div>
           )}
 
-          {/* Regular Assessment Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {assessments
-              .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
-              .map(renderAssessmentCard)}
-          </div>
+          {/* Error State */}
+          {!isLoading && error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-6 text-center mb-8">
+              <p className="font-semibold mb-2">Error Loading Data</p>
+              <p>{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <>
+              {/* Top Stats Bar */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                {/* XP Progress Card */}
+                <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-4 text-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">⚡</span>
+                      <div>
+                        <p className="text-xs opacity-80">Level {userProgress.level}</p>
+                        <p className="font-semibold">{userProgress.currentXP} / {userProgress.nextLevelXP} XP</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs opacity-80">Streak</p>
+                      <p className="font-bold text-lg">🔥 {userProgress.streak} days</p>
+                    </div>
+                  </div>
+                  <div className="w-full bg-white/30 rounded-full h-2">
+                    <div
+                      className="bg-white rounded-full h-2 transition-all duration-500"
+                      style={{ width: `${(userProgress.currentXP / userProgress.nextLevelXP) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Daily Challenge Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-lg">📅</div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Daily Challenge</p>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm">{dailyChallenge.title}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">+{dailyChallenge.xpReward} XP</p>
+                      <button
+                        onClick={() => navigateToView('daily-challenge')}
+                        className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition mt-1"
+                      >
+                        {dailyChallenge.completed ? 'Completed ✓' : 'Start'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">{userProgress.testsCompleted}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Tests</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-emerald-600">{userProgress.avgScore}%</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Avg Score</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-amber-600">{userProgress.badges.length}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Badges</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => navigateToView('leaderboard')}
+                      className="text-xs px-3 py-1.5 border border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
+                    >
+                      Leaderboard →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Badges Preview */}
+              <div className="bg-gradient-to-br from-white to-amber-50/30 dark:from-gray-800 dark:to-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/30 mb-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🏆</span>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Your Badges</h3>
+                    <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">
+                      {allBadges.filter(b => b.earned).length}/{allBadges.length}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => navigateToView('achievements')}
+                    className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors flex items-center gap-1"
+                  >
+                    View All
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {allBadges.slice(0, 8).map((badge, index) => (
+                    <div
+                      key={badge.id}
+                      className={`group flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 ${badge.earned
+                        ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 border-2 border-amber-300 dark:border-amber-600 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30'
+                        : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 grayscale opacity-40 hover:opacity-60'
+                        }`}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                      title={`${badge.name}${badge.earned ? ' ✓' : ' (Locked)'}`}
+                    >
+                      {badge.image ? (
+                        <img
+                          src={badge.image}
+                          alt={badge.name}
+                          className={`w-10 h-10 object-contain transition-transform duration-300 group-hover:scale-110 ${badge.earned ? 'drop-shadow-md' : ''}`}
+                        />
+                      ) : (
+                        <span className="text-2xl transition-transform duration-300 group-hover:scale-110">{badge.icon}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Main Test Type Toggle */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Type:</span>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
+                      <button
+                        onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
+                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${showCompanyTests
+                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Company Tests
+                      </button>
+                      <button
+                        onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
+                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${!showCompanyTests
+                          ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        Technical Tests
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Test Mode Toggle */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setTestMode('timed')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                      >
+                        ⏱️ Timed
+                      </button>
+                      <button
+                        onClick={() => setTestMode('practice')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                      >
+                        📚 Practice
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-category Filters - Only show for Technical Tests */}
+                {!showCompanyTests && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${selectedCategory === cat
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
+                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
+                            }`}
+                        >
+                          {cat === 'all' ? 'All' : cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Difficulty Selector */}
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Difficulty:</span>
+                {(['easy', 'medium', 'hard'] as DifficultyLevel[]).map((diff) => (
+                  <button
+                    key={diff}
+                    onClick={() => setSelectedDifficulty(diff)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${selectedDifficulty === diff
+                      ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+
+              {/* Company Tests Grid */}
+              {showCompanyTests && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                  {companyAssessments.map(renderAssessmentCard)}
+                </div>
+              )}
+
+              {/* Regular Assessment Grid - Only show when NOT showing company tests */}
+              {!showCompanyTests && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                  {assessments
+                    .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
+                    .map(renderAssessmentCard)}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
       {activeTab === 'interview' && renderMockInterviewSection()}
       {activeTab === 'history' && renderHistorySection()}
 
       {/* Leaderboard View */}
-      {view === 'leaderboard' && (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-              <ArrowLeftIcon />
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🏆 Leaderboard</h2>
-          </div>
+      {
+        view === 'leaderboard' && (
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-3 mb-6">
+              <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <ArrowLeftIcon />
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🏆 Leaderboard</h2>
+            </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {/* Top 3 */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6">
-              <div className="flex justify-center items-end gap-4">
-                {/* 2nd Place */}
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">
-                    {leaderboardData[1].avatar}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Top 3 */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6">
+                <div className="flex justify-center items-end gap-4">
+                  {/* 2nd Place */}
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">
+                      {leaderboardData[1].avatar}
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[1].name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[1].xp} XP</p>
+                    <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[1].name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[1].xp} XP</p>
-                  <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
-                </div>
-                {/* 1st Place */}
-                <div className="text-center -mt-4">
-                  <div className="text-2xl mb-1">👑</div>
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-300">
-                    {leaderboardData[0].avatar}
+                  {/* 1st Place */}
+                  <div className="text-center -mt-4">
+                    <div className="text-2xl mb-1">👑</div>
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-300">
+                      {leaderboardData[0].avatar}
+                    </div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{leaderboardData[0].name}</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{leaderboardData[0].xp} XP</p>
+                    <div className="w-12 h-14 bg-gradient-to-b from-amber-400 to-amber-500 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">1</div>
                   </div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{leaderboardData[0].name}</p>
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{leaderboardData[0].xp} XP</p>
-                  <div className="w-12 h-14 bg-gradient-to-b from-amber-400 to-amber-500 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">1</div>
-                </div>
-                {/* 3rd Place */}
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-amber-200 dark:border-amber-700">
-                    {leaderboardData[2].avatar}
+                  {/* 3rd Place */}
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-amber-200 dark:border-amber-700">
+                      {leaderboardData[2].avatar}
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[2].name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[2].xp} XP</p>
+                    <div className="w-10 h-8 bg-amber-200 dark:bg-amber-800 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold text-amber-800 dark:text-amber-200">3</div>
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[2].name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[2].xp} XP</p>
-                  <div className="w-10 h-8 bg-amber-200 dark:bg-amber-800 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold text-amber-800 dark:text-amber-200">3</div>
                 </div>
+              </div>
+
+              {/* Rest of leaderboard */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {leaderboardData.slice(3).map((entry) => (
+                  <div key={entry.rank} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <span className="w-8 text-center font-bold text-gray-400">{entry.rank}</span>
+                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-lg">
+                      {entry.avatar}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{entry.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{entry.testsCompleted} tests • {entry.avgScore}% avg</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-orange-600 dark:text-orange-400">{entry.xp} XP</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{entry.badges} badges</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Achievements View */}
+      {
+        view === 'achievements' && (
+          <div className="max-w-4xl mx-auto px-4 py-8">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-8">
+              <button
+                onClick={() => navigateToView('list')}
+                className="p-2.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-105"
+              >
+                <ArrowLeftIcon />
+              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Achievements & Badges</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  {allBadges.filter(b => b.earned).length} of {allBadges.length} badges unlocked
+                </p>
               </div>
             </div>
 
-            {/* Rest of leaderboard */}
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {leaderboardData.slice(3).map((entry) => (
-                <div key={entry.rank} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <span className="w-8 text-center font-bold text-gray-400">{entry.rank}</span>
-                  <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-lg">
-                    {entry.avatar}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">{entry.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{entry.testsCompleted} tests • {entry.avgScore}% avg</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-orange-600 dark:text-orange-400">{entry.xp} XP</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{entry.badges} badges</p>
+            {/* Progress Bar */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Collection Progress</span>
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                  {Math.round((allBadges.filter(b => b.earned).length / allBadges.length) * 100)}%
+                </span>
+              </div>
+              <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${(allBadges.filter(b => b.earned).length / allBadges.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Badges Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allBadges.map((badge, index) => (
+                <div
+                  key={badge.id}
+                  className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
+                    ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
+                    : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
+                    }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {/* Earned Glow Effect */}
+                  {badge.earned && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-100/50 via-transparent to-orange-100/50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl pointer-events-none" />
+                  )}
+
+                  <div className="relative flex items-start gap-4">
+                    {/* Badge Icon */}
+                    <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${badge.earned
+                      ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 grayscale'
+                      }`}>
+                      {badge.image ? (
+                        <img
+                          src={badge.image}
+                          alt={badge.name}
+                          className={`w-11 h-11 object-contain ${badge.earned ? 'drop-shadow-md' : 'opacity-50'}`}
+                        />
+                      ) : (
+                        <span className="text-3xl">{badge.icon}</span>
+                      )}
+                      {/* Lock Icon for unearned */}
+                      {!badge.earned && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Badge Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{badge.name}</h3>
+                        {badge.earned && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-emerald-500 to-green-500 text-white px-2 py-0.5 rounded-full font-medium shadow-sm">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Earned
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{badge.description}</p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {badge.requirement}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg font-medium">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 12a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm0-3a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3A.5.5 0 018 9z" />
+                          </svg>
+                          +{badge.xpReward} XP
+                        </span>
+                      </div>
+                      {badge.earned && badge.earnedDate && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Achievements View */}
-      {view === 'achievements' && (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => navigateToView('list')}
-              className="p-2.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-105"
-            >
-              <ArrowLeftIcon />
-            </button>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Achievements & Badges</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                {allBadges.filter(b => b.earned).length} of {allBadges.length} badges unlocked
-              </p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Collection Progress</span>
-              <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                {Math.round((allBadges.filter(b => b.earned).length / allBadges.length) * 100)}%
-              </span>
-            </div>
-            <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${(allBadges.filter(b => b.earned).length / allBadges.length) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Badges Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allBadges.map((badge, index) => (
-              <div
-                key={badge.id}
-                className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
-                  ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
-                  : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
-                  }`}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {/* Earned Glow Effect */}
-                {badge.earned && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-100/50 via-transparent to-orange-100/50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl pointer-events-none" />
-                )}
-
-                <div className="relative flex items-start gap-4">
-                  {/* Badge Icon */}
-                  <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${badge.earned
-                    ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
-                    : 'bg-gray-100 dark:bg-gray-700 grayscale'
-                    }`}>
-                    {badge.image ? (
-                      <img
-                        src={badge.image}
-                        alt={badge.name}
-                        className={`w-11 h-11 object-contain ${badge.earned ? 'drop-shadow-md' : 'opacity-50'}`}
-                      />
-                    ) : (
-                      <span className="text-3xl">{badge.icon}</span>
-                    )}
-                    {/* Lock Icon for unearned */}
-                    {!badge.earned && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Badge Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{badge.name}</h3>
-                      {badge.earned && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-emerald-500 to-green-500 text-white px-2 py-0.5 rounded-full font-medium shadow-sm">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                          Earned
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{badge.description}</p>
-                    <div className="flex items-center gap-3 mt-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {badge.requirement}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg font-medium">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 12a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm0-3a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3A.5.5 0 018 9z" />
-                        </svg>
-                        +{badge.xpReward} XP
-                      </span>
-                    </div>
-                    {badge.earned && badge.earnedDate && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Daily Challenge View */}
-      {view === 'daily-challenge' && (
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-              <ArrowLeftIcon />
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📅 Daily Challenge</h2>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm opacity-80">Today's Challenge</p>
-                <h3 className="text-xl font-bold">{dailyChallenge.title}</h3>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">+{dailyChallenge.xpReward}</p>
-                <p className="text-xs opacity-80">XP Reward</p>
-              </div>
+      {
+        view === 'daily-challenge' && (
+          <div className="max-w-2xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-3 mb-6">
+              <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <ArrowLeftIcon />
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📅 Daily Challenge</h2>
             </div>
-            <div className="flex items-center gap-4 mb-4">
-              <span className="px-2 py-1 bg-white/20 rounded text-xs">{dailyChallenge.topic}</span>
-              <span className="px-2 py-1 bg-white/20 rounded text-xs capitalize">{dailyChallenge.difficulty}</span>
-              <span className="px-2 py-1 bg-white/20 rounded text-xs">⏱️ {Math.floor(dailyChallenge.timeLimit / 60)} min</span>
-            </div>
-            <button
-              onClick={() => {
-                const challengeAssessment = assessments.find(a => a.title.toLowerCase().includes(dailyChallenge.topic.toLowerCase())) || assessments[0];
-                setSelectedAssessment(challengeAssessment);
-                setShowInstructions(true);
-              }}
-              className="w-full py-3 bg-white text-purple-600 font-semibold rounded-xl hover:bg-gray-100 transition"
-            >
-              {dailyChallenge.completed ? 'Challenge Completed! ✓' : 'Start Challenge'}
-            </button>
-          </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Challenge Rules</h4>
-            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li className="flex items-start gap-2">
-                <span className="text-purple-500">•</span>
-                Complete the challenge within the time limit
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-500">•</span>
-                Score at least 70% to earn the full XP reward
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-500">•</span>
-                Challenge resets daily at midnight
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-500">•</span>
-                Complete 10 daily challenges to earn the "Daily Champion" badge
-              </li>
-            </ul>
+            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm opacity-80">Today's Challenge</p>
+                  <h3 className="text-xl font-bold">{dailyChallenge.title}</h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold">+{dailyChallenge.xpReward}</p>
+                  <p className="text-xs opacity-80">XP Reward</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mb-4">
+                <span className="px-2 py-1 bg-white/20 rounded text-xs">{dailyChallenge.topic}</span>
+                <span className="px-2 py-1 bg-white/20 rounded text-xs capitalize">{dailyChallenge.difficulty}</span>
+                <span className="px-2 py-1 bg-white/20 rounded text-xs">⏱️ {Math.floor(dailyChallenge.timeLimit / 60)} min</span>
+              </div>
+              <button
+                onClick={() => {
+                  const challengeAssessment = assessments.find(a => a.title.toLowerCase().includes(dailyChallenge.topic.toLowerCase())) || assessments[0];
+                  setSelectedAssessment(challengeAssessment);
+                  setShowInstructions(true);
+                }}
+                className="w-full py-3 bg-white text-purple-600 font-semibold rounded-xl hover:bg-gray-100 transition"
+              >
+                {dailyChallenge.completed ? 'Challenge Completed! ✓' : 'Start Challenge'}
+              </button>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Challenge Rules</h4>
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  Complete the challenge within the time limit
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  Score at least 70% to earn the full XP reward
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  Challenge resets daily at midnight
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  Complete 10 daily challenges to earn the "Daily Champion" badge
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 
   const renderMockInterviewSection = () => (

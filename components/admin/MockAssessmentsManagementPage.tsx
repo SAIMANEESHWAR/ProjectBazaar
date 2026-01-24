@@ -177,6 +177,9 @@ const MockAssessmentsManagementPage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   const [viewingAssessment, setViewingAssessment] = useState<Assessment | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel | 'all'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | 'technical' | 'company'>('all');
+  const [showPopularOnly, setShowPopularOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Form state
@@ -451,11 +454,25 @@ const MockAssessmentsManagementPage: React.FC = () => {
     return assessments.filter(assessment => {
       const matchesSearch = assessment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assessment.id.toLowerCase().includes(searchQuery.toLowerCase());
+
       const matchesCategory = selectedCategory === 'all' || assessment.category === selectedCategory;
       const matchesStatus = selectedStatus === 'all' || assessment.status === selectedStatus;
-      return matchesSearch && matchesCategory && matchesStatus;
+
+      // Difficulty Check
+      const matchesDifficulty = selectedDifficulty === 'all' ||
+        (assessment.difficulty === selectedDifficulty) ||
+        (assessment.difficulties && assessment.difficulties.includes(selectedDifficulty as DifficultyLevel));
+
+      // Type Check
+      const matchesType = selectedType === 'all' ||
+        (selectedType === 'company' ? assessment.category === 'company' : assessment.category !== 'company');
+
+      // Popular Check
+      const matchesPopular = !showPopularOnly || assessment.popular;
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesDifficulty && matchesType && matchesPopular;
     });
-  }, [assessments, searchQuery, selectedCategory, selectedStatus]);
+  }, [assessments, searchQuery, selectedCategory, selectedStatus, selectedDifficulty, selectedType, showPopularOnly]);
 
   // ========================================
   // Question Management
@@ -550,54 +567,99 @@ const MockAssessmentsManagementPage: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search assessments..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search assessments..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assessment Type</label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="all">All Types</option>
+                <option value="technical">Technical</option>
+                <option value="company">Company</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value as AssessmentCategory | 'all')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                disabled={selectedType === 'company'} // Disable category if type is Company (category is implicitly company)
+              >
+                <option value="all">All Categories</option>
+                {categories.filter(c => selectedType !== 'technical' || c !== 'company').map(cat => (
+                  <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value as AssessmentCategory | 'all')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-                setSelectedStatus('all');
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              Clear Filters
-            </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value as DifficultyLevel | 'all')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="all">All Difficulties</option>
+                {difficulties.map(diff => (
+                  <option key={diff} value={diff}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center pb-2">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPopularOnly}
+                  onChange={(e) => setShowPopularOnly(e.target.checked)}
+                  className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 font-medium">Popular Only</span>
+              </label>
+            </div>
+            <div className="md:col-span-2 flex justify-end">
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                  setSelectedStatus('all');
+                  setSelectedDifficulty('all');
+                  setSelectedType('all');
+                  setShowPopularOnly(false);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-gray-700"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1325,27 +1387,97 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Assessment Type Selection */}
+          <div className="col-span-2 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Assessment Type</label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${formData.category !== 'company'
+                ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}>
+                <input
+                  type="radio"
+                  name="assessmentType"
+                  className="w-5 h-5 text-orange-600 focus:ring-orange-500"
+                  checked={formData.category !== 'company'}
+                  onChange={() => setFormData({ ...formData, category: 'technical', company: '' })}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    Technical Assessment
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Subject-based (Java, React, System Design)</p>
+                </div>
+              </label>
+
+              <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-3 transition-all ${formData.category === 'company'
+                ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500'
+                : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}>
+                <input
+                  type="radio"
+                  name="assessmentType"
+                  className="w-5 h-5 text-orange-600 focus:ring-orange-500"
+                  checked={formData.category === 'company'}
+                  onChange={() => setFormData({
+                    ...formData,
+                    category: 'company',
+                    objective: 20,
+                    programming: 2,
+                    time: '45 Minutes'
+                  })}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Company Assessment
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Company-specific (Google, Amazon, Microsoft)</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Basic Information */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {formData.category === 'company' ? 'Company Name *' : 'Title *'}
+              </label>
               <input
                 type="text"
-                value={formData.title}
+                value={formData.category === 'company' ? (formData.company || formData.title) : formData.title}
                 onChange={(e) => {
-                  const newTitle = e.target.value;
-                  const autoLogo = getLogoFromTitle(newTitle);
-                  setFormData({
-                    ...formData,
-                    title: newTitle,
-                    logo: autoLogo || formData.logo || '' // Auto-fill logo if found, otherwise keep existing
-                  });
+                  const val = e.target.value;
+                  const autoLogo = getLogoFromTitle(val);
+
+                  if (formData.category === 'company') {
+                    setFormData({
+                      ...formData,
+                      title: val ? `${val} Assessment` : '',
+                      company: val,
+                      logo: autoLogo || formData.logo || ''
+                    });
+                  } else {
+                    setFormData({
+                      ...formData,
+                      title: val,
+                      logo: autoLogo || formData.logo || ''
+                    });
+                  }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                placeholder="e.g., Java, React, Python"
+                placeholder={formData.category === 'company' ? "e.g., Google, Amazon" : "e.g., Java, React, Python"}
               />
             </div>
-            <div>
+
+            {/* Logo Upload Section - Keeping existing logic but wrapping properly */}
+            <div className="row-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Logo URL
                 {formData.logo && formData.logo.includes('simpleicons.org') && (
@@ -1412,15 +1544,16 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
                     placeholder="/mock_assessments_logo/java.png or https://cdn.simpleicons.org/..."
                   />
+                  {/* Fetch button logic remains the same */}
                   {formData.title && (
                     <button
                       type="button"
                       onClick={() => {
-                        const autoLogo = getLogoFromTitle(formData.title || '');
+                        const autoLogo = getLogoFromTitle(formData.company || formData.title || '');
                         if (autoLogo) {
                           setFormData({ ...formData, logo: autoLogo });
                         } else {
-                          alert(`No logo found for "${formData.title}". Please enter manually.`);
+                          alert(`No logo found. Please enter manually.`);
                         }
                       }}
                       className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition whitespace-nowrap"
@@ -1470,18 +1603,21 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                 </div>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value as AssessmentCategory })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                ))}
-              </select>
-            </div>
+
+            {formData.category !== 'company' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value as AssessmentCategory })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                >
+                  {categories.filter(c => c !== 'company').map(cat => (
+                    <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Time *</label>
               <input
@@ -1560,18 +1696,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                 min="0"
               />
             </div>
-            {formData.category === 'company' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  placeholder="e.g., Google, Amazon"
-                />
-              </div>
-            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
@@ -1625,7 +1750,10 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                       ? formData.difficulties
                       : ['medium'];
                     const category = formData.category || 'technical';
-                    const topic = formData.title || category;
+                    // More specific topic for company assessments to ensure relevant questions
+                    const topic = category === 'company' && formData.company
+                      ? `${formData.company} Interview Questions`
+                      : (formData.title || category);
 
                     try {
                       // Generate MCQ questions - distribute across selected difficulties
