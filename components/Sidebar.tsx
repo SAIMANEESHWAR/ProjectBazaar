@@ -198,7 +198,10 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
             <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 border-t border-gray-200`}>
                 {isExpanded ? (
                     <div className="flex items-center p-2 bg-orange-50 rounded-lg">
-                        <div className="relative flex-shrink-0">
+                        <button 
+                            onClick={() => setActiveView('settings')}
+                            className="relative flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        >
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
                                 {userProfileImage ? (
                                     <img 
@@ -213,18 +216,29 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                             {userProfileImage && (
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
                             )}
-                        </div>
+                        </button>
                         <div className="ml-3 flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">{userFullName || 'User'}</p>
                             <p className="text-xs text-gray-500 truncate">{userEmail ?? 'user@example.com'}</p>
                         </div>
-                        <button onClick={logout} className="ml-2 p-2 rounded-full text-gray-500 hover:bg-orange-100 flex-shrink-0">
+                        <button 
+                            onClick={logout} 
+                            className="ml-2 p-2 rounded-full text-gray-500 hover:bg-orange-100 flex-shrink-0 relative group"
+                            title="Logout"
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                Logout
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                            </div>
                         </button>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-2">
-                        <div className="relative">
+                        <button 
+                            onClick={() => setActiveView('settings')}
+                            className="relative cursor-pointer hover:opacity-80 transition-opacity group"
+                        >
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
                                 {userProfileImage ? (
                                     <img 
@@ -239,13 +253,20 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                             {userProfileImage && (
                                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
                             )}
-                        </div>
+                            <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                Settings
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                            </div>
+                        </button>
                         <button 
                             onClick={logout} 
-                            className="p-2 rounded-full text-gray-500 hover:bg-orange-100"
-                            title="Logout"
+                            className="p-2 rounded-full text-gray-500 hover:bg-orange-100 relative group"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                Logout
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                            </div>
                         </button>
                     </div>
                 )}
