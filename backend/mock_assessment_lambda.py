@@ -2,6 +2,7 @@ import json
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
+from decimal import Decimal
 import uuid
 import math
 
@@ -27,6 +28,19 @@ def response(status_code, body):
         },
         'body': json.dumps(body, default=str)
     }
+
+
+# Helper function to convert floats to Decimal for DynamoDB
+def convert_floats_to_decimal(obj):
+    """Recursively convert all float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, list):
+        return [convert_floats_to_decimal(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_floats_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    else:
+        return obj
 
 
 # ========================================
@@ -367,7 +381,7 @@ def submit_test_result(body):
         # Update average score
         old_avg = progress.get('avgScore', 0)
         new_avg = ((old_avg * (tests_completed - 1)) + score) / tests_completed
-        progress['avgScore'] = round(new_avg, 2)
+        progress['avgScore'] = Decimal(str(round(new_avg, 2)))
         
         # Check for badges
         test_result_data = {
@@ -419,7 +433,9 @@ def submit_test_result(body):
         
         # Update user progress
         progress['updatedAt'] = timestamp
-        user_progress_table.put_item(Item=progress)
+        # Convert floats to Decimal before saving
+        progress_to_save = convert_floats_to_decimal(progress)
+        user_progress_table.put_item(Item=progress_to_save)
         
         # Update leaderboard
         update_leaderboard(user_id, progress)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
+import { useAuth } from '../App';
 
 // Lambda API endpoint for Mock Assessments
 const MOCK_ASSESSMENTS_API = 'https://w7k9vplo2j.execute-api.ap-south-2.amazonaws.com/default/mock_assessment_handler';
@@ -297,34 +298,10 @@ interface UserProgress {
 // Company assessments data removed
 
 // Badges data
-const allBadges: Badge[] = [
-  { id: 'first-test', name: 'First Steps', description: 'Complete your first assessment', icon: '🎯', image: '/badge_logo/target.png', earned: true, earnedDate: '2026-01-10', requirement: 'Complete 1 test', xpReward: 50 },
-  { id: 'streak-7', name: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '🔥', image: '/badge_logo/fire.png', earned: true, earnedDate: '2026-01-15', requirement: '7 day streak', xpReward: 100 },
-  { id: 'perfect-score', name: 'Perfectionist', description: 'Score 100% on any test', icon: '💯', image: '/badge_logo/first_place.png', earned: false, requirement: '100% score', xpReward: 200 },
-  { id: 'java-master', name: 'Java Master', description: 'Complete all Java assessments with 80%+', icon: '☕', image: '/badge_logo/java.png', earned: true, earnedDate: '2026-01-12', requirement: 'Master Java', xpReward: 150 },
-  { id: 'speed-demon', name: 'Speed Demon', description: 'Complete a test in under 5 minutes', icon: '⚡', image: '/badge_logo/lightning.png', earned: false, requirement: 'Finish < 5 mins', xpReward: 75 },
-  { id: 'streak-30', name: 'Monthly Master', description: 'Maintain a 30-day streak', icon: '🏆', image: '/badge_logo/trophy.png', earned: false, requirement: '30 day streak', xpReward: 300 },
-  { id: 'ten-tests', name: 'Dedicated Learner', description: 'Complete 10 assessments', icon: '📚', image: '/badge_logo/books.png', earned: true, earnedDate: '2026-01-14', requirement: 'Complete 10 tests', xpReward: 100 },
-  { id: 'all-topics', name: 'Well Rounded', description: 'Complete tests in 5 different categories', icon: '🌟', image: '/badge_logo/star.png', earned: false, requirement: '5 categories', xpReward: 150 },
-  { id: 'night-owl', name: 'Night Owl', description: 'Complete a test after midnight', icon: '🦉', image: '/badge_logo/owl.png', earned: false, requirement: 'Test after 12 AM', xpReward: 50 },
-  { id: 'early-bird', name: 'Early Bird', description: 'Complete a test before 6 AM', icon: '🐦', image: '/badge_logo/bird.png', earned: false, requirement: 'Test before 6 AM', xpReward: 50 },
-  { id: 'company-ready', name: 'Company Ready', description: 'Complete 3 company-specific assessments', icon: '💼', image: '/badge_logo/briefcase.png', earned: false, requirement: '3 company tests', xpReward: 200 },
-  { id: 'daily-champ', name: 'Daily Champion', description: 'Complete 10 daily challenges', icon: '📅', image: '/badge_logo/calendar.png', earned: false, requirement: '10 daily challenges', xpReward: 150 },
-];
+// Static allBadges removed in favor of dynamic userProgress
 
-// Leaderboard data
-const leaderboardData: LeaderboardEntry[] = [
-  { rank: 1, name: 'Rahul Sharma', avatar: '👨‍💻', xp: 12500, testsCompleted: 85, avgScore: 92, badges: 10 },
-  { rank: 2, name: 'Priya Patel', avatar: '👩‍💻', xp: 11200, testsCompleted: 78, avgScore: 89, badges: 9 },
-  { rank: 3, name: 'Amit Kumar', avatar: '🧑‍💻', xp: 10800, testsCompleted: 72, avgScore: 88, badges: 8 },
-  { rank: 4, name: 'Sneha Gupta', avatar: '👩‍🎓', xp: 9500, testsCompleted: 65, avgScore: 86, badges: 7 },
-  { rank: 5, name: 'Vikram Singh', avatar: '👨‍🎓', xp: 8900, testsCompleted: 60, avgScore: 85, badges: 7 },
-  { rank: 6, name: 'Ananya Reddy', avatar: '👩‍💼', xp: 8200, testsCompleted: 55, avgScore: 84, badges: 6 },
-  { rank: 7, name: 'Karthik Nair', avatar: '👨‍💼', xp: 7800, testsCompleted: 52, avgScore: 83, badges: 6 },
-  { rank: 8, name: 'Divya Menon', avatar: '👩‍🔬', xp: 7200, testsCompleted: 48, avgScore: 82, badges: 5 },
-  { rank: 9, name: 'Arjun Verma', avatar: '👨‍🔬', xp: 6800, testsCompleted: 45, avgScore: 81, badges: 5 },
-  { rank: 10, name: 'Meera Joshi', avatar: '👩‍🏫', xp: 6500, testsCompleted: 42, avgScore: 80, badges: 4 },
-];
+
+// Static leaderboard removed in favor of dynamic data
 
 // Daily challenge data
 const dailyChallengeData: DailyChallenge = {
@@ -450,6 +427,7 @@ interface MockAssessmentPageProps {
 }
 
 const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = 'list', toggleSidebar }) => {
+  const { userId } = useAuth();
   const [view, setView] = useState<AssessmentView>(initialView === 'history' ? 'list' : initialView);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -578,7 +556,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'get_test_history',
-          userId: 'user123' // TODO: Replace with actual user ID
+          userId
         })
       });
 
@@ -629,22 +607,81 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     }
   }, [view, activeTab, fetchTestHistory]);
 
-  // New feature states
+
+  const [userProgress, setUserProgress] = useState<UserProgress>({
+    level: 1,
+    currentXP: 0,
+    nextLevelXP: 500,
+    totalXP: 0,
+    streak: 0,
+    testsCompleted: 0,
+    avgScore: 0,
+    badges: [],
+    // Add default values for other fields if needed for UI before load
+  });
+
+  const fetchUserProgress = useCallback(async () => {
+    try {
+      const output = await fetch(MOCK_ASSESSMENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_user_progress', userId })
+      });
+      if (output.ok) {
+        const data = await output.json();
+        if (data.success && data.data) {
+          setUserProgress(data.data);
+        } else if (data.body) {
+          try {
+            // Handle Lambda Proxy response structure if needed
+            const parsed = JSON.parse(data.body);
+            if (parsed.success && parsed.data) setUserProgress(parsed.data);
+          } catch (e) { console.error(e); }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user progress:', error);
+    }
+  }, []);
+
+  // Leaderboard state
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const output = await fetch(MOCK_ASSESSMENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get_leaderboard' })
+      });
+      if (output.ok) {
+        const data = await output.json();
+        if (data.success && data.data) {
+          setLeaderboard(data.data.leaderboard || []);
+        } else if (data.body) {
+          try {
+            const parsed = JSON.parse(data.body);
+            if (parsed.success && parsed.data) setLeaderboard(parsed.data.leaderboard || []);
+          } catch (e) { console.error(e); }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    }
+  }, []);
+
+  // Fetch user progress on mount and when view is relevant
+  useEffect(() => {
+    fetchUserProgress();
+    fetchLeaderboard();
+  }, [fetchUserProgress, fetchLeaderboard]);
   const [testMode, setTestMode] = useState<TestMode>('timed');
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>('medium');
   const [antiCheatMode, setAntiCheatMode] = useState<boolean>(true);
 
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
-  const [userProgress, setUserProgress] = useState<UserProgress>({
-    level: 5,
-    currentXP: 2350,
-    nextLevelXP: 3000,
-    totalXP: 2350,
-    streak: 7,
-    testsCompleted: 12,
-    avgScore: 78,
-    badges: allBadges.filter(b => b.earned),
-  });
+  // Duplicate userProgress removed
+
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge>(dailyChallengeData);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCompanyTests, setShowCompanyTests] = useState(false);
@@ -826,10 +863,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     if (view === 'test' && timeLeft > 0 && testMode === 'timed') {
       timer = setInterval(() => {
         setTimeLeft((prev) => {
-          if (prev <= 1) {
-            handleSubmitTest();
-            return 0;
-          }
           return prev - 1;
         });
       }, 1000);
@@ -1203,18 +1236,103 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     // Store XP earned in result
     result.xpEarned = xpEarned;
 
-    setUserProgress(prev => ({
-      ...prev,
-      currentXP: prev.currentXP + xpEarned,
-      totalXP: prev.totalXP + xpEarned,
-      testsCompleted: prev.testsCompleted + 1,
-      avgScore: Math.round((prev.avgScore * prev.testsCompleted + (score / questions.length) * 100) / (prev.testsCompleted + 1)),
-    }));
+    setUserProgress(prev => {
+      let newXP = prev.currentXP + xpEarned;
+      let newLevel = prev.level;
+      let newNextLevelXP = prev.nextLevelXP;
+
+      // Level up logic
+      while (newXP >= newNextLevelXP) {
+        newLevel++;
+        newXP -= newNextLevelXP; // Carry over excess XP
+        newNextLevelXP = Math.round(newNextLevelXP * 1.5); // Increase XP needed for next level
+      }
+
+      // Check for badge achievements
+      const updatedBadges = prev.badges.map(badge => {
+        if (!badge.earned) {
+          if (badge.id === 'first_test' && prev.testsCompleted + 1 >= 1) {
+            return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
+          }
+          if (badge.id === 'master_coder' && solved === questions.length && isProgrammingQuestion(questions[0])) {
+            return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
+          }
+          if (badge.id === 'high_scorer' && score >= 90) {
+            return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
+          }
+          // Add more badge conditions here based on prev.testsCompleted, prev.totalXP, etc.
+        }
+        return badge;
+      });
+
+      const newProgress = {
+        ...prev,
+        level: newLevel,
+        currentXP: newXP,
+        nextLevelXP: newNextLevelXP,
+        totalXP: prev.totalXP + xpEarned,
+        testsCompleted: prev.testsCompleted + 1,
+        avgScore: Math.round((prev.avgScore * prev.testsCompleted + (score / questions.length) * 100) / (prev.testsCompleted + 1)),
+        badges: updatedBadges,
+      };
+
+      localStorage.setItem('userProgress', JSON.stringify(newProgress));
+      return newProgress;
+    });
+
 
     // Mark daily challenge as completed if applicable
     if (selectedAssessment && dailyChallenge.topic.toLowerCase().includes(selectedAssessment.title.toLowerCase())) {
       setDailyChallenge(prev => ({ ...prev, completed: true }));
     }
+
+    // Submit to backend
+    const submitToBackend = async () => {
+      try {
+        const response = await fetch(MOCK_ASSESSMENTS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'submit_test_result',
+            userId,
+            assessmentId: selectedAssessment?.id || '',
+            assessmentTitle: selectedAssessment?.title || '',
+            score: Math.round((solved / questions.length) * 100), // Send as percentage
+            totalQuestions: questions.length,
+            attempted,
+            solved,
+            duration: selectedAssessment?.time || '30 Minutes',
+            startTime: testStartTime?.toISOString() || new Date().toISOString(),
+            questionResults,
+            proctoringData: {
+              tabSwitchCount: antiCheatMode ? tabSwitchCount : 0,
+              fullScreenExitCount: antiCheatMode ? fullScreenExitCount : 0,
+              copyPasteAttempts: 0,
+              hintsUsed: Object.values(hintsUsed).reduce((a, b) => a + b, 0)
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Test submission response:', data);
+
+          // Refresh all dynamic data after successful submission
+          await Promise.all([
+            fetchUserProgress(),
+            fetchTestHistory(),
+            fetchLeaderboard(),
+          ]);
+        } else {
+          console.error('Failed to submit test result');
+        }
+      } catch (error) {
+        console.error('Error submitting test result:', error);
+      }
+    };
+
+    // Call backend submission (non-blocking)
+    submitToBackend();
 
     // Reset proctoring state
     setShowTabWarningModal(false);
@@ -1465,7 +1583,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         <p className="text-xs text-gray-500 dark:text-gray-400">Avg Score</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-xl font-bold text-amber-600">{userProgress.badges.length}</p>
+                        <p className="text-xl font-bold text-amber-600">{userProgress.badges.filter(b => b.earned).length}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Badges</p>
                       </div>
                     </div>
@@ -1486,7 +1604,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     <span className="text-xl">🏆</span>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Your Badges</h3>
                     <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">
-                      {allBadges.filter(b => b.earned).length}/{allBadges.length}
+                      {userProgress.badges.filter(b => b.earned).length}/{userProgress.badges.length}
                     </span>
                   </div>
                   <button
@@ -1498,7 +1616,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   </button>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                  {allBadges.slice(0, 8).map((badge, index) => (
+                  {userProgress.badges.slice(0, 7).map((badge: Badge, index) => (
                     <div
                       key={badge.id}
                       className={`group flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 ${badge.earned
@@ -1656,29 +1774,29 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   {/* 2nd Place */}
                   <div className="text-center">
                     <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">
-                      {leaderboardData[1].avatar}
+                      {leaderboard[1]?.avatar}
                     </div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[1].name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[1].xp} XP</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[1]?.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[1]?.xp} XP</p>
                     <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
                   </div>
                   {/* 1st Place */}
                   <div className="text-center -mt-4">
                     <div className="text-2xl mb-1">👑</div>
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-300">
-                      {leaderboardData[0].avatar}
+                      {leaderboard[0]?.avatar}
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{leaderboardData[0].name}</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{leaderboardData[0].xp} XP</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{leaderboard[0]?.name}</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{leaderboard[0]?.xp} XP</p>
                     <div className="w-12 h-14 bg-gradient-to-b from-amber-400 to-amber-500 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">1</div>
                   </div>
                   {/* 3rd Place */}
                   <div className="text-center">
                     <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-amber-200 dark:border-amber-700">
-                      {leaderboardData[2].avatar}
+                      {leaderboard[2]?.avatar}
                     </div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[2].name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[2].xp} XP</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[2]?.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[2]?.xp} XP</p>
                     <div className="w-10 h-8 bg-amber-200 dark:bg-amber-800 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold text-amber-800 dark:text-amber-200">3</div>
                   </div>
                 </div>
@@ -1686,7 +1804,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
               {/* Rest of leaderboard */}
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {leaderboardData.slice(3).map((entry) => (
+                {leaderboard.slice(3).map((entry: LeaderboardEntry) => (
                   <div key={entry.rank} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <span className="w-8 text-center font-bold text-gray-400">{entry.rank}</span>
                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-lg">
@@ -1723,7 +1841,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Achievements & Badges</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  {allBadges.filter(b => b.earned).length} of {allBadges.length} badges unlocked
+                  {userProgress.badges.filter(b => b.earned).length} of {userProgress.badges.length} badges unlocked
                 </p>
               </div>
             </div>
@@ -1733,20 +1851,20 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Collection Progress</span>
                 <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                  {Math.round((allBadges.filter(b => b.earned).length / allBadges.length) * 100)}%
+                  {Math.round((userProgress.badges.filter(b => b.earned).length / userProgress.badges.length) * 100)}%
                 </span>
               </div>
               <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: `${(allBadges.filter(b => b.earned).length / allBadges.length) * 100}%` }}
+                  style={{ width: `${(userProgress.badges.filter(b => b.earned).length / userProgress.badges.length) * 100}%` }}
                 />
               </div>
             </div>
 
             {/* Badges Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {allBadges.map((badge, index) => (
+              {userProgress.badges.map((badge: Badge, index) => (
                 <div
                   key={badge.id}
                   className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
@@ -2772,7 +2890,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               </div>
               <div className="h-1.5 bg-slate-600/50 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -3149,7 +3267,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                               <select
                                 value={selectedLanguage}
                                 onChange={(e) => setSelectedLanguage(e.target.value)}
-                                className="px-3 py-1.5 bg-[#3c3c3c] border border-gray-600 rounded-md text-sm font-medium text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor-pointer hover:bg-[#4a4a4a] transition"
+                                className="px-3 py-1.5 bg-[#3c3c3c] border border-gray-600 rounded-md text-sm font-medium text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor:pointer hover:bg-[#4a4a4a] transition"
                               >
                                 {supportedLanguages.map(lang => (
                                   <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -4248,7 +4366,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Achievements & Badges</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {allBadges.filter(b => b.earned).length} of {allBadges.length} badges unlocked
+            {userProgress.badges.filter(b => b.earned).length} of {userProgress.badges.length} badges unlocked
           </p>
         </div>
       </div>
@@ -4258,20 +4376,20 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Collection Progress</span>
           <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-            {Math.round((allBadges.filter(b => b.earned).length / allBadges.length) * 100)}%
+            {Math.round((userProgress.badges.filter(b => b.earned).length / userProgress.badges.length) * 100)}%
           </span>
         </div>
         <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${(allBadges.filter(b => b.earned).length / allBadges.length) * 100}%` }}
+            style={{ width: `${(userProgress.badges.filter(b => b.earned).length / userProgress.badges.length) * 100}%` }}
           />
         </div>
       </div>
 
       {/* Badges Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {allBadges.map((badge, index) => (
+        {userProgress.badges.map((badge, index) => (
           <div
             key={badge.id}
             className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
@@ -4384,32 +4502,32 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <div className="flex justify-center items-end gap-4">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">
-                    {leaderboardData[1]?.avatar}
+                    {leaderboard[1]?.avatar}
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[1]?.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[1]?.xp} XP</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[1]?.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[1]?.xp} XP</p>
                   <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
                 </div>
                 <div className="text-center -mb-4">
                   <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-400">
-                    {leaderboardData[0]?.avatar}
+                    {leaderboard[0]?.avatar}
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[0]?.name}</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{leaderboardData[0]?.xp} XP</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[0]?.name}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{leaderboard[0]?.xp} XP</p>
                   <div className="w-12 h-14 bg-amber-400 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">👑</div>
                 </div>
                 <div className="text-center">
                   <div className="w-14 h-14 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xl mb-2 mx-auto border-4 border-orange-300">
-                    {leaderboardData[2]?.avatar}
+                    {leaderboard[2]?.avatar}
                   </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboardData[2]?.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboardData[2]?.xp} XP</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[2]?.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[2]?.xp} XP</p>
                   <div className="w-8 h-8 bg-orange-300 dark:bg-orange-700 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">3</div>
                 </div>
               </div>
             </div>
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {leaderboardData.slice(3).map((entry) => (
+              {leaderboard.slice(3).map((entry: LeaderboardEntry) => (
                 <div key={entry.rank} className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <span className="w-8 text-center font-semibold text-gray-500 dark:text-gray-400">{entry.rank}</span>
                   <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl">{entry.avatar}</div>
