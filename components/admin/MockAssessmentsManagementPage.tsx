@@ -90,7 +90,7 @@ const technologyLogoMap: Record<string, string> = {
   'dart': 'dart',
   'bash': 'gnubash',
   'shell': 'gnubash',
-  
+
   // Frameworks & Libraries
   'react': 'react',
   'vue': 'vuedotjs',
@@ -106,7 +106,7 @@ const technologyLogoMap: Record<string, string> = {
   'laravel': 'laravel',
   'rails': 'rubyonrails',
   'ruby on rails': 'rubyonrails',
-  
+
   // Databases
   'mysql': 'mysql',
   'postgresql': 'postgresql',
@@ -116,7 +116,7 @@ const technologyLogoMap: Record<string, string> = {
   'oracle': 'oracle',
   'microsoft sql server': 'microsoftsqlserver',
   'sql server': 'microsoftsqlserver',
-  
+
   // DevOps & Tools
   'docker': 'docker',
   'kubernetes': 'kubernetes',
@@ -129,7 +129,7 @@ const technologyLogoMap: Record<string, string> = {
   'jenkins': 'jenkins',
   'terraform': 'terraform',
   'ansible': 'ansible',
-  
+
   // Companies
   'google': 'google',
   'microsoft': 'microsoft',
@@ -147,21 +147,21 @@ const technologyLogoMap: Record<string, string> = {
 // Function to get logo URL from title
 const getLogoFromTitle = (title: string): string => {
   if (!title) return '';
-  
+
   const titleLower = title.toLowerCase().trim();
-  
+
   // Check direct match
   if (technologyLogoMap[titleLower]) {
     return `https://cdn.simpleicons.org/${technologyLogoMap[titleLower]}/000000`;
   }
-  
+
   // Check partial matches
   for (const [key, iconName] of Object.entries(technologyLogoMap)) {
     if (titleLower.includes(key) || key.includes(titleLower)) {
       return `https://cdn.simpleicons.org/${iconName}/000000`;
     }
   }
-  
+
   // Default: return empty string (user can manually enter)
   return '';
 };
@@ -234,7 +234,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
             const existingLogo = a.logo && a.logo.trim() ? a.logo : '';
             const autoLogo = getLogoFromTitle(a.title);
             const finalLogo = existingLogo || autoLogo;
-            
+
             return {
               id: a.id,
               title: a.title,
@@ -323,8 +323,8 @@ const MockAssessmentsManagementPage: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         if (editingAssessment) {
-          setAssessments(assessments.map(a => 
-            a.id === editingAssessment.id 
+          setAssessments(assessments.map(a =>
+            a.id === editingAssessment.id
               ? { ...a, ...assessment, updatedAt: new Date().toISOString().split('T')[0] }
               : a
           ));
@@ -378,7 +378,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
 
   const deleteAssessment = async (id: string) => {
     if (!confirm('Are you sure you want to delete this assessment?')) return;
-    
+
     try {
       // TODO: Add 'delete_assessment' action to Lambda handler
       const response = await fetch(MOCK_ASSESSMENTS_API, {
@@ -450,7 +450,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
   const filteredAssessments = useMemo(() => {
     return assessments.filter(assessment => {
       const matchesSearch = assessment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           assessment.id.toLowerCase().includes(searchQuery.toLowerCase());
+        assessment.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || assessment.category === selectedCategory;
       const matchesStatus = selectedStatus === 'all' || assessment.status === selectedStatus;
       return matchesSearch && matchesCategory && matchesStatus;
@@ -528,11 +528,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Mock Assessments</h2>
-          <p className="text-sm text-gray-500 mt-1">Manage assessments, questions, and settings</p>
-        </div>
+      <div className="flex items-center justify-end mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
@@ -630,111 +626,109 @@ const MockAssessmentsManagementPage: React.FC = () => {
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[800px]">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Questions</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrations</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAssessments.map((assessment) => (
-                    <tr key={assessment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          {(() => {
-                            // Always try to get a logo - use existing or auto-fetch
-                            const logoUrl = (assessment.logo && assessment.logo.trim()) || getLogoFromTitle(assessment.title);
-                            if (logoUrl) {
-                              return (
-                                <img 
-                                  key={`${assessment.id}-${logoUrl}`}
-                                  src={logoUrl} 
-                                  alt={assessment.title} 
-                                  className="w-10 h-10 object-contain"
-                                  onError={(e) => {
-                                    // Try alternative logo sources
-                                    const fallbackLogo = getLogoFromTitle(assessment.title);
-                                    const img = e.target as HTMLImageElement;
-                                    if (fallbackLogo && img.src !== fallbackLogo) {
-                                      img.src = fallbackLogo;
-                                    } else {
-                                      // If all logos fail, replace with placeholder
-                                      img.style.display = 'none';
-                                      const placeholder = document.createElement('div');
-                                      placeholder.className = 'w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs font-medium';
-                                      placeholder.textContent = assessment.title.charAt(0).toUpperCase();
-                                      img.parentElement?.replaceChild(placeholder, img);
-                                    }
-                                  }}
-                                />
-                              );
-                            }
-                            return (
-                              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs font-medium">
-                                {assessment.title.charAt(0).toUpperCase()}
-                              </div>
-                            );
-                          })()}
-                          <div>
-                            <div className="font-medium text-gray-900">{assessment.title}</div>
-                            <div className="text-sm text-gray-500">{assessment.id}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          {assessment.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assessment.objective} MCQ, {assessment.programming} Coding
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assessment.time}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          assessment.status === 'published' ? 'bg-green-100 text-green-800' :
-                          assessment.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {assessment.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assessment.registrations.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setViewingAssessment(assessment)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEdit(assessment)}
-                            className="text-orange-600 hover:text-orange-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteAssessment(assessment.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Questions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrations</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredAssessments.map((assessment) => (
+                      <tr key={assessment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            {(() => {
+                              // Always try to get a logo - use existing or auto-fetch
+                              const logoUrl = (assessment.logo && assessment.logo.trim()) || getLogoFromTitle(assessment.title);
+                              if (logoUrl) {
+                                return (
+                                  <img
+                                    key={`${assessment.id}-${logoUrl}`}
+                                    src={logoUrl}
+                                    alt={assessment.title}
+                                    className="w-10 h-10 object-contain"
+                                    onError={(e) => {
+                                      // Try alternative logo sources
+                                      const fallbackLogo = getLogoFromTitle(assessment.title);
+                                      const img = e.target as HTMLImageElement;
+                                      if (fallbackLogo && img.src !== fallbackLogo) {
+                                        img.src = fallbackLogo;
+                                      } else {
+                                        // If all logos fail, replace with placeholder
+                                        img.style.display = 'none';
+                                        const placeholder = document.createElement('div');
+                                        placeholder.className = 'w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs font-medium';
+                                        placeholder.textContent = assessment.title.charAt(0).toUpperCase();
+                                        img.parentElement?.replaceChild(placeholder, img);
+                                      }
+                                    }}
+                                  />
+                                );
+                              }
+                              return (
+                                <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs font-medium">
+                                  {assessment.title.charAt(0).toUpperCase()}
+                                </div>
+                              );
+                            })()}
+                            <div>
+                              <div className="font-medium text-gray-900">{assessment.title}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                            {assessment.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {assessment.objective} MCQ, {assessment.programming} Coding
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {assessment.time}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${assessment.status === 'published' ? 'bg-green-100 text-green-800' :
+                            assessment.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                            {assessment.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {assessment.registrations.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setViewingAssessment(assessment)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleEdit(assessment)}
+                              className="text-orange-600 hover:text-orange-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteAssessment(assessment.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           ) : (
@@ -743,9 +737,9 @@ const MockAssessmentsManagementPage: React.FC = () => {
                 <div key={assessment.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-lg transition">
                   <div className="flex items-center gap-3 mb-3">
                     {assessment.logo ? (
-                      <img 
-                        src={assessment.logo} 
-                        alt={assessment.title} 
+                      <img
+                        src={assessment.logo}
+                        alt={assessment.title}
                         className="w-12 h-12 object-contain"
                         onError={(e) => {
                           // Fallback to auto-fetched logo if original fails
@@ -783,11 +777,10 @@ const MockAssessmentsManagementPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Status:</span>
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                        assessment.status === 'published' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${assessment.status === 'published' ? 'bg-green-100 text-green-800' :
                         assessment.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                          'bg-gray-100 text-gray-800'
+                        }`}>
                         {assessment.status}
                       </span>
                     </div>
@@ -1342,8 +1335,8 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                 onChange={(e) => {
                   const newTitle = e.target.value;
                   const autoLogo = getLogoFromTitle(newTitle);
-                  setFormData({ 
-                    ...formData, 
+                  setFormData({
+                    ...formData,
                     title: newTitle,
                     logo: autoLogo || formData.logo || '' // Auto-fill logo if found, otherwise keep existing
                   });
@@ -1359,18 +1352,17 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                   <span className="ml-2 text-xs text-green-600">(Auto-detected)</span>
                 )}
               </label>
-              
+
               {/* Drag and Drop Area */}
               <div
                 onDragEnter={handleDragEnter}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
-                  isDragging
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-4 transition-colors ${isDragging
+                  ? 'border-orange-500 bg-orange-50'
+                  : 'border-gray-300 hover:border-gray-400'
+                  }`}
               >
                 <div className="flex flex-col items-center justify-center gap-2">
                   <svg
@@ -1459,8 +1451,8 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                       {formData.logo.startsWith('data:')
                         ? `${Math.round(formData.logo.length / 1024)}KB`
                         : formData.logo.length > 50
-                        ? formData.logo.substring(0, 50) + '...'
-                        : formData.logo}
+                          ? formData.logo.substring(0, 50) + '...'
+                          : formData.logo}
                     </p>
                   </div>
                   {formData.logo && (
@@ -1533,15 +1525,15 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                         onChange={(e) => {
                           const currentDifficulties = formData.difficulties || [];
                           if (e.target.checked) {
-                            setFormData({ 
-                              ...formData, 
+                            setFormData({
+                              ...formData,
                               difficulties: [...currentDifficulties, diff],
                               difficulty: diff // Keep for backward compatibility
                             });
                           } else {
                             const updated = currentDifficulties.filter(d => d !== diff);
-                            setFormData({ 
-                              ...formData, 
+                            setFormData({
+                              ...formData,
                               difficulties: updated.length > 0 ? updated : ['medium'], // At least one must be selected
                               difficulty: updated.length > 0 ? updated[0] : 'medium'
                             });
@@ -1614,7 +1606,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                     const mcqCount = formData.objective || 0;
                     const progCount = formData.programming || 0;
                     const total = mcqCount + progCount;
-                    
+
                     if (total === 0) {
                       alert('Please specify the number of MCQ and/or Programming questions to generate.');
                       return;
@@ -1629,8 +1621,8 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                     setIsGeneratingQuestions(true);
                     setGenerationError(null);
                     const generatedQuestions: AnyQuestion[] = [];
-                    const selectedDifficulties = formData.difficulties && formData.difficulties.length > 0 
-                      ? formData.difficulties 
+                    const selectedDifficulties = formData.difficulties && formData.difficulties.length > 0
+                      ? formData.difficulties
                       : ['medium'];
                     const category = formData.category || 'technical';
                     const topic = formData.title || category;
@@ -1698,7 +1690,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                   ) : (
                     <>
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                       </svg>
                       Generate Questions
                     </>
@@ -1746,11 +1738,10 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                             {(q as MCQQuestion).options.map((option, optIndex) => (
                               <div
                                 key={optIndex}
-                                className={`text-xs px-2 py-1 rounded ${
-                                  optIndex === (q as MCQQuestion).correctAnswer
-                                    ? 'bg-green-100 text-green-800 font-medium border border-green-300'
-                                    : 'bg-white text-gray-700 border border-gray-200'
-                                }`}
+                                className={`text-xs px-2 py-1 rounded ${optIndex === (q as MCQQuestion).correctAnswer
+                                  ? 'bg-green-100 text-green-800 font-medium border border-green-300'
+                                  : 'bg-white text-gray-700 border border-gray-200'
+                                  }`}
                               >
                                 <span className="font-medium">{String.fromCharCode(65 + optIndex)}.</span> {option}
                                 {optIndex === (q as MCQQuestion).correctAnswer && (
@@ -2095,8 +2086,8 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
         apiKeyConfig.provider === 'groq' && hasGroq
           ? 'groq'
           : hasGemini
-          ? 'gemini'
-          : 'groq';
+            ? 'gemini'
+            : 'groq';
 
       let rawText = await callProvider(primary);
 
@@ -2133,8 +2124,7 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
 
           applyParsedQuestion(parsed);
           setAiError(
-            `Primary ${
-              apiKeyConfig.provider === 'gemini' ? 'Gemini' : 'Groq'
+            `Primary ${apiKeyConfig.provider === 'gemini' ? 'Gemini' : 'Groq'
             } call failed. Fallback to ${fallbackProvider.toUpperCase()} succeeded.`
           );
           return;
@@ -2142,7 +2132,7 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
           console.error('Fallback AI provider error:', fallbackError);
           setAiError(
             fallbackError?.message ||
-              'Both AI providers failed. Please check your API keys and try again.'
+            'Both AI providers failed. Please check your API keys and try again.'
           );
           if (
             fallbackError?.message?.toLowerCase().includes('api key') ||
@@ -2248,17 +2238,15 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
           <div className="flex gap-2">
             <button
               onClick={() => setQuestionType('mcq')}
-              className={`flex-1 px-4 py-2 rounded-lg transition ${
-                questionType === 'mcq' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
-              }`}
+              className={`flex-1 px-4 py-2 rounded-lg transition ${questionType === 'mcq' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
+                }`}
             >
               MCQ Question
             </button>
             <button
               onClick={() => setQuestionType('programming')}
-              className={`flex-1 px-4 py-2 rounded-lg transition ${
-                questionType === 'programming' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
-              }`}
+              className={`flex-1 px-4 py-2 rounded-lg transition ${questionType === 'programming' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
+                }`}
             >
               Programming Question
             </button>
@@ -2569,11 +2557,10 @@ const ViewAssessmentModal: React.FC<ViewAssessmentModalProps> = ({ assessment, o
             </div>
             <div>
               <p className="text-sm text-gray-500">Status</p>
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                assessment.status === 'published' ? 'bg-green-100 text-green-800' :
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${assessment.status === 'published' ? 'bg-green-100 text-green-800' :
                 assessment.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
+                  'bg-gray-100 text-gray-800'
+                }`}>
                 {assessment.status}
               </span>
             </div>
@@ -2640,12 +2627,12 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ apiKeyConfig: initialConfig, 
 
   const handleSave = async () => {
     setError(null);
-    
+
     if (provider === 'gemini' && !geminiKey.trim()) {
       setError('Please enter your Gemini API key');
       return;
     }
-    
+
     if (provider === 'groq' && !groqKey.trim()) {
       setError('Please enter your Groq API key');
       return;
@@ -2684,21 +2671,19 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ apiKeyConfig: initialConfig, 
             <div className="flex gap-2">
               <button
                 onClick={() => setProvider('gemini')}
-                className={`flex-1 px-4 py-2 rounded-lg transition ${
-                  provider === 'gemini'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg transition ${provider === 'gemini'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Gemini
               </button>
               <button
                 onClick={() => setProvider('groq')}
-                className={`flex-1 px-4 py-2 rounded-lg transition ${
-                  provider === 'groq'
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-lg transition ${provider === 'groq'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 Groq
               </button>
@@ -2724,9 +2709,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ apiKeyConfig: initialConfig, 
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  provider === 'gemini' ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${provider === 'gemini' ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'
+                  }`}
               />
               <button
                 type="button"
@@ -2766,9 +2750,8 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ apiKeyConfig: initialConfig, 
                 value={groqKey}
                 onChange={(e) => setGroqKey(e.target.value)}
                 placeholder="gsk_..."
-                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${
-                  provider === 'groq' ? 'border-orange-300 bg-orange-50/30' : 'border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${provider === 'groq' ? 'border-orange-300 bg-orange-50/30' : 'border-gray-200'
+                  }`}
               />
               <button
                 type="button"

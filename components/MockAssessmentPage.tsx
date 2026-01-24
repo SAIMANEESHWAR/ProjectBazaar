@@ -1037,6 +1037,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>('medium');
   const [antiCheatMode, setAntiCheatMode] = useState<boolean>(true);
   const [showExplanations, setShowExplanations] = useState(false);
+  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress>({
     level: 5,
     currentXP: 2350,
@@ -3830,230 +3831,417 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     const percentage = Math.round((testResult.score / 100) * 100);
     const accuracy = Math.round((testResult.solved / testResult.attempted) * 100) || 0;
 
+
+    // Calculate topic stats
+    const topicStats: Record<string, { correct: number; total: number }> = {};
+    testResult.questionResults.forEach(r => {
+      if (!topicStats[r.topic]) topicStats[r.topic] = { correct: 0, total: 0 };
+      topicStats[r.topic].total++;
+      if (r.isCorrect) topicStats[r.topic].correct++;
+    });
+
+    // SVG Circular Progress
+    const circumference = 2 * Math.PI * 54; // radius = 54
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-12">
-        {/* Header / Navbar area */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-4 sticky top-0 z-10">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+        {/* Sticky Header */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 px-4 py-3 sticky top-0 z-20">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-sm font-medium">
-                  S1
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  Default Section ({testResult.solved * 30}/{testResult.totalQuestions * 30})
-                </span>
+              <button
+                onClick={handleBackToList}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                <ArrowLeftIcon />
+              </button>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{testResult.assessmentTitle}</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Assessment Report</p>
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-gray-500 dark:text-gray-400 text-sm border-b border-gray-100 dark:border-gray-700">
-                      <th className="pb-3 font-medium">#</th>
-                      <th className="pb-3 font-medium">Topic</th>
-                      <th className="pb-3 font-medium">Type/Language</th>
-                      <th className="pb-3 font-medium">Score</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {testResult.questionResults.map((result, index) => (
-                      <tr key={index} className="border-b border-gray-50 dark:border-gray-700/50">
-                        <td className="py-4 text-gray-900 dark:text-white">{index + 1}</td>
-                        <td className="py-4 text-gray-900 dark:text-white">{result.topic}</td>
-                        <td className="py-4">
-                          <GridIcon />
-                        </td>
-                        <td className="py-4">
-                          <span className="text-gray-900 dark:text-white font-medium">
-                            {result.isCorrect ? '30.0' : '0.0'} / 30.0
-                          </span>
-                          <br />
-                          <span className="text-red-500 text-sm">
-                            {Math.floor(Math.random() * 80 + 10)}% solved this
-                          </span>
-                        </td>
-                        <td className="py-4">
-                          {result.isCorrect ? (
-                            <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                              <CheckCircleIcon />
-                              Solved
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                              <XCircleIcon />
-                              Wrong Answer
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4">
-                          <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm">
-                            View Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleViewCertificate}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5"
+              >
+                <DownloadIcon />
+                <span className="hidden sm:inline">Certificate</span>
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Topic-wise Performance Analytics */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mb-8">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">📊 TOPIC-WISE PERFORMANCE</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Identify your strengths and areas for improvement</p>
-            </div>
-            <div className="p-6">
-              {(() => {
-                const topicStats: Record<string, { correct: number; total: number }> = {};
-                testResult.questionResults.forEach(r => {
-                  if (!topicStats[r.topic]) topicStats[r.topic] = { correct: 0, total: 0 };
-                  topicStats[r.topic].total++;
-                  if (r.isCorrect) topicStats[r.topic].correct++;
-                });
-                return Object.entries(topicStats).map(([topic, stats]) => {
-                  const percentage = Math.round((stats.correct / stats.total) * 100);
-                  return (
-                    <div key={topic} className="mb-4 last:mb-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{topic}</span>
-                        <span className={`text-sm font-medium ${percentage >= 70 ? 'text-emerald-600' : percentage >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
-                          {stats.correct}/{stats.total} ({percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full transition-all duration-500 ${percentage >= 70 ? 'bg-emerald-500' : percentage >= 40 ? 'bg-amber-500' : 'bg-red-500'
-                            }`}
-                          style={{ width: `${percentage}%` }}
-                        />
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          {/* Hero Score Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden mb-8">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-gray-800 dark:via-gray-750 dark:to-gray-800 p-8 relative overflow-hidden">
+              {/* Decorative Elements */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/20 to-transparent rounded-full blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full blur-2xl" />
+
+              <div className="relative flex flex-col md:flex-row items-center gap-8">
+                {/* Circular Score */}
+                <div className="relative">
+                  <svg className="w-36 h-36 transform -rotate-90">
+                    <circle
+                      cx="72"
+                      cy="72"
+                      r="54"
+                      stroke="currentColor"
+                      strokeWidth="12"
+                      fill="none"
+                      className="text-gray-700"
+                    />
+                    <circle
+                      cx="72"
+                      cy="72"
+                      r="54"
+                      stroke="url(#scoreGradient)"
+                      strokeWidth="12"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                    <defs>
+                      <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor={isPassed ? '#10b981' : '#f59e0b'} />
+                        <stop offset="100%" stopColor={isPassed ? '#059669' : '#d97706'} />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-bold text-white">{percentage}%</span>
+                    <span className="text-xs text-gray-400 uppercase tracking-wider mt-1">Score</span>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                        <CheckCircleIcon />
                       </div>
                     </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-
-          {/* XP Earned Card */}
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-6 mb-8 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm opacity-80">XP Earned from this test</p>
-                <p className="text-3xl font-bold">+{testResult.xpEarned || Math.round(testResult.score * 2)} XP</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm opacity-80">New Level Progress</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-32 bg-white/30 rounded-full h-2">
-                    <div className="bg-white rounded-full h-2" style={{ width: '78%' }} />
+                    <p className="text-2xl font-bold text-white">{testResult.solved}</p>
+                    <p className="text-xs text-gray-400">Correct</p>
                   </div>
-                  <span className="text-sm font-medium">Level 5</span>
+                  <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <XCircleIcon />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{testResult.attempted - testResult.solved}</p>
+                    <p className="text-xs text-gray-400">Incorrect</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <ClockIcon />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{testResult.duration}</p>
+                    <p className="text-xs text-gray-400">Duration</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <span className="text-purple-400">📊</span>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-white">{accuracy}%</p>
+                    <p className="text-xs text-gray-400">Accuracy</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Result Badge */}
+              <div className="relative flex justify-center mt-6">
+                {isPassed ? (
+                  <div className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-full font-semibold shadow-lg shadow-emerald-500/30">
+                    <CheckCircleIcon />
+                    Assessment Passed
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-semibold shadow-lg shadow-amber-500/30">
+                    <span>🎯</span>
+                    Keep Practicing!
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* XP Earned Banner */}
+            <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-2xl">⚡</span>
+                  </div>
+                  <div>
+                    <p className="text-white/80 text-sm">Experience Points Earned</p>
+                    <p className="text-2xl font-bold text-white">+{testResult.xpEarned || Math.round(testResult.score * 2)} XP</p>
+                  </div>
+                </div>
+                <div className="hidden md:flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-white/70 text-xs">Level Progress</p>
+                    <p className="text-white font-semibold">Level 5</p>
+                  </div>
+                  <div className="w-32">
+                    <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-white rounded-full transition-all duration-1000" style={{ width: '78%' }} />
+                    </div>
+                    <p className="text-white/60 text-xs mt-1 text-right">78%</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Show Explanations Toggle */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mb-8">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">📚 ANSWER EXPLANATIONS</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Learn from your mistakes with detailed explanations</p>
-              </div>
-              <button
-                onClick={() => setShowExplanations(!showExplanations)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${showExplanations
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-              >
-                {showExplanations ? 'Hide Explanations' : 'Show Explanations'}
-              </button>
-            </div>
-            {showExplanations && (
-              <div className="p-6 space-y-4">
-                {getQuestions().map((q, idx) => {
-                  const result = testResult.questionResults.find(r => r.questionId === q.id);
-                  const isCorrect = result?.isCorrect;
-                  const isProgramming = isProgrammingQuestion(q);
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Questions Results - Main Column */}
+            <div className="lg:col-span-2">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <span className="text-xl">📋</span> Question Results
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Click on a question to see details</p>
+                  </div>
+                  <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-sm font-medium">
+                    {testResult.solved}/{testResult.totalQuestions}
+                  </span>
+                </div>
 
-                  return (
-                    <div key={q.id} className={`p-4 rounded-xl border ${isCorrect ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/10' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'}`}>
-                      <div className="flex items-start gap-3">
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-                          {idx + 1}
-                        </span>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white text-sm mb-2 whitespace-pre-line">{q.question}</p>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {testResult.questionResults.map((result, index) => {
+                    const question = getQuestions()[index];
+                    const isExpanded = expandedQuestion === index;
+                    const isProg = question && isProgrammingQuestion(question);
 
-                          {isProgramming ? (
-                            /* Programming question result */
-                            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 mb-3">
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className="font-medium text-gray-700 dark:text-gray-300">Type:</span>
-                                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs font-medium">
-                                  💻 Programming
+                    return (
+                      <div key={index} className="group">
+                        <button
+                          onClick={() => setExpandedQuestion(isExpanded ? null : index)}
+                          className="w-full px-6 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                        >
+                          {/* Question Number */}
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${result.isCorrect
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                            }`}>
+                            {index + 1}
+                          </div>
+
+                          {/* Question Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs font-medium">
+                                {result.topic}
+                              </span>
+                              {isProg && (
+                                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded text-xs font-medium">
+                                  💻 Code
                                 </span>
-                              </div>
-                              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                                {isCorrect ? '✅ All test cases passed' : '❌ Some test cases failed'}
-                              </div>
+                              )}
                             </div>
-                          ) : (
-                            /* MCQ question options */
-                            <div className="grid grid-cols-2 gap-2 mb-3">
-                              {(q as Question).options.map((opt: string, optIdx: number) => (
-                                <div
-                                  key={optIdx}
-                                  className={`px-3 py-2 rounded-lg text-xs ${optIdx === (q as Question).correctAnswer
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                                    : optIdx === result?.userAnswer && !isCorrect
-                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-700'
-                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                                    }`}
-                                >
-                                  <span className="font-medium">{String.fromCharCode(65 + optIdx)}.</span> {opt}
-                                  {optIdx === (q as Question).correctAnswer && <span className="ml-1">✓</span>}
-                                  {optIdx === result?.userAnswer && !isCorrect && <span className="ml-1">✗</span>}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                            <p className="text-sm text-gray-900 dark:text-white truncate">
+                              {question?.question || 'Question'}
+                            </p>
+                          </div>
 
-                          {q.explanation && (
-                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                              <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">💡 Explanation:</p>
-                              <p className="text-xs text-blue-700 dark:text-blue-400">{q.explanation}</p>
+                          {/* Status & Score */}
+                          <div className="flex items-center gap-4 flex-shrink-0">
+                            <div className="text-right hidden sm:block">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {result.isCorrect ? '30' : '0'}/30
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">points</p>
                             </div>
-                          )}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${result.isCorrect ? 'bg-emerald-500' : 'bg-red-500'
+                              }`}>
+                              {result.isCorrect ? (
+                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                            </div>
+                            <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Expanded Details */}
+                        {isExpanded && question && (
+                          <div className="px-6 pb-6 bg-gray-50 dark:bg-gray-800/50">
+                            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{question.question}</p>
+
+                              {isProgrammingQuestion(question) ? (
+                                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4">
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {result.isCorrect ? '✅ All test cases passed successfully!' : '❌ Some test cases failed. Review your solution.'}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {(question as Question).options.map((opt, optIdx) => (
+                                    <div
+                                      key={optIdx}
+                                      className={`px-4 py-3 rounded-xl text-sm flex items-center gap-2 ${optIdx === (question as Question).correctAnswer
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-700'
+                                        : optIdx === result.userAnswer && !result.isCorrect
+                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-2 border-red-300 dark:border-red-700'
+                                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                                        }`}
+                                    >
+                                      <span className="w-6 h-6 rounded-full bg-current/10 flex items-center justify-center text-xs font-bold">
+                                        {String.fromCharCode(65 + optIdx)}
+                                      </span>
+                                      <span className="flex-1">{opt}</span>
+                                      {optIdx === (question as Question).correctAnswer && (
+                                        <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                      )}
+                                      {optIdx === result.userAnswer && !result.isCorrect && (
+                                        <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {question.explanation && (
+                                <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                    <span>💡</span> Explanation
+                                  </p>
+                                  <p className="text-sm text-blue-700 dark:text-blue-400">{question.explanation}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Topic-wise Performance */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>📊</span> Topic Analysis
+                  </h3>
+                </div>
+                <div className="p-5 space-y-4">
+                  {Object.entries(topicStats).map(([topic, stats]) => {
+                    const topicPercentage = Math.round((stats.correct / stats.total) * 100);
+                    return (
+                      <div key={topic}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate pr-2">{topic}</span>
+                          <span className={`text-sm font-bold flex-shrink-0 ${topicPercentage >= 70 ? 'text-emerald-600' : topicPercentage >= 40 ? 'text-amber-600' : 'text-red-600'
+                            }`}>
+                            {stats.correct}/{stats.total}
+                          </span>
+                        </div>
+                        <div className="relative h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${topicPercentage >= 70 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                              : topicPercentage >= 40 ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                                : 'bg-gradient-to-r from-red-400 to-red-500'
+                              }`}
+                            style={{ width: `${topicPercentage}%` }}
+                          />
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Actions */}
-          <div className="flex gap-4 mb-12">
-            <button
-              onClick={handleBackToList}
-              className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-            >
-              Back to Assessments
-            </button>
-            <button
-              onClick={handleViewCertificate}
-              className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-xl hover:shadow-lg shadow-orange-500/30 transition flex items-center justify-center gap-2"
-            >
-              <DownloadIcon />
-              Download Certificate
-            </button>
+              {/* Quick Stats */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>📈</span> Performance Stats
+                  </h3>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Questions Attempted</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{testResult.attempted}/{testResult.totalQuestions}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Accuracy Rate</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{accuracy}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Time Taken</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">{testResult.duration}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Date</span>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      {new Date(testResult.startTime).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleViewCertificate}
+                  className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                >
+                  <DownloadIcon />
+                  Download Certificate
+                </button>
+                <button
+                  onClick={() => {
+                    setTestResult(null);
+                    setAnswers({});
+                    setCurrentQuestionIndex(0);
+                    setTimeRemaining(0);
+                    handleBackToList();
+                  }}
+                  className="w-full py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Retake Assessment
+                </button>
+                <button
+                  onClick={handleBackToList}
+                  className="w-full py-3.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+                >
+                  Back to All Assessments
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
