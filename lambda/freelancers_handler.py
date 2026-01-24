@@ -39,7 +39,6 @@ CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Requested-With',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400'
 }
 
@@ -613,10 +612,14 @@ def lambda_handler(event, context):
             }
         
         # Parse request body
-        if isinstance(event.get('body'), str):
-            body = json.loads(event['body'])
-        else:
-            body = event.get('body', {})
+        body = {}
+        if event.get('body'):
+            if isinstance(event.get('body'), str):
+                body_str = event['body'].strip()
+                if body_str:
+                    body = json.loads(body_str)
+            else:
+                body = event.get('body', {})
         
         # For GET requests with query parameters
         if event.get('httpMethod') == 'GET':
