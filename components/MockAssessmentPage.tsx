@@ -1725,54 +1725,86 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             </div>
           </div>
 
-          {/* Category Tabs & Filters */}
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => { setSelectedCategory(cat); setShowCompanyTests(false); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition capitalize ${
-                    selectedCategory === cat && !showCompanyTests
-                      ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  {cat === 'all' ? 'All Tests' : cat}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowCompanyTests(!showCompanyTests)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
-                showCompanyTests
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700'
-              }`}
-            >
-              💼 Company Tests
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                <button
-                  onClick={() => setTestMode('timed')}
-                  className={`px-2.5 py-1 rounded text-xs transition ${
-                    testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'
-                  }`}
-                >
-                  ⏱️ Timed
-                </button>
-                <button
-                  onClick={() => setTestMode('practice')}
-                  className={`px-2.5 py-1 rounded text-xs transition ${
-                    testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'
-                  }`}
-                >
-                  📚 Practice
-                </button>
+          {/* Main Test Type Toggle */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Type:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
+                  <button
+                    onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      !showCompanyTests
+                        ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Technical Tests
+                  </button>
+                  <button
+                    onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
+                      showCompanyTests
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Company Tests
+                  </button>
+                </div>
+              </div>
+              
+              {/* Test Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setTestMode('timed')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                      testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    ⏱️ Timed
+                  </button>
+                  <button
+                    onClick={() => setTestMode('practice')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                      testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    📚 Practice
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Sub-category Filters - Only show for Technical Tests */}
+            {!showCompanyTests && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
+                        selectedCategory === cat
+                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
+                      }`}
+                    >
+                      {cat === 'all' ? 'All' : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Difficulty Selector */}
@@ -1831,28 +1863,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             {assessments
               .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
               .map(renderAssessmentCard)}
-          </div>
-
-          {/* Study Resources Section */}
-          <div className="mt-10 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-gray-800 dark:to-gray-850 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                📚 Study Resources
-                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">Learn & Practice</span>
-              </h3>
-              <button className="text-xs text-orange-600 dark:text-orange-400 hover:underline">View All →</button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {studyResources.map((resource) => (
-                <div key={resource.id} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 hover:shadow-md transition cursor-pointer">
-                  <div className="text-xl mb-2">
-                    {resource.type === 'video' ? '🎥' : resource.type === 'article' ? '📄' : resource.type === 'flashcard' ? '🃏' : '💻'}
-                  </div>
-                  <p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-2">{resource.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{resource.duration}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
