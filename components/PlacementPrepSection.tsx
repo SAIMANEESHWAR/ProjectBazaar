@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../App';
 
 // Icons
 const CheckIcon = () => (
@@ -52,6 +53,10 @@ interface PlacementPrepSectionProps {
 
 // Progress tracking key
 const PLACEMENT_PROGRESS_KEY = 'placement_prep_progress';
+const USER_PROGRESS_API_ENDPOINT = 'https://5xg2r5rgol.execute-api.ap-south-2.amazonaws.com/default/PlacementPrep'; // Reusing existing or need a new one?
+// Actually I should probably use a dedicated endpoint or the same one with a different action.
+// The user asked for a new lambda code, so I'll assume they will deploy it to a new URL or I'll use a placeholder.
+const USER_SYNC_API_ENDPOINT = 'https://5xg2r5rgol.execute-api.ap-south-2.amazonaws.com/default/UserPlacementProgress'; // Placeholder URL for the new Lambda
 
 interface PhaseProgress {
     phaseId: string;
@@ -64,13 +69,50 @@ interface PlacementProgress {
 }
 
 const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) => {
-    // Safety check
+    const { userId, isLoggedIn } = useAuth();
     const safePhases = phases || [];
     const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [progress, setProgress] = useState<PlacementProgress>(() => {
         const stored = localStorage.getItem(PLACEMENT_PROGRESS_KEY);
         return stored ? JSON.parse(stored) : { phases: {}, lastUpdated: new Date().toISOString() };
     });
+
+    // Fetch progress from backend on mount if logged in
+    useEffect(() => {
+        const fetchRemoteProgress = async () => {
+            if (!isLoggedIn || !userId) return;
+
+            setIsSyncing(true);
+            try {
+                const response = await fetch(USER_SYNC_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_progress', userId })
+                });
+
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const remoteProgress = result.data;
+                    setProgress(prev => {
+                        const remoteTime = new Date(remoteProgress.lastUpdated || 0).getTime();
+                        const localTime = new Date(prev.lastUpdated || 0).getTime();
+
+                        if (remoteTime > localTime) {
+                            return remoteProgress;
+                        }
+                        return prev;
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to fetch remote progress:', error);
+            } finally {
+                setIsSyncing(false);
+            }
+        };
+
+        fetchRemoteProgress();
+    }, [isLoggedIn, userId]);
 
     // Initialize/Sync progress with incoming phases
     useEffect(() => {
@@ -117,10 +159,35 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
         });
     }, [safePhases]);
 
-    // Save progress to localStorage whenever it changes
+    // Save progress to localStorage and sync with backend
     useEffect(() => {
         localStorage.setItem(PLACEMENT_PROGRESS_KEY, JSON.stringify(progress));
-    }, [progress]);
+
+        // Sync with backend if logged in
+        if (isLoggedIn && userId) {
+            const syncWithBackend = async () => {
+                setIsSyncing(true);
+                try {
+                    await fetch(USER_SYNC_API_ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'update_progress',
+                            userId,
+                            progress
+                        })
+                    });
+                } catch (error) {
+                    console.error('Failed to sync progress with backend:', error);
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            const timer = setTimeout(syncWithBackend, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [progress, isLoggedIn, userId]);
 
     // Toggle task completion
     const toggleTask = (phaseId: string, taskId: string) => {
@@ -213,7 +280,13 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                         <div className="h-full bg-white/90 rounded-full transition-all duration-500" style={{ width: `${totalProgress}%` }}></div>
                     </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative">
+                    {isSyncing && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                            <span className="text-[10px] text-gray-400 font-medium">Syncing</span>
+                        </div>
+                    )}
                     <div className="text-3xl font-bold text-gray-900 mb-1">{analytics.completedTasks}/{analytics.totalTasks}</div>
                     <div className="text-sm text-gray-500">Tasks Completed</div>
                 </div>
@@ -308,13 +381,13 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                                     key={task.id}
                                                                     onClick={() => toggleTask(phase.id, task.id)}
                                                                     className={`group flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${isTaskCompleted
-                                                                            ? 'bg-green-50 border-green-200'
-                                                                            : 'bg-white border-gray-200 hover:border-orange-200 hover:shadow-sm'
+                                                                        ? 'bg-green-50 border-green-200'
+                                                                        : 'bg-white border-gray-200 hover:border-orange-200 hover:shadow-sm'
                                                                         }`}
                                                                 >
                                                                     <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${isTaskCompleted
-                                                                            ? 'bg-green-500 border-green-500 text-white'
-                                                                            : 'border-gray-300 group-hover:border-orange-400'
+                                                                        ? 'bg-green-500 border-green-500 text-white'
+                                                                        : 'border-gray-300 group-hover:border-orange-400'
                                                                         }`}>
                                                                         {isTaskCompleted && <CheckIcon />}
                                                                     </div>
@@ -349,8 +422,8 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                                     </div>
                                                                     {task.difficulty && (
                                                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${task.difficulty === 'Hard' ? 'bg-red-100 text-red-600' :
-                                                                                task.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-600' :
-                                                                                    'bg-green-100 text-green-600'
+                                                                            task.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-600' :
+                                                                                'bg-green-100 text-green-600'
                                                                             }`}>
                                                                             {task.difficulty}
                                                                         </span>
