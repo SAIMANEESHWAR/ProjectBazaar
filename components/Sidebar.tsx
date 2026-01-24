@@ -176,13 +176,8 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                                 )}
                             </div>
                             {isExpanded && (
-                                <span className="ml-3 whitespace-nowrap flex items-center gap-2">
+                                <span className="ml-3 whitespace-nowrap">
                                     {item.name}
-                                    {item.view === 'cart' && cartCount > 0 && (
-                                        <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                            {cartCount}
-                                        </span>
-                                    )}
                                 </span>
                             )}
                             {/* Tooltip for collapsed state */}
