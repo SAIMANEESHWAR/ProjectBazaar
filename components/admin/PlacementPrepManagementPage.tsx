@@ -218,11 +218,6 @@ const PlacementPrepManagementPage: React.FC = () => {
     }, []);
 
     // ================= FORM HANDLERS =================
-    const handleAddTopic = () => {
-        setEditingTopicIndex(null);
-        setTopicForm(createEmptyTopic());
-    };
-
     const handleEditTopic = (index: number) => {
         setEditingTopicIndex(index);
         setTopicForm({ ...topics[index] });
