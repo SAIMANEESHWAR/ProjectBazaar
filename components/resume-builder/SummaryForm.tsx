@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useResumeInfo } from '../../context/ResumeInfoContext';
 import { generateSummarySuggestions } from '../../services/AIResumeService';
 
@@ -13,13 +13,14 @@ interface SuggestionItem {
 
 const SummaryForm: React.FC<SummaryFormProps> = ({ onEnableNext }) => {
   const { resumeInfo, updateResumeField } = useResumeInfo();
-  const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onEnableNext(false);
-    updateResumeField('summary', e.target.value);
+    const value = e.target.value;
+    updateResumeField('summary', value);
+    // Enable next if summary is not empty
+    onEnableNext(value.trim().length > 0);
   };
 
   const generateFromAI = async () => {
@@ -41,16 +42,13 @@ const SummaryForm: React.FC<SummaryFormProps> = ({ onEnableNext }) => {
 
   const selectSuggestion = (summary: string) => {
     updateResumeField('summary', summary);
-    onEnableNext(false);
+    onEnableNext(summary.trim().length > 0);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    onEnableNext(true);
-    setLoading(false);
-  };
+  // Check form validity on mount and when summary changes
+  useEffect(() => {
+    onEnableNext(resumeInfo.summary.trim().length > 0);
+  }, [resumeInfo.summary, onEnableNext]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -67,7 +65,7 @@ const SummaryForm: React.FC<SummaryFormProps> = ({ onEnableNext }) => {
           </div>
         </div>
 
-        <form onSubmit={handleSave}>
+        <div>
           <div className="flex items-center justify-between gap-2 mb-3">
             <label className="block text-xs sm:text-sm font-medium text-gray-700">Your Summary</label>
             <button
@@ -99,27 +97,7 @@ const SummaryForm: React.FC<SummaryFormProps> = ({ onEnableNext }) => {
             className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
             placeholder="A results-driven professional with extensive experience in..."
           />
-
-          <div className="mt-4 sm:mt-6 flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
-            >
-              {loading ? (
-                <>
-                  <svg className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                'Save & Continue'
-              )}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
 
       {/* AI Suggestions */}

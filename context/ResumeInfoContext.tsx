@@ -103,23 +103,97 @@ interface ResumeInfoContextType {
 }
 
 const defaultResumeInfo: ResumeInfo = {
-  firstName: '',
-  lastName: '',
-  jobTitle: '',
-  address: '',
-  phone: '',
-  email: '',
+  firstName: 'James',
+  lastName: 'Carter',
+  jobTitle: 'Full Stack Developer',
+  address: '525 N Tryon Street, Charlotte, NC 28117',
+  phone: '(123) 456-7890',
+  email: 'james.carter@example.com',
   linkedIn: '',
   github: '',
   portfolio: '',
   profileImage: '',
-  themeColor: '#f97316',
+  themeColor: '#9f5bff',
   template: 'classic',
-  summary: '',
-  experience: [],
-  education: [],
-  skills: [],
-  projects: [],
+  summary: 'A dedicated and results-driven professional with a passion for excellence. Experienced in delivering high-quality solutions and driving innovation. Strong problem-solving skills and a commitment to continuous learning and professional growth.',
+  experience: [
+    {
+      id: 'exp_1',
+      title: 'Full Stack Developer',
+      companyName: 'Amazon',
+      city: 'New York',
+      state: 'NY',
+      startDate: '2021-01',
+      endDate: '',
+      currentlyWorking: true,
+      workSummary: '<ul><li>Designed, developed, and maintained full-stack applications using React and Node.js</li><li>Implemented responsive user interfaces with React, ensuring seamless user experiences across various devices and browsers</li><li>Maintained the React Native in-house organization application</li><li>Created RESTful APIs with Node.js and Express, facilitating data communication between the front-end and back-end systems</li></ul>',
+    },
+    {
+      id: 'exp_2',
+      title: 'Frontend Developer',
+      companyName: 'Google',
+      city: 'Charlotte',
+      state: 'NC',
+      startDate: '2019-05',
+      endDate: '2021-01',
+      currentlyWorking: false,
+      workSummary: '<ul><li>Developed and maintained frontend applications using React and modern JavaScript frameworks</li><li>Collaborated with cross-functional teams to deliver high-quality software solutions</li><li>Optimized application performance and improved user experience</li></ul>',
+    },
+  ],
+  education: [
+    {
+      id: 'edu_1',
+      universityName: 'Western Illinois University',
+      startDate: '2018-08',
+      endDate: '2019-12',
+      degree: 'Master',
+      major: 'Computer Science',
+      description: 'Relevant coursework: Data Structures, Algorithms, Database Systems, Software Engineering. Graduated with honors.',
+    },
+  ],
+  skills: [
+    {
+      id: 'skill_1',
+      name: 'React',
+      rating: 5,
+    },
+    {
+      id: 'skill_2',
+      name: 'Node.js',
+      rating: 5,
+    },
+    {
+      id: 'skill_3',
+      name: 'JavaScript',
+      rating: 5,
+    },
+    {
+      id: 'skill_4',
+      name: 'TypeScript',
+      rating: 4,
+    },
+    {
+      id: 'skill_5',
+      name: 'MongoDB',
+      rating: 4,
+    },
+  ],
+  projects: [
+    {
+      id: 'proj_1',
+      name: 'E-Commerce Platform',
+      description: 'Developed a full-stack e-commerce platform with React and Node.js, featuring user authentication, payment integration, and admin dashboard.',
+      technologies: ['React', 'Node.js', 'MongoDB', 'Stripe'],
+      link: 'https://example.com',
+    },
+    {
+      id: 'proj_2',
+      name: 'Task Management App',
+      description: 'Built a collaborative task management application with real-time updates and team collaboration features.',
+      technologies: ['React', 'Firebase', 'Material-UI'],
+      link: 'https://example.com',
+    },
+  ],
 };
 
 const ResumeInfoContext = createContext<ResumeInfoContextType | undefined>(undefined);
@@ -127,7 +201,17 @@ const ResumeInfoContext = createContext<ResumeInfoContextType | undefined>(undef
 export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [resumeInfo, setResumeInfoState] = useState<ResumeInfo>(() => {
     const stored = localStorage.getItem('currentResume');
-    return stored ? JSON.parse(stored) : defaultResumeInfo;
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // If stored resume is essentially empty (no firstName and no experience/education/skills/projects), use default
+      const isEmpty = !parsed.firstName && 
+                      parsed.experience?.length === 0 && 
+                      parsed.education?.length === 0 && 
+                      parsed.skills?.length === 0 && 
+                      parsed.projects?.length === 0;
+      return isEmpty ? defaultResumeInfo : parsed;
+    }
+    return defaultResumeInfo;
   });
 
   const [savedResumes, setSavedResumes] = useState<ResumeInfo[]>(() => {

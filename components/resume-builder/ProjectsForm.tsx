@@ -3,7 +3,6 @@ import { useResumeInfo, Project } from '../../context/ResumeInfoContext';
 
 const ProjectsForm: React.FC = () => {
   const { resumeInfo, updateResumeField } = useResumeInfo();
-  const [loading, setLoading] = useState(false);
 
   const createEmptyProject = (): Project => ({
     id: `proj_${Date.now()}`,
@@ -31,12 +30,6 @@ const ProjectsForm: React.FC = () => {
   const removeProject = (index: number) => {
     const updated = resumeInfo.projects.filter((_, i) => i !== index);
     updateResumeField('projects', updated);
-  };
-
-  const handleSave = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setLoading(false);
   };
 
   return (
@@ -121,43 +114,23 @@ const ProjectsForm: React.FC = () => {
         )}
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
-        <div className="flex gap-3">
+      <div className="mt-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={addProject}
+          className="px-4 py-2.5 text-sm font-medium text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-all"
+        >
+          + Add Project
+        </button>
+        {resumeInfo.projects.length > 0 && (
           <button
             type="button"
-            onClick={addProject}
-            className="px-4 py-2.5 text-sm font-medium text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-all"
+            onClick={() => removeProject(resumeInfo.projects.length - 1)}
+            className="px-4 py-2.5 text-sm font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-all"
           >
-            + Add Project
+            - Remove Last
           </button>
-          {resumeInfo.projects.length > 0 && (
-            <button
-              type="button"
-              onClick={() => removeProject(resumeInfo.projects.length - 1)}
-              className="px-4 py-2.5 text-sm font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-all"
-            >
-              - Remove Last
-            </button>
-          )}
-        </div>
-
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-orange-500/25"
-        >
-          {loading ? (
-            <>
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            'Save'
-          )}
-        </button>
+        )}
       </div>
     </div>
   );

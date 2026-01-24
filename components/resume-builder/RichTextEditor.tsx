@@ -16,18 +16,49 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const isInternalChange = useRef(false);
 
-  const execCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-    handleContentChange();
+  // Save cursor position
+  const saveCursorPosition = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    return selection.getRangeAt(0);
   }, []);
 
-  const handleContentChange = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+  // Restore cursor position
+  const restoreCursorPosition = useCallback((range: Range | null) => {
+    if (!range) return;
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
-  };
+  }, []);
+
+  const execCommand = useCallback((command: string, value?: string) => {
+    const range = saveCursorPosition();
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+    if (range) {
+      restoreCursorPosition(range);
+    }
+    handleContentChange();
+  }, [saveCursorPosition, restoreCursorPosition]);
+
+  const handleContentChange = useCallback(() => {
+    if (editorRef.current) {
+      const newContent = editorRef.current.innerHTML;
+      // Only call onChange if content actually changed
+      if (newContent !== value) {
+        isInternalChange.current = true;
+        onChange(newContent);
+        // Reset flag after a brief delay to allow React to process
+        setTimeout(() => {
+          isInternalChange.current = false;
+        }, 10);
+      }
+    }
+  }, [onChange, value]);
 
   const generateWithAI = async () => {
     if (!positionTitle) {
@@ -40,8 +71,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const result = await generateExperienceBullets(positionTitle);
       const bulletHtml = `<ul style="list-style-type: disc; padding-left: 1.25rem; margin: 0;">${result.bullets.map(b => `<li style="margin: 0.25rem 0;">${b}</li>`).join('')}</ul>`;
       if (editorRef.current) {
+        isInternalChange.current = true;
         editorRef.current.innerHTML = bulletHtml;
         handleContentChange();
+        setTimeout(() => {
+          isInternalChange.current = false;
+        }, 0);
       }
     } catch (error) {
       console.error('Failed to generate:', error);
@@ -49,6 +84,45 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       setAiLoading(false);
     }
   };
+
+  // Initialize content on mount
+  React.useEffect(() => {
+    if (editorRef.current && value && !editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = value;
+    }
+  }, []);
+
+  // Only update innerHTML when value changes externally (not from user input)
+  React.useEffect(() => {
+    if (editorRef.current && !isInternalChange.current) {
+      const currentContent = editorRef.current.innerHTML.trim();
+      const newValue = (value || '').trim();
+      // Only update if the content is actually different (external change)
+      if (currentContent !== newValue && newValue !== '') {
+        const range = saveCursorPosition();
+        editorRef.current.innerHTML = value || '';
+        // Try to restore cursor, but if it fails, just place at end
+        try {
+          if (range && editorRef.current.contains(range.commonAncestorContainer)) {
+            restoreCursorPosition(range);
+          } else {
+            // Place cursor at end
+            const selection = window.getSelection();
+            if (selection && editorRef.current) {
+              const newRange = document.createRange();
+              newRange.selectNodeContents(editorRef.current);
+              newRange.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+            }
+          }
+        } catch (e) {
+          // If cursor restoration fails, just focus the editor
+          editorRef.current.focus();
+        }
+      }
+    }
+  }, [value, saveCursorPosition, restoreCursorPosition]);
 
   const ToolbarButton: React.FC<{
     onClick: () => void;
@@ -152,8 +226,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         onBlur={handleContentChange}
         className="min-h-[120px] px-4 py-3 text-sm text-gray-900 focus:outline-none"
         style={{ lineHeight: '1.6' }}
-        dangerouslySetInnerHTML={{ __html: value }}
         data-placeholder={placeholder}
+        suppressContentEditableWarning
       />
 
       <style>{`

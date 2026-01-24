@@ -50,7 +50,7 @@ export const ClassicTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColo
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     }}
   >
-    <header className="text-center mb-6">
+    <header id="resume-section-personal" className="text-center mb-6">
       <h1 className="text-2xl font-bold mb-1" style={{ color: themeColor }}>
         {resumeInfo.firstName || 'Your'} {resumeInfo.lastName || 'Name'}
       </h1>
@@ -69,14 +69,14 @@ export const ClassicTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColo
       <hr className="mt-4" style={{ borderColor: themeColor, borderWidth: '1px' }} />
     </header>
     {resumeInfo.summary && (
-      <section className="mb-5">
+      <section id="resume-section-summary" className="mb-5">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-2 text-center" style={{ color: themeColor }}>Professional Summary</h2>
         <hr className="mb-3" style={{ borderColor: themeColor }} />
         <p className="text-sm leading-relaxed text-gray-700">{resumeInfo.summary}</p>
       </section>
     )}
     {resumeInfo.experience.length > 0 && (
-      <section className="mb-5">
+      <section id="resume-section-experience" className="mb-5">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-2 text-center" style={{ color: themeColor }}>Professional Experience</h2>
         <hr className="mb-3" style={{ borderColor: themeColor }} />
         {resumeInfo.experience.map((exp) => (
@@ -94,7 +94,7 @@ export const ClassicTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColo
       </section>
     )}
     {resumeInfo.education.length > 0 && (
-      <section className="mb-5">
+      <section id="resume-section-education" className="mb-5">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-2 text-center" style={{ color: themeColor }}>Education</h2>
         <hr className="mb-3" style={{ borderColor: themeColor }} />
         {resumeInfo.education.map((edu) => (
@@ -111,14 +111,14 @@ export const ClassicTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColo
       </section>
     )}
     {resumeInfo.skills.length > 0 && (
-      <section className="mb-5">
+      <section id="resume-section-skills" className="mb-5">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-2 text-center" style={{ color: themeColor }}>Skills</h2>
         <hr className="mb-3" style={{ borderColor: themeColor }} />
         <div className="text-xs text-gray-700">{resumeInfo.skills.map(s => s.name).join(' • ')}</div>
       </section>
     )}
     {resumeInfo.projects.length > 0 && (
-      <section>
+      <section id="resume-section-projects">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-2 text-center" style={{ color: themeColor }}>Projects</h2>
         <hr className="mb-3" style={{ borderColor: themeColor }} />
         {resumeInfo.projects.map((project) => (
@@ -138,7 +138,7 @@ export const ClassicTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColo
 // =============================================================================
 export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor, formatDate }) => (
   <div className="bg-white text-gray-900 p-8" style={{ borderLeft: `5px solid ${themeColor}`, fontFamily: "'Inter', sans-serif" }}>
-    <header className="mb-6">
+    <header id="resume-section-personal" className="mb-6">
       <h1 className="text-3xl font-bold" style={{ color: themeColor }}>{resumeInfo.firstName || 'Your'} {resumeInfo.lastName || 'Name'}</h1>
       {resumeInfo.jobTitle && <p className="text-lg font-medium text-gray-600 mt-1">{resumeInfo.jobTitle}</p>}
       <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
@@ -153,13 +153,13 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor
       )}
     </header>
     {resumeInfo.summary && (
-      <section className="mb-6">
+      <section id="resume-section-summary" className="mb-6">
         <h2 className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: themeColor }}>About Me</h2>
         <p className="text-sm leading-relaxed text-gray-700 pl-4 border-l-2" style={{ borderColor: `${themeColor}40` }}>{resumeInfo.summary}</p>
       </section>
     )}
     {resumeInfo.experience.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-experience" className="mb-6">
         <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: themeColor }}>Experience</h2>
         {resumeInfo.experience.map((exp) => (
           <div key={exp.id} className="mb-4 pl-4 border-l-2" style={{ borderColor: `${themeColor}40` }}>
@@ -176,7 +176,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor
       </section>
     )}
     {resumeInfo.education.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-education" className="mb-6">
         <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: themeColor }}>Education</h2>
         {resumeInfo.education.map((edu) => (
           <div key={edu.id} className="mb-3 pl-4 border-l-2" style={{ borderColor: `${themeColor}40` }}>
@@ -187,7 +187,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor
       </section>
     )}
     {resumeInfo.skills.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-skills" className="mb-6">
         <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: themeColor }}>Skills</h2>
         <div className="flex flex-wrap gap-2">
           {resumeInfo.skills.map((skill) => <span key={skill.id} className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: `${themeColor}15`, color: themeColor }}>{skill.name}</span>)}
@@ -195,7 +195,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor
       </section>
     )}
     {resumeInfo.projects.length > 0 && (
-      <section>
+      <section id="resume-section-projects">
         <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: themeColor }}>Projects</h2>
         {resumeInfo.projects.map((project) => (
           <div key={project.id} className="mb-3 pl-4 border-l-2" style={{ borderColor: `${themeColor}40` }}>
@@ -214,7 +214,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor
 // =============================================================================
 export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, themeColor, formatDate }) => (
   <div className="bg-white text-gray-900 p-8" style={{ fontFamily: "'Georgia', serif" }}>
-    <header className="border-b-2 pb-4 mb-6" style={{ borderColor: themeColor }}>
+    <header id="resume-section-personal" className="border-b-2 pb-4 mb-6" style={{ borderColor: themeColor }}>
       <h1 className="text-3xl font-normal tracking-wide" style={{ color: themeColor }}>{resumeInfo.firstName || 'Your'} <span className="font-bold">{resumeInfo.lastName || 'Name'}</span></h1>
       {resumeInfo.jobTitle && <p className="text-base text-gray-600 mt-1 italic">{resumeInfo.jobTitle}</p>}
       <div className="flex flex-wrap gap-6 mt-3 text-sm text-gray-600">
@@ -223,13 +223,13 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
       </div>
     </header>
     {resumeInfo.summary && (
-      <section className="mb-6">
+      <section id="resume-section-summary" className="mb-6">
         <h2 className="text-lg font-bold mb-2" style={{ color: themeColor }}>Professional Profile</h2>
         <p className="text-sm leading-relaxed text-gray-700">{resumeInfo.summary}</p>
       </section>
     )}
     {resumeInfo.experience.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-experience" className="mb-6">
         <h2 className="text-lg font-bold mb-3" style={{ color: themeColor }}>Professional Experience</h2>
         {resumeInfo.experience.map((exp) => (
           <div key={exp.id} className="mb-4">
@@ -244,7 +244,7 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
       </section>
     )}
     {resumeInfo.education.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-education" className="mb-6">
         <h2 className="text-lg font-bold mb-3" style={{ color: themeColor }}>Education</h2>
         {resumeInfo.education.map((edu) => (
           <div key={edu.id} className="mb-3">
@@ -255,13 +255,13 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
       </section>
     )}
     {resumeInfo.skills.length > 0 && (
-      <section className="mb-6">
+      <section id="resume-section-skills" className="mb-6">
         <h2 className="text-lg font-bold mb-2" style={{ color: themeColor }}>Core Competencies</h2>
         <p className="text-sm text-gray-700">{resumeInfo.skills.map(s => s.name).join(' | ')}</p>
       </section>
     )}
     {resumeInfo.projects.length > 0 && (
-      <section>
+      <section id="resume-section-projects">
         <h2 className="text-lg font-bold mb-3" style={{ color: themeColor }}>Key Projects</h2>
         {resumeInfo.projects.map((project) => (
           <div key={project.id} className="mb-3">

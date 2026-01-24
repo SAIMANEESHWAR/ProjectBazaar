@@ -1,10 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useResumeInfo, Experience } from '../../context/ResumeInfoContext';
 import RichTextEditor from './RichTextEditor';
 
 const ExperienceForm: React.FC = () => {
   const { resumeInfo, updateResumeField } = useResumeInfo();
-  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // Get current date in YYYY-MM format
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Get max date (1 year in future) in YYYY-MM format
+  const getMaxDate = () => {
+    const now = new Date();
+    return `${now.getFullYear() + 1}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Get date 100 years ago in YYYY-MM format (reasonable minimum)
+  const getMinDate = () => {
+    const now = new Date();
+    return `${now.getFullYear() - 100}-01`;
+  };
+
+  const validateDates = (index: number, startDate: string, endDate: string, currentlyWorking: boolean) => {
+    const newErrors: { [key: string]: string } = {};
+    const errorKey = `exp_${index}`;
+    const current = new Date();
+    const currentYear = current.getFullYear();
+    const currentMonth = current.getMonth();
+
+    // Validate start date
+    if (startDate) {
+      const [year, month] = startDate.split('-').map(Number);
+      const start = new Date(year, month - 1, 1);
+      const maxDate = new Date(currentYear + 1, currentMonth, 1);
+      const minDate = new Date(currentYear - 100, 0, 1);
+
+      if (start > maxDate) {
+        newErrors[`${errorKey}_start`] = 'Start date cannot be more than 1 year in the future';
+      } else if (start < minDate) {
+        newErrors[`${errorKey}_start`] = 'Start date is too far in the past';
+      }
+    }
+
+    // Validate end date only if not currently working
+    if (!currentlyWorking && endDate) {
+      const [endYear, endMonth] = endDate.split('-').map(Number);
+      const end = new Date(endYear, endMonth - 1, 1);
+      const maxDate = new Date(currentYear + 1, currentMonth, 1);
+      const minDate = new Date(currentYear - 100, 0, 1);
+
+      // Check if end date is before start date
+      if (startDate) {
+        const [startYear, startMonth] = startDate.split('-').map(Number);
+        const start = new Date(startYear, startMonth - 1, 1);
+        
+        if (end < start) {
+          newErrors[`${errorKey}_end`] = 'End date cannot be before start date';
+        }
+      }
+
+      // Check if end date is too far in future
+      if (end > maxDate) {
+        newErrors[`${errorKey}_end`] = 'End date cannot be more than 1 year in the future';
+      }
+
+      // Check if end date is too far in past
+      if (end < minDate) {
+        newErrors[`${errorKey}_end`] = 'End date is too far in the past';
+      }
+    }
+
+    // Update errors state
+    setErrors(prev => {
+      const updated = { ...prev };
+      // Clear previous errors for this experience
+      delete updated[`${errorKey}_start`];
+      delete updated[`${errorKey}_end`];
+      // Add new errors
+      return { ...updated, ...newErrors };
+    });
+
+    return Object.keys(newErrors).length === 0;
+  };
 
   const createEmptyExperience = (): Experience => ({
     id: `exp_${Date.now()}`,
@@ -20,8 +100,28 @@ const ExperienceForm: React.FC = () => {
 
   const handleChange = (index: number, field: keyof Experience, value: string | boolean) => {
     const updated = [...resumeInfo.experience];
-    updated[index] = { ...updated[index], [field]: value };
+    const currentExp = updated[index];
+    
+    // If currentlyWorking is checked, clear endDate and clear end date errors
+    if (field === 'currentlyWorking' && value === true) {
+      updated[index] = { ...currentExp, [field]: value, endDate: '' };
+      // Clear end date error when currently working is checked
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated[`exp_${index}_end`];
+        return updated;
+      });
+    } else {
+      updated[index] = { ...currentExp, [field]: value };
+    }
+
     updateResumeField('experience', updated);
+
+    // Validate dates after update
+    const updatedExp = updated[index];
+    if (field === 'startDate' || field === 'endDate' || field === 'currentlyWorking') {
+      validateDates(index, updatedExp.startDate, updatedExp.endDate, updatedExp.currentlyWorking);
+    }
   };
 
   const addExperience = () => {
@@ -31,13 +131,23 @@ const ExperienceForm: React.FC = () => {
   const removeExperience = (index: number) => {
     const updated = resumeInfo.experience.filter((_, i) => i !== index);
     updateResumeField('experience', updated);
+    // Clear errors for removed experience
+    const errorKey = `exp_${index}`;
+    setErrors(prev => {
+      const updated = { ...prev };
+      delete updated[`${errorKey}_start`];
+      delete updated[`${errorKey}_end`];
+      return updated;
+    });
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setLoading(false);
-  };
+  // Validate all experiences on mount
+  useEffect(() => {
+    resumeInfo.experience.forEach((exp, index) => {
+      validateDates(index, exp.startDate, exp.endDate, exp.currentlyWorking);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
@@ -122,8 +232,17 @@ const ExperienceForm: React.FC = () => {
                     type="month"
                     value={exp.startDate}
                     onChange={(e) => handleChange(index, 'startDate', e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                    min={getMinDate()}
+                    max={getMaxDate()}
+                    className={`w-full px-3 py-2.5 bg-white border rounded-lg text-gray-900 text-sm focus:ring-2 transition-all ${
+                      errors[`exp_${index}_start`] 
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-500/20'
+                    }`}
                   />
+                  {errors[`exp_${index}_start`] && (
+                    <p className="mt-1 text-xs text-red-600">{errors[`exp_${index}_start`]}</p>
+                  )}
                 </div>
 
                 <div>
@@ -134,8 +253,17 @@ const ExperienceForm: React.FC = () => {
                       value={exp.endDate}
                       onChange={(e) => handleChange(index, 'endDate', e.target.value)}
                       disabled={exp.currentlyWorking}
-                      className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all disabled:opacity-50 disabled:bg-gray-100"
+                      min={exp.startDate || getMinDate()}
+                      max={getMaxDate()}
+                      className={`w-full px-3 py-2.5 bg-white border rounded-lg text-gray-900 text-sm focus:ring-2 transition-all disabled:opacity-50 disabled:bg-gray-100 ${
+                        errors[`exp_${index}_end`] 
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
+                          : 'border-gray-200 focus:border-orange-500 focus:ring-orange-500/20'
+                      }`}
                     />
+                    {errors[`exp_${index}_end`] && (
+                      <p className="text-xs text-red-600">{errors[`exp_${index}_end`]}</p>
+                    )}
                     <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                       <input
                         type="checkbox"
@@ -163,8 +291,7 @@ const ExperienceForm: React.FC = () => {
         )}
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
-        <div className="flex gap-3">
+      <div className="mt-6 flex items-center gap-3">
           <button
             type="button"
             onClick={addExperience}
@@ -181,25 +308,6 @@ const ExperienceForm: React.FC = () => {
               - Remove Last
             </button>
           )}
-        </div>
-
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-orange-500/25"
-        >
-          {loading ? (
-            <>
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            'Save'
-          )}
-        </button>
       </div>
     </div>
   );

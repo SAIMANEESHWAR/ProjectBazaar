@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useResumeInfo } from '../../context/ResumeInfoContext';
 
 interface PersonalDetailFormProps {
@@ -7,14 +7,21 @@ interface PersonalDetailFormProps {
 
 const PersonalDetailForm: React.FC<PersonalDetailFormProps> = ({ onEnableNext }) => {
   const { resumeInfo, updateResumeField } = useResumeInfo();
-  const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onEnableNext(false);
     const { name, value } = e.target;
     updateResumeField(name as keyof typeof resumeInfo, value);
+    // Check if required fields are filled to enable next
+    const requiredFields = ['firstName', 'lastName', 'jobTitle', 'phone', 'email'];
+    const isFormValid = requiredFields.every(field => {
+      if (field === name) {
+        return value.trim().length > 0;
+      }
+      return resumeInfo[field as keyof typeof resumeInfo]?.toString().trim().length > 0;
+    });
+    onEnableNext(isFormValid);
   };
 
   const handleImageUpload = useCallback((file: File) => {
@@ -69,13 +76,15 @@ const PersonalDetailForm: React.FC<PersonalDetailFormProps> = ({ onEnableNext })
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    onEnableNext(true);
-    setLoading(false);
-  };
+  // Check form validity on mount and when resumeInfo changes
+  useEffect(() => {
+    const requiredFields = ['firstName', 'lastName', 'jobTitle', 'phone', 'email'];
+    const isFormValid = requiredFields.every(field => {
+      const value = resumeInfo[field as keyof typeof resumeInfo]?.toString().trim();
+      return value && value.length > 0;
+    });
+    onEnableNext(isFormValid);
+  }, [resumeInfo.firstName, resumeInfo.lastName, resumeInfo.jobTitle, resumeInfo.phone, resumeInfo.email, onEnableNext]);
 
   return (
     <div className="p-4 sm:p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
@@ -91,7 +100,7 @@ const PersonalDetailForm: React.FC<PersonalDetailFormProps> = ({ onEnableNext })
         </div>
       </div>
 
-      <form onSubmit={handleSave}>
+      <div>
         {/* Profile Image Upload - Mobile optimized */}
         <div className="mb-4 sm:mb-6">
           <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
@@ -268,27 +277,7 @@ const PersonalDetailForm: React.FC<PersonalDetailFormProps> = ({ onEnableNext })
             />
           </div>
         </div>
-
-        <div className="mt-4 sm:mt-6 flex justify-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
-          >
-            {loading ? (
-              <>
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Saving...
-              </>
-            ) : (
-              'Save & Continue'
-            )}
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 };

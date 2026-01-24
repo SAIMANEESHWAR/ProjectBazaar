@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigation, useAuth } from '../../App';
 import { ResumeInfoProvider, useResumeInfo } from '../../context/ResumeInfoContext';
 import PersonalDetailForm from './PersonalDetailForm';
@@ -26,6 +26,14 @@ interface ResumeBuilderContentProps {
   toggleSidebar?: () => void;
 }
 
+// Helper function to convert hex color to rgba
+const hexToRgba = (hex: string, alpha: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack, toggleSidebar }) => {
   const { navigateTo } = useNavigation();
   useAuth();
@@ -37,6 +45,63 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // Map step IDs to section IDs and fallback heading text for scrolling
+  const stepToSectionMap: { [key: number]: { id: string; headings: string[] } } = {
+    1: { id: 'resume-section-personal', headings: ['Personal', 'Contact', 'Header'] },
+    2: { id: 'resume-section-summary', headings: ['Summary', 'Professional Summary', 'About Me', 'Professional Profile', 'Objective'] },
+    3: { id: 'resume-section-experience', headings: ['Experience', 'Professional Experience', 'Work Experience', 'Employment'] },
+    4: { id: 'resume-section-education', headings: ['Education', 'Academic', 'Qualifications'] },
+    5: { id: 'resume-section-skills', headings: ['Skills', 'Core Competencies', 'Technical Skills', 'Expertise'] },
+    6: { id: 'resume-section-projects', headings: ['Projects', 'Key Projects', 'Portfolio', 'Work Samples'] },
+  };
+
+  // Scroll to corresponding section in preview when step changes
+  useEffect(() => {
+    const sectionInfo = stepToSectionMap[activeStep];
+    if (sectionInfo && previewRef.current) {
+      // Remove previous highlights
+      previewRef.current.querySelectorAll('.resume-section-highlight').forEach((el) => {
+        el.classList.remove('resume-section-highlight');
+      });
+
+      // Wait a bit for the DOM to update
+      setTimeout(() => {
+        // First try to find by ID
+        let section = previewRef.current?.querySelector(`#${sectionInfo.id}`) as HTMLElement;
+        
+        // If not found by ID, try to find by heading text
+        if (!section) {
+          for (const heading of sectionInfo.headings) {
+            const headings = previewRef.current?.querySelectorAll('h2, h3');
+            headings?.forEach((h) => {
+              if (h.textContent?.toLowerCase().includes(heading.toLowerCase())) {
+                section = (h.closest('section') || h.parentElement) as HTMLElement;
+              }
+            });
+            if (section) break;
+          }
+        }
+        
+        if (section) {
+          // Add highlight class
+          section.classList.add('resume-section-highlight');
+          
+          // Scroll to section
+          section.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+
+          // Remove highlight after 2 seconds
+          setTimeout(() => {
+            section?.classList.remove('resume-section-highlight');
+          }, 2000);
+        }
+      }, 100);
+    }
+  }, [activeStep]);
 
   const handleBack = () => {
     if (onBack) {
@@ -738,6 +803,52 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                   overflowY: 'auto',
                 }}
               >
+                <style>{`
+                  .resume-section-highlight {
+                    animation: highlightPulse 2s ease-in-out;
+                    border-radius: 8px;
+                    padding: 8px;
+                    margin: -8px;
+                    transition: all 0.3s ease;
+                    position: relative;
+                  }
+                  
+                  .resume-section-highlight::before {
+                    content: '';
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 4px;
+                    background-color: ${resumeInfo.themeColor || '#f97316'};
+                    border-radius: 2px;
+                    animation: slideIn 0.3s ease-out;
+                  }
+                  
+                  @keyframes slideIn {
+                    from {
+                      transform: scaleY(0);
+                    }
+                    to {
+                      transform: scaleY(1);
+                    }
+                  }
+                  
+                  @keyframes highlightPulse {
+                    0% {
+                      background-color: ${hexToRgba(resumeInfo.themeColor || '#f97316', 0.2)};
+                      box-shadow: 0 0 0 0 ${hexToRgba(resumeInfo.themeColor || '#f97316', 0.4)};
+                    }
+                    50% {
+                      background-color: ${hexToRgba(resumeInfo.themeColor || '#f97316', 0.15)};
+                      box-shadow: 0 0 20px 5px ${hexToRgba(resumeInfo.themeColor || '#f97316', 0.2)};
+                    }
+                    100% {
+                      background-color: transparent;
+                      box-shadow: 0 0 0 0 ${hexToRgba(resumeInfo.themeColor || '#f97316', 0)};
+                    }
+                  }
+                `}</style>
                 <ResumePreview />
               </div>
               <p className="text-xs text-gray-400 text-center mt-3">
