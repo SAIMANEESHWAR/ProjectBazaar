@@ -2,7 +2,6 @@ import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
-
 import boto3
 from botocore.exceptions import ClientError
 
@@ -61,64 +60,89 @@ def get_path_parameter(event, param_name):
     return path_params.get(param_name)
 
 
-def get_query_parameter(event, param_name):
-    """Get query parameter from event"""
-    query_params = event.get("queryStringParameters") or {}
-    if query_params:
-        return query_params.get(param_name)
-    return None
+def normalize_phase_item(item_id: str, raw: dict, now: str) -> dict:
+    """Normalize and validate placement phase item"""
+    
+    # helper for resources validation
+    def normalize_resources(res_list):
+        if not isinstance(res_list, list): return []
+        normalized_res = []
+        for res in res_list:
+            if isinstance(res, dict):
+                normalized_res.append({
+                    "name": str(res.get("name", "")).strip(),
+                    "url": str(res.get("url", "")).strip(),
+                    "type": str(res.get("type", "")).strip(),
+                })
+        return normalized_res
 
-
-def normalize_topic_item(item_id: str, raw: dict, now: str) -> dict:
-    """Normalize and validate placement topic item"""
-    # Normalize resources
-    resources = []
-    for res in raw.get("resources", []):
-        if isinstance(res, dict) and res.get("name") and res.get("url"):
-            resources.append({
-                "name": str(res.get("name", "")).strip(),
-                "url": str(res.get("url", "")).strip(),
-                "type": str(res.get("type", "")).strip(),
-            })
+    # helper for tasks validation
+    def normalize_tasks(tasks_list):
+        if not isinstance(tasks_list, list): return []
+        normalized_tasks = []
+        for task in tasks_list:
+            if isinstance(task, dict):
+                normalized_tasks.append({
+                    "id": str(task.get("id") or f"task-{uuid.uuid4()}"),
+                    "title": str(task.get("title", "")).strip(),
+                    "description": str(task.get("description", "")).strip(),
+                    "difficulty": str(task.get("difficulty", "Easy")).strip(),
+                    "practiceLink": str(task.get("practiceLink", "")).strip(),
+                    "note": str(task.get("note", "")).strip(),
+                    "needsRevision": bool(task.get("needsRevision", False)),
+                    "helpfulLinks": normalize_resources(task.get("helpfulLinks", []))
+                })
+        return normalized_tasks
 
     return {
         "id": item_id,
-        "title": raw.get("title", "").strip(),
-        "importance": raw.get("importance", "Important"),
-        "timeNeeded": raw.get("timeNeeded", "").strip(),
-        "resources": resources,
+        "year": str(raw.get("year", "")).strip(),
+        "months": str(raw.get("months", "")).strip(),
+        "title": str(raw.get("title", "")).strip(),
+        "description": str(raw.get("description", "")).strip(),
+        "colorClass": str(raw.get("colorClass", "from-gray-400 to-gray-600")).strip(),
+        "badgeClass": str(raw.get("badgeClass", "bg-gray-100 text-gray-700")).strip(),
+        "icon": str(raw.get("icon", "📋")).strip(),
+        "relatedTopics": [str(t).strip() for t in raw.get("relatedTopics", []) if isinstance(t, str)],
+        "tasks": normalize_tasks(raw.get("tasks", [])),
+        "resources": normalize_resources(raw.get("resources", [])),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
+        "type": "phase" # Marker to distinguish from other items if table is shared
     }
 
 
 # ================= CRUD OPERATIONS =================
 
 def handle_get_all():
-    """GET / - Get all placement topics"""
+    """GET / - Get all placement phases"""
     try:
+        # Scan table and filter by type="phase" (optional, if table is shared)
+        # For now assuming table is dedicated or we just return everything that looks like a phase
         result = placement_table.scan()
         items = result.get("Items", [])
         
-        # Sort by importance (Critical > Important > Good to Know) then by title
-        importance_order = {"Critical": 0, "Important": 1, "Good to Know": 2}
-        items.sort(key=lambda x: (
-            importance_order.get(x.get("importance", "Important"), 1),
-            x.get("title", "")
-        ))
+        # Filter for phases if necessary (based on presence of 'year' or 'type')
+        phases = [item for item in items if item.get("type") == "phase" or "year" in item]
+        
+        # Sort could be complex due to "3rd Year", "Jan-Jun" strings.
+        # Ideally, we return as is and frontend handles sorting, or we add a orderIndex field.
+        # For now, returning as is.
         
         return response(200, {
             "success": True,
-            "topics": items,
-            "count": len(items)
+            "phases": phases, # Frontend expects 'phases' key per new logic? Or check frontend fetch.
+            # Checking frontend fetchPhases: setPhases(parsed)
+            # Frontend currently uses localStorage.
+            # But the 'fetchTopics' called 'topics'.
+            # I should return a key that generic or specific?
+            # User wants backend for phases.
+            "count": len(phases)
         })
     except ClientError as e:
-        error_code = e.response.get('Error', {}).get('Code', '')
-        if error_code == 'ResourceNotFoundException':
-            return response(200, {"success": True, "topics": [], "count": 0})
         return response(500, {
             "success": False,
-            "message": "Failed to retrieve topics",
+            "message": "Failed to retrieve phases",
             "error": str(e)
         })
     except Exception as e:
@@ -128,324 +152,104 @@ def handle_get_all():
             "error": str(e)
         })
 
-
-def handle_get_one(topic_id: str):
-    """GET /{id} - Get single placement topic by ID"""
-    if not topic_id:
+def handle_bulk_put(phases: list):
+    """Bulk create/update phases (replaces entire list logic or upsert)"""
+    if not isinstance(phases, list):
         return response(400, {
             "success": False,
-            "message": "Topic ID is required"
-        })
-    
-    try:
-        result = placement_table.get_item(Key={"id": topic_id})
-        
-        if "Item" in result:
-            return response(200, {
-                "success": True,
-                "topic": result["Item"]
-            })
-        else:
-            return response(404, {
-                "success": False,
-                "message": f"Topic with ID '{topic_id}' not found"
-            })
-    except ClientError as e:
-        return response(500, {
-            "success": False,
-            "message": "Failed to retrieve topic",
-            "error": str(e)
-        })
-
-
-def handle_post(body: dict):
-    """POST / - Create new placement topic(s)"""
-    # Check if it's a single topic or bulk operation
-    if "topics" in body:
-        # Bulk create/update (from admin UI)
-        return handle_bulk_put(body.get("topics", []))
-    elif "title" in body:
-        # Single topic create
-        return handle_create_one(body)
-    else:
-        return response(400, {
-            "success": False,
-            "message": "Invalid request body. Provide 'topics' array or single 'topic' object"
-        })
-
-
-def handle_create_one(topic_data: dict):
-    """Create a single placement topic"""
-    now = now_iso()
-    topic_id = topic_data.get("id") or str(uuid.uuid4())
-    
-    try:
-        normalized = normalize_topic_item(topic_id, topic_data, now)
-        placement_table.put_item(Item=normalized)
-        
-        return response(201, {
-            "success": True,
-            "message": "Topic created successfully",
-            "topic": normalized
-        })
-    except Exception as e:
-        return response(500, {
-            "success": False,
-            "message": "Failed to create topic",
-            "error": str(e)
-        })
-
-
-def handle_bulk_put(topics: list):
-    """Bulk create/update topics (replaces entire list)"""
-    if not isinstance(topics, list):
-        return response(400, {
-            "success": False,
-            "message": "'topics' must be a list"
+            "message": "'phases' must be a list"
         })
     
     now = now_iso()
-    
-    # Get existing IDs to delete ones that are no longer present
-    try:
-        existing = placement_table.scan().get("Items", [])
-        existing_ids = {item.get("id") for item in existing if item.get("id")}
-    except Exception:
-        existing_ids = set()
-    
     incoming_ids = set()
     
-    # Write all topics
     try:
         with placement_table.batch_writer() as batch:
-            for raw in topics:
-                if not isinstance(raw, dict):
-                    continue
+            for raw in phases:
+                if not isinstance(raw, dict): continue
                 
-                item_id = raw.get("id") or str(uuid.uuid4())
+                item_id = raw.get("id") or f"phase-{uuid.uuid4()}"
                 incoming_ids.add(item_id)
                 
-                normalized = normalize_topic_item(item_id, raw, now)
+                normalized = normalize_phase_item(item_id, raw, now)
                 batch.put_item(Item=normalized)
         
-        # Delete entries that are no longer present
-        to_delete = [item_id for item_id in existing_ids if item_id not in incoming_ids]
-        if to_delete:
-            with placement_table.batch_writer() as batch:
-                for item_id in to_delete:
-                    batch.delete_item(Key={"id": item_id})
+        # Optional: Delete items that are not in incoming_list (Full sync)
+        # Be careful with this pattern if table is huge. For admin panel settings it's fine.
+        existing = placement_table.scan().get("Items", [])
+        existing_phases = [i for i in existing if i.get("type") == "phase" or "year" in i]
         
+        with placement_table.batch_writer() as batch:
+            for item in existing_phases:
+                if item["id"] not in incoming_ids:
+                    batch.delete_item(Key={"id": item["id"]})
+
         return response(200, {
             "success": True,
-            "message": f"Updated {len(incoming_ids)} placement topics",
-            "count": len(incoming_ids),
-            "deleted": len(to_delete)
+            "message": f"Updated {len(incoming_ids)} phases",
+            "count": len(incoming_ids)
         })
     except Exception as e:
         return response(500, {
             "success": False,
-            "message": "Failed to save topics",
+            "message": "Failed to save phases",
             "error": str(e)
         })
 
-
-def handle_put(topic_id: str, body: dict):
-    """PUT /{id} - Update single placement topic"""
-    if not topic_id:
-        return response(400, {
-            "success": False,
-            "message": "Topic ID is required"
-        })
-    
-    # Check if topic exists
+def handle_delete(item_id: str):
     try:
-        existing = placement_table.get_item(Key={"id": topic_id})
-        if "Item" not in existing:
-            return response(404, {
-                "success": False,
-                "message": f"Topic with ID '{topic_id}' not found"
-            })
-        
-        # Preserve createdAt, update updatedAt
-        now = now_iso()
-        existing_item = existing["Item"]
-        topic_data = {
-            **body,
-            "id": topic_id,
-            "createdAt": existing_item.get("createdAt", now),
-        }
-        
-        normalized = normalize_topic_item(topic_id, topic_data, now)
-        placement_table.put_item(Item=normalized)
-        
-        return response(200, {
-            "success": True,
-            "message": "Topic updated successfully",
-            "topic": normalized
-        })
-    except ClientError as e:
-        return response(500, {
-            "success": False,
-            "message": "Failed to update topic",
-            "error": str(e)
-        })
-
-
-def handle_delete(topic_id: str):
-    """DELETE /{id} - Delete single placement topic"""
-    if not topic_id:
-        return response(400, {
-            "success": False,
-            "message": "Topic ID is required"
-        })
-    
-    try:
-        # Check if topic exists
-        existing = placement_table.get_item(Key={"id": topic_id})
-        if "Item" not in existing:
-            return response(404, {
-                "success": False,
-                "message": f"Topic with ID '{topic_id}' not found"
-            })
-        
-        placement_table.delete_item(Key={"id": topic_id})
-        
-        return response(200, {
-            "success": True,
-            "message": "Topic deleted successfully",
-            "id": topic_id
-        })
-    except ClientError as e:
-        return response(500, {
-            "success": False,
-            "message": "Failed to delete topic",
-            "error": str(e)
-        })
-
-
-def handle_delete_by_body(body: dict):
-    """DELETE via POST body (for compatibility)"""
-    topic_id = body.get("id")
-    if not topic_id:
-        return response(400, {
-            "success": False,
-            "message": "Missing 'id' in request body"
-        })
-    return handle_delete(topic_id)
-
+        placement_table.delete_item(Key={"id": item_id})
+        return response(200, {"success": True, "message": "Deleted successfully"})
+    except Exception as e:
+        return response(500, {"success": False, "error": str(e)})
 
 # ================= MAIN HANDLER =================
 def lambda_handler(event, context):
     """
-    Unified Lambda handler for Placement Prep CRUD operations.
-    
-    Supports:
-    - GET /              -> List all topics
-    - GET /{id}          -> Get single topic
-    - POST /             -> Create topic(s) or bulk update
-    - PUT /{id}          -> Update single topic
-    - DELETE /{id}       -> Delete single topic
-    - POST with action   -> Alternative method (for compatibility)
-    
-    Request Body Examples:
-    
-    POST / (single create):
-    {
-      "title": "Data Structures & Algorithms",
-      "importance": "Critical",
-      "timeNeeded": "3-4 months",
-      "resources": [...]
-    }
-    
-    POST / (bulk update):
-    {
-      "topics": [
-        {
-          "id": "uuid",
-          "title": "...",
-          ...
-        }
-      ]
-    }
-    
-    PUT /{id}:
-    {
-      "title": "Updated Title",
-      "importance": "Important",
-      ...
-    }
+    Handler for Placement Prep Phases
     """
-    
-    # Get HTTP method
     http_method = (
         event.get("httpMethod") or
         event.get("requestContext", {}).get("http", {}).get("method", "") or
         event.get("requestContext", {}).get("httpMethod", "")
     )
     
-    # Handle CORS preflight
     if http_method == "OPTIONS":
-        return {
-            "statusCode": 204,
-            "headers": CONFIG_CORS_HEADERS,
-            "body": "",
-        }
+        return {"statusCode": 204, "headers": CONFIG_CORS_HEADERS, "body": ""}
     
-    # Parse request body
     body = parse_body(event)
+    action = body.get("action")
     
-    # Get path parameters
-    topic_id = get_path_parameter(event, "id")
-    
-    # Handle different HTTP methods
     try:
         if http_method == "GET":
-            if topic_id:
-                return handle_get_one(topic_id)
-            else:
-                return handle_get_all()
-        
+             return handle_get_all()
+             
         elif http_method == "POST":
-            # Check if it's an action-based request (for compatibility)
-            action = body.get("action")
+            # Action based routing (compatible with frontend logic if it sends action)
+            # Frontend fetchPhases (currently localStorage) needs to be updated to call this API.
+            # But here we implement the backend capabilities.
+            
             if action == "list":
                 return handle_get_all()
-            elif action == "put":
-                return handle_bulk_put(body.get("topics", []))
+            elif action == "put" or action == "savePhases": # accepting various action names
+                # expect 'phases' list in body
+                phases = body.get("phases", [])
+                return handle_bulk_put(phases)
             elif action == "delete":
-                return handle_delete_by_body(body)
+                return handle_delete(body.get("id"))
             else:
-                return handle_post(body)
-        
-        elif http_method == "PUT":
-            if not topic_id:
-                return response(400, {
-                    "success": False,
-                    "message": "Topic ID is required in path for PUT request"
-                })
-            return handle_put(topic_id, body)
-        
+                # Default POST behavior if just sending data?
+                # Assume bulk put if 'phases' is present
+                if "phases" in body:
+                    return handle_bulk_put(body.get("phases"))
+                return response(400, {"success": False, "message": "Unknown action or missing data"})
+                
         elif http_method == "DELETE":
-            if topic_id:
-                return handle_delete(topic_id)
-            else:
-                return response(400, {
-                    "success": False,
-                    "message": "Topic ID is required in path for DELETE request"
-                })
-        
-        else:
-            return response(405, {
-                "success": False,
-                "message": f"Method {http_method} not allowed"
-            })
-    
+             item_id = get_path_parameter(event, "id")
+             return handle_delete(item_id)
+             
+        return response(405, {"success": False, "message": "Method not allowed"})
+
     except Exception as e:
-        print(f"Error in lambda_handler: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return response(500, {
-            "success": False,
-            "message": "Internal server error",
-            "error": str(e)
-        })
+        print(f"Error: {e}")
+        return response(500, {"success": False, "message": "Internal Server Error", "error": str(e)})

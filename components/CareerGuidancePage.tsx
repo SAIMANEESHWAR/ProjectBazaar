@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import PlacementPrepSection, { PlacementPhase } from './PlacementPrepSection';
 
 // ============================================
 // TYPES & INTERFACES
@@ -59,6 +60,8 @@ interface RoadmapData {
     createdAt: string;
 }
 
+
+
 interface QuizQuestion {
     question: string;
     options: string[];
@@ -113,12 +116,7 @@ export interface ProjectIdea {
     demoLinks?: string[]; // Live demo links
 }
 
-interface PlacementTopic {
-    title: string;
-    importance: 'Critical' | 'Important' | 'Good to Know';
-    timeNeeded: string;
-    resources: { name: string; url: string; type: string }[];
-}
+
 
 // ============================================
 // ICONS
@@ -190,7 +188,7 @@ const TRENDING_CAREERS_KEY = 'careerTrendingCareers';
 const PROJECT_IDEAS_KEY = 'careerProjectIdeas';
 const PLACEMENT_PREP_KEY = 'careerPlacementPrep';
 const API_ENDPOINT = 'https://kuxbswn0c9.execute-api.ap-south-2.amazonaws.com/default/Trendingcarrers_ProjectIdeas';
-const PLACEMENT_PREP_API_ENDPOINT = 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-2.amazonaws.com/default/placement_prep_handler'; // Replace with your API Gateway URL
+const PLACEMENT_PREP_API_ENDPOINT = import.meta.env.VITE_PLACEMENT_PREP_API_URL || 'https://5xg2r5rgol.execute-api.ap-south-2.amazonaws.com/default/PlacementPrep';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -311,54 +309,41 @@ export const defaultTrendingCareers: TrendingCareer[] = [
 // PLACEMENT PREP DATA (Default/Fallback)
 // ============================================
 
-const defaultPlacementTopics: PlacementTopic[] = [
+const defaultPlacementPhases: PlacementPhase[] = [
     {
-        title: "Data Structures & Algorithms",
-        importance: "Critical",
-        timeNeeded: "3-4 months",
+        id: 'phase-1',
+        year: '3rd Year',
+        months: 'July - September',
+        title: 'Building Strong Foundations',
+        description: 'Focus on Data Structures, Algorithms and Basic Mathematics.',
+        colorClass: 'from-blue-500 to-indigo-600',
+        badgeClass: 'bg-blue-100 text-blue-700',
+        icon: '🧱',
+        relatedTopics: ['Arrays', 'STL/Collections', 'Recursion', 'Time Complexity'],
+        tasks: [
+            { id: 'p1t1', title: 'Master Array & Strings', description: 'Solve 20+ problems on LeetCode', completed: false, difficulty: 'Easy' },
+            { id: 'p1t2', title: 'Learn Basic Math for Coding', description: 'Prime numbers, GCD, Factorials', completed: false, difficulty: 'Easy' }
+        ],
         resources: [
-            { name: "LeetCode", url: "https://leetcode.com", type: "Practice" },
-            { name: "Striver's A2Z DSA Sheet", url: "https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2", type: "Roadmap" },
-            { name: "NeetCode", url: "https://neetcode.io", type: "Video + Practice" },
-            { name: "GeeksforGeeks", url: "https://www.geeksforgeeks.org", type: "Theory + Practice" }
+            { name: 'LeetCode Explore', url: 'https://leetcode.com/explore/', type: 'Practice' }
         ]
     },
     {
-        title: "System Design",
-        importance: "Important",
-        timeNeeded: "1-2 months",
+        id: 'phase-2',
+        year: '3rd Year',
+        months: 'October - December',
+        title: 'Advanced DSA & Core Subjects',
+        description: 'Moving to complex data structures and CS fundamentals.',
+        colorClass: 'from-green-500 to-emerald-600',
+        badgeClass: 'bg-green-100 text-green-700',
+        icon: '🧪',
+        relatedTopics: ['Trees', 'Graphs', 'Dynamic Programming', 'OS'],
+        tasks: [
+            { id: 'p2t1', title: 'Advanced Data Structures', description: 'Trees, Graphs and Heap', completed: false, difficulty: 'Medium' },
+            { id: 'p2t2', title: 'DBMS Fundamentals', description: 'SQL Queries and Normalization', completed: false, difficulty: 'Medium' }
+        ],
         resources: [
-            { name: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer", type: "GitHub" },
-            { name: "Gaurav Sen YouTube", url: "https://www.youtube.com/@gaborsen", type: "Video" },
-            { name: "ByteByteGo", url: "https://bytebytego.com", type: "Newsletter" }
-        ]
-    },
-    {
-        title: "Core CS Subjects",
-        importance: "Important",
-        timeNeeded: "1-2 months",
-        resources: [
-            { name: "OS - Gate Smashers", url: "https://www.youtube.com/@GateSmashers", type: "Video" },
-            { name: "DBMS - Knowledge Gate", url: "https://www.youtube.com/@TheKnowledgeGate", type: "Video" },
-            { name: "CN - Neso Academy", url: "https://www.youtube.com/@nesoacademy", type: "Video" }
-        ]
-    },
-    {
-        title: "Aptitude & Reasoning",
-        importance: "Good to Know",
-        timeNeeded: "2-3 weeks",
-        resources: [
-            { name: "IndiaBix", url: "https://www.indiabix.com", type: "Practice" },
-            { name: "PrepInsta", url: "https://prepinsta.com", type: "Practice" }
-        ]
-    },
-    {
-        title: "Communication Skills",
-        importance: "Important",
-        timeNeeded: "Ongoing",
-        resources: [
-            { name: "Mock Interviews - Pramp", url: "https://www.pramp.com", type: "Practice" },
-            { name: "InterviewBit", url: "https://www.interviewbit.com", type: "Practice" }
+            { name: 'Striver A2Z Sheet', url: 'https://takeuforward.org', type: 'Roadmap' }
         ]
     }
 ];
@@ -447,11 +432,10 @@ interface OptionButtonProps {
 const OptionButton: React.FC<OptionButtonProps> = ({ option, isSelected, onToggle }) => (
     <button
         onClick={() => onToggle(option)}
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-            isSelected
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${isSelected
+            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
     >
         {option}
     </button>
@@ -474,7 +458,7 @@ const Selector: React.FC<SelectorProps> = ({ title, subtitle, options, setOption
     const [newOption, setNewOption] = useState('');
 
     const toggleOption = (option: string) => {
-        setOptions(prev => prev.map(item => 
+        setOptions(prev => prev.map(item =>
             item.option === option ? { ...item, isSelected: !item.isSelected } : item
         ));
     };
@@ -527,11 +511,10 @@ const Selector: React.FC<SelectorProps> = ({ title, subtitle, options, setOption
                 <button
                     onClick={() => onContinue(selectedOptions)}
                     disabled={selectedOptions.length === 0}
-                    className={`px-8 py-3 rounded-xl font-semibold text-lg transition-all duration-300 ${
-                        selectedOptions.length > 0
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`px-8 py-3 rounded-xl font-semibold text-lg transition-all duration-300 ${selectedOptions.length > 0
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
                 >
                     Continue ({selectedOptions.length} selected)
                 </button>
@@ -579,7 +562,7 @@ const ResultComponent: React.FC<ResultProps> = ({ result, onGenerateAgain, onCon
         </div>
 
         <h2 className="text-xl text-gray-600 mb-4">Based on your profile, we recommend you to be a</h2>
-        
+
         <div className="relative inline-block mb-8">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent animate-pulse">
                 {result[0]}
@@ -635,7 +618,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ step, totalSteps }) => (
             <span>{Math.round(((step + 1) / totalSteps) * 100)}%</span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div 
+            <div
                 className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full transition-all duration-500"
                 style={{ width: `${((step + 1) / totalSteps) * 100}%` }}
             />
@@ -1016,13 +999,13 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 };
 
                 const categoryResources = commonResources[categoryId] || commonResources['web-dev'];
-                
+
                 // Select 4-6 resources based on week index
                 const selectedResources = categoryResources.slice(weekIndex % categoryResources.length, (weekIndex % categoryResources.length) + 5);
                 if (selectedResources.length < 4) {
                     selectedResources.push(...categoryResources.slice(0, 4 - selectedResources.length));
                 }
-                
+
                 return selectedResources.slice(0, 6);
             };
 
@@ -1112,7 +1095,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
             // Get templates for selected category or default to web-dev
             const templates = weekTemplates[categoryId] || weekTemplates['web-dev'];
-            
+
             // Generate weeks based on duration
             const generatedWeeks: Array<Omit<WeekContent, 'isCompleted' | 'quizCompleted'>> = [];
             for (let i = 0; i < totalWeeks; i++) {
@@ -1128,7 +1111,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                     resources: resources,
                 });
             }
-            
+
             // Add revision week for beginners if duration > 8 weeks
             if (currentLevel === 'Beginner' && totalWeeks > 8) {
                 const revisionResources: WeekResource[] = [
@@ -1532,7 +1515,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             {/* Category Selection */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-4">
-                                    Select Category * 
+                                    Select Category *
                                     <span className="text-xs font-normal text-gray-500 ml-2">
                                         ({categories.length} {categories.length === 1 ? 'category' : 'categories'} available from API)
                                     </span>
@@ -1546,19 +1529,18 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 ) : (
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                         {categories.map((category) => (
-                                        <button
-                                            key={category.id}
-                                            onClick={() => handleCategorySelect(category.id)}
-                                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                                                selectedCategory === category.id
+                                            <button
+                                                key={category.id}
+                                                onClick={() => handleCategorySelect(category.id)}
+                                                className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedCategory === category.id
                                                     ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
                                                     : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                            }`}
-                                        >
-                                            <div className="text-3xl mb-2">{category.icon}</div>
-                                            <div className="text-sm font-semibold text-gray-900">{category.name}</div>
-                                        </button>
-                                    ))}
+                                                    }`}
+                                            >
+                                                <div className="text-3xl mb-2">{category.icon}</div>
+                                                <div className="text-sm font-semibold text-gray-900">{category.name}</div>
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -1704,23 +1686,21 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             {roadmapData.weeks.map((week, idx) => (
                                 <div
                                     key={idx}
-                                    className={`border-2 rounded-xl p-6 transition-all ${
-                                        week.isCompleted && week.quizCompleted
-                                            ? 'border-green-500 bg-green-50'
-                                            : week.isCompleted
+                                    className={`border-2 rounded-xl p-6 transition-all ${week.isCompleted && week.quizCompleted
+                                        ? 'border-green-500 bg-green-50'
+                                        : week.isCompleted
                                             ? 'border-orange-500 bg-orange-50'
                                             : 'border-gray-200 bg-white'
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
-                                                week.isCompleted && week.quizCompleted
-                                                    ? 'bg-green-500 text-white'
-                                                    : week.isCompleted
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${week.isCompleted && week.quizCompleted
+                                                ? 'bg-green-500 text-white'
+                                                : week.isCompleted
                                                     ? 'bg-orange-500 text-white'
                                                     : 'bg-gray-200 text-gray-600'
-                                            }`}>
+                                                }`}>
                                                 {week.isCompleted && week.quizCompleted ? '✓' : week.weekNumber}
                                             </div>
                                             <div>
@@ -1787,7 +1767,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                             <h4 className="font-semibold text-gray-900 mb-1">Mini Project</h4>
                                             <p className="text-sm text-gray-700">{week.miniProject}</p>
                                         </div>
-                                        
+
                                         {/* Resources Section */}
                                         {week.resources && week.resources.length > 0 && (
                                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1964,9 +1944,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 <div>
                     <div className={`bg-white rounded-2xl shadow-xl border-2 p-8 ${passed ? 'border-green-500' : 'border-red-500'}`}>
                         <div className="text-center mb-8">
-                            <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl ${
-                                passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                            }`}>
+                            <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl ${passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                }`}>
                                 {passed ? '✓' : '✗'}
                             </div>
                             <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -2080,12 +2059,11 @@ const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers
             {/* Career Cards */}
             <div className="grid md:grid-cols-2 gap-4">
                 {careers.map((career, idx) => (
-                    <div 
+                    <div
                         key={idx}
                         onClick={() => setSelectedCareer(selectedCareer?.title === career.title ? null : career)}
-                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                            selectedCareer?.title === career.title ? 'border-orange-500 shadow-lg shadow-orange-500/10' : 'border-gray-200'
-                        }`}
+                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedCareer?.title === career.title ? 'border-orange-500 shadow-lg shadow-orange-500/10' : 'border-gray-200'
+                            }`}
                     >
                         <div className="flex items-start justify-between mb-3">
                             <div>
@@ -2110,11 +2088,10 @@ const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers
                                 <TrendingIcon />
                                 <span className="font-semibold">{career.growth}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                career.demand === 'Very High' ? 'bg-red-100 text-red-700' :
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${career.demand === 'Very High' ? 'bg-red-100 text-red-700' :
                                 career.demand === 'High' ? 'bg-orange-100 text-orange-700' :
-                                'bg-yellow-100 text-yellow-700'
-                            }`}>
+                                    'bg-yellow-100 text-yellow-700'
+                                }`}>
                                 {career.demand} Demand
                             </span>
                         </div>
@@ -2179,746 +2156,10 @@ const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers
     );
 };
 
-// ============================================
-// PLACEMENT PREP COMPONENT
-// ============================================
 
-interface PlacementPrepSectionProps {
-    topics: PlacementTopic[];
-}
 
-// Progress tracking key
-const PLACEMENT_PROGRESS_KEY = 'placement_prep_progress';
 
-interface PhaseTask {
-    id: string;
-    title: string;
-    description?: string;
-    completed: boolean;
-}
 
-interface PhaseProgress {
-    phaseId: string;
-    tasks: PhaseTask[];
-    resources: { name: string; url: string; type: string }[];
-}
-
-interface PlacementProgress {
-    phases: Record<string, PhaseProgress>;
-    lastUpdated: string;
-}
-
-const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ topics }) => {
-    // Safety check: if topics is undefined or null, use empty array
-    const safeTopics = topics || [];
-    const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
-    const [progress, setProgress] = useState<PlacementProgress>(() => {
-        const stored = localStorage.getItem(PLACEMENT_PROGRESS_KEY);
-        return stored ? JSON.parse(stored) : { phases: {}, lastUpdated: new Date().toISOString() };
-    });
-
-    // Map topics to phases and create tasks
-    const placementPhases = [
-        {
-            id: 'phase-1',
-            year: "3rd Year",
-            months: "Jan-Jun",
-            title: "Learn DSA Fundamentals",
-            description: "Master the basics of Data Structures and Algorithms",
-            colorClass: "from-blue-400 to-blue-600",
-            badgeClass: "bg-blue-100 text-blue-700",
-            icon: "📚",
-            relatedTopics: ["Data Structures & Algorithms"],
-            defaultTasks: [
-                { id: 'task-1-1', title: "Complete basic array and string problems", description: "Solve 50+ problems on arrays and strings" },
-                { id: 'task-1-2', title: "Learn time and space complexity", description: "Understand Big O notation and complexity analysis" },
-                { id: 'task-1-3', title: "Master sorting and searching algorithms", description: "Implement and understand various sorting algorithms" },
-                { id: 'task-1-4', title: "Practice on LeetCode/GeeksforGeeks", description: "Solve at least 100 problems" },
-            ]
-        },
-        {
-            id: 'phase-2',
-            year: "3rd Year",
-            months: "Jul-Dec",
-            title: "Practice & Build Projects",
-            description: "Practice 200+ problems and start building projects",
-            colorClass: "from-green-400 to-green-600",
-            badgeClass: "bg-green-100 text-green-700",
-            icon: "💻",
-            relatedTopics: ["Data Structures & Algorithms"],
-            defaultTasks: [
-                { id: 'task-2-1', title: "Solve 200+ DSA problems", description: "Cover all major topics: arrays, strings, trees, graphs" },
-                { id: 'task-2-2', title: "Build 2-3 portfolio projects", description: "Create projects showcasing your skills" },
-                { id: 'task-2-3', title: "Participate in coding contests", description: "Join contests on CodeChef, HackerRank, etc." },
-                { id: 'task-2-4', title: "Review and optimize solutions", description: "Focus on optimizing time and space complexity" },
-            ]
-        },
-        {
-            id: 'phase-3',
-            year: "4th Year",
-            months: "Jan-Apr",
-            title: "System Design & Mock Interviews",
-            description: "Learn system design and practice mock interviews",
-            colorClass: "from-orange-400 to-orange-600",
-            badgeClass: "bg-orange-100 text-orange-700",
-            icon: "🎯",
-            relatedTopics: ["System Design", "Core CS Subjects", "Communication Skills"],
-            defaultTasks: [
-                { id: 'task-3-1', title: "Learn system design fundamentals", description: "Study scalability, load balancing, databases" },
-                { id: 'task-3-2', title: "Practice mock interviews", description: "Do at least 10 mock interviews" },
-                { id: 'task-3-3', title: "Review core CS subjects", description: "OS, DBMS, Computer Networks basics" },
-                { id: 'task-3-4', title: "Improve communication skills", description: "Practice explaining solutions clearly" },
-            ]
-        },
-        {
-            id: 'phase-4',
-            year: "4th Year",
-            months: "May-Aug",
-            title: "Campus Placements Begin",
-            description: "Final preparation and placement interviews",
-            colorClass: "from-red-400 to-red-600",
-            badgeClass: "bg-red-100 text-red-700",
-            icon: "🚀",
-            relatedTopics: ["Aptitude & Reasoning", "Communication Skills"],
-            defaultTasks: [
-                { id: 'task-4-1', title: "Prepare resume and portfolio", description: "Update resume with projects and achievements" },
-                { id: 'task-4-2', title: "Practice aptitude questions", description: "Solve reasoning and aptitude problems" },
-                { id: 'task-4-3', title: "Attend placement drives", description: "Apply and attend campus placements" },
-                { id: 'task-4-4', title: "Review and revise key concepts", description: "Quick revision of important topics" },
-            ]
-        },
-    ];
-
-    // Initialize progress for each phase
-    useEffect(() => {
-        const updatedProgress = { ...progress };
-        let hasChanges = false;
-
-        placementPhases.forEach(phase => {
-            if (!updatedProgress.phases[phase.id]) {
-                hasChanges = true;
-                // Get resources from related topics
-                const phaseResources: { name: string; url: string; type: string }[] = [];
-                phase.relatedTopics.forEach(topicName => {
-                    const topic = safeTopics.find(t => t.title === topicName);
-                    if (topic && topic.resources) {
-                        phaseResources.push(...topic.resources);
-                    }
-                });
-
-                updatedProgress.phases[phase.id] = {
-                    phaseId: phase.id,
-                    tasks: phase.defaultTasks.map(task => ({
-                        ...task,
-                        completed: false
-                    })),
-                    resources: phaseResources
-                };
-            }
-        });
-
-        if (hasChanges) {
-            updatedProgress.lastUpdated = new Date().toISOString();
-            setProgress(updatedProgress);
-            localStorage.setItem(PLACEMENT_PROGRESS_KEY, JSON.stringify(updatedProgress));
-        }
-    }, [safeTopics]);
-
-    // Save progress to localStorage whenever it changes
-    useEffect(() => {
-        localStorage.setItem(PLACEMENT_PROGRESS_KEY, JSON.stringify(progress));
-    }, [progress]);
-
-    // Toggle task completion
-    const toggleTask = (phaseId: string, taskId: string) => {
-        setProgress(prev => {
-            // Create a deep copy to ensure React detects the change
-            const updated = {
-                ...prev,
-                phases: { ...prev.phases },
-                lastUpdated: new Date().toISOString()
-            };
-            
-            if (updated.phases[phaseId]) {
-                updated.phases[phaseId] = {
-                    ...updated.phases[phaseId],
-                    tasks: updated.phases[phaseId].tasks.map(task =>
-                        task.id === taskId ? { ...task, completed: !task.completed } : task
-                    )
-                };
-            }
-            
-            return updated;
-        });
-    };
-
-    // Calculate progress for a phase
-    const getPhaseProgress = (phaseId: string): number => {
-        const phase = progress.phases[phaseId];
-        if (!phase || !phase.tasks || phase.tasks.length === 0) return 0;
-        const completed = phase.tasks.filter(t => t.completed).length;
-        return Math.round((completed / phase.tasks.length) * 100);
-    };
-
-    // Calculate total progress - memoized
-    const totalProgress = useMemo(() => {
-        let totalTasks = 0;
-        let completedTasks = 0;
-        
-        placementPhases.forEach(phase => {
-            const phaseData = progress.phases[phase.id];
-            if (phaseData && phaseData.tasks) {
-                totalTasks += phaseData.tasks.length;
-                completedTasks += phaseData.tasks.filter(t => t.completed).length;
-            }
-        });
-
-        return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    }, [progress]);
-
-    // Get analytics - memoized
-    const analytics = useMemo(() => {
-        const totalTasks = placementPhases.reduce((sum, phase) => {
-            const phaseData = progress.phases[phase.id];
-            return sum + (phaseData && phaseData.tasks ? phaseData.tasks.length : 0);
-        }, 0);
-
-        const completedTasks = placementPhases.reduce((sum, phase) => {
-            const phaseData = progress.phases[phase.id];
-            return sum + (phaseData && phaseData.tasks ? phaseData.tasks.filter(t => t.completed).length : 0);
-        }, 0);
-
-        const phasesCompleted = placementPhases.filter(phase => {
-            const phaseData = progress.phases[phase.id];
-            return phaseData && phaseData.tasks && phaseData.tasks.length > 0 && phaseData.tasks.every(t => t.completed);
-        }).length;
-
-        return {
-            totalTasks,
-            completedTasks,
-            remainingTasks: totalTasks - completedTasks,
-            phasesCompleted,
-            totalPhases: placementPhases.length,
-            completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-        };
-    }, [progress]);
-
-    return (
-        <div className="space-y-6">
-            {/* Header Section */}
-            <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-2xl p-8 text-white shadow-xl">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                        <PlacementIcon />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold">Campus Placement Preparation</h2>
-                        <p className="text-orange-100 text-sm">Your complete guide to ace technical interviews</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Progress Widget - Circular Design */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">Progress</h3>
-                    <button className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
-                        <span className="text-xs text-gray-600 font-semibold">i</span>
-                    </button>
-                </div>
-                
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8">
-                    {/* Circular Progress Indicator */}
-                    <div className="relative flex-shrink-0">
-                        <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-                            {/* Background Circle */}
-                            <circle
-                                cx="50"
-                                cy="50"
-                                r="45"
-                                fill="none"
-                                stroke="#e5e7eb"
-                                strokeWidth="8"
-                            />
-                            
-                            {/* Overall Progress Ring */}
-                            <circle
-                                cx="50"
-                                cy="50"
-                                r="45"
-                                fill="none"
-                                stroke="#f97316"
-                                strokeWidth="8"
-                                strokeLinecap="round"
-                                strokeDasharray={`${2 * Math.PI * 45}`}
-                                strokeDashoffset={`${2 * Math.PI * 45 * (1 - totalProgress / 100)}`}
-                                className="transition-all duration-500 ease-out"
-                            />
-                        </svg>
-                        
-                        {/* Center Text */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <div className="text-3xl font-bold text-gray-900">{analytics.completedTasks}</div>
-                            <div className="w-12 border-t border-gray-300 my-1"></div>
-                            <div className="text-lg text-gray-600">{analytics.totalTasks}</div>
-                        </div>
-                    </div>
-                    
-                    {/* Progress Breakdown */}
-                    <div className="flex-1 w-full md:w-auto">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                            {placementPhases.map((phase) => {
-                                const phaseData = progress.phases[phase.id];
-                                const completed = phaseData && phaseData.tasks ? phaseData.tasks.filter(t => t.completed).length : 0;
-                                const total = phaseData && phaseData.tasks ? phaseData.tasks.length : 0;
-                                
-                                const colorMap: Record<string, { dot: string, name: string }> = {
-                                    'phase-1': { dot: 'bg-blue-500', name: 'Phase 1' },
-                                    'phase-2': { dot: 'bg-green-500', name: 'Phase 2' },
-                                    'phase-3': { dot: 'bg-orange-500', name: 'Phase 3' },
-                                    'phase-4': { dot: 'bg-red-500', name: 'Phase 4' },
-                                };
-                                
-                                const colors = colorMap[phase.id] || { dot: 'bg-gray-500', name: 'Phase' };
-                                
-                                return (
-                                    <div key={phase.id} className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${colors.dot} flex-shrink-0`}></div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-medium text-gray-900 truncate">{colors.name}</span>
-                                                <span className="text-sm text-gray-600 whitespace-nowrap">{completed}/{total}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Timeline Section with Expandable Phases */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-6">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <span className="text-xl">📅</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900">Preparation Timeline</h3>
-                </div>
-                <div className="relative">
-                    {/* Timeline Line */}
-                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-green-500 via-orange-500 to-red-500 hidden md:block"></div>
-                    
-                    <div className="space-y-4">
-                        {placementPhases.map((phase, idx) => {
-                            const phaseData = progress.phases[phase.id];
-                            const phaseProgress = getPhaseProgress(phase.id);
-                            const isExpanded = expandedPhase === phase.id;
-                            
-                            return (
-                                <div key={phase.id} className="relative">
-                                    {/* Phase Card */}
-                                    <div className={`relative flex items-start gap-4 transition-all duration-300 ${isExpanded ? 'mb-4' : ''}`}>
-                                        {/* Timeline Dot */}
-                                        <div className={`relative z-10 w-16 h-16 rounded-full bg-gradient-to-br ${phase.colorClass} flex items-center justify-center text-2xl shadow-lg flex-shrink-0 cursor-pointer hover:scale-110 transition-transform`}>
-                                            {phase.icon}
-                                        </div>
-                                        
-                                        {/* Content Card */}
-                                        <div className={`flex-1 bg-gradient-to-br from-gray-50 to-white border-2 rounded-xl transition-all duration-300 ${
-                                            isExpanded ? 'border-orange-300 shadow-lg' : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                                        }`}>
-                                            <button
-                                                onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
-                                                className="w-full text-left p-5"
-                                            >
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{phase.year}</span>
-                                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${phase.badgeClass}`}>
-                                                                Phase {idx + 1}
-                                                            </span>
-                                                        </div>
-                                                        <h4 className="text-lg font-bold text-gray-900 mb-1">{phase.months}</h4>
-                                                        <h5 className="text-base font-semibold text-gray-800 mb-1">{phase.title}</h5>
-                                                        <p className="text-gray-600 text-sm leading-relaxed">{phase.description}</p>
-                                                    </div>
-                                                    
-                                                    {/* Circular Progress & Expand Icon */}
-                                                    <div className="ml-4 flex flex-col items-end gap-3">
-                                                        {/* Small Circular Progress */}
-                                                        <div className="relative w-16 h-16 flex-shrink-0">
-                                                            <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 100 100">
-                                                                <circle
-                                                                    cx="50"
-                                                                    cy="50"
-                                                                    r="40"
-                                                                    fill="none"
-                                                                    stroke="#e5e7eb"
-                                                                    strokeWidth="6"
-                                                                />
-                                                                <circle
-                                                                    cx="50"
-                                                                    cy="50"
-                                                                    r="40"
-                                                                    fill="none"
-                                                                    stroke={
-                                                                        phaseProgress === 100 ? '#10b981' :
-                                                                        phaseProgress >= 50 ? '#f59e0b' : '#3b82f6'
-                                                                    }
-                                                                    strokeWidth="6"
-                                                                    strokeLinecap="round"
-                                                                    strokeDasharray={`${2 * Math.PI * 40}`}
-                                                                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - phaseProgress / 100)}`}
-                                                                    className="transition-all duration-500 ease-out"
-                                                                />
-                                                            </svg>
-                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                <div className="text-center">
-                                                                    <div className="text-sm font-bold text-gray-900">{phaseProgress}%</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <svg 
-                                                            className={`w-6 h-6 text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
-                                                            fill="none" 
-                                                            viewBox="0 0 24 24" 
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                            
-                                            {/* Expanded Content */}
-                                            {isExpanded && phaseData && (
-                                                <div className="px-5 pb-5 pb-5 border-t border-gray-200 mt-4 pt-5">
-                                                    {/* Tasks Section */}
-                                                    <div className="mb-6">
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                                                            </svg>
-                                                            <h6 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                                                                Tasks ({phaseData.tasks.filter(t => t.completed).length}/{phaseData.tasks.length})
-                                                            </h6>
-                                                        </div>
-                                                        
-                                                        {/* Tasks Table */}
-                                                        <div className="overflow-x-auto">
-                                                            <table className="w-full">
-                                                                <thead>
-                                                                    <tr className="border-b border-gray-200">
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Problem</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Platform</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Links</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Content Type</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Practice</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Note</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Revision</th>
-                                                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Difficulty</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-gray-100">
-                                                                    {phaseData.tasks.map((task) => (
-                                                                        <tr 
-                                                                            key={task.id}
-                                                                            className={`hover:bg-gray-50 transition-colors ${
-                                                                                task.completed ? 'bg-green-50/30' : ''
-                                                                            }`}
-                                                                        >
-                                                                            {/* Status Checkbox */}
-                                                                            <td className="py-3 px-4">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="cursor-pointer flex items-center justify-center w-full h-full"
-                                                                                    onClick={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        e.stopPropagation();
-                                                                                        toggleTask(phase.id, task.id);
-                                                                                    }}
-                                                                                    aria-label={task.completed ? `Mark ${task.title} as incomplete` : `Mark ${task.title} as complete`}
-                                                                                >
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={task.completed || false}
-                                                                                        onChange={(e) => {
-                                                                                            e.preventDefault();
-                                                                                            e.stopPropagation();
-                                                                                            toggleTask(phase.id, task.id);
-                                                                                        }}
-                                                                                        className="sr-only"
-                                                                                        tabIndex={-1}
-                                                                                        readOnly
-                                                                                    />
-                                                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                                                                                        task.completed 
-                                                                                            ? 'bg-orange-500 border-orange-500' 
-                                                                                            : 'border-gray-300 bg-white hover:border-orange-400'
-                                                                                    }`}>
-                                                                                        {task.completed && (
-                                                                                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                                                            </svg>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </button>
-                                                                            </td>
-                                                                            
-                                                                            {/* Problem Name */}
-                                                                            <td className="py-3 px-4">
-                                                                                <div className="flex flex-col">
-                                                                                    <span className={`font-medium text-sm ${
-                                                                                        task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
-                                                                                    }`}>
-                                                                                        {task.title}
-                                                                                    </span>
-                                                                                    {task.description && (
-                                                                                        <span className="text-xs text-gray-500 mt-0.5">{task.description}</span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                            
-                                                                            {/* URLs - Grouped by Domain */}
-                                                                            <td className="py-3 px-4">
-                                                                                {phaseData.resources && phaseData.resources.length > 0 ? (
-                                                                                    (() => {
-                                                                                        // Group resources by domain
-                                                                                        const domainMap = new Map<string, { url: string; name: string }[]>();
-                                                                                        phaseData.resources.forEach(resource => {
-                                                                                            const domain = resource.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-                                                                                            if (!domainMap.has(domain)) {
-                                                                                                domainMap.set(domain, []);
-                                                                                            }
-                                                                                            domainMap.get(domain)!.push({ url: resource.url, name: resource.name });
-                                                                                        });
-                                                                                        
-                                                                                        return (
-                                                                                            <div className="flex flex-col gap-2">
-                                                                                                {Array.from(domainMap.entries()).map(([domain, resources]) => (
-                                                                                                    <a
-                                                                                                        key={domain}
-                                                                                                        href={resources[0].url}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                                                                                                        title={domain}
-                                                                                                    >
-                                                                                                        {domain}
-                                                                                                    </a>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        );
-                                                                                    })()
-                                                                                ) : (
-                                                                                    <span className="text-gray-400 text-sm">---</span>
-                                                                                )}
-                                                                            </td>
-                                                                            
-                                                                            {/* Resources - External Link Icons */}
-                                                                            <td className="py-3 px-4">
-                                                                                {phaseData.resources && phaseData.resources.length > 0 ? (
-                                                                                    (() => {
-                                                                                        // Group resources by domain to show multiple links per domain
-                                                                                        const domainMap = new Map<string, { url: string; name: string }[]>();
-                                                                                        phaseData.resources.forEach(resource => {
-                                                                                            const domain = resource.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-                                                                                            if (!domainMap.has(domain)) {
-                                                                                                domainMap.set(domain, []);
-                                                                                            }
-                                                                                            domainMap.get(domain)!.push({ url: resource.url, name: resource.name });
-                                                                                        });
-                                                                                        
-                                                                                        return (
-                                                                                            <div className="flex flex-col gap-2">
-                                                                                                {Array.from(domainMap.entries()).map(([domain, resources]) => (
-                                                                                                    <div key={domain} className="flex items-center gap-1 flex-wrap">
-                                                                                                        {resources.map((resource, idx) => (
-                                                                                                            <a
-                                                                                                                key={idx}
-                                                                                                                href={resource.url}
-                                                                                                                target="_blank"
-                                                                                                                rel="noopener noreferrer"
-                                                                                                                className="w-5 h-5 bg-orange-500 hover:bg-orange-600 rounded flex items-center justify-center transition-colors"
-                                                                                                                title={resource.name}
-                                                                                                            >
-                                                                                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                                                                                </svg>
-                                                                                                            </a>
-                                                                                                        ))}
-                                                                                                    </div>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        );
-                                                                                    })()
-                                                                                ) : (
-                                                                                    <span className="text-gray-400 text-sm">---</span>
-                                                                                )}
-                                                                            </td>
-                                                                            
-                                                                            {/* Type - Resource Type Icons */}
-                                                                            <td className="py-3 px-4">
-                                                                                {phaseData.resources && phaseData.resources.length > 0 ? (
-                                                                                    (() => {
-                                                                                        // Group resources by domain to show types per domain
-                                                                                        const domainMap = new Map<string, { url: string; name: string; type: string }[]>();
-                                                                                        phaseData.resources.forEach(resource => {
-                                                                                            const domain = resource.url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-                                                                                            if (!domainMap.has(domain)) {
-                                                                                                domainMap.set(domain, []);
-                                                                                            }
-                                                                                            domainMap.get(domain)!.push({ url: resource.url, name: resource.name, type: resource.type });
-                                                                                        });
-                                                                                        
-                                                                                        return (
-                                                                                            <div className="flex flex-col gap-2">
-                                                                                                {Array.from(domainMap.entries()).map(([domain, resources]) => (
-                                                                                                    <div key={domain} className="flex items-center gap-1 flex-wrap">
-                                                                                                        {resources.map((resource, idx) => {
-                                                                                                            const typeLower = resource.type.toLowerCase();
-                                                                                                            const isVideo = typeLower.includes('video') || typeLower.includes('youtube');
-                                                                                                            const isPractice = typeLower.includes('practice') || typeLower.includes('leetcode');
-                                                                                                            const isRoadmap = typeLower.includes('roadmap');
-                                                                                                            
-                                                                                                            return (
-                                                                                                                <div key={idx} className="flex items-center">
-                                                                                                                    {isVideo ? (
-                                                                                                                        <div className="text-red-500" title="Video">
-                                                                                                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                                                                                                <path d="M8 5v14l11-7z"/>
-                                                                                                                            </svg>
-                                                                                                                        </div>
-                                                                                                                    ) : isPractice ? (
-                                                                                                                        <div className="text-orange-500" title="Practice">
-                                                                                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                                                                                                            </svg>
-                                                                                                                        </div>
-                                                                                                                    ) : isRoadmap ? (
-                                                                                                                        <div className="text-blue-500" title="Roadmap">
-                                                                                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                                                                                                                            </svg>
-                                                                                                                        </div>
-                                                                                                                    ) : (
-                                                                                                                        <div className="text-gray-600" title="Document">
-                                                                                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                                                                            </svg>
-                                                                                                                        </div>
-                                                                                                                    )}
-                                                                                                                </div>
-                                                                                                            );
-                                                                                                        })}
-                                                                                                    </div>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        );
-                                                                                    })()
-                                                                                ) : (
-                                                                                    <span className="text-gray-400 text-sm">---</span>
-                                                                                )}
-                                                                            </td>
-                                                                            
-                                                                            {/* Practice */}
-                                                                            <td className="py-3 px-4">
-                                                                                <span className="text-gray-400 text-sm">---</span>
-                                                                            </td>
-                                                                            
-                                                                            {/* Note */}
-                                                                            <td className="py-3 px-4">
-                                                                                <button className="w-6 h-6 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-50 flex items-center justify-center transition-colors">
-                                                                                    <svg className="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                                                    </svg>
-                                                                                </button>
-                                                                            </td>
-                                                                            
-                                                                            {/* Revision */}
-                                                                            <td className="py-3 px-4">
-                                                                                <button className="text-gray-400 hover:text-yellow-500 transition-colors">
-                                                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                                                                    </svg>
-                                                                                </button>
-                                                                            </td>
-                                                                            
-                                                                            {/* Difficulty */}
-                                                                            <td className="py-3 px-4">
-                                                                                <span className="inline-block bg-green-500 text-white text-xs font-medium px-2.5 py-1 rounded">
-                                                                                    Easy
-                                                                                </span>
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* Quick Action Cards - Enhanced */}
-            <div className="grid md:grid-cols-3 gap-4">
-                <a 
-                    href="https://leetcode.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="group relative overflow-hidden bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 rounded-2xl p-6 text-gray-900 font-semibold hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-                >
-                    <div className="relative z-10">
-                        <div className="text-3xl mb-2">🏆</div>
-                        <div className="font-bold text-lg mb-1">LeetCode</div>
-                        <div className="text-sm text-yellow-900/80">Practice DSA Problems</div>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </a>
-                
-                <a 
-                    href="https://www.pramp.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group relative overflow-hidden bg-gradient-to-br from-green-400 via-green-500 to-green-600 rounded-2xl p-6 text-white font-semibold hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-                >
-                    <div className="relative z-10">
-                        <div className="text-3xl mb-2">🎤</div>
-                        <div className="font-bold text-lg mb-1">Pramp</div>
-                        <div className="text-sm text-green-100">Mock Interviews</div>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </a>
-                
-                <a 
-                    href="https://github.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group relative overflow-hidden bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 rounded-2xl p-6 text-white font-semibold hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-                >
-                    <div className="relative z-10">
-                        <div className="text-3xl mb-2">💻</div>
-                        <div className="font-bold text-lg mb-1">GitHub</div>
-                        <div className="text-sm text-gray-300">Build Projects</div>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </a>
-            </div>
-        </div>
-    );
-};
 
 // ============================================
 // PROJECT IDEAS COMPONENT
@@ -2932,8 +2173,8 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
     const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
     const [selectedProject, setSelectedProject] = useState<ProjectIdea | null>(null);
 
-    const filteredProjects = filterDifficulty === 'all' 
-        ? ideas 
+    const filteredProjects = filterDifficulty === 'all'
+        ? ideas
         : ideas.filter(p => p.difficulty === filterDifficulty);
 
     return (
@@ -2950,11 +2191,10 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                     <button
                         key={level}
                         onClick={() => setFilterDifficulty(level)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            filterDifficulty === level
-                                ? 'bg-orange-500 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${filterDifficulty === level
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
                     >
                         {level === 'all' ? 'All Levels' : level}
                     </button>
@@ -2964,26 +2204,24 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
             {/* Project Cards */}
             <div className="grid md:grid-cols-2 gap-5">
                 {filteredProjects.map((project, idx) => (
-                    <div 
+                    <div
                         key={idx}
-                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                            selectedProject?.title === project.title ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200'
-                        }`}
+                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedProject?.title === project.title ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200'
+                            }`}
                         onClick={() => setSelectedProject(selectedProject?.title === project.title ? null : project)}
                     >
                         <div className="flex items-start justify-between mb-3">
                             <h3 className="text-lg font-bold text-gray-900">{project.title}</h3>
-                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                                project.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${project.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
                                 project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-red-100 text-red-700'
-                            }`}>
+                                    'bg-red-100 text-red-700'
+                                }`}>
                                 {project.difficulty}
                             </span>
                         </div>
-                        
+
                         <p className="text-gray-600 text-sm mb-3">{project.description}</p>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                             <span>⏱️ {project.duration}</span>
                         </div>
@@ -3050,7 +2288,7 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                                     </div>
                                 ) : null}
                                 <div className="mt-4 flex gap-2">
-                                    <a 
+                                    <a
                                         href={`https://github.com/topics/${project.technologies[0].toLowerCase().replace(/[^a-z]/g, '')}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
@@ -3058,7 +2296,7 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                                     >
                                         Find Similar on GitHub
                                     </a>
-                                    <a 
+                                    <a
                                         href={`https://www.youtube.com/results?search_query=${encodeURIComponent(project.title + ' tutorial')}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
@@ -3087,7 +2325,7 @@ interface CareerGuidancePageProps {
 const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }) => {
     const [trendingCareersData, setTrendingCareersData] = useState<TrendingCareer[]>(defaultTrendingCareers);
     const [projectIdeasData, setProjectIdeasData] = useState<ProjectIdea[]>(defaultProjectIdeas);
-    const [placementTopicsData, setPlacementTopicsData] = useState<PlacementTopic[]>(defaultPlacementTopics);
+    const [placementPhasesData, setPlacementPhasesData] = useState<PlacementPhase[]>(defaultPlacementPhases);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [activeTab, setActiveTab] = useState<CareerTab>('trending');
     const [recommendStep, setRecommendStep] = useState<RecommendStep>(0);
@@ -3172,7 +2410,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                     }
                 }
 
-                // Fetch placement prep topics
+                // Fetch placement prep phases
                 try {
                     // Only fetch if API endpoint is configured (not placeholder)
                     if (PLACEMENT_PREP_API_ENDPOINT && !PLACEMENT_PREP_API_ENDPOINT.includes('YOUR_API_GATEWAY_URL')) {
@@ -3188,39 +2426,56 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
                         if (placementResponse.ok) {
                             const placementData = await placementResponse.json();
-                            if (placementData.success && Array.isArray(placementData.topics)) {
-                                // Map API response to PlacementTopic interface (ignore id, createdAt, updatedAt)
-                                const mappedTopics: PlacementTopic[] = placementData.topics.map((item: any) => ({
+                            if (placementData.success && Array.isArray(placementData.phases)) {
+                                // Map API response to PlacementPhase interface
+                                const mappedPhases: PlacementPhase[] = placementData.phases.map((item: any) => ({
+                                    id: item.id || '',
+                                    year: item.year || '',
+                                    months: item.months || '',
                                     title: item.title || '',
-                                    importance: item.importance || 'Important',
-                                    timeNeeded: item.timeNeeded || '',
+                                    description: item.description || '',
+                                    colorClass: item.colorClass || 'from-blue-500 to-indigo-600',
+                                    badgeClass: item.badgeClass || 'bg-blue-100 text-blue-700',
+                                    icon: item.icon || '📋',
+                                    relatedTopics: Array.isArray(item.relatedTopics) ? item.relatedTopics : [],
+                                    tasks: Array.isArray(item.tasks) ? item.tasks.map((task: any) => ({
+                                        id: task.id || '',
+                                        title: task.title || '',
+                                        description: task.description || '',
+                                        difficulty: task.difficulty || 'Easy',
+                                        practiceLink: task.practiceLink || '',
+                                        note: task.note || '',
+                                        needsRevision: !!task.needsRevision,
+                                        completed: !!task.completed,
+                                        helpfulLinks: Array.isArray(task.helpfulLinks) ? task.helpfulLinks : []
+                                    })) : [],
                                     resources: Array.isArray(item.resources) ? item.resources.map((r: any) => ({
                                         name: r.name || '',
                                         url: r.url || '',
                                         type: r.type || '',
                                     })) : [],
                                 }));
-                                if (mappedTopics.length > 0) {
-                                    setPlacementTopicsData(mappedTopics);
+                                if (mappedPhases.length > 0) {
+                                    setPlacementPhasesData(mappedPhases);
                                 }
                             }
                         }
                     } else {
                         // Use default data if API not configured
                         console.log('Placement prep API not configured, using default data');
-                        setPlacementTopicsData(defaultPlacementTopics);
+                        setPlacementPhasesData(defaultPlacementPhases);
                     }
                 } catch (placementError) {
                     console.error('Failed to fetch placement prep data:', placementError);
                     // Fallback to default data
-                    setPlacementTopicsData(defaultPlacementTopics);
+                    setPlacementPhasesData(defaultPlacementPhases);
                 }
             } catch (error) {
                 console.error('Failed to fetch career guidance data from API:', error);
                 // Fallback to localStorage or default data
                 setTrendingCareersData(loadFromStorage<TrendingCareer>(TRENDING_CAREERS_KEY, defaultTrendingCareers));
                 setProjectIdeasData(loadFromStorage<ProjectIdea>(PROJECT_IDEAS_KEY, defaultProjectIdeas));
-                setPlacementTopicsData(loadFromStorage<PlacementTopic>(PLACEMENT_PREP_KEY, defaultPlacementTopics));
+                setPlacementPhasesData(loadFromStorage<PlacementPhase>(PLACEMENT_PREP_KEY, defaultPlacementPhases));
             } finally {
                 setIsLoadingData(false);
             }
@@ -3385,256 +2640,255 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
             <div className="max-w-7xl mx-auto px-4 py-6">
-            {/* Header */}
-            <div className="mb-6 sm:mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    {/* Mobile Menu Button */}
-                    {toggleSidebar && (
-                        <button
-                            onClick={toggleSidebar}
-                            className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
-                            aria-label="Toggle sidebar"
-                        >
-                            <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-                    )}
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30 flex-shrink-0">
-                        <SparkleIcon />
+                {/* Header */}
+                <div className="mb-6 sm:mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        {/* Mobile Menu Button */}
+                        {toggleSidebar && (
+                            <button
+                                onClick={toggleSidebar}
+                                className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                aria-label="Toggle sidebar"
+                            >
+                                <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        )}
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30 flex-shrink-0">
+                            <SparkleIcon />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">Career Guidance Hub</h1>
+                            <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">Career Guidance Hub</h1>
-                        <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
+                    <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl">
+                        <p className="text-xs sm:text-sm text-gray-700">
+                            🎓 <span className="font-semibold">Designed for Engineering Students:</span> Discover trending tech careers, prepare for campus placements, find project ideas, and build your career roadmap.
+                        </p>
                     </div>
                 </div>
-                <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl">
-                    <p className="text-xs sm:text-sm text-gray-700">
-                        🎓 <span className="font-semibold">Designed for Engineering Students:</span> Discover trending tech careers, prepare for campus placements, find project ideas, and build your career roadmap.
-                    </p>
-                </div>
-            </div>
 
-            {/* Tab Navigation */}
-            <div className="mb-8">
-                <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${
-                                activeTab === tab.id
+                {/* Tab Navigation */}
+                <div className="mb-8">
+                    <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
                                     ? 'bg-white text-orange-600 shadow-sm'
                                     : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                        >
-                            {tab.icon}
-                            <span className="hidden sm:inline">{tab.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div>
-                {/* Trending Careers Tab */}
-                {activeTab === 'trending' && (
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        {isLoadingData ? (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="text-center">
-                                    <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-sm text-gray-600">Loading trending careers...</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <TrendingCareersSection 
-                                careers={trendingCareersData}
-                                onExploreRoadmap={(career) => {
-                                    handleContinueToRoadmap(career);
-                                }}
-                            />
-                        )}
-                    </div>
-                )}
-
-                {/* Placement Prep Tab */}
-                {activeTab === 'placement' && (
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        {isLoadingData ? (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="text-center">
-                                    <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-sm text-gray-600">Loading placement preparation data...</p>
-                                </div>
-                            </div>
-                        ) : placementTopicsData.length === 0 ? (
-                            <div className="text-center py-12">
-                                <div className="text-6xl mb-4">📚</div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-2">No Placement Topics Available</h3>
-                                <p className="text-gray-600">Placement preparation topics will appear here once they are added by the admin.</p>
-                            </div>
-                        ) : (
-                            <PlacementPrepSection topics={placementTopicsData} />
-                        )}
-                    </div>
-                )}
-
-                {/* Project Ideas Tab */}
-                {activeTab === 'projects' && (
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        {isLoadingData ? (
-                            <div className="flex items-center justify-center py-12">
-                                <div className="text-center">
-                                    <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-sm text-gray-600">Loading project ideas...</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <ProjectIdeasSection ideas={projectIdeasData} />
-                        )}
-                    </div>
-                )}
-
-                {/* Career Recommendation Tab */}
-                {activeTab === 'recommend' && (
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        {recommendStep < 4 && (
-                            <>
-                                <ProgressBar step={recommendStep} totalSteps={4} />
-                                
-                                {recommendStep === 0 && (
-                                    <Selector
-                                        title={questions[0].title}
-                                        subtitle={questions[0].subtitle}
-                                        options={specializationOptions}
-                                        setOptions={setSpecializationOptions}
-                                        onContinue={handleContinue}
-                                        placeholder="Add your specialization..."
-                                    />
-                                )}
-                                
-                                {recommendStep === 1 && (
-                                    <Selector
-                                        title={questions[1].title}
-                                        subtitle={questions[1].subtitle}
-                                        options={interestOptions}
-                                        setOptions={setInterestOptions}
-                                        onContinue={handleContinue}
-                                        placeholder="Add your interest..."
-                                    />
-                                )}
-                                
-                                {recommendStep === 2 && (
-                                    <Selector
-                                        title={questions[2].title}
-                                        subtitle={questions[2].subtitle}
-                                        options={skillOptions}
-                                        setOptions={setSkillOptions}
-                                        onContinue={handleContinue}
-                                        placeholder="Add a skill..."
-                                    />
-                                )}
-                                
-                                {recommendStep === 3 && (
-                                    <Selector
-                                        title={questions[3].title}
-                                        subtitle={questions[3].subtitle}
-                                        options={certOptions}
-                                        setOptions={setCertOptions}
-                                        onContinue={handleContinue}
-                                        placeholder="Add a certification..."
-                                    />
-                                )}
-                            </>
-                        )}
-
-                        {recommendStep === 4 && isLoading && (
-                            <LoadingSpinner message="AI is analyzing your profile..." />
-                        )}
-
-                        {recommendStep === 5 && careerResult && (
-                            <ResultComponent
-                                result={careerResult}
-                                onGenerateAgain={resetRecommendation}
-                                onContinueToRoadmap={handleContinueToRoadmap}
-                            />
-                        )}
-                    </div>
-                )}
-
-                {/* Roadmap Tab - New Full-Screen Implementation */}
-                {activeTab === 'roadmap' && (
-                    <RoadmapFeature
-                        roadmapStep={roadmapStep}
-                        setRoadmapStep={setRoadmapStep}
-                        careerAnalysis={careerAnalysis}
-                        setCareerAnalysis={setCareerAnalysis}
-                        roadmapData={roadmapData}
-                        setRoadmapData={setRoadmapData}
-                        currentWeek={currentWeek}
-                        setCurrentWeek={setCurrentWeek}
-                        weeklyQuiz={weeklyQuiz}
-                        setWeeklyQuiz={setWeeklyQuiz}
-                        finalExam={finalExam}
-                        setFinalExam={setFinalExam}
-                        certificate={certificate}
-                        setCertificate={setCertificate}
-                        isGeneratingRoadmap={isGeneratingRoadmap}
-                        setIsGeneratingRoadmap={setIsGeneratingRoadmap}
-                        isGeneratingQuiz={isGeneratingQuiz}
-                        setIsGeneratingQuiz={setIsGeneratingQuiz}
-                        isGeneratingExam={isGeneratingExam}
-                        setIsGeneratingExam={setIsGeneratingExam}
-                        roadmapError={roadmapError}
-                        setRoadmapError={setRoadmapError}
-                    />
-                )}
-            </div>
-
-            {/* Features */}
-            <div className="mt-12">
-                <h3 className="text-center text-lg font-semibold text-gray-900 mb-6">🚀 Everything You Need for Career Success</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {[
-                        { icon: <TrendingIcon />, title: "Trending Careers", desc: "Hot jobs & salaries" },
-                        { icon: <TargetIcon />, title: "AI Career Match", desc: "Find your path" },
-                        { icon: <RoadmapIcon />, title: "Learning Roadmap", desc: "Step-by-step guide" },
-                        { icon: <PlacementIcon />, title: "Placement Prep", desc: "DSA & interviews" },
-                        { icon: <ProjectIcon />, title: "Project Ideas", desc: "Build your portfolio" },
-                    ].map((feature, idx) => (
-                        <div key={idx} className="text-center p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-orange-200 transition-all cursor-pointer" onClick={() => setActiveTab(idx === 0 ? 'trending' : idx === 1 ? 'recommend' : idx === 2 ? 'roadmap' : idx === 3 ? 'placement' : 'projects')}>
-                            <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                {feature.icon}
-                            </div>
-                            <h3 className="font-semibold text-gray-900 text-sm mb-1">{feature.title}</h3>
-                            <p className="text-xs text-gray-500">{feature.desc}</p>
-                        </div>
-                    ))}
-                </div>
-                
-                {/* Stats for credibility */}
-                <div className="mt-8 p-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl text-white">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                        <div>
-                            <div className="text-3xl font-bold text-orange-400">10K+</div>
-                            <div className="text-sm text-gray-400">Students Guided</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-green-400">95%</div>
-                            <div className="text-sm text-gray-400">Placement Rate</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-blue-400">500+</div>
-                            <div className="text-sm text-gray-400">Partner Companies</div>
-                        </div>
-                        <div>
-                            <div className="text-3xl font-bold text-purple-400">₹12L</div>
-                            <div className="text-sm text-gray-400">Avg Package</div>
-                        </div>
+                                    }`}
+                            >
+                                {tab.icon}
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
-            </div>
+
+                {/* Content */}
+                <div>
+                    {/* Trending Careers Tab */}
+                    {activeTab === 'trending' && (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                            {isLoadingData ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-center">
+                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                        <p className="text-sm text-gray-600">Loading trending careers...</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <TrendingCareersSection
+                                    careers={trendingCareersData}
+                                    onExploreRoadmap={(career) => {
+                                        handleContinueToRoadmap(career);
+                                    }}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Placement Prep Tab */}
+                    {activeTab === 'placement' && (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                            {isLoadingData ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-center">
+                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                        <p className="text-sm text-gray-600">Loading placement preparation data...</p>
+                                    </div>
+                                </div>
+                            ) : placementPhasesData.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <div className="text-6xl mb-4">📚</div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Placement Data Available</h3>
+                                    <p className="text-gray-600">Placement preparation content will appear here once it's added by the admin.</p>
+                                </div>
+                            ) : (
+                                <PlacementPrepSection phases={placementPhasesData} />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Project Ideas Tab */}
+                    {activeTab === 'projects' && (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                            {isLoadingData ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="text-center">
+                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                        <p className="text-sm text-gray-600">Loading project ideas...</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <ProjectIdeasSection ideas={projectIdeasData} />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Career Recommendation Tab */}
+                    {activeTab === 'recommend' && (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                            {recommendStep < 4 && (
+                                <>
+                                    <ProgressBar step={recommendStep} totalSteps={4} />
+
+                                    {recommendStep === 0 && (
+                                        <Selector
+                                            title={questions[0].title}
+                                            subtitle={questions[0].subtitle}
+                                            options={specializationOptions}
+                                            setOptions={setSpecializationOptions}
+                                            onContinue={handleContinue}
+                                            placeholder="Add your specialization..."
+                                        />
+                                    )}
+
+                                    {recommendStep === 1 && (
+                                        <Selector
+                                            title={questions[1].title}
+                                            subtitle={questions[1].subtitle}
+                                            options={interestOptions}
+                                            setOptions={setInterestOptions}
+                                            onContinue={handleContinue}
+                                            placeholder="Add your interest..."
+                                        />
+                                    )}
+
+                                    {recommendStep === 2 && (
+                                        <Selector
+                                            title={questions[2].title}
+                                            subtitle={questions[2].subtitle}
+                                            options={skillOptions}
+                                            setOptions={setSkillOptions}
+                                            onContinue={handleContinue}
+                                            placeholder="Add a skill..."
+                                        />
+                                    )}
+
+                                    {recommendStep === 3 && (
+                                        <Selector
+                                            title={questions[3].title}
+                                            subtitle={questions[3].subtitle}
+                                            options={certOptions}
+                                            setOptions={setCertOptions}
+                                            onContinue={handleContinue}
+                                            placeholder="Add a certification..."
+                                        />
+                                    )}
+                                </>
+                            )}
+
+                            {recommendStep === 4 && isLoading && (
+                                <LoadingSpinner message="AI is analyzing your profile..." />
+                            )}
+
+                            {recommendStep === 5 && careerResult && (
+                                <ResultComponent
+                                    result={careerResult}
+                                    onGenerateAgain={resetRecommendation}
+                                    onContinueToRoadmap={handleContinueToRoadmap}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Roadmap Tab - New Full-Screen Implementation */}
+                    {activeTab === 'roadmap' && (
+                        <RoadmapFeature
+                            roadmapStep={roadmapStep}
+                            setRoadmapStep={setRoadmapStep}
+                            careerAnalysis={careerAnalysis}
+                            setCareerAnalysis={setCareerAnalysis}
+                            roadmapData={roadmapData}
+                            setRoadmapData={setRoadmapData}
+                            currentWeek={currentWeek}
+                            setCurrentWeek={setCurrentWeek}
+                            weeklyQuiz={weeklyQuiz}
+                            setWeeklyQuiz={setWeeklyQuiz}
+                            finalExam={finalExam}
+                            setFinalExam={setFinalExam}
+                            certificate={certificate}
+                            setCertificate={setCertificate}
+                            isGeneratingRoadmap={isGeneratingRoadmap}
+                            setIsGeneratingRoadmap={setIsGeneratingRoadmap}
+                            isGeneratingQuiz={isGeneratingQuiz}
+                            setIsGeneratingQuiz={setIsGeneratingQuiz}
+                            isGeneratingExam={isGeneratingExam}
+                            setIsGeneratingExam={setIsGeneratingExam}
+                            roadmapError={roadmapError}
+                            setRoadmapError={setRoadmapError}
+                        />
+                    )}
+                </div>
+
+                {/* Features */}
+                <div className="mt-12">
+                    <h3 className="text-center text-lg font-semibold text-gray-900 mb-6">🚀 Everything You Need for Career Success</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        {[
+                            { icon: <TrendingIcon />, title: "Trending Careers", desc: "Hot jobs & salaries" },
+                            { icon: <TargetIcon />, title: "AI Career Match", desc: "Find your path" },
+                            { icon: <RoadmapIcon />, title: "Learning Roadmap", desc: "Step-by-step guide" },
+                            { icon: <PlacementIcon />, title: "Placement Prep", desc: "DSA & interviews" },
+                            { icon: <ProjectIcon />, title: "Project Ideas", desc: "Build your portfolio" },
+                        ].map((feature, idx) => (
+                            <div key={idx} className="text-center p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-orange-200 transition-all cursor-pointer" onClick={() => setActiveTab(idx === 0 ? 'trending' : idx === 1 ? 'recommend' : idx === 2 ? 'roadmap' : idx === 3 ? 'placement' : 'projects')}>
+                                <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                    {feature.icon}
+                                </div>
+                                <h3 className="font-semibold text-gray-900 text-sm mb-1">{feature.title}</h3>
+                                <p className="text-xs text-gray-500">{feature.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Stats for credibility */}
+                    <div className="mt-8 p-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl text-white">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                            <div>
+                                <div className="text-3xl font-bold text-orange-400">10K+</div>
+                                <div className="text-sm text-gray-400">Students Guided</div>
+                            </div>
+                            <div>
+                                <div className="text-3xl font-bold text-green-400">95%</div>
+                                <div className="text-sm text-gray-400">Placement Rate</div>
+                            </div>
+                            <div>
+                                <div className="text-3xl font-bold text-blue-400">500+</div>
+                                <div className="text-sm text-gray-400">Partner Companies</div>
+                            </div>
+                            <div>
+                                <div className="text-3xl font-bold text-purple-400">₹12L</div>
+                                <div className="text-sm text-gray-400">Avg Package</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
