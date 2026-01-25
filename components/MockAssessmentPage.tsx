@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
-import { useAuth } from '../App';
+import { useAuth, useNavigation } from '../App';
+import Sidebar from './Sidebar';
+import type { DashboardView } from './DashboardPage';
 
 // Lambda API endpoint for Mock Assessments
 const MOCK_ASSESSMENTS_API = 'https://w7k9vplo2j.execute-api.ap-south-2.amazonaws.com/default/mock_assessment_handler';
@@ -298,6 +300,73 @@ interface UserProgress {
 // Company assessments data removed
 
 // Badges data
+const MOCK_BADGES: Badge[] = [
+  {
+    id: 'first-win',
+    name: 'First Victory',
+    description: 'Completed your first assessment successfully',
+    icon: '🏆',
+    image: 'https://cdn-icons-png.flaticon.com/512/616/616490.png',
+    earned: true,
+    earnedDate: '2025-01-15T10:00:00Z',
+    requirement: 'Complete 1 test',
+    xpReward: 100
+  },
+  {
+    id: 'streak-3',
+    name: '3 Day Streak',
+    description: 'Logged in and practiced for 3 consecutive days',
+    icon: '🔥',
+    image: 'https://cdn-icons-png.flaticon.com/512/4272/4272841.png',
+    earned: true,
+    earnedDate: '2025-01-20T10:00:00Z',
+    requirement: '3 day streak',
+    xpReward: 150
+  },
+  {
+    id: 'python-master',
+    name: 'Python Pro',
+    description: 'Scored 90%+ in a Python assessment',
+    icon: '🐍',
+    image: 'https://cdn.simpleicons.org/python/3776AB',
+    earned: false,
+    requirement: 'Score 90% in Python',
+    xpReward: 500
+  },
+  {
+    id: 'react-dev',
+    name: 'React Developer',
+    description: 'Demonstrated proficiency in React Hooks',
+    icon: '⚛️',
+    image: 'https://cdn.simpleicons.org/react/61DAFB',
+    earned: true,
+    earnedDate: '2025-01-18T14:30:00Z',
+    requirement: 'Pass React Quiz',
+    xpReward: 300
+  },
+  {
+    id: 'algo-expert',
+    name: 'Algorithm Expert',
+    description: 'Solved 5 hard algorithm problems',
+    icon: '🧠',
+    image: 'https://cdn-icons-png.flaticon.com/512/2103/2103633.png',
+    earned: false,
+    requirement: '5 Hard Problems',
+    xpReward: 1000
+  },
+  {
+    id: 'bug-hunter',
+    name: 'Bug Hunter',
+    description: 'Fixed a bug in a code challenge',
+    icon: '🐛',
+    image: 'https://cdn-icons-png.flaticon.com/512/1157/1157077.png',
+    earned: true,
+    earnedDate: '2025-01-22T09:15:00Z',
+    requirement: 'Fix 1 Bug',
+    xpReward: 200
+  }
+];
+
 // Static allBadges removed in favor of dynamic userProgress
 
 
@@ -428,6 +497,7 @@ interface MockAssessmentPageProps {
 
 const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = 'list', toggleSidebar }) => {
   const { userId } = useAuth();
+  const { navigateTo } = useNavigation();
   const [view, setView] = useState<AssessmentView>(initialView === 'history' ? 'list' : initialView);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -440,6 +510,36 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [testStartTime, setTestStartTime] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'assessment' | 'interview' | 'history'>(initialView === 'history' ? 'history' : 'assessment');
   const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('grid');
+
+  // Track failed badge images
+  const [failedBadgeImages, setFailedBadgeImages] = useState<Record<string, boolean>>({});
+
+  // Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
+  const handleSidebarNavigation = (navView: DashboardView) => {
+    if (navView === 'mock-assessment') {
+      // Already here, maybe reset to list?
+      navigateToView('list');
+    } else {
+      // Navigate to other pages
+      // map dashboard view to app page
+
+
+      if (navView === 'dashboard') navigateTo('dashboard');
+      else if (navView === 'coding-questions') navigateTo('codingQuestions');
+      else if (navView === 'build-portfolio') navigateTo('buildPortfolio');
+      else if (navView === 'build-resume') navigateTo('buildResume');
+      else if (navView === 'purchases') navigateTo('dashboard'); // Placeholder
+      else if (navView === 'wishlist') navigateTo('dashboard'); // Placeholder
+      else {
+        // For others, we might need to use window.location or expand Page type support
+        // For now, let's assume specific ones supported in App.tsx
+        console.log('Navigating to', navView);
+      }
+    }
+  };
 
   // Code editor state for programming questions
   // Determine if assessment title matches a language
@@ -627,22 +727,37 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'get_user_progress', userId })
       });
+
+      const mergeBadges = (apiBadges: Badge[] = []) => {
+        const badgeMap = new Map(apiBadges.map(b => [b.id, b]));
+        MOCK_BADGES.forEach(mockBadge => {
+          if (!badgeMap.has(mockBadge.id)) {
+            badgeMap.set(mockBadge.id, mockBadge);
+          }
+        });
+        return Array.from(badgeMap.values());
+      };
+
       if (output.ok) {
         const data = await output.json();
         if (data.success && data.data) {
-          setUserProgress(data.data);
+          const mergedBadges = mergeBadges(data.data.badges);
+          setUserProgress({ ...data.data, badges: mergedBadges });
         } else if (data.body) {
           try {
-            // Handle Lambda Proxy response structure if needed
             const parsed = JSON.parse(data.body);
-            if (parsed.success && parsed.data) setUserProgress(parsed.data);
+            if (parsed.success && parsed.data) {
+              const mergedBadges = mergeBadges(parsed.data.badges);
+              setUserProgress({ ...parsed.data, badges: mergedBadges });
+            }
           } catch (e) { console.error(e); }
         }
       }
     } catch (error) {
       console.error('Failed to fetch user progress:', error);
+      setUserProgress(prev => ({ ...prev, badges: MOCK_BADGES }));
     }
-  }, []);
+  }, [userId]);
 
   // Leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -1185,7 +1300,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       // For MCQ questions
       const userAnswer = answers[index] ?? -1;
       const correctAnswer = (q as Question).correctAnswer;
-      const isCorrect = userAnswer === correctAnswer;
+      // Ensure both are numbers for comparison to avoid type mismatches
+      const isCorrect = Number(userAnswer) === Number(correctAnswer);
 
       console.log(`[Question ${index}] User: ${userAnswer}, Correct: ${correctAnswer}, Match: ${isCorrect}`);
 
@@ -1622,25 +1738,37 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex gap-4 overflow-x-auto pb-12 pt-4 px-2 scrollbar-hide perspective-[1000px]">
                   {userProgress.badges.slice(0, 7).map((badge: Badge, index) => (
                     <div
                       key={badge.id}
-                      className={`group flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 ${badge.earned
-                        ? 'bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 border-2 border-amber-300 dark:border-amber-600 shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30'
-                        : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 grayscale opacity-40 hover:opacity-60'
+                      onClick={() => navigateToView('achievements')}
+                      className={`group relative flex-shrink-0 w-16 h-16 flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-2 preserve-3d ${badge.earned
+                        ? 'drop-shadow-lg'
+                        : 'opacity-40 hover:opacity-100 grayscale'
                         }`}
-                      style={{ animationDelay: `${index * 50}ms` }}
-                      title={`${badge.name}${badge.earned ? ' ✓' : ' (Locked)'}`}
+                      style={{
+                        animationDelay: `${index * 50}ms`,
+                        transformStyle: 'preserve-3d'
+                      }}
                     >
-                      {badge.image ? (
+                      {/* Tooltip */}
+                      <div className="absolute top-14 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap">
+                        <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg relative">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
+                          {badge.name}
+                        </div>
+                      </div>
+
+                      {badge.image && !failedBadgeImages[badge.id] ? (
                         <img
                           src={badge.image}
                           alt={badge.name}
-                          className={`w-10 h-10 object-contain transition-transform duration-300 group-hover:scale-110 ${badge.earned ? 'drop-shadow-md' : ''}`}
+                          className={`w-12 h-12 object-contain transition-transform duration-300 group-hover:rotate-6 ${badge.earned ? 'drop-shadow-md' : ''}`}
+                          onError={() => setFailedBadgeImages(prev => ({ ...prev, [badge.id]: true }))}
                         />
                       ) : (
-                        <span className="text-2xl transition-transform duration-300 group-hover:scale-110">{badge.icon}</span>
+                        <span className="text-3xl transition-transform duration-300 group-hover:rotate-6 drop-shadow-md">{badge.icon}</span>
                       )}
                     </div>
                   ))}
@@ -2263,7 +2391,23 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           )}
         </div>
 
-        {testHistory.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 h-48 relative overflow-hidden">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="space-y-2 mb-4">
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/2"></div>
+                </div>
+                <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
+                  <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                  <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : testHistory.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-10 text-center">
             <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3720,15 +3864,18 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 <p className="text-xs text-gray-500 dark:text-gray-400">Assessment Report</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleViewCertificate}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5"
-              >
-                <DownloadIcon />
-                <span className="hidden sm:inline">Certificate</span>
-              </button>
-            </div>
+            {/* Show Certificate button only if passed (>= 60%) */}
+            {Math.round((testResult.score / testResult.totalQuestions) * 100) >= 60 && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleViewCertificate}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5"
+                >
+                  <DownloadIcon />
+                  <span className="hidden sm:inline">Certificate</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -4093,13 +4240,16 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
               {/* Actions */}
               <div className="space-y-3">
-                <button
-                  onClick={handleViewCertificate}
-                  className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                >
-                  <DownloadIcon />
-                  Download Certificate
-                </button>
+                {/* Download Certificate - Only if passed */}
+                {Math.round((testResult.score / testResult.totalQuestions) * 100) >= 60 && (
+                  <button
+                    onClick={handleViewCertificate}
+                    className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                  >
+                    <DownloadIcon />
+                    Download Certificate
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setTestResult(null);
@@ -4421,69 +4571,103 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         {userProgress.badges.map((badge, index) => (
           <div
             key={badge.id}
-            className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${badge.earned
-              ? 'border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500'
-              : 'border-gray-200 dark:border-gray-700 opacity-70 hover:opacity-100'
-              }`}
+            className={`group relative perspective-[1000px] bg-transparent p-4 transition-all duration-300 ${badge.earned ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
             style={{ animationDelay: `${index * 50}ms` }}
           >
-            {badge.earned && (
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-100/50 via-transparent to-orange-100/50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl pointer-events-none" />
-            )}
+            <div className={`relative flex items-start gap-5 p-5 rounded-2xl transition-all duration-300 preserve-3d group-hover:-translate-y-2 group-hover:shadow-2xl bg-white dark:bg-gray-800 border-2 ${badge.earned
+              ? 'border-amber-200 dark:border-amber-700/50 shadow-lg shadow-amber-100 dark:shadow-amber-900/20'
+              : 'border-gray-200 dark:border-gray-700 shadow-sm'
+              }`}>
 
-            <div className="relative flex items-start gap-4">
-              <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${badge.earned
-                ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-lg'
-                : 'bg-gray-100 dark:bg-gray-700 grayscale'
-                }`}>
-                {badge.image ? (
-                  <img
-                    src={badge.image}
-                    alt={badge.name}
-                    className={`w-11 h-11 object-contain ${badge.earned ? 'drop-shadow-md' : 'opacity-50'}`}
-                  />
-                ) : (
-                  <span className="text-3xl">{badge.icon}</span>
-                )}
-                {!badge.earned && (
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
+              {/* Tooltip */}
+              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap">
+                <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg relative">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
+                  {badge.name}
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{badge.name}</h3>
-                  {badge.earned && (
-                    <span className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-emerald-500 to-green-500 text-white px-2 py-0.5 rounded-full font-medium shadow-sm">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              {badge.earned && (
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-50/50 via-transparent to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-2xl pointer-events-none" />
+              )}
+
+              <div className="relative flex items-start gap-4">
+                <div className={`relative w-16 h-16 shrink-0 rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:rotate-6 ${badge.earned
+                  ? 'bg-gradient-to-br from-amber-100 via-orange-100 to-yellow-100 dark:from-amber-800/40 dark:via-orange-800/30 dark:to-yellow-800/40 shadow-inner'
+                  : 'bg-gray-100 dark:bg-gray-700 grayscale'
+                  }`}>
+                  {badge.image && !failedBadgeImages[badge.id] ? (
+                    <img
+                      src={badge.image}
+                      alt={badge.name}
+                      className={`w-12 h-12 object-contain drop-shadow-md transition-transform duration-300 ${badge.earned ? '' : 'opacity-50'}`}
+                      onError={() => setFailedBadgeImages(prev => ({ ...prev, [badge.id]: true }))}
+                    />
+                  ) : (
+                    <span className="text-3xl">{badge.icon}</span>
+                  )}
+                  {!badge.earned && (
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                       </svg>
-                      Earned
-                    </span>
+                    </div>
                   )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{badge.description}</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">
-                    {badge.requirement}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg font-medium">
-                    +{badge.xpReward} XP
-                  </span>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{badge.name}</h3>
+                    {badge.earned && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-emerald-500 to-green-500 text-white px-2 py-0.5 rounded-full font-medium shadow-sm">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Earned
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{badge.description}</p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">
+                      {badge.requirement}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg font-medium">
+                      +{badge.xpReward} XP
+                    </span>
+                  </div>
+                  {badge.earned && badge.earnedDate && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                      Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
                 </div>
-                {badge.earned && badge.earnedDate && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                    Earned on {new Date(badge.earnedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                )}
               </div>
             </div>
           </div>
         ))}
+      </div>
+    </div>
+
+  );
+
+  // Wrap content with Sidebar for non-test views
+  const wrapWithSidebar = (content: React.ReactNode) => (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
+      <Sidebar
+        dashboardMode="buyer"
+        activeView="mock-assessment"
+        setActiveView={handleSidebarNavigation}
+        isOpen={isSidebarOpen}
+        isCollapsed={isSidebarCollapsed}
+        onClose={() => setIsSidebarOpen(false)}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden relative h-full">
+        <div className="flex-1 overflow-y-auto">
+          {content}
+        </div>
       </div>
     </div>
   );
@@ -4510,15 +4694,23 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           }
         }
       `}</style>
-      {view === 'list' && renderAssessmentList()}
+
+      {/* Views with Sidebar */}
+      {view === 'list' && wrapWithSidebar(renderAssessmentList())}
+
+      {/* Test View - No Sidebar (Fullscreen/Focused) */}
       {view === 'test' && renderTestInterface()}
-      {view === 'results' && renderResults()}
-      {view === 'certificate' && renderCertificate()}
-      {view === 'schedule' && renderScheduleInterview()}
-      {view === 'achievements' && renderAchievements()}
+
+      {/* Results View - Keep as is or wrap? Usually results are part of flow. 
+          If user wants to go back to dashboard, sidebar helps. 
+          Let's wrap results for consistency. */}
+      {view === 'results' && wrapWithSidebar(renderResults())}
+      {view === 'certificate' && wrapWithSidebar(renderCertificate())}
+      {view === 'schedule' && wrapWithSidebar(renderScheduleInterview())}
+      {view === 'achievements' && wrapWithSidebar(renderAchievements())}
 
       {/* Leaderboard View */}
-      {view === 'leaderboard' && (
+      {view === 'leaderboard' && wrapWithSidebar(
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -4576,7 +4768,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       )}
 
       {/* Daily Challenge View */}
-      {view === 'daily-challenge' && (
+      {view === 'daily-challenge' && wrapWithSidebar(
         <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
