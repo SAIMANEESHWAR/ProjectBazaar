@@ -89,6 +89,8 @@ interface Certificate {
     career: string;
     score: number;
     date: string;
+    certificateId?: string;
+    verificationCode?: string;
 }
 
 type CareerTab = 'trending' | 'recommend' | 'roadmap' | 'placement' | 'projects';
@@ -688,8 +690,35 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     const [categories, setCategories] = useState<Array<{ id: string; name: string; icon: string }>>([]);
     const [_loadingCategories, setLoadingCategories] = useState(true);
 
-    // API Endpoint
+    // API Endpoints
     const ROADMAP_API_ENDPOINT = 'https://07wee2lkxj.execute-api.ap-south-2.amazonaws.com/default/Roadmaps_get_post_put';
+    const PROGRESS_API_ENDPOINT = 'https://fciixra802.execute-api.ap-south-2.amazonaws.com/default/career-guidance-progress';
+
+    // Get user info from localStorage
+    const getUserInfo = () => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                return {
+                    userId: user.userId || user.id || user.email || 'anonymous',
+                    userName: user.name || user.userName || 'Student'
+                };
+            }
+        } catch (e) {
+            console.error('Error getting user info:', e);
+        }
+        return { userId: 'anonymous', userName: 'Student' };
+    };
+
+    // State for quiz validation
+    const [isValidatingQuiz, setIsValidatingQuiz] = useState(false);
+    const [quizValidationResult, setQuizValidationResult] = useState<{
+        score: number;
+        passed: boolean;
+        feedback: string;
+        results?: Array<{ questionIndex: number; isCorrect: boolean }>;
+    } | null>(null);
 
     // Load categories from API
     useEffect(() => {
@@ -1130,17 +1159,84 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
             }
 
             const roadmap = await getRoadmapFromAPI(selectedCategory, totalWeeks, categories);
+            
+            // Load existing user progress from backend
+            const { userId } = getUserInfo();
+            try {
+                const progressResponse = await fetch(PROGRESS_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'get_progress',
+                        userId: userId,
+                        categoryId: selectedCategory
+                    })
+                });
+                
+                const progressData = await progressResponse.json();
+                
+                if (progressData.success && progressData.progress && progressData.progress.weeksProgress) {
+                    // Merge existing progress with roadmap
+                    const existingProgress = progressData.progress.weeksProgress;
+                    const mergedWeeks = roadmap.weeks.map(week => {
+                        const savedProgress = existingProgress.find((p: any) => p.weekNumber === week.weekNumber);
+                        if (savedProgress) {
+                            return {
+                                ...week,
+                                isCompleted: savedProgress.isCompleted || false,
+                                quizCompleted: savedProgress.quizCompleted || false
+                            };
+                        }
+                        return week;
+                    });
+                    roadmap.weeks = mergedWeeks;
+                }
+            } catch (progressError) {
+                console.log('Could not load existing progress:', progressError);
+                // Continue without existing progress
+            }
+            
             setRoadmapData(roadmap);
             // If roadmap has no weeks, show "No data available" message
             if (!roadmap.weeks || roadmap.weeks.length === 0) {
                 setRoadmapError('No data available for this category. Please add roadmap data in admin dashboard.');
             }
             setRoadmapStep('roadmap');
+            
+            // Initialize progress on backend if new
+            await initializeProgress(roadmap);
         } catch (err: any) {
             console.error('Roadmap generation error:', err);
             setRoadmapError(err.message || 'Failed to generate roadmap. Please ensure the roadmap exists in admin dashboard.');
         } finally {
             setIsGeneratingRoadmap(false);
+        }
+    };
+
+    // Initialize user progress when starting a new roadmap
+    const initializeProgress = async (roadmap: RoadmapData) => {
+        const { userId } = getUserInfo();
+        const categoryName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
+
+        try {
+            await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_progress',
+                    userId: userId,
+                    categoryId: selectedCategory,
+                    categoryName: categoryName,
+                    duration: selectedWeeks,
+                    weeksProgress: roadmap.weeks.map(w => ({
+                        weekNumber: w.weekNumber,
+                        isCompleted: w.isCompleted || false,
+                        quizCompleted: w.quizCompleted || false
+                    }))
+                })
+            });
+        } catch (error) {
+            console.error('Error initializing progress:', error);
         }
     };
 
@@ -1179,35 +1275,236 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         setIsGeneratingQuiz(false);
     };
 
-    const submitWeeklyQuiz = () => {
+    const submitWeeklyQuiz = async () => {
         if (!weeklyQuiz || !roadmapData) return;
 
-        let correct = 0;
-        weeklyQuiz.questions.forEach((q) => {
-            if (q.userAnswer === q.correctAnswer) correct++;
-        });
+        setIsValidatingQuiz(true);
+        setQuizValidationResult(null);
 
-        const score = Math.round((correct / weeklyQuiz.questions.length) * 100);
-        const feedback = score >= 80
-            ? "Excellent work! You've mastered this week's content. You can proceed to the next week."
-            : `Good effort! You scored ${score}%. Review the topics and try to improve. You can still proceed, but consider reviewing.`;
+        const { userId } = getUserInfo();
 
-        const updatedQuiz = { ...weeklyQuiz, score, feedback };
-        setWeeklyQuiz(updatedQuiz);
+        try {
+            // Prepare user answers for backend validation
+            const userAnswers = weeklyQuiz.questions.map((q, idx) => ({
+                questionIndex: idx,
+                selectedAnswer: q.userAnswer
+            }));
 
-        // Mark quiz as completed and unlock next week
-        const updatedWeeks = roadmapData.weeks.map(w =>
-            w.weekNumber === weeklyQuiz.weekNumber
-                ? { ...w, quizCompleted: true }
-                : w
-        );
-        setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+            // Call backend to validate quiz
+            const response = await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'validate_quiz',
+                    userId: userId,
+                    categoryId: selectedCategory,
+                    weekNumber: weeklyQuiz.weekNumber,
+                    userAnswers: userAnswers,
+                    duration: selectedWeeks
+                })
+            });
 
-        // Return to roadmap view
-        setTimeout(() => {
-            setRoadmapStep('roadmap');
-            setWeeklyQuiz(null);
-        }, 3000);
+            const result = await response.json();
+
+            if (result.success) {
+                const score = result.score;
+                const passed = result.passed;
+                const feedback = result.feedback;
+
+                setQuizValidationResult({
+                    score,
+                    passed,
+                    feedback,
+                    results: result.results
+                });
+
+                const updatedQuiz = { ...weeklyQuiz, score, feedback };
+                setWeeklyQuiz(updatedQuiz);
+
+                if (passed) {
+                    // Mark quiz as completed and unlock next week
+                    const updatedWeeks = roadmapData.weeks.map(w =>
+                        w.weekNumber === weeklyQuiz.weekNumber
+                            ? { ...w, quizCompleted: true, isCompleted: true }
+                            : w
+                    );
+                    setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+
+                    // Save progress to backend
+                    await saveProgressToBackend(updatedWeeks);
+                }
+
+                // Return to roadmap view after showing results
+                setTimeout(() => {
+                    setRoadmapStep('roadmap');
+                    setWeeklyQuiz(null);
+                    setQuizValidationResult(null);
+                }, 4000);
+            } else {
+                // Fallback to local validation if backend fails
+                let correct = 0;
+                weeklyQuiz.questions.forEach((q) => {
+                    if (q.userAnswer === q.correctAnswer) correct++;
+                });
+
+                const score = Math.round((correct / weeklyQuiz.questions.length) * 100);
+                const passed = score >= 70;
+                const feedback = passed
+                    ? "Excellent work! You've mastered this week's content. You can proceed to the next week."
+                    : `You scored ${score}%. You need 70% to pass. Review the topics and try again.`;
+
+                setQuizValidationResult({ score, passed, feedback });
+                const updatedQuiz = { ...weeklyQuiz, score, feedback };
+                setWeeklyQuiz(updatedQuiz);
+
+                if (passed) {
+                    const updatedWeeks = roadmapData.weeks.map(w =>
+                        w.weekNumber === weeklyQuiz.weekNumber
+                            ? { ...w, quizCompleted: true, isCompleted: true }
+                            : w
+                    );
+                    setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+                }
+
+                setTimeout(() => {
+                    setRoadmapStep('roadmap');
+                    setWeeklyQuiz(null);
+                    setQuizValidationResult(null);
+                }, 4000);
+            }
+        } catch (error) {
+            console.error('Quiz validation error:', error);
+            // Fallback to local validation
+            let correct = 0;
+            weeklyQuiz.questions.forEach((q) => {
+                if (q.userAnswer === q.correctAnswer) correct++;
+            });
+
+            const score = Math.round((correct / weeklyQuiz.questions.length) * 100);
+            const passed = score >= 70;
+            const feedback = passed
+                ? "Excellent work! You've mastered this week's content."
+                : `You scored ${score}%. Review and try again.`;
+
+            setQuizValidationResult({ score, passed, feedback });
+            const updatedQuiz = { ...weeklyQuiz, score, feedback };
+            setWeeklyQuiz(updatedQuiz);
+
+            if (passed) {
+                const updatedWeeks = roadmapData.weeks.map(w =>
+                    w.weekNumber === weeklyQuiz.weekNumber
+                        ? { ...w, quizCompleted: true, isCompleted: true }
+                        : w
+                );
+                setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+            }
+
+            setTimeout(() => {
+                setRoadmapStep('roadmap');
+                setWeeklyQuiz(null);
+                setQuizValidationResult(null);
+            }, 4000);
+        } finally {
+            setIsValidatingQuiz(false);
+        }
+    };
+
+    // Helper function to save progress to backend
+    const saveProgressToBackend = async (weeksProgress: WeekContent[]) => {
+        const { userId } = getUserInfo();
+        const categoryName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
+
+        try {
+            await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_progress',
+                    userId: userId,
+                    categoryId: selectedCategory,
+                    categoryName: categoryName,
+                    duration: selectedWeeks,
+                    weeksProgress: weeksProgress.map(w => ({
+                        weekNumber: w.weekNumber,
+                        isCompleted: w.isCompleted,
+                        quizCompleted: w.quizCompleted
+                    }))
+                })
+            });
+        } catch (error) {
+            console.error('Error saving progress:', error);
+        }
+    };
+
+    // Mark week as completed (for weeks without quiz)
+    const markWeekCompletedWithBackend = async (weekNumber: number) => {
+        if (!roadmapData) return;
+
+        const { userId } = getUserInfo();
+
+        try {
+            // First check if week has quiz
+            const checkResponse = await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'check_week_has_quiz',
+                    categoryId: selectedCategory,
+                    weekNumber: weekNumber,
+                    duration: selectedWeeks
+                })
+            });
+
+            const checkResult = await checkResponse.json();
+            const hasQuiz = checkResult.success && checkResult.hasQuiz;
+
+            if (hasQuiz) {
+                // Week has quiz, show quiz instead
+                generateWeeklyQuiz(weekNumber);
+                return;
+            }
+
+            // No quiz - mark as completed directly
+            const response = await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'mark_week_completed',
+                    userId: userId,
+                    categoryId: selectedCategory,
+                    weekNumber: weekNumber
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Update local state
+                const updatedWeeks = roadmapData.weeks.map(w =>
+                    w.weekNumber === weekNumber
+                        ? { ...w, isCompleted: true, quizCompleted: true }
+                        : w
+                );
+                setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+            } else {
+                // Fallback - update locally anyway
+                const updatedWeeks = roadmapData.weeks.map(w =>
+                    w.weekNumber === weekNumber
+                        ? { ...w, isCompleted: true, quizCompleted: true }
+                        : w
+                );
+                setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+            }
+        } catch (error) {
+            console.error('Error marking week completed:', error);
+            // Fallback - update locally
+            const updatedWeeks = roadmapData.weeks.map(w =>
+                w.weekNumber === weekNumber
+                    ? { ...w, isCompleted: true, quizCompleted: true }
+                    : w
+            );
+            setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+        }
     };
 
     // Generate final exam - using static questions for now
@@ -1442,27 +1739,101 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         }
     };
 
-    const submitFinalExam = () => {
+    const submitFinalExam = async () => {
         if (!finalExam || !roadmapData) return;
 
-        let correct = 0;
-        finalExam.questions.forEach((q, idx) => {
-            if (finalExam.userAnswers[idx] === q.correctAnswer) correct++;
-        });
+        setIsValidatingQuiz(true);
+        const { userId, userName } = getUserInfo();
+        const categoryName = categories.find(c => c.id === selectedCategory)?.name || roadmapData.careerGoal;
 
-        const score = Math.round((correct / finalExam.questions.length) * 100);
-        const updatedExam = { ...finalExam, score, completed: true };
-        setFinalExam(updatedExam);
+        try {
+            // Call backend to validate final exam
+            const response = await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'validate_final_exam',
+                    userId: userId,
+                    userName: userName,
+                    categoryId: selectedCategory,
+                    categoryName: categoryName,
+                    userAnswers: finalExam.userAnswers,
+                    questions: finalExam.questions
+                })
+            });
 
-        if (score >= 80) {
-            // Generate certificate
-            const cert: Certificate = {
-                name: 'Student Name', // Could get from user profile
-                career: roadmapData.careerGoal,
-                score,
-                date: new Date().toLocaleDateString(),
-            };
-            setCertificate(cert);
+            const result = await response.json();
+
+            if (result.success) {
+                const score = result.score;
+                const updatedExam = { ...finalExam, score, completed: true };
+                setFinalExam(updatedExam);
+
+                if (result.passed && result.certificate) {
+                    // Use certificate from backend
+                    const cert: Certificate = {
+                        name: result.certificate.userName || userName,
+                        career: result.certificate.categoryName || categoryName,
+                        score: result.certificate.score || score,
+                        date: result.certificate.issuedDate || new Date().toLocaleDateString(),
+                        certificateId: result.certificate.certificateId,
+                        verificationCode: result.certificate.verificationCode
+                    };
+                    setCertificate(cert);
+                } else if (result.passed) {
+                    // Generate certificate locally as fallback
+                    const cert: Certificate = {
+                        name: userName,
+                        career: categoryName,
+                        score,
+                        date: new Date().toLocaleDateString(),
+                    };
+                    setCertificate(cert);
+                }
+            } else {
+                // Fallback to local validation
+                let correct = 0;
+                finalExam.questions.forEach((q, idx) => {
+                    if (finalExam.userAnswers[idx] === q.correctAnswer) correct++;
+                });
+
+                const score = Math.round((correct / finalExam.questions.length) * 100);
+                const updatedExam = { ...finalExam, score, completed: true };
+                setFinalExam(updatedExam);
+
+                if (score >= 80) {
+                    const cert: Certificate = {
+                        name: userName,
+                        career: categoryName,
+                        score,
+                        date: new Date().toLocaleDateString(),
+                    };
+                    setCertificate(cert);
+                }
+            }
+        } catch (error) {
+            console.error('Final exam validation error:', error);
+            // Fallback to local validation
+            let correct = 0;
+            finalExam.questions.forEach((q, idx) => {
+                if (finalExam.userAnswers[idx] === q.correctAnswer) correct++;
+            });
+
+            const score = Math.round((correct / finalExam.questions.length) * 100);
+            const updatedExam = { ...finalExam, score, completed: true };
+            setFinalExam(updatedExam);
+
+            if (score >= 80) {
+                const cert: Certificate = {
+                    name: userName,
+                    career: categoryName,
+                    score,
+                    date: new Date().toLocaleDateString(),
+                };
+                setCertificate(cert);
+            }
+        } finally {
+            setIsValidatingQuiz(false);
         }
 
         setRoadmapStep('evaluation');
@@ -1691,10 +2062,20 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         {!week.isCompleted && (
                                             <button
                                                 onClick={() => {
-                                                    const updatedWeeks = roadmapData.weeks.map((w, i) =>
-                                                        i === idx ? { ...w, isCompleted: true } : w
-                                                    );
-                                                    setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+                                                    // Check if week has quiz - if no quiz, mark as complete directly
+                                                    const weekData = roadmapData.weeks.find(w => w.weekNumber === week.weekNumber);
+                                                    const hasQuiz = weekData?.quiz && weekData.quiz.length > 0;
+                                                    
+                                                    if (hasQuiz) {
+                                                        // Mark as reading completed, will need to take quiz
+                                                        const updatedWeeks = roadmapData.weeks.map((w, i) =>
+                                                            i === idx ? { ...w, isCompleted: true } : w
+                                                        );
+                                                        setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
+                                                    } else {
+                                                        // No quiz - mark as fully completed via backend
+                                                        markWeekCompletedWithBackend(week.weekNumber);
+                                                    }
                                                 }}
                                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
                                             >
@@ -1832,37 +2213,85 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 <div>
                     <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Week {weeklyQuiz.weekNumber} Quiz</h2>
-                        {weeklyQuiz.questions.map((q, idx) => (
-                            <div key={idx} className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                <p className="font-semibold text-gray-900 mb-3">{idx + 1}. {q.question}</p>
-                                <div className="space-y-2">
-                                    {q.options.map((opt, optIdx) => (
-                                        <label key={optIdx} className="flex items-center gap-3 p-3 bg-white rounded-lg cursor-pointer hover:bg-orange-50 border border-gray-200">
-                                            <input
-                                                type="radio"
-                                                name={`question-${idx}`}
-                                                value={optIdx}
-                                                checked={q.userAnswer === optIdx}
-                                                onChange={() => {
-                                                    const updated = weeklyQuiz.questions.map((qu, i) =>
-                                                        i === idx ? { ...qu, userAnswer: optIdx } : qu
-                                                    );
-                                                    setWeeklyQuiz({ ...weeklyQuiz, questions: updated });
-                                                }}
-                                                className="w-4 h-4 text-orange-500"
-                                            />
-                                            <span className="text-gray-700">{opt}</span>
-                                        </label>
-                                    ))}
+                        
+                        {/* Quiz Result Display */}
+                        {quizValidationResult && (
+                            <div className={`mb-6 p-6 rounded-xl border-2 ${
+                                quizValidationResult.passed 
+                                    ? 'bg-green-50 border-green-300' 
+                                    : 'bg-red-50 border-red-300'
+                            }`}>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${
+                                        quizValidationResult.passed ? 'bg-green-100' : 'bg-red-100'
+                                    }`}>
+                                        {quizValidationResult.passed ? '✓' : '✗'}
+                                    </div>
+                                    <div>
+                                        <p className={`text-2xl font-bold ${
+                                            quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
+                                        }`}>
+                                            Score: {quizValidationResult.score}%
+                                        </p>
+                                        <p className={`text-sm ${
+                                            quizValidationResult.passed ? 'text-green-600' : 'text-red-600'
+                                        }`}>
+                                            {quizValidationResult.passed ? 'Passed!' : 'Try Again'}
+                                        </p>
+                                    </div>
                                 </div>
+                                <p className={`text-sm ${
+                                    quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
+                                }`}>
+                                    {quizValidationResult.feedback}
+                                </p>
                             </div>
-                        ))}
-                        <button
-                            onClick={() => submitWeeklyQuiz()}
-                            className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold"
-                        >
-                            Submit Quiz
-                        </button>
+                        )}
+
+                        {!quizValidationResult && (
+                            <>
+                                {weeklyQuiz.questions.map((q, idx) => (
+                                    <div key={idx} className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                        <p className="font-semibold text-gray-900 mb-3">{idx + 1}. {q.question}</p>
+                                        <div className="space-y-2">
+                                            {q.options.map((opt, optIdx) => (
+                                                <label key={optIdx} className="flex items-center gap-3 p-3 bg-white rounded-lg cursor-pointer hover:bg-orange-50 border border-gray-200">
+                                                    <input
+                                                        type="radio"
+                                                        name={`question-${idx}`}
+                                                        value={optIdx}
+                                                        checked={q.userAnswer === optIdx}
+                                                        onChange={() => {
+                                                            const updated = weeklyQuiz.questions.map((qu, i) =>
+                                                                i === idx ? { ...qu, userAnswer: optIdx } : qu
+                                                            );
+                                                            setWeeklyQuiz({ ...weeklyQuiz, questions: updated });
+                                                        }}
+                                                        className="w-4 h-4 text-orange-500"
+                                                        disabled={isValidatingQuiz}
+                                                    />
+                                                    <span className="text-gray-700">{opt}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                                <button
+                                    onClick={() => submitWeeklyQuiz()}
+                                    disabled={isValidatingQuiz || weeklyQuiz.questions.some(q => q.userAnswer === undefined)}
+                                    className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isValidatingQuiz ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Validating...
+                                        </>
+                                    ) : (
+                                        'Submit Quiz'
+                                    )}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1955,6 +2384,14 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                     <p className="text-lg text-gray-700 mb-2">with a score of</p>
                                     <p className="text-3xl font-bold text-gray-900 mb-4">{certificate.score}%</p>
                                     <p className="text-sm text-gray-600">{certificate.date}</p>
+                                    {certificate.verificationCode && (
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Verification Code</p>
+                                            <p className="text-lg font-mono font-bold text-gray-800 bg-gray-100 px-3 py-1 rounded inline-block">
+                                                {certificate.verificationCode}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
