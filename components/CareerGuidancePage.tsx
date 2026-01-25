@@ -53,6 +53,8 @@ interface WeekContent {
     quiz?: QuizQuestion[];
     isCompleted: boolean;
     quizCompleted: boolean;
+    quizScore?: number;
+    completedAt?: string;
 }
 
 interface RoadmapData {
@@ -635,8 +637,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ step, totalSteps }) => (
 // ============================================
 
 interface RoadmapFeatureProps {
-    roadmapStep: 'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation';
-    setRoadmapStep: (step: 'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation') => void;
+    roadmapStep: 'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation' | 'completed-view';
+    setRoadmapStep: (step: 'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation' | 'completed-view') => void;
     careerAnalysis: CareerAnalysis | null;
     setCareerAnalysis: (analysis: CareerAnalysis | null) => void;
     roadmapData: RoadmapData | null;
@@ -767,7 +769,41 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         quizCompleted: boolean;
     } | null>(null);
     const [isLoadingWeekDetails, setIsLoadingWeekDetails] = useState(false);
+    
+    // State for viewing completed course details
+    const [completedCourseDetails, setCompletedCourseDetails] = useState<any>(null);
+    const [isLoadingCompletedCourse, setIsLoadingCompletedCourse] = useState(false);
 
+    // Fetch full completed course details from backend
+    const fetchCompletedCourseDetails = async () => {
+        setIsLoadingCompletedCourse(true);
+        const { userId } = getUserInfo();
+
+        try {
+            const response = await fetch(PROGRESS_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'get_completed_course_details',
+                    userId: userId,
+                    categoryId: selectedCategory,
+                    duration: selectedWeeks
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.courseDetails) {
+                setCompletedCourseDetails(result.courseDetails);
+                setRoadmapStep('completed-view');
+            }
+        } catch (error) {
+            console.error('Error fetching completed course details:', error);
+        } finally {
+            setIsLoadingCompletedCourse(false);
+        }
+    };
+    
     // Fetch completed week details from backend
     const fetchCompletedWeekDetails = async (weekNumber: number) => {
         setIsLoadingWeekDetails(true);
@@ -1702,26 +1738,48 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 </div>
                             </div>
 
-                            {/* Generate Button - Premium Styling */}
-                            <button
-                                onClick={handleGenerateRoadmap}
-                                disabled={!selectedCategory || isGeneratingRoadmap}
-                                className="w-full py-5 bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
-                            >
-                                {isGeneratingRoadmap ? (
-                                    <span className="flex items-center justify-center gap-3">
-                                        <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        Generating Your Roadmap...
-                                    </span>
-                                ) : (
-                                    <>
-                                        <span>Start Your Learning Journey</span>
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                        </svg>
-                                    </>
-                                )}
-                            </button>
+                            {/* Action Buttons - Premium Styling */}
+                            <div className="space-y-3">
+                                <button
+                                    onClick={handleGenerateRoadmap}
+                                    disabled={!selectedCategory || isGeneratingRoadmap}
+                                    className="w-full py-5 bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
+                                >
+                                    {isGeneratingRoadmap ? (
+                                        <span className="flex items-center justify-center gap-3">
+                                            <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Generating Your Roadmap...
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <span>Start Your Learning Journey</span>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                            </svg>
+                                        </>
+                                    )}
+                                </button>
+                                
+                                <button
+                                    onClick={fetchCompletedCourseDetails}
+                                    disabled={!selectedCategory || isLoadingCompletedCourse}
+                                    className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl font-semibold text-base shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
+                                >
+                                    {isLoadingCompletedCourse ? (
+                                        <span className="flex items-center justify-center gap-3">
+                                            <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Loading...
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            <span>View Completed Course</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2157,19 +2215,20 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                     <p className="text-green-700 mb-6">You've completed all {roadmapData.totalWeeks} weeks of your {roadmapData.careerGoal} roadmap!</p>
                                     <button
                                         onClick={async () => {
-                                            // Generate certificate directly
+                                            // Check if certificate already exists, otherwise generate new one
                                             const { userId, userName } = getUserInfo();
                                             const categoryName = categories.find(c => c.id === selectedCategory)?.name || roadmapData.careerGoal;
                                             
-                                            // Calculate average quiz score
+                                            // Calculate average quiz score from actual data
                                             const quizScores = roadmapData.weeks
-                                                .filter(w => w.quizCompleted)
-                                                .map(() => 100); // Default to 100 if completed
+                                                .filter(w => w.quizCompleted && w.quizScore !== undefined)
+                                                .map(w => w.quizScore || 100);
                                             const avgScore = quizScores.length > 0 
                                                 ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length) 
                                                 : 100;
                                             
                                             try {
+                                                // Always call generate_certificate (Lambda will check if one exists)
                                                 const response = await fetch(PROGRESS_API_ENDPOINT, {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
@@ -2335,6 +2394,163 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 </button>
                             </>
                         )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Step 3.5: Completed Course Details View (Full Summary with Questions & Answers)
+    if (roadmapStep === 'completed-view' && completedCourseDetails) {
+        const courseDetails = completedCourseDetails;
+        
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 -m-6 p-8">
+                <div className="max-w-5xl mx-auto">
+                    {/* Back Button */}
+                    <button
+                        onClick={() => {
+                            setRoadmapStep('analysis');
+                            setCompletedCourseDetails(null);
+                        }}
+                        className="mb-4 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span className="font-medium">Back to Roadmap Selection</span>
+                    </button>
+
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-3xl p-8 text-white mb-6 shadow-xl">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="text-5xl">🎓</span>
+                                    <h1 className="text-4xl font-black">{courseDetails.categoryName}</h1>
+                                </div>
+                                <p className="text-purple-100 text-lg">{courseDetails.duration}-Week Program • Completed</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-6xl font-black">{courseDetails.finalScore || 100}%</div>
+                                <div className="text-purple-200">Final Score</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Certificate Card (if exists) */}
+                    {courseDetails.certificate && (
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 mb-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-400 flex items-center justify-center">
+                                        <span className="text-3xl">🏆</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900">Certificate Earned</h3>
+                                        <p className="text-gray-600">Verification Code: <span className="font-mono font-bold">{courseDetails.certificate.verificationCode}</span></p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setCertificate({
+                                            name: courseDetails.certificate.userName,
+                                            career: courseDetails.certificate.categoryName,
+                                            score: courseDetails.certificate.score,
+                                            date: courseDetails.certificate.issuedDate,
+                                            certificateId: courseDetails.certificate.certificateId,
+                                            verificationCode: courseDetails.certificate.verificationCode
+                                        });
+                                        setRoadmapStep('evaluation');
+                                    }}
+                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                                >
+                                    View Certificate
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Weeks Summary */}
+                    <div className="space-y-4">
+                        {courseDetails.weeksDetails && courseDetails.weeksDetails.map((week: any, idx: number) => (
+                            <div key={idx} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                                {/* Week Header */}
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 flex items-center justify-between border-b">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-lg">
+                                            {week.weekNumber}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Week {week.weekNumber}</h3>
+                                            <p className="text-sm text-gray-600">
+                                                {week.completedAt ? new Date(week.completedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Completed'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-3xl font-black text-green-600">{week.quizScore || 100}%</div>
+                                        <div className="text-sm text-gray-500">Quiz Score</div>
+                                    </div>
+                                </div>
+
+                                {/* Week Content */}
+                                <div className="p-6">
+                                    {/* Topics */}
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-bold text-gray-700 mb-3">📚 Topics Covered</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {week.mainTopics?.map((topic: string, i: number) => (
+                                                <span key={i} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                                                    {topic}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Mini Project */}
+                                    {week.miniProject && (
+                                        <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                            <h4 className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                                                <span>💼</span> Project Completed
+                                            </h4>
+                                            <p className="text-sm text-amber-700">{week.miniProject}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Quiz Questions & Answers */}
+                                    {week.quiz && week.quiz.length > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-bold text-gray-700 mb-4">✅ Quiz Questions & Correct Answers</h4>
+                                            <div className="space-y-4">
+                                                {week.quiz.map((q: any, qIdx: number) => (
+                                                    <div key={qIdx} className="p-4 bg-gray-50 rounded-xl">
+                                                        <p className="font-semibold text-gray-900 mb-3">{qIdx + 1}. {q.question}</p>
+                                                        <div className="space-y-2">
+                                                            {q.options.map((opt: string, oIdx: number) => (
+                                                                <div
+                                                                    key={oIdx}
+                                                                    className={`px-4 py-2 rounded-lg ${
+                                                                        oIdx === q.correctAnswer
+                                                                            ? 'bg-green-100 border-2 border-green-500 text-green-800 font-medium'
+                                                                            : 'bg-white border border-gray-200 text-gray-600'
+                                                                    }`}
+                                                                >
+                                                                    {opt}
+                                                                    {oIdx === q.correctAnswer && (
+                                                                        <span className="ml-2 text-green-600">✓ Correct Answer</span>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -2810,7 +3026,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
     const [careerResult, setCareerResult] = useState<string[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     // New Roadmap States
-    const [roadmapStep, setRoadmapStep] = useState<'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation'>('analysis');
+    const [roadmapStep, setRoadmapStep] = useState<'analysis' | 'roadmap' | 'progress' | 'exam' | 'evaluation' | 'completed-view'>('analysis');
     const [careerAnalysis, setCareerAnalysis] = useState<CareerAnalysis | null>(null);
     const [roadmapData, setRoadmapData] = useState<RoadmapData | null>(null);
     const [currentWeek, setCurrentWeek] = useState<number | null>(null);

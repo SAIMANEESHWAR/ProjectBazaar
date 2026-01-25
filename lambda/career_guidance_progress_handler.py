@@ -546,6 +546,22 @@ def generate_certificate(body: Dict[str, Any]) -> Dict[str, Any]:
         duration_progress = durations_data.get(str(duration), {})
         weeks_progress = duration_progress.get('weeksProgress', [])
         
+        # CHECK IF CERTIFICATE ALREADY EXISTS - Don't generate duplicate
+        existing_cert_id = duration_progress.get('certificateId')
+        if existing_cert_id:
+            # Certificate already exists, retrieve and return it
+            cert_table = dynamodb.Table(CERTIFICATES_TABLE)
+            cert_response = cert_table.get_item(Key={'certificateId': existing_cert_id})
+            existing_certificate = cert_response.get('Item')
+            
+            if existing_certificate:
+                return {
+                    'success': True,
+                    'message': 'Certificate already exists',
+                    'certificate': existing_certificate,
+                    'alreadyExists': True
+                }
+        
         total_weeks = len(weeks_progress) if weeks_progress else duration
         completed_weeks = sum(1 for w in weeks_progress if w.get('quizCompleted'))
         
@@ -652,6 +668,104 @@ def verify_certificate(certificate_id: str) -> Dict[str, Any]:
         return response(500, {
             'success': False,
             'error': f'Failed to verify certificate: {str(e)}'
+        })
+
+# ============================================
+# GET COMPLETED COURSE DETAILS
+# ============================================
+
+def get_completed_course_details(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Get all details for a completed course including questions, answers, and certificate"""
+    try:
+        user_id = body.get('userId')
+        category_id = body.get('categoryId')
+        duration = body.get('duration', 8)
+        
+        if not all([user_id, category_id]):
+            return response(400, {
+                'success': False,
+                'error': 'userId and categoryId are required'
+            })
+        
+        # Get user progress
+        progress_table = dynamodb.Table(USER_PROGRESS_TABLE)
+        db_response = progress_table.get_item(Key={'userId': user_id, 'categoryId': category_id})
+        progress = db_response.get('Item')
+        
+        if not progress:
+            return response(404, {
+                'success': False,
+                'error': 'No progress found'
+            })
+        
+        # Get duration-specific data
+        durations_data = progress.get('durations', {})
+        duration_progress = durations_data.get(str(duration))
+        
+        if not duration_progress:
+            return response(404, {
+                'success': False,
+                'error': f'No progress found for {duration}-week program'
+            })
+        
+        # Get certificate if exists
+        certificate = None
+        cert_id = duration_progress.get('certificateId')
+        if cert_id:
+            cert_table = dynamodb.Table(CERTIFICATES_TABLE)
+            cert_response = cert_table.get_item(Key={'certificateId': cert_id})
+            certificate = cert_response.get('Item')
+        
+        # Get roadmap data to include quiz questions
+        roadmap_table = dynamodb.Table(ROADMAP_TABLE)
+        roadmap_response = roadmap_table.get_item(Key={'categoryId': category_id})
+        roadmap = roadmap_response.get('Item')
+        
+        # Get weeks with quiz questions
+        weeks_with_quizzes = []
+        if roadmap:
+            programs = roadmap.get('programs', {})
+            specific_program = programs.get(str(duration), {})
+            weeks = specific_program.get('weeks', roadmap.get('weeks', []))
+            
+            for week_progress in duration_progress.get('weeksProgress', []):
+                week_number = week_progress.get('weekNumber')
+                
+                # Find matching week in roadmap
+                week_data = next((w for w in weeks if w.get('weekNumber') == week_number), None)
+                
+                if week_data:
+                    week_detail = {
+                        'weekNumber': week_number,
+                        'isCompleted': week_progress.get('isCompleted'),
+                        'quizCompleted': week_progress.get('quizCompleted'),
+                        'quizScore': week_progress.get('quizScore'),
+                        'completedAt': week_progress.get('completedAt'),
+                        'mainTopics': week_data.get('mainTopics', []),
+                        'miniProject': week_data.get('miniProject'),
+                        'quiz': week_data.get('quiz', [])  # Include questions with correct answers
+                    }
+                    weeks_with_quizzes.append(week_detail)
+        
+        return response(200, {
+            'success': True,
+            'courseDetails': {
+                'userId': user_id,
+                'userName': progress.get('userName'),
+                'categoryId': category_id,
+                'categoryName': progress.get('categoryName'),
+                'duration': duration,
+                'isCompleted': duration_progress.get('isRoadmapCompleted', False),
+                'overallProgress': duration_progress.get('overallProgress', 0),
+                'finalScore': duration_progress.get('finalScore'),
+                'weeksDetails': weeks_with_quizzes,
+                'certificate': certificate
+            }
+        })
+    except Exception as e:
+        return response(500, {
+            'success': False,
+            'error': f'Failed to get course details: {str(e)}'
         })
 
 # ============================================
@@ -792,6 +906,9 @@ def lambda_handler(event, context):
         elif action == 'check_week_has_quiz':
             return check_week_has_quiz(body)
         
+        elif action == 'get_completed_course_details':
+            return get_completed_course_details(body)
+        
         elif action == 'generate_certificate':
             # Direct certificate generation (when all weeks completed)
             result = generate_certificate(body)
@@ -802,7 +919,7 @@ def lambda_handler(event, context):
         else:
             return response(400, {
                 'success': False,
-                'error': f'Invalid action: {action}. Valid actions: get_progress, save_progress, mark_week_completed, validate_quiz, validate_final_exam, get_certificates, verify_certificate, check_week_has_quiz, generate_certificate'
+                'error': f'Invalid action: {action}. Valid actions: get_progress, save_progress, mark_week_completed, validate_quiz, validate_final_exam, get_certificates, verify_certificate, check_week_has_quiz, get_completed_course_details, generate_certificate'
             })
     
     except json.JSONDecodeError as e:
