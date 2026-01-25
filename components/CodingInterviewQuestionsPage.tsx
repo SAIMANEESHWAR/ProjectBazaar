@@ -76,6 +76,29 @@ interface UserProgress {
   accuracy: number;
 }
 
+// Discussion interfaces
+interface DiscussionComment {
+  commentId: string;
+  questionId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  upvotes: number;
+  downvotes: number;
+  repliesCount: number;
+  replies?: DiscussionComment[];
+  parentCommentId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  hasUpvoted?: boolean;
+  hasDownvoted?: boolean;
+}
+
+// Discussion API endpoint
+const DISCUSSION_API = 'https://your-api-id.execute-api.ap-south-2.amazonaws.com/default/coding-questions-discussion';
+// TODO: Replace with your actual API Gateway URL after deploying the Lambda function
+
 // Supported programming languages
 const supportedLanguages = [
   { id: 'python', name: 'Python 3', monacoId: 'python' },
@@ -484,10 +507,34 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50);
   const [isResizing, setIsResizing] = useState(false);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(35); // percentage of right panel
+  const [isVerticalResizing, setIsVerticalResizing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+  
+  // Discussion state
+  const [discussions, setDiscussions] = useState<DiscussionComment[]>([]);
+  const [isLoadingDiscussions, setIsLoadingDiscussions] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
   const problemDetails = question.problemDetails || defaultProblemDetails;
+  const currentUserId = getCurrentUserId();
+  const currentUserName = (() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        return user.fullName || user.name || 'Anonymous';
+      } catch {
+        return 'Anonymous';
+      }
+    }
+    return 'Anonymous';
+  })();
 
   // Initialize code with starter code
   useEffect(() => {
@@ -513,33 +560,275 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handle resize
+  // Handle horizontal resize (left-right panels)
   const handleMouseDown = () => {
     setIsResizing(true);
   };
 
+  // Handle vertical resize (editor-bottom panel)
+  const handleVerticalMouseDown = () => {
+    setIsVerticalResizing(true);
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing || !containerRef.current) return;
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      setLeftPanelWidth(Math.min(Math.max(newWidth, 25), 75));
+      // Horizontal resize
+      if (isResizing && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+        setLeftPanelWidth(Math.min(Math.max(newWidth, 25), 75));
+      }
+      
+      // Vertical resize
+      if (isVerticalResizing && rightPanelRef.current) {
+        const panelRect = rightPanelRef.current.getBoundingClientRect();
+        const newHeight = ((panelRect.bottom - e.clientY) / panelRect.height) * 100;
+        setBottomPanelHeight(Math.min(Math.max(newHeight, 15), 70));
+      }
     };
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      setIsVerticalResizing(false);
     };
 
-    if (isResizing) {
+    if (isResizing || isVerticalResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      // Prevent text selection while dragging
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = isVerticalResizing ? 'row-resize' : 'col-resize';
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
-  }, [isResizing]);
+  }, [isResizing, isVerticalResizing]);
+
+  // Fetch discussions when tab changes to discussion
+  useEffect(() => {
+    if (activeTab === 'discussion') {
+      fetchDiscussions();
+    }
+  }, [activeTab, question.id]);
+
+  // Fetch discussions from API
+  const fetchDiscussions = async () => {
+    setIsLoadingDiscussions(true);
+    try {
+      const url = `${DISCUSSION_API}?questionId=${question.id}${currentUserId ? `&userId=${currentUserId}` : ''}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.discussions) {
+          setDiscussions(data.data.discussions);
+        } else {
+          setDiscussions([]);
+        }
+      } else {
+        console.error('Failed to fetch discussions');
+        setDiscussions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching discussions:', error);
+      setDiscussions([]);
+    } finally {
+      setIsLoadingDiscussions(false);
+    }
+  };
+
+  // Add a new comment
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !currentUserId) return;
+    
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const newDiscussion: DiscussionComment = {
+      commentId: tempId,
+      questionId: question.id,
+      userId: currentUserId,
+      userName: currentUserName,
+      content: newComment,
+      upvotes: 0,
+      downvotes: 0,
+      repliesCount: 0,
+      createdAt: new Date().toISOString(),
+      hasUpvoted: false,
+      hasDownvoted: false,
+    };
+    
+    setDiscussions(prev => [newDiscussion, ...prev]);
+    setNewComment('');
+    
+    // Send to API
+    try {
+      const response = await fetch(DISCUSSION_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_comment',
+          questionId: question.id,
+          userId: currentUserId,
+          userName: currentUserName,
+          content: newComment
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Replace temp comment with real one
+          setDiscussions(prev => prev.map(d => 
+            d.commentId === tempId ? data.data : d
+          ));
+        }
+      } else {
+        // Remove optimistic update on error
+        setDiscussions(prev => prev.filter(d => d.commentId !== tempId));
+        console.error('Failed to add comment');
+      }
+    } catch (error) {
+      // Remove optimistic update on error
+      setDiscussions(prev => prev.filter(d => d.commentId !== tempId));
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  // Add a reply to a comment
+  const handleAddReply = async (parentCommentId: string) => {
+    if (!replyContent.trim() || !currentUserId) return;
+    
+    const replyText = replyContent;
+    setReplyContent('');
+    setReplyingTo(null);
+    
+    // Optimistic update - increment reply count
+    setDiscussions(prev => prev.map(d => 
+      d.commentId === parentCommentId 
+        ? { ...d, repliesCount: d.repliesCount + 1 }
+        : d
+    ));
+    
+    // Send to API
+    try {
+      const response = await fetch(DISCUSSION_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_comment',
+          questionId: question.id,
+          userId: currentUserId,
+          userName: currentUserName,
+          content: replyText,
+          parentCommentId: parentCommentId
+        })
+      });
+      
+      if (!response.ok) {
+        // Revert optimistic update on error
+        setDiscussions(prev => prev.map(d => 
+          d.commentId === parentCommentId 
+            ? { ...d, repliesCount: Math.max(0, d.repliesCount - 1) }
+            : d
+        ));
+        console.error('Failed to add reply');
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      setDiscussions(prev => prev.map(d => 
+        d.commentId === parentCommentId 
+          ? { ...d, repliesCount: Math.max(0, d.repliesCount - 1) }
+          : d
+      ));
+      console.error('Error adding reply:', error);
+    }
+  };
+
+  // Vote on a comment
+  const handleVote = async (commentId: string, isUpvote: boolean) => {
+    if (!currentUserId) return;
+    
+    // Get current state for this comment
+    const currentComment = discussions.find(d => d.commentId === commentId);
+    if (!currentComment) return;
+    
+    // Determine vote type to send
+    let voteType: 'upvote' | 'downvote' | 'remove';
+    if (isUpvote) {
+      voteType = currentComment.hasUpvoted ? 'remove' : 'upvote';
+    } else {
+      voteType = currentComment.hasDownvoted ? 'remove' : 'downvote';
+    }
+    
+    // Optimistic update
+    setDiscussions(prev => prev.map(d => {
+      if (d.commentId === commentId) {
+        if (isUpvote) {
+          if (d.hasUpvoted) {
+            return { ...d, upvotes: d.upvotes - 1, hasUpvoted: false };
+          } else {
+            return { 
+              ...d, 
+              upvotes: d.upvotes + 1, 
+              downvotes: d.hasDownvoted ? d.downvotes - 1 : d.downvotes,
+              hasUpvoted: true, 
+              hasDownvoted: false 
+            };
+          }
+        } else {
+          if (d.hasDownvoted) {
+            return { ...d, downvotes: d.downvotes - 1, hasDownvoted: false };
+          } else {
+            return { 
+              ...d, 
+              downvotes: d.downvotes + 1, 
+              upvotes: d.hasUpvoted ? d.upvotes - 1 : d.upvotes,
+              hasDownvoted: true, 
+              hasUpvoted: false 
+            };
+          }
+        }
+      }
+      return d;
+    }));
+    
+    // Send to API
+    try {
+      const response = await fetch(DISCUSSION_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'vote',
+          commentId,
+          userId: currentUserId,
+          voteType
+        })
+      });
+      
+      if (!response.ok) {
+        // Revert on error - refetch discussions
+        fetchDiscussions();
+        console.error('Failed to vote');
+      }
+    } catch (error) {
+      // Revert on error - refetch discussions
+      fetchDiscussions();
+      console.error('Error voting:', error);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  };
 
   // Run code
   const handleRun = async () => {
@@ -813,11 +1102,167 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
             )}
 
             {activeTab === 'discussion' && (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <p className="text-gray-500 dark:text-gray-400">Discussion forum coming soon</p>
+              <div className="space-y-4">
+                {/* Add Comment Section */}
+                {currentUserId ? (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Share your thoughts or ask a question..."
+                      className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm rounded-lg p-3 min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-gray-400 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-700"
+                    />
+                    <div className="flex justify-end mt-3">
+                      <button
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim()}
+                        className="px-4 py-2 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Post Comment
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">Please log in to join the discussion</p>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {isLoadingDiscussions && (
+                  <div className="flex items-center justify-center py-8">
+                    <svg className="w-6 h-6 animate-spin text-teal-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Comments List */}
+                {!isLoadingDiscussions && discussions.length === 0 && (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p className="text-gray-500 dark:text-gray-400">No discussions yet. Be the first to comment!</p>
+                  </div>
+                )}
+
+                {!isLoadingDiscussions && discussions.map((comment) => (
+                  <div key={comment.commentId} className="bg-white dark:bg-gray-800/50 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors">
+                    {/* Comment Header */}
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-sm">
+                        {comment.userName.charAt(0).toUpperCase()}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* User Info */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-gray-900 dark:text-gray-100 font-medium text-sm">{comment.userName}</span>
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">{formatDate(comment.createdAt)}</span>
+                        </div>
+                        
+                        {/* Comment Content */}
+                        <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+                          {comment.content}
+                        </p>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-4 mt-3">
+                          {/* Upvote */}
+                          <button
+                            onClick={() => handleVote(comment.commentId, true)}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${
+                              comment.hasUpvoted ? 'text-teal-500' : 'text-gray-400 hover:text-teal-500'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill={comment.hasUpvoted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                            </svg>
+                            <span>{comment.upvotes}</span>
+                          </button>
+                          
+                          {/* Downvote */}
+                          <button
+                            onClick={() => handleVote(comment.commentId, false)}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${
+                              comment.hasDownvoted ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill={comment.hasDownvoted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          
+                          {/* Show Replies */}
+                          {comment.repliesCount > 0 && (
+                            <button
+                              onClick={() => {
+                                const newExpanded = new Set(expandedReplies);
+                                if (newExpanded.has(comment.commentId)) {
+                                  newExpanded.delete(comment.commentId);
+                                } else {
+                                  newExpanded.add(comment.commentId);
+                                }
+                                setExpandedReplies(newExpanded);
+                              }}
+                              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-teal-500 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                              <span>Show {comment.repliesCount} Replies</span>
+                            </button>
+                          )}
+                          
+                          {/* Reply Button */}
+                          <button
+                            onClick={() => setReplyingTo(replyingTo === comment.commentId ? null : comment.commentId)}
+                            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-teal-500 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            <span>Reply</span>
+                          </button>
+                        </div>
+                        
+                        {/* Reply Input */}
+                        {replyingTo === comment.commentId && (
+                          <div className="mt-4 pl-4 border-l-2 border-teal-200 dark:border-teal-800">
+                            <textarea
+                              value={replyContent}
+                              onChange={(e) => setReplyContent(e.target.value)}
+                              placeholder="Write a reply..."
+                              className="w-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm rounded-lg p-3 min-h-[60px] resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-gray-400 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-700"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  setReplyingTo(null);
+                                  setReplyContent('');
+                                }}
+                                className="px-3 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleAddReply(comment.commentId)}
+                                disabled={!replyContent.trim()}
+                                className="px-3 py-1.5 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                              >
+                                Reply
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -841,9 +1286,96 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         </div>
 
         {/* Right Panel - Code Editor */}
-        <div style={{ width: `${100 - leftPanelWidth}%` }} className="flex flex-col bg-[#1e1e1e] overflow-hidden">
-          {/* Editor */}
-          <div className={`${showOutputPanel || showCustomInput ? 'flex-1' : 'flex-1'}`} style={{ height: showOutputPanel || showCustomInput ? '60%' : '100%' }}>
+        <div ref={rightPanelRef} style={{ width: `${100 - leftPanelWidth}%` }} className="flex flex-col bg-[#1e1e1e] overflow-hidden relative">
+          {/* Top Action Bar - LeetCode Style */}
+          <div className="h-10 bg-[#303030] border-b border-[#404040] flex items-center justify-end px-3 gap-1 shrink-0">
+            {/* Settings */}
+            <div className="relative group">
+              <button className="p-2 text-gray-400 hover:text-gray-200 hover:bg-[#404040] rounded transition-colors">
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[#3c3c3c] text-gray-200 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                Settings
+              </div>
+            </div>
+
+            {/* Run Button */}
+            <div className="relative group">
+              <button
+                onClick={handleRun}
+                disabled={isRunning || isSubmitting}
+                className="p-2 text-gray-400 hover:text-white hover:bg-[#404040] rounded transition-colors disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <svg className="w-[18px] h-[18px] animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5.14v14l11-7-11-7z" />
+                  </svg>
+                )}
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[#3c3c3c] text-gray-200 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                Run Code
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="relative group">
+              <button
+                onClick={handleSubmit}
+                disabled={isRunning || isSubmitting}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2cbb5d] hover:bg-[#26a34f] text-white text-sm font-medium rounded transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                  </svg>
+                )}
+                Submit
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[#3c3c3c] text-gray-200 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                Submit Solution
+              </div>
+            </div>
+
+            {/* Copy Code */}
+            <div className="relative group">
+              <button className="p-2 text-gray-400 hover:text-gray-200 hover:bg-[#404040] rounded transition-colors">
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                </svg>
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[#3c3c3c] text-gray-200 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                Copy Code
+              </div>
+            </div>
+
+            {/* AI Helper */}
+            <div className="relative group">
+              <button className="p-2 text-purple-400 hover:text-purple-300 hover:bg-[#404040] rounded transition-colors">
+                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5 2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5z" />
+                </svg>
+              </button>
+              <div className="absolute top-full right-0 mt-2 px-2 py-1 bg-[#3c3c3c] text-gray-200 text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 shadow-lg">
+                AI Assistant
+              </div>
+            </div>
+          </div>
+
+          {/* Editor - takes remaining space */}
+          <div className="flex-1 min-h-0" style={{ height: (showOutputPanel || showCustomInput) ? `${100 - bottomPanelHeight}%` : '100%' }}>
             <Editor
               height="100%"
               language={supportedLanguages.find(l => l.id === selectedLanguage)?.monacoId || 'python'}
@@ -858,109 +1390,163 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                 automaticLayout: true,
                 tabSize: 4,
                 wordWrap: 'on',
+                padding: { top: 16, bottom: 16 },
               }}
             />
           </div>
 
-          {/* Custom Input Panel */}
-          {showCustomInput && (
-            <div className="border-t border-gray-700 bg-gray-900">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-300">Custom Input</span>
-                </div>
-                <button
-                  onClick={() => setShowCustomInput(false)}
-                  className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <textarea
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Enter your custom input here..."
-                className="w-full h-24 px-4 py-3 bg-gray-800 text-gray-200 text-sm font-mono resize-none focus:outline-none focus:ring-1 focus:ring-teal-500 placeholder-gray-500"
+          {/* Draggable Bottom Panel - LeetCode Style */}
+          {(showOutputPanel || showCustomInput) && (
+            <div 
+              className="flex flex-col bg-[#1e1e1e] overflow-hidden border-t border-gray-700"
+              style={{ height: `${bottomPanelHeight}%` }}
+            >
+              {/* Vertical Resizer - Drag Handle */}
+              <div
+                onMouseDown={handleVerticalMouseDown}
+                className="h-1 bg-[#303030] hover:bg-teal-500 cursor-row-resize flex items-center justify-center group shrink-0 transition-colors"
               />
-            </div>
-          )}
 
-          {/* Output/Test Results Panel */}
-          {showOutputPanel && (
-            <div className="h-48 border-t border-gray-700 bg-gray-900 overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-gray-800">
-                <div className="flex items-center gap-4">
-                  <button className="text-sm font-medium text-teal-400 border-b-2 border-teal-400 pb-1">
-                    {isRunning ? 'Running...' : isSubmitting ? 'Submitting...' : output?.includes('✅') ? 'Accepted' : testResults ? 'Test Results' : 'Output'}
+              {/* Tab Bar - At Top */}
+              <div className="h-10 bg-[#1e1e1e] border-b border-[#303030] flex items-center px-3 shrink-0">
+                <div className="flex items-center gap-0.5">
+                  {/* Testcase Tab */}
+                  <button
+                    onClick={() => {
+                      setShowCustomInput(true);
+                      setShowOutputPanel(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                      showCustomInput && !showOutputPanel
+                        ? 'text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${showCustomInput && !showOutputPanel ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Testcase
+                  </button>
+                  
+                  <span className="text-gray-600 mx-1">|</span>
+                  
+                  {/* Test Result Tab */}
+                  <button
+                    onClick={() => {
+                      setShowOutputPanel(true);
+                      setShowCustomInput(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                      showOutputPanel
+                        ? 'text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    Test Result
                   </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setShowOutputPanel(false);
-                    setOutput(null);
-                    setTestResults(null);
-                  }}
-                  className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {(isRunning || isSubmitting) && (
-                  <div className="flex items-center gap-3 text-gray-400">
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="text-sm">{isRunning ? 'Running your code...' : 'Submitting your solution...'}</span>
+
+              {/* Panel Content */}
+              <div className="flex-1 overflow-y-auto min-h-0 bg-[#1e1e1e]">
+                {/* Custom Input Content */}
+                {showCustomInput && !showOutputPanel && (
+                  <div className="h-full flex flex-col">
+                    <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-400">
+                      <span className="px-2.5 py-1 bg-[#303030] hover:bg-[#3c3c3c] rounded text-gray-300 cursor-pointer">Case 1</span>
+                      <button className="w-6 h-6 flex items-center justify-center hover:bg-[#303030] rounded transition-colors text-gray-500 hover:text-gray-300">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex-1 px-4 pb-4">
+                      <label className="text-xs text-gray-500 mb-2 block font-medium">nums =</label>
+                      <div className="bg-[#303030] rounded-lg p-3 mb-3">
+                        <input
+                          type="text"
+                          value={customInput || '[2,7,11,15]'}
+                          onChange={(e) => setCustomInput(e.target.value)}
+                          className="w-full bg-transparent text-gray-200 text-sm font-mono focus:outline-none"
+                        />
+                      </div>
+                      <label className="text-xs text-gray-500 mb-2 block font-medium">target =</label>
+                      <div className="bg-[#303030] rounded-lg p-3">
+                        <input
+                          type="text"
+                          defaultValue="9"
+                          className="w-full bg-transparent text-gray-200 text-sm font-mono focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
-                {!isRunning && !isSubmitting && output && (
-                  <pre className={`text-sm whitespace-pre-wrap ${output.includes('✅') ? 'text-green-400' : output.includes('❌') ? 'text-red-400' : 'text-gray-300'}`}>{output}</pre>
-                )}
-                {!isRunning && !isSubmitting && testResults && (
-                  <div className="space-y-3">
-                    {testResults.map((result, i) => (
-                      <div key={i} className={`p-3 rounded-lg border ${result.passed ? 'bg-green-900/20 border-green-700' : 'bg-red-900/20 border-red-700'}`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          {result.passed ? (
-                            <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          <span className={`text-sm font-semibold ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
-                            Test Case {i + 1} {result.passed ? 'Passed' : 'Failed'}
-                          </span>
-                        </div>
-                        <div className="grid gap-2 text-xs font-mono">
-                          <div className="flex gap-2">
-                            <span className="text-gray-500 w-16">Input:</span>
-                            <span className="text-gray-300">{result.input}</span>
-                          </div>
-                          <div className="flex gap-2">
-                            <span className="text-gray-500 w-16">Expected:</span>
-                            <span className="text-gray-300">{result.expected}</span>
-                          </div>
-                          {!result.passed && (
-                            <div className="flex gap-2">
-                              <span className="text-gray-500 w-16">Output:</span>
-                              <span className="text-red-400">{result.actual}</span>
-                            </div>
-                          )}
-                        </div>
+
+                {/* Output/Test Results Content */}
+                {showOutputPanel && (
+                  <div className="p-4">
+                    {(isRunning || isSubmitting) && (
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="text-sm">{isRunning ? 'Running your code...' : 'Submitting your solution...'}</span>
                       </div>
-                    ))}
+                    )}
+                    {!isRunning && !isSubmitting && !output && !testResults && (
+                      <div className="text-gray-500 text-sm text-center py-8">
+                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Click "Run" to execute your code
+                      </div>
+                    )}
+                    {!isRunning && !isSubmitting && output && (
+                      <pre className={`text-sm whitespace-pre-wrap ${output.includes('✅') ? 'text-green-400' : output.includes('❌') ? 'text-red-400' : 'text-gray-300'}`}>{output}</pre>
+                    )}
+                    {!isRunning && !isSubmitting && testResults && (
+                      <div className="space-y-3">
+                        {testResults.map((result, i) => (
+                          <div key={i} className={`p-3 rounded-lg border ${result.passed ? 'bg-green-900/20 border-green-700' : 'bg-red-900/20 border-red-700'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              {result.passed ? (
+                                <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                              <span className={`text-sm font-semibold ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
+                                Test Case {i + 1} {result.passed ? 'Passed' : 'Failed'}
+                              </span>
+                            </div>
+                            <div className="grid gap-2 text-xs font-mono">
+                              <div className="flex gap-2">
+                                <span className="text-gray-500 w-16">Input:</span>
+                                <span className="text-gray-300">{result.input}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="text-gray-500 w-16">Expected:</span>
+                                <span className="text-gray-300">{result.expected}</span>
+                              </div>
+                              {!result.passed && (
+                                <div className="flex gap-2">
+                                  <span className="text-gray-500 w-16">Output:</span>
+                                  <span className="text-red-400">{result.actual}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -970,80 +1556,44 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
       </div>
 
       {/* Bottom Bar */}
-      <div className="h-14 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
-        {/* Left: All Problems */}
-        <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      <div className="h-10 bg-[#1e1e1e] border-t border-[#303030] flex items-center justify-between px-4">
+        {/* Left: Problem List */}
+        <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#303030] rounded transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
           </svg>
-          <span className="text-sm font-medium">All Problems</span>
+          <span className="text-sm">Problem List</span>
         </button>
 
         {/* Center: Navigation */}
-        <div className="flex items-center gap-3">
-          <button onClick={onPrevious} disabled={questionIndex === 0} className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <div className="flex items-center gap-1">
+          <button onClick={onPrevious} disabled={questionIndex === 0} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-[#303030] rounded disabled:opacity-40 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{questionIndex + 1}/{totalQuestions}</span>
-          <button onClick={onNext} disabled={questionIndex === totalQuestions - 1} className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <span className="text-sm text-gray-500 px-2">{questionIndex + 1} / {totalQuestions}</span>
+          <button onClick={onNext} disabled={questionIndex === totalQuestions - 1} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-[#303030] rounded disabled:opacity-40 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </button>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCustomInput(!showCustomInput)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              showCustomInput 
-                ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' 
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm font-medium">Custom Input</span>
-          </button>
-          <button
-            onClick={handleRun}
-            disabled={isRunning || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50"
-          >
-            {isRunning ? (
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            <span className="text-sm font-medium">Run</span>
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isRunning || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-            )}
-            <span className="text-sm font-medium">Submit</span>
-          </button>
+        {/* Right: Shortcuts hint */}
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-[#303030] rounded text-gray-400">Ctrl</kbd>
+            <span>+</span>
+            <kbd className="px-1.5 py-0.5 bg-[#303030] rounded text-gray-400">'</kbd>
+            <span className="ml-1">Run</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 bg-[#303030] rounded text-gray-400">Ctrl</kbd>
+            <span>+</span>
+            <kbd className="px-1.5 py-0.5 bg-[#303030] rounded text-gray-400">Enter</kbd>
+            <span className="ml-1">Submit</span>
+          </span>
         </div>
       </div>
     </div>
@@ -1475,18 +2025,121 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Loading State */}
+        {/* Loading Skeleton State */}
         {isLoading && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6 border border-gray-200 dark:border-gray-700 flex items-center justify-center gap-3">
-            <svg className="w-5 h-5 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span className="text-gray-600 dark:text-gray-400">Loading questions...</span>
+          <div className="animate-pulse">
+            {/* Progress & Banner Skeleton */}
+            <div className="flex flex-col lg:flex-row gap-6 mb-8">
+              {/* Progress Card Skeleton */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
+                {/* Progress Ring Skeleton */}
+                <div className="w-[120px] h-[120px] rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0"></div>
+                <div className="space-y-3 min-w-0 flex-1">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                  <div className="flex gap-6">
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Banner Skeleton */}
+              <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 sm:p-6 h-32"></div>
+            </div>
+
+            {/* Table Section Skeleton */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Tabs Skeleton */}
+              <div className="border-b border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex gap-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-24"></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filters Skeleton */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-wrap gap-3">
+                  <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 sm:w-64"></div>
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-24"></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Table Header Skeleton */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
+                <div className="flex gap-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-8"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-32"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden sm:block"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden sm:block"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden md:block"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-24 hidden lg:block"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-28 hidden lg:block"></div>
+                </div>
+              </div>
+
+              {/* Table Rows Skeleton */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      {/* Bookmark */}
+                      <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      {/* Title */}
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 max-w-[300px]"></div>
+                      </div>
+                      {/* Topic */}
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 hidden sm:block"></div>
+                      {/* Difficulty */}
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16 hidden sm:block"></div>
+                      {/* Avg Time */}
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 hidden md:block"></div>
+                      {/* Submissions */}
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-14 hidden lg:block"></div>
+                      {/* Asked In */}
+                      <div className="flex items-center gap-1 hidden lg:flex">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
+                        <div className="flex -space-x-1">
+                          {[...Array(3)].map((_, j) => (
+                            <div key={j} className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full border-2 border-white dark:border-gray-800"></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Skeleton */}
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+                <div className="flex items-center gap-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Progress & Banner Section */}
+        {!isLoading && (
+        <>
         <div className="flex flex-col lg:flex-row gap-6 mb-8">
           {/* Progress Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
@@ -1861,6 +2514,8 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
             </div>
           </div>
         </div>
+        </>
+        )}
       </main>
     </div>
   );
