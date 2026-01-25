@@ -29,10 +29,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
     const [isOpen, setIsOpen] = useState(false);
     const [categorySearch, setCategorySearch] = useState('');
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-        categories: true,
-        price: true,
-        projectType: true,
-        features: true
+        categories: false,
+        price: false,
+        projectType: false,
+        features: false
     });
     const filterRef = useRef<HTMLDivElement>(null);
     const minPriceRef = useRef<HTMLInputElement>(null);
@@ -64,7 +64,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
     const categories = useMemo(() => {
         const uniqueCategories = Array.from(new Set(projects.map(p => p.category)));
         if (categorySearch.trim()) {
-            return uniqueCategories.filter(cat => 
+            return uniqueCategories.filter(cat =>
                 cat.toLowerCase().includes(categorySearch.toLowerCase())
             );
         }
@@ -85,7 +85,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
     const handlePriceInputChange = (index: 0 | 1, value: string) => {
         const numValue = parseInt(value) || (index === 0 ? minPrice : maxPrice);
         const clampedValue = Math.max(minPrice, Math.min(maxPrice, numValue));
-        
+
         if (index === 0) {
             handleMinPriceChange(clampedValue);
         } else {
@@ -153,10 +153,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
         setCategorySearch('');
     };
 
-    const hasActiveFilters = selectedCategories.length > 0 || 
-        priceRange[0] > minPrice || priceRange[1] < maxPrice || 
-        premiumFilter !== 'all' || 
-        hasDocumentation || 
+    const hasActiveFilters = selectedCategories.length > 0 ||
+        priceRange[0] > minPrice || priceRange[1] < maxPrice ||
+        premiumFilter !== 'all' ||
+        hasDocumentation ||
         hasVideo;
 
     const toggleSection = (section: string) => {
@@ -236,10 +236,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                 <span className="ml-2 text-xs font-normal text-orange-500">({selectedCategories.length})</span>
                             )}
                         </label>
-                        <svg 
+                        <svg
                             className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.categories ? 'rotate-180' : ''}`}
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -299,10 +299,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                         <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
                             Price Range: <span className="text-orange-500 font-semibold">₹{priceRange[0].toLocaleString()}</span> - <span className="text-orange-500 font-semibold">₹{priceRange[1].toLocaleString()}</span>
                         </label>
-                        <svg 
+                        <svg
                             className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.price ? 'rotate-180' : ''}`}
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -313,7 +313,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                             {/* Dual Range Slider */}
                             <div className="relative h-8 py-3">
                                 <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-200 dark:bg-gray-700 rounded-full transform -translate-y-1/2"></div>
-                                <div 
+                                <div
                                     className="absolute top-1/2 h-2 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transform -translate-y-1/2"
                                     style={{ left: `${minPercent}%`, width: `${maxPercent - minPercent}%` }}
                                 ></div>
@@ -432,10 +432,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                         <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
                             Project Type
                         </label>
-                        <svg 
+                        <svg
                             className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.projectType ? 'rotate-180' : ''}`}
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -477,10 +477,10 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                 </span>
                             )}
                         </label>
-                        <svg 
+                        <svg
                             className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.features ? 'rotate-180' : ''}`}
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
