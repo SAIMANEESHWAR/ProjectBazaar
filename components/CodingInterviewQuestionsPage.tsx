@@ -96,8 +96,7 @@ interface DiscussionComment {
 }
 
 // Discussion API endpoint
-const DISCUSSION_API = 'https://your-api-id.execute-api.ap-south-2.amazonaws.com/default/coding-questions-discussion';
-// TODO: Replace with your actual API Gateway URL after deploying the Lambda function
+const DISCUSSION_API = 'https://fciixra802.execute-api.ap-south-2.amazonaws.com/default/coding-questions-discussion';
 
 // Supported programming languages
 const supportedLanguages = [
@@ -314,11 +313,10 @@ const Dropdown: React.FC<{
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all ${
-          isOpen
+        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all ${isOpen
             ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
             : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-        }`}
+          }`}
       >
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{displayLabel()}</span>
         <svg
@@ -359,11 +357,10 @@ const Dropdown: React.FC<{
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {multiple && (
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                      isSelected(option.value)
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected(option.value)
                         ? 'bg-teal-500 border-teal-500'
                         : 'border-gray-300 dark:border-gray-600'
-                    }`}>
+                      }`}>
                       {isSelected(option.value) && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -389,7 +386,7 @@ const CompanyLogo: React.FC<{ companyId: string; size?: 'sm' | 'md' | 'lg' }> = 
   const company = companies.find(c => c.id === companyId);
   const sizeClass = size === 'sm' ? 'w-6 h-6' : size === 'md' ? 'w-7 h-7' : 'w-8 h-8';
   const [imgError, setImgError] = useState(false);
-  
+
   // Get the correct logo path
   const getLogoPath = (id: string) => {
     const logoMap: Record<string, string> = {
@@ -446,8 +443,8 @@ const CompanyLogo: React.FC<{ companyId: string; size?: 'sm' | 'md' | 'lg' }> = 
 
   if (imgError) {
     return (
-      <div 
-        className={`${sizeClass} rounded-full overflow-hidden flex items-center justify-center ${getCompanyColor(companyId)} text-white text-xs font-bold shadow-sm`} 
+      <div
+        className={`${sizeClass} rounded-full overflow-hidden flex items-center justify-center ${getCompanyColor(companyId)} text-white text-xs font-bold shadow-sm`}
         title={company?.name || companyId}
       >
         {getCompanyInitial(companyId)}
@@ -457,8 +454,8 @@ const CompanyLogo: React.FC<{ companyId: string; size?: 'sm' | 'md' | 'lg' }> = 
 
   return (
     <div className={`${sizeClass} rounded-full overflow-hidden bg-white shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-center`} title={company?.name || companyId}>
-      <img 
-        src={getLogoPath(companyId)} 
+      <img
+        src={getLogoPath(companyId)}
         alt={company?.name || companyId}
         className="w-full h-full object-contain p-0.5"
         onError={() => setImgError(true)}
@@ -512,7 +509,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
-  
+
   // Discussion state
   const [discussions, setDiscussions] = useState<DiscussionComment[]>([]);
   const [isLoadingDiscussions, setIsLoadingDiscussions] = useState(false);
@@ -578,7 +575,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
         setLeftPanelWidth(Math.min(Math.max(newWidth, 25), 75));
       }
-      
+
       // Vertical resize
       if (isVerticalResizing && rightPanelRef.current) {
         const panelRect = rightPanelRef.current.getBoundingClientRect();
@@ -624,7 +621,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data?.discussions) {
@@ -647,7 +644,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   // Add a new comment
   const handleAddComment = async () => {
     if (!newComment.trim() || !currentUserId) return;
-    
+
     // Optimistic update
     const tempId = `temp-${Date.now()}`;
     const newDiscussion: DiscussionComment = {
@@ -663,10 +660,10 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
       hasUpvoted: false,
       hasDownvoted: false,
     };
-    
+
     setDiscussions(prev => [newDiscussion, ...prev]);
     setNewComment('');
-    
+
     // Send to API
     try {
       const response = await fetch(DISCUSSION_API, {
@@ -680,12 +677,12 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           content: newComment
         })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
           // Replace temp comment with real one
-          setDiscussions(prev => prev.map(d => 
+          setDiscussions(prev => prev.map(d =>
             d.commentId === tempId ? data.data : d
           ));
         }
@@ -704,18 +701,18 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   // Add a reply to a comment
   const handleAddReply = async (parentCommentId: string) => {
     if (!replyContent.trim() || !currentUserId) return;
-    
+
     const replyText = replyContent;
     setReplyContent('');
     setReplyingTo(null);
-    
+
     // Optimistic update - increment reply count
-    setDiscussions(prev => prev.map(d => 
-      d.commentId === parentCommentId 
+    setDiscussions(prev => prev.map(d =>
+      d.commentId === parentCommentId
         ? { ...d, repliesCount: d.repliesCount + 1 }
         : d
     ));
-    
+
     // Send to API
     try {
       const response = await fetch(DISCUSSION_API, {
@@ -730,11 +727,11 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           parentCommentId: parentCommentId
         })
       });
-      
+
       if (!response.ok) {
         // Revert optimistic update on error
-        setDiscussions(prev => prev.map(d => 
-          d.commentId === parentCommentId 
+        setDiscussions(prev => prev.map(d =>
+          d.commentId === parentCommentId
             ? { ...d, repliesCount: Math.max(0, d.repliesCount - 1) }
             : d
         ));
@@ -742,8 +739,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
       }
     } catch (error) {
       // Revert optimistic update on error
-      setDiscussions(prev => prev.map(d => 
-        d.commentId === parentCommentId 
+      setDiscussions(prev => prev.map(d =>
+        d.commentId === parentCommentId
           ? { ...d, repliesCount: Math.max(0, d.repliesCount - 1) }
           : d
       ));
@@ -754,11 +751,11 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   // Vote on a comment
   const handleVote = async (commentId: string, isUpvote: boolean) => {
     if (!currentUserId) return;
-    
+
     // Get current state for this comment
     const currentComment = discussions.find(d => d.commentId === commentId);
     if (!currentComment) return;
-    
+
     // Determine vote type to send
     let voteType: 'upvote' | 'downvote' | 'remove';
     if (isUpvote) {
@@ -766,7 +763,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     } else {
       voteType = currentComment.hasDownvoted ? 'remove' : 'downvote';
     }
-    
+
     // Optimistic update
     setDiscussions(prev => prev.map(d => {
       if (d.commentId === commentId) {
@@ -774,31 +771,31 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           if (d.hasUpvoted) {
             return { ...d, upvotes: d.upvotes - 1, hasUpvoted: false };
           } else {
-            return { 
-              ...d, 
-              upvotes: d.upvotes + 1, 
+            return {
+              ...d,
+              upvotes: d.upvotes + 1,
               downvotes: d.hasDownvoted ? d.downvotes - 1 : d.downvotes,
-              hasUpvoted: true, 
-              hasDownvoted: false 
+              hasUpvoted: true,
+              hasDownvoted: false
             };
           }
         } else {
           if (d.hasDownvoted) {
             return { ...d, downvotes: d.downvotes - 1, hasDownvoted: false };
           } else {
-            return { 
-              ...d, 
-              downvotes: d.downvotes + 1, 
+            return {
+              ...d,
+              downvotes: d.downvotes + 1,
               upvotes: d.hasUpvoted ? d.upvotes - 1 : d.upvotes,
-              hasDownvoted: true, 
-              hasUpvoted: false 
+              hasDownvoted: true,
+              hasUpvoted: false
             };
           }
         }
       }
       return d;
     }));
-    
+
     // Send to API
     try {
       const response = await fetch(DISCUSSION_API, {
@@ -811,7 +808,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           voteType
         })
       });
-      
+
       if (!response.ok) {
         // Revert on error - refetch discussions
         fetchDiscussions();
@@ -899,11 +896,10 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as ProblemTab)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab.id
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab.id
                   ? 'bg-teal-500 text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -952,9 +948,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                         setSelectedLanguage(lang.id);
                         setShowLanguageDropdown(false);
                       }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                        selectedLanguage === lang.id ? 'text-teal-600 font-medium' : 'text-gray-700 dark:text-gray-300'
-                      }`}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLanguage === lang.id ? 'text-teal-600 font-medium' : 'text-gray-700 dark:text-gray-300'
+                        }`}
                     >
                       {lang.name}
                     </button>
@@ -963,7 +958,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
               </>
             )}
           </div>
-          <button 
+          <button
             onClick={() => {
               const starterCode = problemDetails.starterCode[selectedLanguage] || problemDetails.starterCode.python || '';
               setCode(starterCode);
@@ -1156,46 +1151,44 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-sm">
                         {comment.userName.charAt(0).toUpperCase()}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         {/* User Info */}
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-gray-900 dark:text-gray-100 font-medium text-sm">{comment.userName}</span>
                           <span className="text-gray-400 dark:text-gray-500 text-xs">{formatDate(comment.createdAt)}</span>
                         </div>
-                        
+
                         {/* Comment Content */}
                         <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
                           {comment.content}
                         </p>
-                        
+
                         {/* Actions */}
                         <div className="flex items-center gap-4 mt-3">
                           {/* Upvote */}
                           <button
                             onClick={() => handleVote(comment.commentId, true)}
-                            className={`flex items-center gap-1.5 text-sm transition-colors ${
-                              comment.hasUpvoted ? 'text-teal-500' : 'text-gray-400 hover:text-teal-500'
-                            }`}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${comment.hasUpvoted ? 'text-teal-500' : 'text-gray-400 hover:text-teal-500'
+                              }`}
                           >
                             <svg className="w-4 h-4" fill={comment.hasUpvoted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
                             </svg>
                             <span>{comment.upvotes}</span>
                           </button>
-                          
+
                           {/* Downvote */}
                           <button
                             onClick={() => handleVote(comment.commentId, false)}
-                            className={`flex items-center gap-1.5 text-sm transition-colors ${
-                              comment.hasDownvoted ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
-                            }`}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${comment.hasDownvoted ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                              }`}
                           >
                             <svg className="w-4 h-4" fill={comment.hasDownvoted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                           </button>
-                          
+
                           {/* Show Replies */}
                           {comment.repliesCount > 0 && (
                             <button
@@ -1216,7 +1209,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                               <span>Show {comment.repliesCount} Replies</span>
                             </button>
                           )}
-                          
+
                           {/* Reply Button */}
                           <button
                             onClick={() => setReplyingTo(replyingTo === comment.commentId ? null : comment.commentId)}
@@ -1228,7 +1221,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                             <span>Reply</span>
                           </button>
                         </div>
-                        
+
                         {/* Reply Input */}
                         {replyingTo === comment.commentId && (
                           <div className="mt-4 pl-4 border-l-2 border-teal-200 dark:border-teal-800">
@@ -1397,7 +1390,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
 
           {/* Draggable Bottom Panel - LeetCode Style */}
           {(showOutputPanel || showCustomInput) && (
-            <div 
+            <div
               className="flex flex-col bg-[#1e1e1e] overflow-hidden border-t border-gray-700"
               style={{ height: `${bottomPanelHeight}%` }}
             >
@@ -1416,31 +1409,29 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                       setShowCustomInput(true);
                       setShowOutputPanel(false);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                      showCustomInput && !showOutputPanel
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${showCustomInput && !showOutputPanel
                         ? 'text-white'
                         : 'text-gray-500 hover:text-gray-300'
-                    }`}
+                      }`}
                   >
                     <svg className={`w-4 h-4 ${showCustomInput && !showOutputPanel ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Testcase
                   </button>
-                  
+
                   <span className="text-gray-600 mx-1">|</span>
-                  
+
                   {/* Test Result Tab */}
                   <button
                     onClick={() => {
                       setShowOutputPanel(true);
                       setShowCustomInput(false);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                      showOutputPanel
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${showOutputPanel
                         ? 'text-white'
                         : 'text-gray-500 hover:text-gray-300'
-                    }`}
+                      }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1629,13 +1620,13 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch questions');
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.data?.questions && data.data.questions.length > 0) {
           // Map API response to our interface format
           const apiQuestions: CodingQuestion[] = data.data.questions.map((q: any, index: number) => {
@@ -1645,7 +1636,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
               'Medium': 'medium',
               'Hard': 'hard'
             };
-            
+
             return {
               id: q.questionId || q.id || `api-${index}`,
               title: q.title,
@@ -1676,10 +1667,10 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
               }
             };
           });
-          
+
           // Use API questions
           const allQuestions = [...apiQuestions];
-          
+
           // Fetch user progress and merge with questions
           const userId = getCurrentUserId();
           if (userId) {
@@ -1689,7 +1680,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'get_progress', userId })
               });
-              
+
               if (progressResponse.ok) {
                 const progressData = await progressResponse.json();
                 if (progressData.success && progressData.data?.progress) {
@@ -1698,7 +1689,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                   progressData.data.progress.forEach((p: any) => {
                     progressMap.set(p.questionId, p);
                   });
-                  
+
                   // Merge progress with questions
                   const mergedQuestions = allQuestions.map(q => {
                     const progress = progressMap.get(q.id);
@@ -1711,7 +1702,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                     }
                     return q;
                   });
-                  
+
                   setQuestions(mergedQuestions);
                 } else {
                   setQuestions(allQuestions);
@@ -1737,7 +1728,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
         setIsLoading(false);
       }
     };
-    
+
     fetchQuestions();
   }, []);
 
@@ -1835,7 +1826,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
   const getPageNumbers = (): (number | string)[] => {
     const pages: (number | string)[] = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       // Show all pages if total is small
       for (let i = 1; i <= totalPages; i++) {
@@ -1844,31 +1835,31 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
     } else {
       // Always show first page
       pages.push(1);
-      
+
       if (currentPage > 3) {
         pages.push('...');
       }
-      
+
       // Show pages around current page
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
-      
+
       for (let i = start; i <= end; i++) {
         if (!pages.includes(i)) {
           pages.push(i);
         }
       }
-      
+
       if (currentPage < totalPages - 2) {
         pages.push('...');
       }
-      
+
       // Always show last page
       if (!pages.includes(totalPages)) {
         pages.push(totalPages);
       }
     }
-    
+
     return pages;
   };
 
@@ -1892,7 +1883,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
     if (selectedQuestion?.id === questionId) {
       setSelectedQuestion(prev => prev ? { ...prev, isBookmarked: !prev.isBookmarked } : null);
     }
-    
+
     // Sync with API
     const userId = getCurrentUserId();
     if (userId) {
@@ -1947,12 +1938,12 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
     setQuestions(prev => prev.map(q =>
       q.id === questionId ? { ...q, status } : q
     ));
-    
+
     // Also update selected question if it's the current one
     if (selectedQuestion?.id === questionId) {
       setSelectedQuestion(prev => prev ? { ...prev, status } : null);
     }
-    
+
     // Sync with API
     const userId = getCurrentUserId();
     if (userId) {
@@ -2139,382 +2130,380 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
 
         {/* Progress & Banner Section */}
         {!isLoading && (
-        <>
-        <div className="flex flex-col lg:flex-row gap-6 mb-8">
-          {/* Progress Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
-            <div className="relative flex-shrink-0">
-              <ProgressRing progress={(userProgress.solved / userProgress.total) * 100} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {Math.round((userProgress.solved / userProgress.total) * 100)}%
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2 min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Your Progress</span>
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="flex gap-3 sm:gap-6">
-                <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Solved</span>
-                  <p className="text-sm sm:text-lg font-semibold text-teal-600 dark:text-teal-400">{userProgress.solved}/{userProgress.total}</p>
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Attempted</span>
-                  <p className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400">{userProgress.attempted}</p>
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Accuracy</span>
-                  <p className="text-sm sm:text-lg font-semibold text-green-600 dark:text-green-400">{userProgress.accuracy.toFixed(2)}%</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Career Banner */}
-          <div className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 overflow-hidden relative border border-gray-800">
-            <div className="absolute inset-0">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gray-500/10 rounded-full blur-3xl"></div>
-              {/* Subtle pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-            </div>
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                  <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-white font-bold text-base sm:text-lg">Unlock All Company Questions</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm">Get access to 500+ questions from Google, Amazon, Meta & more</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 ml-0 sm:ml-4">
-                {['google', 'amazon', 'meta', 'microsoft'].map((company) => (
-                  <div key={company} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden">
-                    <img src={`/company_logos/${company}.png`} alt={company} className="w-4 h-4 sm:w-6 sm:h-6 object-contain" />
+          <>
+            <div className="flex flex-col lg:flex-row gap-6 mb-8">
+              {/* Progress Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
+                <div className="relative flex-shrink-0">
+                  <ProgressRing progress={(userProgress.solved / userProgress.total) * 100} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      {Math.round((userProgress.solved / userProgress.total) * 100)}%
+                    </span>
                   </div>
-                ))}
-                <span className="text-gray-400 text-xs sm:text-sm ml-1 hidden sm:inline">+16 more</span>
-              </div>
-            </div>
-            <button className="relative z-10 w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="hidden sm:inline">Upgrade to Pro</span>
-              <span className="sm:hidden">Upgrade</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <div className="flex overflow-x-auto scrollbar-hide">
-              {[
-                { id: 'all', label: 'All Questions', shortLabel: 'All', icon: '≡' },
-                { id: 'bookmarks', label: 'Bookmarks', shortLabel: 'Saved', icon: '🔖' },
-                { id: 'attempted', label: 'Attempted', shortLabel: 'Tried', icon: '□' },
-                { id: 'solved', label: 'Solved', shortLabel: 'Done', icon: '☑' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap flex-shrink-0 ${
-                    activeTab === tab.id
-                      ? 'text-teal-600 dark:text-teal-400 border-teal-500'
-                      : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
-                >
-                  <span>{tab.icon}</span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.shortLabel}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Filters Section */}
-          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
-              {/* Search */}
-              <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-md">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search problems..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
+                </div>
+                <div className="space-y-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Your Progress</span>
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex gap-3 sm:gap-6">
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Solved</span>
+                      <p className="text-sm sm:text-lg font-semibold text-teal-600 dark:text-teal-400">{userProgress.solved}/{userProgress.total}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Attempted</span>
+                      <p className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400">{userProgress.attempted}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Accuracy</span>
+                      <p className="text-sm sm:text-lg font-semibold text-green-600 dark:text-green-400">{userProgress.accuracy.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Filter Dropdowns */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Dropdown
-                  label="Difficulty"
-                  options={[
-                    { value: 'very-easy', label: 'Very easy' },
-                    { value: 'easy', label: 'Easy' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'hard', label: 'Hard' },
-                    { value: 'very-hard', label: 'Very hard' },
-                  ]}
-                  value={selectedDifficulties}
-                  onChange={(v) => setSelectedDifficulties(v as string[])}
-                  multiple
-                />
-
-                <Dropdown
-                  label="Status"
-                  options={[
-                    { value: 'all', label: 'All' },
-                    { value: 'unsolved', label: 'Unsolved' },
-                    { value: 'attempted', label: 'Attempted' },
-                    { value: 'solved', label: 'Solved' },
-                  ]}
-                  value={selectedStatus}
-                  onChange={(v) => setSelectedStatus(v as string)}
-                />
-
-                <Dropdown
-                  label="Topics"
-                  options={topics.map(t => ({ value: t, label: t }))}
-                  value={selectedTopics}
-                  onChange={(v) => setSelectedTopics(v as string[])}
-                  multiple
-                  searchable
-                />
-
-                <Dropdown
-                  label="Companies"
-                  options={companies.map(c => ({ value: c.id, label: c.name }))}
-                  value={selectedCompanies}
-                  onChange={(v) => setSelectedCompanies(v as string[])}
-                  multiple
-                  searchable
-                />
-
-                <Dropdown
-                  label="Sort By"
-                  options={[
-                    { value: 'recently-added', label: 'Recently Added' },
-                    { value: 'fastest', label: 'Fastest to solve' },
-                    { value: 'slowest', label: 'Slowest to solve' },
-                    { value: 'easier', label: 'Easier Problems' },
-                    { value: 'harder', label: 'Harder Problems' },
-                  ]}
-                  value={sortBy}
-                  onChange={(v) => setSortBy(v as SortOption)}
-                />
-
-                {/* Pick Random Button */}
-                <button
-                  onClick={pickRandomQuestion}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors shadow-sm"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Pick Random
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8"></th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Problem</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Topic</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Difficulty</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Avg Time</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submissions</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asked In</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {paginatedQuestions.map((question) => (
-                  <tr
-                    key={question.id}
-                    onClick={() => openQuestion(question)}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${getStatusColor(question.status)}`}
-                  >
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleBookmark(question.id);
-                        }}
-                        className="text-gray-400 hover:text-amber-500 transition-colors"
-                      >
-                        {question.isBookmarked ? (
-                          <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                          </svg>
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                        {question.title}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                        {question.topic}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(question.difficulty)}`}>
-                        {getDifficultyLabel(question.difficulty)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {question.avgTime} Mins
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                      {formatNumber(question.submissions)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Asked in</span>
-                        <div className="flex items-center -space-x-1 ml-2">
-                          {question.askedIn.slice(0, 3).map((companyId) => (
-                            <CompanyLogo key={companyId} companyId={companyId} />
-                          ))}
-                        </div>
-                        {question.askedIn.length > 3 && (
-                          <span className="ml-2 text-sm font-medium text-teal-600 dark:text-teal-400">
-                            +{question.askedIn.length - 3}
-                          </span>
-                        )}
+              {/* Career Banner */}
+              <div className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 overflow-hidden relative border border-gray-800">
+                <div className="absolute inset-0">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-gray-500/10 rounded-full blur-3xl"></div>
+                  {/* Subtle pattern overlay */}
+                  <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+                </div>
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full sm:w-auto">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                      <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-base sm:text-lg">Unlock All Company Questions</h3>
+                      <p className="text-gray-400 text-xs sm:text-sm">Get access to 500+ questions from Google, Amazon, Meta & more</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 sm:gap-2 ml-0 sm:ml-4">
+                    {['google', 'amazon', 'meta', 'microsoft'].map((company) => (
+                      <div key={company} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden">
+                        <img src={`/company_logos/${company}.png`} alt={company} className="w-4 h-4 sm:w-6 sm:h-6 object-contain" />
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {filteredQuestions.length === 0 && (
-              <div className="py-16 text-center">
-                <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No questions found</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Showing <span className="font-medium">{startIndex + 1}</span> - <span className="font-medium">{Math.min(endIndex, filteredQuestions.length)}</span> of <span className="font-medium">{filteredQuestions.length}</span> questions
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Per page:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+                    ))}
+                    <span className="text-gray-400 text-xs sm:text-sm ml-1 hidden sm:inline">+16 more</span>
+                  </div>
+                </div>
+                <button className="relative z-10 w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="hidden sm:inline">Upgrade to Pro</span>
+                  <span className="sm:hidden">Upgrade</span>
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              {/* First Page Button */}
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                className="p-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="First Page"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-              </button>
-              
-              {/* Previous Button */}
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              
-              {/* Page Numbers */}
-              {getPageNumbers().map((page, index) => (
-                page === '...' ? (
-                  <span key={`ellipsis-${index}`} className="px-2 py-1 text-gray-400 dark:text-gray-500">...</span>
-                ) : (
+
+            {/* Tabs */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="border-b border-gray-200 dark:border-gray-700">
+                <div className="flex overflow-x-auto scrollbar-hide">
+                  {[
+                    { id: 'all', label: 'All Questions', shortLabel: 'All', icon: '≡' },
+                    { id: 'bookmarks', label: 'Bookmarks', shortLabel: 'Saved', icon: '🔖' },
+                    { id: 'attempted', label: 'Attempted', shortLabel: 'Tried', icon: '□' },
+                    { id: 'solved', label: 'Solved', shortLabel: 'Done', icon: '☑' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
+                          ? 'text-teal-600 dark:text-teal-400 border-teal-500'
+                          : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="sm:hidden">{tab.shortLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filters Section */}
+              <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
+                  {/* Search */}
+                  <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-md">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Search problems..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Filter Dropdowns */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <Dropdown
+                      label="Difficulty"
+                      options={[
+                        { value: 'very-easy', label: 'Very easy' },
+                        { value: 'easy', label: 'Easy' },
+                        { value: 'medium', label: 'Medium' },
+                        { value: 'hard', label: 'Hard' },
+                        { value: 'very-hard', label: 'Very hard' },
+                      ]}
+                      value={selectedDifficulties}
+                      onChange={(v) => setSelectedDifficulties(v as string[])}
+                      multiple
+                    />
+
+                    <Dropdown
+                      label="Status"
+                      options={[
+                        { value: 'all', label: 'All' },
+                        { value: 'unsolved', label: 'Unsolved' },
+                        { value: 'attempted', label: 'Attempted' },
+                        { value: 'solved', label: 'Solved' },
+                      ]}
+                      value={selectedStatus}
+                      onChange={(v) => setSelectedStatus(v as string)}
+                    />
+
+                    <Dropdown
+                      label="Topics"
+                      options={topics.map(t => ({ value: t, label: t }))}
+                      value={selectedTopics}
+                      onChange={(v) => setSelectedTopics(v as string[])}
+                      multiple
+                      searchable
+                    />
+
+                    <Dropdown
+                      label="Companies"
+                      options={companies.map(c => ({ value: c.id, label: c.name }))}
+                      value={selectedCompanies}
+                      onChange={(v) => setSelectedCompanies(v as string[])}
+                      multiple
+                      searchable
+                    />
+
+                    <Dropdown
+                      label="Sort By"
+                      options={[
+                        { value: 'recently-added', label: 'Recently Added' },
+                        { value: 'fastest', label: 'Fastest to solve' },
+                        { value: 'slowest', label: 'Slowest to solve' },
+                        { value: 'easier', label: 'Easier Problems' },
+                        { value: 'harder', label: 'Harder Problems' },
+                      ]}
+                      value={sortBy}
+                      onChange={(v) => setSortBy(v as SortOption)}
+                    />
+
+                    {/* Pick Random Button */}
+                    <button
+                      onClick={pickRandomQuestion}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors shadow-sm"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Pick Random
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8"></th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Problem</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Topic</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Difficulty</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Avg Time</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Submissions</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asked In</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {paginatedQuestions.map((question) => (
+                      <tr
+                        key={question.id}
+                        onClick={() => openQuestion(question)}
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${getStatusColor(question.status)}`}
+                      >
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleBookmark(question.id);
+                            }}
+                            className="text-gray-400 hover:text-amber-500 transition-colors"
+                          >
+                            {question.isBookmarked ? (
+                              <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                              </svg>
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                            {question.title}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                            {question.topic}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(question.difficulty)}`}>
+                            {getDifficultyLabel(question.difficulty)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {question.avgTime} Mins
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {formatNumber(question.submissions)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Asked in</span>
+                            <div className="flex items-center -space-x-1 ml-2">
+                              {question.askedIn.slice(0, 3).map((companyId) => (
+                                <CompanyLogo key={companyId} companyId={companyId} />
+                              ))}
+                            </div>
+                            {question.askedIn.length > 3 && (
+                              <span className="ml-2 text-sm font-medium text-teal-600 dark:text-teal-400">
+                                +{question.askedIn.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {filteredQuestions.length === 0 && (
+                  <div className="py-16 text-center">
+                    <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No questions found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing <span className="font-medium">{startIndex + 1}</span> - <span className="font-medium">{Math.min(endIndex, filteredQuestions.length)}</span> of <span className="font-medium">{filteredQuestions.length}</span> questions
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Per page:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* First Page Button */}
                   <button
-                    key={page}
-                    onClick={() => setCurrentPage(page as number)}
-                    className={`min-w-[36px] px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      currentPage === page
-                        ? 'bg-teal-500 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="First Page"
                   >
-                    {page}
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
                   </button>
-                )
-              ))}
-              
-              {/* Next Button */}
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-              
-              {/* Last Page Button */}
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="p-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Last Page"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
+
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Page Numbers */}
+                  {getPageNumbers().map((page, index) => (
+                    page === '...' ? (
+                      <span key={`ellipsis-${index}`} className="px-2 py-1 text-gray-400 dark:text-gray-500">...</span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page as number)}
+                        className={`min-w-[36px] px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${currentPage === page
+                            ? 'bg-teal-500 text-white shadow-sm'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  ))}
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  {/* Last Page Button */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Last Page"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        </>
+          </>
         )}
       </main>
     </div>
