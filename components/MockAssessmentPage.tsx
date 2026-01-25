@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { useAuth, useNavigation } from '../App';
 import Sidebar from './Sidebar';
@@ -4709,58 +4709,125 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       {/* Leaderboard View */}
       {view === 'leaderboard' && wrapWithSidebar(
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-              <ArrowLeftIcon />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigateToView('list')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <ArrowLeftIcon />
+              </button>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">ðŸ† Leaderboard</h2>
+            </div>
+            <button onClick={() => fetchLeaderboard()} disabled={leaderboardLoading} className="text-sm px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition disabled:opacity-50">
+              {leaderboardLoading ? 'Loading...' : 'Refresh'}
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🏆 Leaderboard</h2>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6">
-              <div className="flex justify-center items-end gap-4">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">
-                    {leaderboard[1]?.avatar}
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[1]?.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[1]?.xp} XP</p>
-                  <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
-                </div>
-                <div className="text-center -mb-4">
-                  <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-400">
-                    {leaderboard[0]?.avatar}
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[0]?.name}</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{leaderboard[0]?.xp} XP</p>
-                  <div className="w-12 h-14 bg-amber-400 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">👑</div>
-                </div>
-                <div className="text-center">
-                  <div className="w-14 h-14 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-xl mb-2 mx-auto border-4 border-orange-300">
-                    {leaderboard[2]?.avatar}
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{leaderboard[2]?.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{leaderboard[2]?.xp} XP</p>
-                  <div className="w-8 h-8 bg-orange-300 dark:bg-orange-700 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">3</div>
+
+          {/* Loading State */}
+          {leaderboardLoading && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 flex flex-col items-center justify-center">
+              <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-500 dark:text-gray-400">Loading leaderboard...</p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!leaderboardLoading && leaderboard.length === 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 flex flex-col items-center justify-center">
+              <div className="text-6xl mb-4">ðŸ†</div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Rankings Yet</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-6">
+                Be the first to complete a mock assessment and claim the top spot on the leaderboard!
+              </p>
+              <button onClick={() => navigateToView('list')} className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition font-medium">
+                Start an Assessment
+              </button>
+            </div>
+          )}
+
+          {/* Leaderboard Content */}
+          {!leaderboardLoading && leaderboard.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6">
+                <div className="flex justify-center items-end gap-4">
+                  {/* 2nd Place */}
+                  {leaderboard[1] ? (
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500 overflow-hidden">
+                        {leaderboard[1].profilePicture ? <img src={leaderboard[1].profilePicture} alt="" className="w-full h-full object-cover" /> : <span>{leaderboard[1].avatar || 'ðŸ‘¤'}</span>}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px]">{leaderboard[1].name || 'User'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{(leaderboard[1].xp || 0).toLocaleString()} XP</p>
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
+                    </div>
+                  ) : (
+                    <div className="text-center opacity-40">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-gray-300 dark:border-gray-500">?</div>
+                      <p className="text-sm font-medium text-gray-500">---</p>
+                      <p className="text-xs text-gray-400">0 XP</p>
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">2</div>
+                    </div>
+                  )}
+                  {/* 1st Place */}
+                  {leaderboard[0] ? (
+                    <div className="text-center -mt-4">
+                      <div className="text-2xl mb-1">ðŸ‘‘</div>
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-amber-300 overflow-hidden">
+                        {leaderboard[0].profilePicture ? <img src={leaderboard[0].profilePicture} alt="" className="w-full h-full object-cover" /> : <span>{leaderboard[0].avatar || 'ðŸ‘¤'}</span>}
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-[120px]">{leaderboard[0].name || 'User'}</p>
+                      <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{(leaderboard[0].xp || 0).toLocaleString()} XP</p>
+                      <div className="w-12 h-14 bg-gradient-to-b from-amber-400 to-amber-500 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold text-white">1</div>
+                    </div>
+                  ) : (
+                    <div className="text-center -mt-4 opacity-40">
+                      <div className="text-2xl mb-1">ðŸ‘‘</div>
+                      <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center text-3xl mb-2 mx-auto border-4 border-gray-200">?</div>
+                      <p className="text-sm font-semibold text-gray-500">---</p>
+                      <p className="text-xs text-gray-400">0 XP</p>
+                      <div className="w-12 h-14 bg-gray-300 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-xl font-bold">1</div>
+                    </div>
+                  )}
+                  {/* 3rd Place */}
+                  {leaderboard[2] ? (
+                    <div className="text-center">
+                      <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-amber-200 dark:border-amber-700 overflow-hidden">
+                        {leaderboard[2].profilePicture ? <img src={leaderboard[2].profilePicture} alt="" className="w-full h-full object-cover" /> : <span>{leaderboard[2].avatar || 'ðŸ‘¤'}</span>}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px]">{leaderboard[2].name || 'User'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{(leaderboard[2].xp || 0).toLocaleString()} XP</p>
+                      <div className="w-10 h-8 bg-amber-200 dark:bg-amber-800 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold text-amber-800 dark:text-amber-200">3</div>
+                    </div>
+                  ) : (
+                    <div className="text-center opacity-40">
+                      <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl mb-2 mx-auto border-4 border-amber-200 dark:border-amber-700">?</div>
+                      <p className="text-sm font-medium text-gray-500">---</p>
+                      <p className="text-xs text-gray-400">0 XP</p>
+                      <div className="w-10 h-8 bg-amber-200 dark:bg-amber-800 rounded-t-lg mx-auto mt-2 flex items-center justify-center text-lg font-bold">3</div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {leaderboard.slice(3).map((entry: LeaderboardEntry) => (
-                <div key={entry.rank} className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <span className="w-8 text-center font-semibold text-gray-500 dark:text-gray-400">{entry.rank}</span>
-                  <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl">{entry.avatar}</div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">{entry.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{entry.testsCompleted} tests • {entry.avgScore}% avg</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-orange-600 dark:text-orange-400">{entry.xp} XP</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{entry.badges} badges</p>
-                  </div>
+              {leaderboard.length > 3 && (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {leaderboard.slice(3).map((entry: LeaderboardEntry) => (
+                    <div key={entry.rank} className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <span className="w-8 text-center font-semibold text-gray-500 dark:text-gray-400">{entry.rank}</span>
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xl overflow-hidden">
+                        {entry.profilePicture ? <img src={entry.profilePicture} alt="" className="w-full h-full object-cover" /> : <span>{entry.avatar || 'ðŸ‘¤'}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-white truncate">{entry.name || 'User'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{entry.testsCompleted || 0} tests â€¢ {(entry.avgScore || 0).toFixed(1)}% avg</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-orange-600 dark:text-orange-400">{(entry.xp || 0).toLocaleString()} XP</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{entry.badges || 0} badges</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
         </div>
       )}
 
