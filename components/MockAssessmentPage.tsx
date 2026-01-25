@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { useAuth, useNavigation } from '../App';
 import Sidebar from './Sidebar';
 import type { DashboardView } from './DashboardPage';
+import { CartProvider, WishlistProvider } from './DashboardPage';
 
 // Lambda API endpoint for Mock Assessments
 const MOCK_ASSESSMENTS_API = 'https://w7k9vplo2j.execute-api.ap-south-2.amazonaws.com/default/mock_assessment_handler';
@@ -260,6 +261,7 @@ interface LeaderboardEntry {
   rank: number;
   name: string;
   avatar: string;
+  profilePicture?: string;
   xp: number;
   testsCompleted: number;
   avgScore: number;
@@ -771,7 +773,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       const output = await fetch(MOCK_ASSESSMENTS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get_leaderboard', userId, limit: 100 })
+        body: JSON.stringify({ action: 'get_leaderboard', limit: 100, timeframe: 'all' })
       });
       if (output.ok) {
         const data = await output.json();
@@ -789,7 +791,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     } finally {
       setLeaderboardLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   // Fetch user progress on mount and when view is relevant
   useEffect(() => {
@@ -1628,11 +1630,130 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
       {activeTab === 'assessment' && (
         <div className="max-w-7xl mx-auto px-4 py-6">
-          {/* Loading State */}
+          {/* Loading State - Skeleton */}
           {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-500">Loading assessments...</p>
+            <div className="animate-pulse">
+              {/* Top Stats Bar Skeleton */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                {/* XP Progress Card Skeleton */}
+                <div className="bg-gradient-to-br from-orange-200 to-amber-200 dark:from-orange-900/40 dark:to-amber-900/40 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-white/30 rounded-lg"></div>
+                      <div>
+                        <div className="h-3 w-16 bg-white/40 rounded mb-1"></div>
+                        <div className="h-4 w-24 bg-white/40 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="h-3 w-12 bg-white/40 rounded mb-1"></div>
+                      <div className="h-5 w-16 bg-white/40 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="w-full bg-white/30 rounded-full h-2"></div>
+                </div>
+
+                {/* Quick Stats Card Skeleton */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="text-center">
+                          <div className="h-6 w-10 bg-gray-200 dark:bg-gray-700 rounded mb-1 mx-auto"></div>
+                          <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  </div>
+                </div>
+
+                {/* Third Card Skeleton */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hidden lg:block">
+                  <div className="h-full flex items-center justify-center">
+                    <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Badges Preview Skeleton */}
+              <div className="bg-gradient-to-br from-white to-amber-50/30 dark:from-gray-800 dark:to-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/30 mb-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-5 w-10 bg-amber-100 dark:bg-amber-900/30 rounded-full"></div>
+                  </div>
+                  <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-2">
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} className="flex-shrink-0 w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Test Type Toggle Skeleton */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                      <div className="h-9 w-32 bg-gray-200 dark:bg-gray-600 rounded-md mr-1"></div>
+                      <div className="h-9 w-32 bg-gray-200 dark:bg-gray-600 rounded-md"></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                      <div className="h-7 w-16 bg-gray-200 dark:bg-gray-600 rounded-md mr-0.5"></div>
+                      <div className="h-7 w-16 bg-gray-200 dark:bg-gray-600 rounded-md"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Difficulty Selector Skeleton */}
+              <div className="flex items-center gap-2 mb-6">
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-7 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                ))}
+              </div>
+
+              {/* Assessment Cards Grid Skeleton */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                    {/* Logo Skeleton */}
+                    <div className="flex flex-col items-center mb-4">
+                      <div className="w-20 h-20 rounded-xl bg-gray-200 dark:bg-gray-700 mb-3"></div>
+                      <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+
+                    {/* Info Skeleton */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      </div>
+                    </div>
+
+                    {/* Button Skeleton */}
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                      <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded mx-auto"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -4648,25 +4769,29 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       );
     }
 
-    // Standalone mode: render with sidebar
+    // Standalone mode: render with sidebar, wrapped in required providers
     return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
-        <Sidebar
-          dashboardMode="buyer"
-          activeView="mock-assessment"
-          setActiveView={handleSidebarNavigation}
-          isOpen={isSidebarOpen}
-          isCollapsed={isSidebarCollapsed}
-          onClose={() => setIsSidebarOpen(false)}
-          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-          onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-        <div className="flex-1 flex flex-col overflow-hidden relative h-full">
-          <div className="flex-1 overflow-y-auto">
-            {content}
+      <WishlistProvider userId={userId}>
+        <CartProvider userId={userId}>
+          <div className="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
+            <Sidebar
+              dashboardMode="buyer"
+              activeView="mock-assessment"
+              setActiveView={handleSidebarNavigation}
+              isOpen={isSidebarOpen}
+              isCollapsed={isSidebarCollapsed}
+              onClose={() => setIsSidebarOpen(false)}
+              onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+              onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            />
+            <div className="flex-1 flex flex-col overflow-hidden relative h-full">
+              <div className="flex-1 overflow-y-auto">
+                {content}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </CartProvider>
+      </WishlistProvider>
     );
   };
 

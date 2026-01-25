@@ -647,23 +647,59 @@ def get_user_progress(body):
 # GET LEADERBOARD
 # ========================================
 def get_leaderboard(body):
-    """Get leaderboard entries."""
+    """Get global leaderboard entries from all users."""
     try:
         limit = body.get('limit', 100)
         offset = body.get('offset', 0)
         timeframe = body.get('timeframe', 'all')
-        user_id = body.get('userId')  # Optional, to get user's rank
+        user_id = body.get('userId')  # Optional, to highlight user's rank
         
-        # Query leaderboard
-        result = leaderboard_table.query(
-            KeyConditionExpression=Key('timeframe').eq(timeframe),
-            ScanIndexForward=False,  # Highest XP first
-            Limit=limit + offset
-        )
+        items = []
         
-        items = result.get('Items', [])
+        # Try to query dedicated leaderboard table first
+        try:
+            result = leaderboard_table.query(
+                KeyConditionExpression=Key('timeframe').eq(timeframe),
+                ScanIndexForward=False,
+                Limit=limit + offset
+            )
+            items = result.get('Items', [])
+        except Exception as e:
+            print(f"Leaderboard table query failed: {str(e)}")
         
-        # Sort by XP (descending)
+        # If leaderboard table is empty, fallback to scanning UserProgress table
+        # This ensures we show all users who have completed assessments
+        if not items:
+            try:
+                # Scan all user progress records
+                scan_result = user_progress_table.scan()
+                progress_items = scan_result.get('Items', [])
+                
+                # Handle pagination for large tables
+                while 'LastEvaluatedKey' in scan_result:
+                    scan_result = user_progress_table.scan(
+                        ExclusiveStartKey=scan_result['LastEvaluatedKey']
+                    )
+                    progress_items.extend(scan_result.get('Items', []))
+                
+                # Convert progress items to leaderboard format
+                for progress in progress_items:
+                    if progress.get('testsCompleted', 0) > 0:  # Only include users who have taken tests
+                        items.append({
+                            'userId': progress.get('userId'),
+                            'name': progress.get('name', f"User {progress.get('userId', '')[:8]}"),
+                            'avatar': progress.get('avatar', '👤'),
+                            'profilePicture': progress.get('profilePicture'),
+                            'xp': progress.get('totalXP', 0),
+                            'testsCompleted': progress.get('testsCompleted', 0),
+                            'avgScore': progress.get('avgScore', 0),
+                            'badges': len([b for b in progress.get('badges', []) if b.get('earned', False)]),
+                            'level': progress.get('level', 1)
+                        })
+            except Exception as e:
+                print(f"UserProgress scan failed: {str(e)}")
+        
+        # Sort by XP (descending) - universal ranking across all users
         items.sort(key=lambda x: x.get('xp', 0), reverse=True)
         
         # Assign ranks
@@ -676,6 +712,7 @@ def get_leaderboard(body):
                 'userId': item.get('userId'),
                 'name': item.get('name', 'User'),
                 'avatar': item.get('avatar', '👤'),
+                'profilePicture': item.get('profilePicture'),
                 'xp': item.get('xp', 0),
                 'testsCompleted': item.get('testsCompleted', 0),
                 'avgScore': item.get('avgScore', 0),
@@ -684,7 +721,7 @@ def get_leaderboard(body):
             }
             leaderboard.append(entry)
             
-            # Check if this is the requested user
+            # Check if this is the requesting user
             if user_id and item.get('userId') == user_id:
                 user_rank = i
         
