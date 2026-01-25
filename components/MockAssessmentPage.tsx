@@ -762,13 +762,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   // Leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(false);
 
   const fetchLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
     try {
       const output = await fetch(MOCK_ASSESSMENTS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get_leaderboard' })
+        body: JSON.stringify({ action: 'get_leaderboard', userId, limit: 100 })
       });
       if (output.ok) {
         const data = await output.json();
@@ -783,8 +785,10 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       }
     } catch (error) {
       console.error('Failed to fetch leaderboard:', error);
+    } finally {
+      setLeaderboardLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // Fetch user progress on mount and when view is relevant
   useEffect(() => {
@@ -1669,28 +1673,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                       className="bg-white rounded-full h-2 transition-all duration-500"
                       style={{ width: `${(userProgress.currentXP / userProgress.nextLevelXP) * 100}%` }}
                     />
-                  </div>
-                </div>
-
-                {/* Daily Challenge Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center text-lg">📅</div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Daily Challenge</p>
-                        <p className="font-medium text-gray-900 dark:text-white text-sm">{dailyChallenge.title}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">+{dailyChallenge.xpReward} XP</p>
-                      <button
-                        onClick={() => navigateToView('daily-challenge')}
-                        className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition mt-1"
-                      >
-                        {dailyChallenge.completed ? 'Completed ✓' : 'Start'}
-                      </button>
-                    </div>
                   </div>
                 </div>
 

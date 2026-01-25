@@ -1,4 +1,4 @@
-import json
+﻿import json
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime, timedelta
