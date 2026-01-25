@@ -75,23 +75,30 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
     setTimeout(() => setIsCartAnimating(false), 300);
   };
 
+  const handleCardClick = () => {
+    onViewDetails?.(project);
+  };
+
   return (
-    <div className="bg-white rounded-xl overflow-hidden group transition-all duration-300 shadow-sm hover:shadow-lg hover:-translate-y-1 border border-gray-200/60 hover:border-orange-100 flex flex-col h-full relative max-w-sm mx-auto w-full">
-      {/* Premium Badge - Smaller & Cleaner */}
+    <div 
+      onClick={handleCardClick}
+      className="bg-white rounded-2xl overflow-hidden group transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1.5 border border-gray-200/60 hover:border-orange-200 flex flex-col h-full relative w-full cursor-pointer"
+    >
+      {/* Premium Badge */}
       {isPremium && (
-        <div className="absolute top-2 left-2 z-10">
+        <div className="absolute top-3 left-3 z-10">
           <div className="relative group/premium">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full blur-[2px] opacity-60"></div>
-            <div className="relative bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md border border-white/20">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full blur-[3px] opacity-60"></div>
+            <div className="relative bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-white/20">
               <PremiumIcon />
-              <span className="text-[10px] text-white font-bold uppercase tracking-wider">Pro</span>
+              <span className="text-xs text-white font-bold uppercase tracking-wider">Pro</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Action Buttons - Top Right */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         {/* Report Button */}
         {userId && (
           <button
@@ -100,10 +107,10 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
               if (onReport) onReport(project);
               else setReportModalOpen(true);
             }}
-            className="p-1.5 rounded-full bg-white/90 hover:bg-red-50 text-gray-500 hover:text-red-500 shadow-sm backdrop-blur-md transition-colors"
+            className="p-2 rounded-full bg-white/90 hover:bg-red-50 text-gray-500 hover:text-red-500 shadow-sm backdrop-blur-md transition-colors"
             title="Report"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </button>
@@ -111,8 +118,11 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
 
         {/* Wishlist Button */}
         <button
-          onClick={handleLikeClick}
-          className={`p-1.5 rounded-full shadow-sm backdrop-blur-md transition-colors ${liked
+          onClick={(e) => {
+            e.stopPropagation();
+            handleLikeClick();
+          }}
+          className={`p-2 rounded-full shadow-sm backdrop-blur-md transition-colors ${liked
             ? 'bg-orange-500 text-white hover:bg-orange-600'
             : 'bg-white/90 text-gray-500 hover:text-orange-500 hover:bg-orange-50'
             } ${isAnimating ? 'animate-pulse' : ''}`}
@@ -121,8 +131,8 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
         </button>
       </div>
 
-      {/* Image Section - Reduced Height */}
-      <div className="relative overflow-hidden bg-gray-100 h-40">
+      {/* Image Section - Larger Height */}
+      <div className="relative overflow-hidden bg-gray-100 h-52">
         <img
           src={imageUrl}
           alt={title}
@@ -130,60 +140,60 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         {/* Type Icon Overlay */}
-        <div className="absolute bottom-2 left-2 flex gap-1">
-          {hasDocumentation && <div className="p-1 bg-white/90 rounded-md shadow-sm" title="Documentation included"><DocsIcon /></div>}
-          {hasExecutionVideo && <div className="p-1 bg-white/90 rounded-md shadow-sm" title="Video included"><VideoIcon /></div>}
+        <div className="absolute bottom-3 left-3 flex gap-2">
+          {hasDocumentation && <div className="p-1.5 bg-white/90 rounded-lg shadow-sm" title="Documentation included"><DocsIcon /></div>}
+          {hasExecutionVideo && <div className="p-1.5 bg-white/90 rounded-lg shadow-sm" title="Video included"><VideoIcon /></div>}
         </div>
       </div>
 
-      {/* Content Section - Compact Layout */}
-      <div className="p-4 flex flex-col flex-1 gap-2">
+      {/* Content Section - Enhanced Layout */}
+      <div className="p-5 flex flex-col flex-1 gap-3">
         {/* Category & Title */}
         <div>
-          <div className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1 opacity-90 truncate">
+          <div className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1.5 opacity-90 truncate">
             {category}
           </div>
-          <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-1 group-hover:text-orange-600 transition-colors" title={title}>
+          <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors" title={title}>
             {title}
           </h3>
         </div>
 
         {/* Description */}
-        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">
           {description}
         </p>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
+        <div className="flex flex-wrap gap-2 mt-auto pt-2">
           {tags.slice(0, 2).map((tag) => (
-            <span key={tag} className="text-[10px] bg-gray-50 text-gray-600 px-2 py-0.5 rounded border border-gray-200 truncate max-w-[80px]">
+            <span key={tag} className="text-xs bg-gray-50 text-gray-600 px-2.5 py-1 rounded-lg border border-gray-200 truncate max-w-[100px]">
               {tag}
             </span>
           ))}
           {tags.length > 2 && (
-            <span className="text-[10px] text-gray-400 px-1">+{tags.length - 2}</span>
+            <span className="text-xs text-gray-400 px-1.5 py-1">+{tags.length - 2}</span>
           )}
         </div>
 
         {/* Footer: Price & Actions */}
-        <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100">
           <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-sm font-bold text-gray-900">₹{price.toFixed(0)}</span>
-              {/* <span className="text-[10px] text-gray-400 line-through">₹{(price * 1.2).toFixed(0)}</span> */}
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-gray-900">₹{price.toFixed(0)}</span>
+              {/* <span className="text-xs text-gray-400 line-through">₹{(price * 1.2).toFixed(0)}</span> */}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleAddToCart}
-              className={`p-2 rounded-lg transition-colors ${inCart
+              className={`p-2.5 rounded-xl transition-all ${inCart
                 ? 'bg-green-100 text-green-700'
                 : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
                 } ${isCartAnimating ? 'scale-90' : ''}`}
               title={inCart ? 'Remove from Cart' : 'Add to Cart'}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {inCart ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 ) : (
@@ -192,8 +202,11 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
               </svg>
             </button>
             <button
-              onClick={() => onViewDetails?.(project)}
-              className="text-xs font-semibold bg-gray-900 text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails?.(project);
+              }}
+              className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-xl hover:bg-gray-800 transition-colors shadow-sm"
             >
               View
             </button>
