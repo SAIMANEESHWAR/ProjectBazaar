@@ -505,12 +505,13 @@ const MyProjectsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header with Stats and View Toggle */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-3">
+            {/* Header with Title, Stats and View Toggle */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-gray-900">My Projects</h2>
                     {!isLoadingProjects && projects.length > 0 && (
-                        <p className="text-sm text-gray-600">
-                            <span className="font-semibold text-gray-900">{projects.length}</span> project{projects.length !== 1 ? 's' : ''} total
+                        <p className="text-sm text-gray-500">
+                            <span className="font-semibold text-gray-700">{projects.length}</span> project{projects.length !== 1 ? 's' : ''} total
                             {filteredAndSortedProjects.length !== projects.length && (
                                 <span className="ml-2 text-orange-600">
                                     ({filteredAndSortedProjects.length} filtered)
@@ -531,33 +532,36 @@ const MyProjectsPage: React.FC = () => {
                     )}
                 </div>
                 {/* View Toggle Buttons */}
-                <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-md transition-all duration-200 ${
-                            viewMode === 'grid'
-                                ? 'bg-white text-orange-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                        title="Grid View"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => setViewMode('table')}
-                        className={`p-2 rounded-md transition-all duration-200 ${
-                            viewMode === 'table'
-                                ? 'bg-white text-orange-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                        title="Table View"
-                    >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                    </button>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500 mr-1">View:</span>
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-md transition-all duration-200 ${
+                                viewMode === 'grid'
+                                    ? 'bg-white text-orange-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                            title="Grid View"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('table')}
+                            className={`p-2 rounded-md transition-all duration-200 ${
+                                viewMode === 'table'
+                                    ? 'bg-white text-orange-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                            title="Table View"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
