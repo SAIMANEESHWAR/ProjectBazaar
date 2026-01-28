@@ -21,11 +21,10 @@ const ToggleButton = ({
 }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-      active
-        ? 'bg-orange-500 text-white shadow-sm'
-        : 'text-gray-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'
-    }`}
+    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${active
+      ? 'bg-orange-500 text-white shadow-sm'
+      : 'text-gray-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'
+      }`}
   >
     {text}
   </button>
@@ -181,14 +180,14 @@ const BrowseFreelancers: React.FC = () => {
   return (
     <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300 min-h-screen">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8 mt-20">
         {/* Page Title */}
         <div className="mb-6">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Browse
           </h1>
-          
+
           {/* Toggle Buttons - positioned right after title */}
           <div className="flex bg-orange-50 dark:bg-orange-900/20 rounded-lg p-1 w-fit">
             <ToggleButton
@@ -322,7 +321,7 @@ const BrowseFreelancers: React.FC = () => {
                         max={30}
                         value={hourlyRateRange[0]}
                         onChange={(e) => setHourlyRateRange([Number(e.target.value), hourlyRateRange[1]])}
-                        className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30"
+                        className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30 pointer-events-none"
                       />
                       <input
                         type="range"
@@ -330,10 +329,11 @@ const BrowseFreelancers: React.FC = () => {
                         max={30}
                         value={hourlyRateRange[1]}
                         onChange={(e) => setHourlyRateRange([hourlyRateRange[0], Number(e.target.value)])}
-                        className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20"
+                        className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20 pointer-events-none"
                       />
                       <style>{`
                         input[type="range"]::-webkit-slider-thumb {
+                          pointer-events: auto;
                           -webkit-appearance: none;
                           appearance: none;
                           width: 20px;
@@ -345,6 +345,7 @@ const BrowseFreelancers: React.FC = () => {
                           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                         }
                         input[type="range"]::-moz-range-thumb {
+                          pointer-events: auto;
                           width: 20px;
                           height: 20px;
                           border-radius: 50%;
@@ -435,36 +436,21 @@ const BrowseFreelancers: React.FC = () => {
 
               {/* Country */}
               <div className="mb-6">
-                <button
-                  onClick={() => toggleSection('country')}
-                  className="w-full flex items-center justify-between mb-3 group"
-                >
-                  <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
-                    Country
-                  </label>
-                  <svg
-                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.country ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">
+                  Country
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm font-medium"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {expandedSections.country && (
-                  <div className="space-y-2">
-                    <select
-                      value={selectedCountry}
-                      onChange={(e) => setSelectedCountry(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm font-medium"
-                    >
-                      <option value="">All Countries</option>
-                      {allCountries.map((country) => (
-                        <option key={country} value={country}>{country}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                    <option value="">All Countries</option>
+                    {allCountries.map((country) => (
+                      <option key={country} value={country}>{country}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>

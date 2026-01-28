@@ -588,8 +588,8 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                     <label
                       key={cat}
                       className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedCategory === cat
-                          ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                         }`}
                     >
                       <input
@@ -683,7 +683,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       max={maxBudget}
                       value={budgetRange[0]}
                       onChange={(e) => setBudgetRange([Number(e.target.value), budgetRange[1]])}
-                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30"
+                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30 pointer-events-none"
                     />
                     <input
                       type="range"
@@ -691,10 +691,11 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       max={maxBudget}
                       value={budgetRange[1]}
                       onChange={(e) => setBudgetRange([budgetRange[0], Number(e.target.value)])}
-                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20"
+                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20 pointer-events-none"
                     />
                     <style>{`
                       input[type="range"]::-webkit-slider-thumb {
+                        pointer-events: auto;
                         -webkit-appearance: none;
                         appearance: none;
                         width: 20px;
@@ -706,6 +707,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                       }
                       input[type="range"]::-moz-range-thumb {
+                        pointer-events: auto;
                         width: 20px;
                         height: 20px;
                         border-radius: 50%;
@@ -939,10 +941,10 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       {/* Project Status Badge */}
                       {project.status && project.status !== 'open' && (
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold mb-2 inline-block ${project.status === 'in_progress'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                            : project.status === 'completed'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                          : project.status === 'completed'
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                           }`}>
                           {project.status === 'in_progress' ? '🎯 Awarded' :
                             project.status === 'completed' ? '✓ Completed' :
@@ -954,8 +956,8 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       <button
                         onClick={() => handleViewProjectDetails(project)}
                         className={`w-full md:w-auto px-6 py-3 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap ${project.status && project.status !== 'open'
-                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                            : 'bg-orange-500 text-white hover:bg-orange-600'
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          : 'bg-orange-500 text-white hover:bg-orange-600'
                           }`}
                       >
                         {project.status && project.status !== 'open'
@@ -1031,8 +1033,8 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                     </h3>
                     <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedProject.type === 'fixed'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                          : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
                         }`}>
                         {selectedProject.type === 'fixed' ? 'Fixed Price' : 'Hourly'}
                       </span>
@@ -1204,8 +1206,8 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       </p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${selectedProject.type === 'fixed'
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
                       }`}>
                       {selectedProject.type === 'fixed' ? 'Fixed' : 'Hourly'}
                     </span>

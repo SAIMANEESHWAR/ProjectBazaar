@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Pagination from './Pagination';
 import OrangeCheckbox from './OrangeCheckbox';
 import type { Freelancer } from '../types/browse';
-import { getAllFreelancers, searchFreelancers } from '../services/freelancersApi';
+import { getAllFreelancers, searchFreelancers, getAvailableSkills, getAvailableCountries } from '../services/freelancersApi';
 import { useAuth } from '../App';
 
 type SortOption = 'most-relevant' | 'highest-rated' | 'lowest-price';
@@ -20,6 +20,8 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   const [hourlyRateRange, setHourlyRateRange] = useState<[number, number]>([10, 100]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [availableSkills, setAvailableSkills] = useState<string[]>([]);
+  const [availableCountries, setAvailableCountries] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState<SortOption>('most-relevant');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -59,11 +61,35 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     fetchFreelancers();
   }, []);
 
+  // Fetch filter metadata
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const [skills, countries] = await Promise.all([
+          getAvailableSkills(),
+          getAvailableCountries()
+        ]);
+        setAvailableSkills(skills);
+        setAvailableCountries(countries);
+      } catch (err) {
+        console.error('Error fetching filter metadata:', err);
+      }
+    };
+    fetchMetadata();
+  }, []);
+
   // Search with API when filters change significantly
   useEffect(() => {
     const searchWithFilters = async () => {
-      if (!searchQuery && selectedSkills.length === 0 && !selectedCountry) {
-        return; // Use local filtering for basic cases
+      // If no filters are active, fetch all freelancers
+      if (!searchQuery && selectedSkills.length === 0 && !selectedCountry && hourlyRateRange[0] === 10 && hourlyRateRange[1] === 100) {
+        try {
+          const { freelancers: data } = await getAllFreelancers(100, 0);
+          setFreelancers(data);
+        } catch (err) {
+          console.error('Error fetching all freelancers:', err);
+        }
+        return;
       }
 
       try {
@@ -78,6 +104,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
         setFreelancers(results);
       } catch (err) {
         console.error('Error searching freelancers:', err);
+        // Ensure we don't crash, maybe set empty content or show error toast
       }
     };
 
@@ -85,18 +112,10 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     return () => clearTimeout(debounceTimer);
   }, [searchQuery, selectedSkills, selectedCountry]);
 
-  // Get unique skills and countries
-  const allSkills = useMemo(() => {
-    const skillsSet = new Set<string>();
-    freelancers.forEach(f => f.skills.forEach(skill => skillsSet.add(skill)));
-    return Array.from(skillsSet).sort();
-  }, [freelancers]);
-
-  const allCountries = useMemo(() => {
-    const countriesSet = new Set<string>();
-    freelancers.forEach(f => countriesSet.add(f.location.country));
-    return Array.from(countriesSet).sort();
-  }, [freelancers]);
+  // Get unique skills and countries - removed derived memos
+  // keeping simpler reference variables for compatibility if needed, but optimally we use state
+  const allSkills = availableSkills;
+  const allCountries = availableCountries;
 
   // Filter and sort freelancers
   const filteredAndSortedFreelancers = useMemo(() => {
@@ -486,7 +505,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                       max={100}
                       value={hourlyRateRange[0]}
                       onChange={(e) => setHourlyRateRange([Number(e.target.value), hourlyRateRange[1]])}
-                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30"
+                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30 pointer-events-none"
                     />
                     <input
                       type="range"
@@ -494,10 +513,11 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                       max={100}
                       value={hourlyRateRange[1]}
                       onChange={(e) => setHourlyRateRange([hourlyRateRange[0], Number(e.target.value)])}
-                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20"
+                      className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20 pointer-events-none"
                     />
                     <style>{`
                       input[type="range"]::-webkit-slider-thumb {
+                        pointer-events: auto;
                         -webkit-appearance: none;
                         appearance: none;
                         width: 20px;
@@ -509,6 +529,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                       }
                       input[type="range"]::-moz-range-thumb {
+                        pointer-events: auto;
                         width: 20px;
                         height: 20px;
                         border-radius: 50%;
@@ -599,36 +620,21 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
 
             {/* Country */}
             <div className="mb-6">
-              <button
-                onClick={() => toggleSection('country')}
-                className="w-full flex items-center justify-between mb-3 group"
-              >
-                <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
-                  Country
-                </label>
-                <svg
-                  className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.country ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">
+                Country
+              </label>
+              <div className="space-y-2">
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => setSelectedCountry(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm font-medium"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedSections.country && (
-                <div className="space-y-2">
-                  <select
-                    value={selectedCountry}
-                    onChange={(e) => setSelectedCountry(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm font-medium"
-                  >
-                    <option value="">All Countries</option>
-                    {allCountries.map((country) => (
-                      <option key={country} value={country}>{country}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                  <option value="">All Countries</option>
+                  {allCountries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>

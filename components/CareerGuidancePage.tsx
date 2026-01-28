@@ -687,7 +687,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 }) => {
     // Get user info from auth context
     const { userId: authUserId, userEmail } = useAuth();
-    
+
     // API keys no longer needed - using static data
 
     // Step 1: Category Selection and Week Plan Selection
@@ -721,7 +721,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 userName: userEmail?.split('@')[0] || 'Student'
             };
         }
-        
+
         // Fallback: Try localStorage userData
         try {
             const userDataStr = localStorage.getItem('userData');
@@ -732,7 +732,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                     userName: userData.fullName || userData.name || userData.email?.split('@')[0] || 'Student'
                 };
             }
-            
+
             // Last resort: 'user' key
             const userStr = localStorage.getItem('user');
             if (userStr) {
@@ -745,7 +745,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         } catch (e) {
             console.error('Error getting user info:', e);
         }
-        
+
         // If absolutely nothing found, return anonymous (this should rarely happen for logged-in users)
         console.warn('No user data found - using anonymous. Please ensure user is logged in.');
         return { userId: 'anonymous', userName: 'Student' };
@@ -769,7 +769,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         quizCompleted: boolean;
     } | null>(null);
     const [isLoadingWeekDetails, setIsLoadingWeekDetails] = useState(false);
-    
+
     // State for viewing completed course details
     const [completedCourseDetails, setCompletedCourseDetails] = useState<any>(null);
     const [isLoadingCompletedCourse, setIsLoadingCompletedCourse] = useState(false);
@@ -803,7 +803,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
             setIsLoadingCompletedCourse(false);
         }
     };
-    
+
     // Fetch completed week details from backend
     const fetchCompletedWeekDetails = async (weekNumber: number) => {
         setIsLoadingWeekDetails(true);
@@ -1299,7 +1299,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
             }
 
             const roadmap = await getRoadmapFromAPI(selectedCategory, totalWeeks, categories);
-            
+
             // Load existing user progress from backend for this specific duration
             const { userId } = getUserInfo();
             try {
@@ -1313,9 +1313,9 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         duration: totalWeeks
                     })
                 });
-                
+
                 const progressData = await progressResponse.json();
-                
+
                 if (progressData.success && progressData.progress && progressData.progress.weeksProgress) {
                     // Merge existing progress with roadmap
                     const existingProgress = progressData.progress.weeksProgress;
@@ -1336,14 +1336,14 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                 console.log('Could not load existing progress:', progressError);
                 // Continue without existing progress
             }
-            
+
             setRoadmapData(roadmap);
             // If roadmap has no weeks, show "No data available" message
             if (!roadmap.weeks || roadmap.weeks.length === 0) {
                 setRoadmapError('No data available for this category. Please add roadmap data in admin dashboard.');
             }
             setRoadmapStep('roadmap');
-            
+
             // Initialize progress on backend if new
             await initializeProgress(roadmap);
         } catch (err: any) {
@@ -1759,7 +1759,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         </>
                                     )}
                                 </button>
-                                
+
                                 <button
                                     onClick={fetchCompletedCourseDetails}
                                     disabled={!selectedCategory || isLoadingCompletedCourse}
@@ -1896,7 +1896,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                 {/* Decorative circles */}
                                                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full"></div>
                                                 <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full"></div>
-                                                
+
                                                 <div className="relative flex items-start gap-4">
                                                     <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
                                                         <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1911,12 +1911,12 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                             </span>
                                                         </div>
                                                         <p className="text-white/80 text-sm">
-                                                            {selectedCompletedWeek.completedAt 
-                                                                ? new Date(selectedCompletedWeek.completedAt).toLocaleDateString('en-US', { 
+                                                            {selectedCompletedWeek.completedAt
+                                                                ? new Date(selectedCompletedWeek.completedAt).toLocaleDateString('en-US', {
                                                                     weekday: 'short',
-                                                                    month: 'short', 
-                                                                    day: 'numeric', 
-                                                                    year: 'numeric' 
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric'
                                                                 })
                                                                 : 'Completed Successfully'}
                                                         </p>
@@ -1936,13 +1936,13 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                                 </svg>
                                                             </div>
                                                             <div className="text-2xl font-black text-gray-900">
-                                                                {selectedCompletedWeek.quizScore !== undefined 
+                                                                {selectedCompletedWeek.quizScore !== undefined
                                                                     ? `${selectedCompletedWeek.quizScore}%`
                                                                     : '100%'}
                                                             </div>
                                                             <div className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-1">Score</div>
                                                         </div>
-                                                        
+
                                                         {/* Accuracy */}
                                                         <div className="text-center p-4">
                                                             <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br from-green-100 to-emerald-50 flex items-center justify-center">
@@ -1951,13 +1951,13 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                                 </svg>
                                                             </div>
                                                             <div className="text-2xl font-black text-green-600">
-                                                                {selectedCompletedWeek.quizScore !== undefined 
+                                                                {selectedCompletedWeek.quizScore !== undefined
                                                                     ? `${selectedCompletedWeek.quizScore}%`
                                                                     : '100%'}
                                                             </div>
                                                             <div className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-1">Accuracy</div>
                                                         </div>
-                                                        
+
                                                         {/* Questions */}
                                                         <div className="text-center p-4">
                                                             <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center">
@@ -2060,7 +2060,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                 <h3 className="text-xl font-bold text-gray-900">Week {week.weekNumber}</h3>
                                                 {week.isCompleted && week.quizCompleted && (
                                                     <span className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                                        ✓ Completed 
+                                                        ✓ Completed
                                                         <span className="text-xs text-gray-400 ml-2">Click to view details</span>
                                                     </span>
                                                 )}
@@ -2085,7 +2085,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                     // Check if week has quiz - if no quiz, mark as complete directly
                                                     const weekData = roadmapData.weeks.find(w => w.weekNumber === week.weekNumber);
                                                     const hasQuiz = weekData?.quiz && weekData.quiz.length > 0;
-                                                    
+
                                                     if (hasQuiz) {
                                                         // Mark as reading completed, will need to take quiz
                                                         const updatedWeeks = roadmapData.weeks.map((w, i) =>
@@ -2218,15 +2218,15 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                             // Check if certificate already exists, otherwise generate new one
                                             const { userId, userName } = getUserInfo();
                                             const categoryName = categories.find(c => c.id === selectedCategory)?.name || roadmapData.careerGoal;
-                                            
+
                                             // Calculate average quiz score from actual data
                                             const quizScores = roadmapData.weeks
                                                 .filter(w => w.quizCompleted && w.quizScore !== undefined)
                                                 .map(w => w.quizScore || 100);
-                                            const avgScore = quizScores.length > 0 
-                                                ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length) 
+                                            const avgScore = quizScores.length > 0
+                                                ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length)
                                                 : 100;
-                                            
+
                                             try {
                                                 // Always call generate_certificate (Lambda will check if one exists)
                                                 const response = await fetch(PROGRESS_API_ENDPOINT, {
@@ -2242,9 +2242,9 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                         score: avgScore
                                                     })
                                                 });
-                                                
+
                                                 const result = await response.json();
-                                                
+
                                                 if (result.success && result.certificate) {
                                                     const cert: Certificate = {
                                                         name: result.certificate.userName || userName,
@@ -2315,36 +2315,31 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
                     <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Week {weeklyQuiz.weekNumber} Quiz</h2>
-                        
+
                         {/* Quiz Result Display */}
                         {quizValidationResult && (
-                            <div className={`mb-6 p-6 rounded-xl border-2 ${
-                                quizValidationResult.passed 
-                                    ? 'bg-green-50 border-green-300' 
+                            <div className={`mb-6 p-6 rounded-xl border-2 ${quizValidationResult.passed
+                                    ? 'bg-green-50 border-green-300'
                                     : 'bg-red-50 border-red-300'
-                            }`}>
+                                }`}>
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${
-                                        quizValidationResult.passed ? 'bg-green-100' : 'bg-red-100'
-                                    }`}>
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${quizValidationResult.passed ? 'bg-green-100' : 'bg-red-100'
+                                        }`}>
                                         {quizValidationResult.passed ? '✓' : '✗'}
                                     </div>
                                     <div>
-                                        <p className={`text-2xl font-bold ${
-                                            quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
-                                        }`}>
+                                        <p className={`text-2xl font-bold ${quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
+                                            }`}>
                                             Score: {quizValidationResult.score}%
                                         </p>
-                                        <p className={`text-sm ${
-                                            quizValidationResult.passed ? 'text-green-600' : 'text-red-600'
-                                        }`}>
+                                        <p className={`text-sm ${quizValidationResult.passed ? 'text-green-600' : 'text-red-600'
+                                            }`}>
                                             {quizValidationResult.passed ? 'Passed!' : 'Try Again'}
                                         </p>
                                     </div>
                                 </div>
-                                <p className={`text-sm ${
-                                    quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
-                                }`}>
+                                <p className={`text-sm ${quizValidationResult.passed ? 'text-green-700' : 'text-red-700'
+                                    }`}>
                                     {quizValidationResult.feedback}
                                 </p>
                             </div>
@@ -2403,13 +2398,13 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     // Step 3.5: Completed Course Details View (Full Summary with Questions & Answers)
     if (roadmapStep === 'completed-view' && completedCourseDetails) {
         const courseDetails = completedCourseDetails;
-        
+
         // Calculate analytics
         const totalWeeks = courseDetails.weeksDetails?.length || 0;
         const avgScore = courseDetails.finalScore || 100;
         const totalTopics = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.mainTopics?.length || 0), 0) || 0;
         const totalQuestions = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0) || 0;
-        
+
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 -m-6 -mt-8 -mb-8 p-0">
                 {/* Full Width Container - No max-width constraint */}
@@ -2419,7 +2414,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         <div className="absolute inset-0 bg-black/10"></div>
                         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
                         <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-                        
+
                         <div className="relative z-10">
                             <button
                                 onClick={() => {
@@ -2519,7 +2514,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 {/* Decorative elements */}
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-300/20 rounded-full -translate-y-16 translate-x-16"></div>
                                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-orange-300/20 rounded-full translate-y-20 -translate-x-20"></div>
-                                
+
                                 <div className="relative z-10 flex items-center justify-between">
                                     <div className="flex items-center gap-6">
                                         <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 via-amber-400 to-orange-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-orange-500/30 animate-pulse">
@@ -2577,7 +2572,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                     <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-8 py-5 relative overflow-hidden">
                                         <div className="absolute inset-0 bg-black/5"></div>
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-                                        
+
                                         <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-5">
                                                 <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white font-black text-2xl border-2 border-white/30">
@@ -2654,16 +2649,14 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                                 {q.options.map((opt: string, oIdx: number) => (
                                                                     <div
                                                                         key={oIdx}
-                                                                        className={`px-5 py-3 rounded-xl transition-all ${
-                                                                            oIdx === q.correctAnswer
+                                                                        className={`px-5 py-3 rounded-xl transition-all ${oIdx === q.correctAnswer
                                                                                 ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-3 border-green-500 shadow-md'
                                                                                 : 'bg-white border-2 border-gray-200'
-                                                                        }`}
+                                                                            }`}
                                                                     >
                                                                         <div className="flex items-center justify-between">
-                                                                            <span className={`font-medium ${
-                                                                                oIdx === q.correctAnswer ? 'text-green-900' : 'text-gray-700'
-                                                                            }`}>
+                                                                            <span className={`font-medium ${oIdx === q.correctAnswer ? 'text-green-900' : 'text-gray-700'
+                                                                                }`}>
                                                                                 {opt}
                                                                             </span>
                                                                             {oIdx === q.correctAnswer && (
@@ -2753,14 +2746,14 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             {/* Decorative elements */}
                             <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-100/50 to-transparent rounded-full -translate-x-16 -translate-y-16"></div>
                             <div className="absolute bottom-0 right-0 w-40 h-40 bg-gradient-to-tl from-amber-100/50 to-transparent rounded-full translate-x-20 translate-y-20"></div>
-                            
+
                             <div className="relative text-center">
                                 <div className="flex justify-center mb-4">
                                     <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full text-white text-sm font-bold shadow-lg">
                                         <span>🎓</span> CERTIFICATE OF COMPLETION
                                     </div>
                                 </div>
-                                
+
                                 <div className="border-4 border-double border-orange-200/50 rounded-2xl p-8 bg-gradient-to-b from-white to-orange-50/30">
                                     <p className="text-lg text-gray-500 mb-2 font-medium">This is to certify that</p>
                                     <p className="text-4xl font-black text-gray-900 mb-4 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
@@ -2769,7 +2762,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                     <p className="text-lg text-gray-500 mb-2 font-medium">has successfully completed the</p>
                                     <p className="text-2xl font-bold text-gray-800 mb-1">{certificate.career}</p>
                                     <p className="text-lg text-gray-500 mb-6 font-medium">Learning Roadmap</p>
-                                    
+
                                     <div className="flex items-center justify-center gap-8 py-4 border-t border-b border-orange-100">
                                         <div className="text-center">
                                             <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Issued On</p>
@@ -2781,7 +2774,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                             <p className="text-lg font-bold text-green-600">{certificate.score}%</p>
                                         </div>
                                     </div>
-                                    
+
                                     {certificate.verificationCode && (
                                         <div className="mt-6 inline-flex items-center gap-3 px-5 py-3 bg-gray-50 rounded-xl border border-gray-200">
                                             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2861,7 +2854,7 @@ interface TrendingCareersSectionProps {
 }
 
 const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers, onExploreRoadmap }) => {
-    const [selectedCareer, setSelectedCareer] = useState<TrendingCareer | null>(null);
+    const [selectedCareer, setSelectedCareer] = useState<TrendingCareer | null>(careers.length > 0 ? careers[0] : null);
 
     return (
         <div className="space-y-6">
@@ -3000,7 +2993,7 @@ interface ProjectIdeasSectionProps {
 
 const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
     const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
-    const [selectedProject, setSelectedProject] = useState<ProjectIdea | null>(null);
+    const [selectedProject, setSelectedProject] = useState<ProjectIdea | null>(ideas.length > 0 ? ideas[0] : null);
 
     const filteredProjects = filterDifficulty === 'all'
         ? ideas

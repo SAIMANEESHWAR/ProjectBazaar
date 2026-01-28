@@ -324,7 +324,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                     max={maxPrice}
                                     value={priceRange[0]}
                                     onChange={(e) => handleMinPriceChange(Number(e.target.value))}
-                                    className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30"
+                                    className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30 pointer-events-none"
                                     style={{
                                         background: 'transparent',
                                         WebkitAppearance: 'none',
@@ -337,7 +337,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                     max={maxPrice}
                                     value={priceRange[1]}
                                     onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
-                                    className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20"
+                                    className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20 pointer-events-none"
                                     style={{
                                         background: 'transparent',
                                         WebkitAppearance: 'none',
@@ -345,6 +345,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                 />
                                 <style>{`
                                     input[type="range"]::-webkit-slider-thumb {
+                                        pointer-events: auto;
                                         -webkit-appearance: none;
                                         appearance: none;
                                         width: 20px;
@@ -361,6 +362,7 @@ const DashboardFilters: React.FC<DashboardFiltersProps> = ({ projects, onFilterC
                                         box-shadow: 0 3px 8px rgba(249, 115, 22, 0.4);
                                     }
                                     input[type="range"]::-moz-range-thumb {
+                                        pointer-events: auto;
                                         width: 20px;
                                         height: 20px;
                                         border-radius: 50%;
