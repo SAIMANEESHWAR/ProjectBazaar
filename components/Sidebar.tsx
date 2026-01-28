@@ -52,7 +52,7 @@ const buyerNavItems = [
 
 const sellerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Post Project', view: 'post-project' as DashboardView, icon: PostProjectIcon },
+    { name: 'Post Project Bid', view: 'post-project' as DashboardView, icon: PostProjectIcon },
     { name: 'My Projects', view: 'my-projects' as DashboardView, icon: ProjectsIcon },
     { name: 'Purchased Courses', view: 'my-courses' as DashboardView, icon: CoursesIcon },
     { name: 'Earnings', view: 'earnings' as DashboardView, icon: EarningsIcon },

@@ -66,7 +66,7 @@ const viewTitles: Record<DashboardView, string> = {
   'career-guidance': 'Career Guidance Hub',
   'mock-assessment': 'Mock Assessments',
   'coding-questions': 'Coding Interview Questions',
-  'post-project': 'Post a Project',
+  'post-project': 'Post Project Bid',
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({

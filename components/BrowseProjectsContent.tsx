@@ -302,6 +302,11 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
   const filteredAndSortedProjects = useMemo(() => {
     let filtered = [...projects];
 
+    // Filter out current user's own projects - users shouldn't bid on their own projects
+    if (userId) {
+      filtered = filtered.filter(p => p.ownerId !== userId);
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -361,7 +366,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     });
 
     return filtered;
-  }, [projects, searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory]);
+  }, [projects, searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory, userId]);
 
   const clearFilters = () => {
     setProjectType('all');
