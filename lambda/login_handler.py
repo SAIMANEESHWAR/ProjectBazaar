@@ -1,24 +1,195 @@
 import json
+import re
+import uuid
 import boto3
-from boto3.dynamodb.conditions import Key
 from datetime import datetime
+from boto3.dynamodb.conditions import Key
+from decimal import Decimal
 
-# Initialize DynamoDB
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('Users')  # Replace with your actual table name
+# ---------- CONFIG ----------
+USERS_TABLE = "Users"
 
-# Response helper function
-def response(status_code, body):
+EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+
+# ---------- AWS ----------
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table(USERS_TABLE)
+
+# ---------- DECIMAL FIX ----------
+def decimal_to_native(obj):
+    if isinstance(obj, list):
+        return [decimal_to_native(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: decimal_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    return obj
+
+# ---------- RESPONSE ----------
+def response(status, body):
     return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        "statusCode": status,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "POST,OPTIONS"
         },
-        'body': json.dumps(body)
+        "body": json.dumps(decimal_to_native(body))
     }
+
+# ---------- PASSWORD VALIDATION ----------
+def get_password_error(password):
+    if len(password) < 8:
+        return "Password must be at least 8 characters long"
+    if not re.search(r"[a-z]", password):
+        return "Password must contain at least one lowercase letter"
+    if not re.search(r"[A-Z]", password):
+        return "Password must contain at least one uppercase letter"
+    if not re.search(r"\d", password):
+        return "Password must contain at least one number"
+    if not re.search(r"[@$!%*?&#^()_+=\-\[\]{}|\\:;\"'<>,./]", password):
+        return "Password must contain at least one special character"
+    return None
+
+# ---------- MAIN HANDLER ----------
+def lambda_handler(event, context):
+    try:
+        body = json.loads(event.get("body", "{}"))
+        action = body.get("action")
+
+        if action == "signup":
+            return handle_signup(body)
+        elif action == "login":
+            return handle_login(body)
+
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid action"
+            }
+        })
+
+    except Exception as e:
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "Server error",
+                "details": str(e)
+            }
+        })
+
+# ---------- SIGNUP ----------
+def handle_signup(body):
+    email = body.get("email", "").lower().strip()
+    phone = body.get("phoneNumber", "")
+    password = body.get("password")
+    confirm_password = body.get("confirmPassword")
+
+    if not email or not phone or not password or not confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "All fields are required"
+            }
+        })
+
+    if not re.match(EMAIL_REGEX, email):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid email format"
+            }
+        })
+
+    if password != confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Passwords do not match"
+            }
+        })
+
+    password_error = get_password_error(password)
+    if password_error:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "PASSWORD_TOO_WEAK",
+                "message": password_error
+            }
+        })
+
+    # ---------- CHECK EMAIL EXISTS ----------
+    existing = table.scan(
+        FilterExpression=Key("email").eq(email)
+    )
+
+    if existing["Count"] > 0:
+        return response(409, {
+            "success": False,
+            "error": {
+                "code": "EMAIL_ALREADY_EXISTS",
+                "message": "Email already registered"
+            }
+        })
+
+    user_id = str(uuid.uuid4())
+    now = datetime.utcnow().isoformat()
+
+    table.put_item(Item={
+        "userId": user_id,
+        "email": email,
+        "phoneNumber": phone,
+        "passwordHash": password,  # ⚠️ HASH IN PRODUCTION
+        "role": "user",
+        "status": "active",
+
+        "emailVerified": False,
+        "phoneVerified": False,
+
+        "isPremium": False,
+        "subscription": {
+            "plan": "free",
+            "startedAt": None,
+            "expiresAt": None
+        },
+
+        "credits": 0,
+        "projectsCount": 0,
+        "totalPurchases": 0,
+        "totalSpent": 0,
+
+        "wishlist": [],
+        "cart": [],
+        "purchases": [],
+
+        "lastLoginAt": None,
+        "loginCount": 0,
+
+        "failedLoginAttempts": 0,
+        "accountLockedUntil": None,
+        "passwordUpdatedAt": now,
+
+        "createdAt": now,
+        "updatedAt": now,
+        "createdBy": "self"
+    })
+
+    return response(200, {
+        "success": True,
+        "message": "User registered successfully",
+        "data": {
+            "userId": user_id,
+            "email": email,
+            "role": "user"
+        }
+    })
 
 # ---------- LOGIN ----------
 def handle_login(body):
@@ -49,60 +220,25 @@ def handle_login(body):
 
     user = result["Items"][0]
 
-    # ---------- STATUS CHECK ----------
-    status = user.get("status", "active")
-
-    if status == "blocked":
-        blocked_until = user.get("accountLockedUntil") or user.get("blockedUntil")
-        
-        # Format the message with date if available
-        if blocked_until:
-            try:
-                # Parse the date and format it nicely
-                blocked_date = datetime.fromisoformat(blocked_until.replace('Z', '+00:00'))
-                formatted_date = blocked_date.strftime("%B %d, %Y at %I:%M %p")
-                message = f"Admin has disabled your account. Your account is disabled until {formatted_date}. Please contact support for more information."
-            except:
-                # If date parsing fails, use the raw date
-                message = f"Admin has disabled your account. Your account is disabled until {blocked_until}. Please contact support for more information."
-        else:
-            message = "Admin has disabled your account. Please contact support for more information."
-        
+    if user.get("status") == "blocked":
         return response(403, {
             "success": False,
             "error": {
                 "code": "ACCOUNT_BLOCKED",
-                "message": message,
-                "blockedUntil": blocked_until
+                "message": "Your account is blocked",
+                "blockedUntil": user.get("accountLockedUntil")
             }
         })
 
-    if status == "deleted":
-        deleted_until = user.get("accountLockedUntil") or user.get("deletedUntil")
-        
-        # Format the message with date if available
-        if deleted_until:
-            try:
-                # Parse the date and format it nicely
-                deleted_date = datetime.fromisoformat(deleted_until.replace('Z', '+00:00'))
-                formatted_date = deleted_date.strftime("%B %d, %Y at %I:%M %p")
-                message = f"Admin has deleted your account. Your account is deleted until {formatted_date}. Please contact support for more information."
-            except:
-                # If date parsing fails, use the raw date
-                message = f"Admin has deleted your account. Your account is deleted until {deleted_until}. Please contact support for more information."
-        else:
-            message = "Admin has deleted your account. Please contact support for more information."
-        
+    if user.get("status") == "deleted":
         return response(403, {
             "success": False,
             "error": {
                 "code": "ACCOUNT_DELETED",
-                "message": message,
-                "deletedUntil": deleted_until
+                "message": "Your account has been deleted"
             }
         })
 
-    # ---------- PASSWORD CHECK ----------
     if password != user["passwordHash"]:
         return response(401, {
             "success": False,
@@ -112,7 +248,6 @@ def handle_login(body):
             }
         })
 
-    # ---------- UPDATE LOGIN META ----------
     table.update_item(
         Key={"userId": user["userId"]},
         UpdateExpression="""
@@ -120,7 +255,7 @@ def handle_login(body):
                 loginCount = if_not_exists(loginCount, :z) + :o
         """,
         ExpressionAttributeValues={
-            ":l": datetime.utcnow().isoformat() + "Z",
+            ":l": datetime.utcnow().isoformat(),
             ":z": 0,
             ":o": 1
         }
@@ -137,40 +272,3 @@ def handle_login(body):
             "status": user["status"]
         }
     })
-
-# Lambda handler
-def lambda_handler(event, context):
-    try:
-        # Handle CORS preflight
-        if event.get('httpMethod') == 'OPTIONS':
-            return response(200, {})
-        
-        # Parse request body
-        if isinstance(event.get('body'), str):
-            body = json.loads(event['body'])
-        else:
-            body = event.get('body', {})
-        
-        # Route to appropriate handler based on action
-        action = body.get('action', '').lower()
-        
-        if action == 'login':
-            return handle_login(body)
-        else:
-            return response(400, {
-                "success": False,
-                "error": {
-                    "code": "INVALID_ACTION",
-                    "message": "Invalid action. Supported actions: login"
-                }
-            })
-            
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return response(500, {
-            "success": False,
-            "error": {
-                "code": "INTERNAL_SERVER_ERROR",
-                "message": "An error occurred processing your request"
-            }
-        })

@@ -197,9 +197,8 @@ const Ripple = memo(function Ripple({
               animationDelay: animationDelay,
               borderStyle: borderStyle,
               borderWidth: '1px',
-              borderColor: `var(--foreground) dark:var(--background) / ${
-                borderOpacity / 100
-              })`,
+              borderColor: `var(--foreground) dark:var(--background) / ${borderOpacity / 100
+                })`,
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
@@ -323,6 +322,7 @@ type Field = {
   type: FieldType;
   placeholder?: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  helperComponent?: React.ReactNode;
 };
 
 type AnimatedFormProps = {
@@ -516,6 +516,7 @@ const AnimatedForm = memo(function AnimatedForm({
                     </p>
                   )}
                 </section>
+                {field.helperComponent}
               </BoxReveal>
             </section>
           ))}

@@ -187,6 +187,53 @@ const iconsArray: OrbitIcon[] = [
   },
 ];
 
+// Password strength validation
+interface PasswordRequirement {
+  id: string;
+  label: string;
+  test: (password: string) => boolean;
+}
+
+const passwordRequirements: PasswordRequirement[] = [
+  { id: 'length', label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { id: 'lowercase', label: 'One lowercase letter', test: (p) => /[a-z]/.test(p) },
+  { id: 'uppercase', label: 'One uppercase letter', test: (p) => /[A-Z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p) => /\d/.test(p) },
+  { id: 'special', label: 'One special character', test: (p) => /[@$!%*?&#^()_+=\-\[\]{}|\\:;"'<>,./]/.test(p) },
+];
+
+const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
+  if (!password) return { score: 0, label: '', color: '' };
+  const passed = passwordRequirements.filter((req) => req.test(password)).length;
+  if (passed <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500' };
+  if (passed <= 2) return { score: 2, label: 'Fair', color: 'bg-orange-500' };
+  if (passed <= 3) return { score: 3, label: 'Good', color: 'bg-yellow-500' };
+  if (passed <= 4) return { score: 4, label: 'Strong', color: 'bg-lime-500' };
+  return { score: 5, label: 'Very Strong', color: 'bg-green-500' };
+};
+
+const PasswordStrengthIndicator: React.FC<{ password: string }> = ({ password }) => {
+  if (!password) return null;
+
+  // Only show requirements that are NOT met
+  const unmetRequirements = passwordRequirements.filter((req) => !req.test(password));
+
+  if (unmetRequirements.length === 0) return null;
+
+  return (
+    <div className="mt-1 space-y-0.5">
+      {unmetRequirements.map((req) => (
+        <p key={req.id} className="text-xs text-red-400 flex items-center gap-1">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          {req.label}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 const AuthPage: React.FC = () => {
   const { navigateTo } = useNavigation();
   const { login } = useAuth();
@@ -264,10 +311,10 @@ const AuthPage: React.FC = () => {
       if (data.success && data.data) {
         // Determine role - check if admin
         const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
-        
+
         // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
-        
+
         // Call the login function with user data
         login(data.data.userId, data.data.email, userRole);
       } else {
@@ -299,10 +346,10 @@ const AuthPage: React.FC = () => {
 
       if (data.success && data.data) {
         const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
-        
+
         // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
-        
+
         login(data.data.userId, data.data.email, userRole);
       }
     } catch (err) {
@@ -371,23 +418,23 @@ const AuthPage: React.FC = () => {
     placeholder: string;
     onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   }> = [
-    {
-      label: 'Email',
-      required: true,
-      type: 'email',
-      placeholder: 'Enter your email address',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'email'),
-    },
-    {
-      label: 'Password',
-      required: true,
-      type: 'password',
-      placeholder: 'Enter your password',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'password'),
-    },
-  ];
+      {
+        label: 'Email',
+        required: true,
+        type: 'email',
+        placeholder: 'Enter your email address',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'email'),
+      },
+      {
+        label: 'Password',
+        required: true,
+        type: 'password',
+        placeholder: 'Enter your password',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'password'),
+      },
+    ];
 
   const signupFields: Array<{
     label: string;
@@ -396,39 +443,41 @@ const AuthPage: React.FC = () => {
     placeholder: string;
     onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   }> = [
-    {
-      label: 'Email',
-      required: true,
-      type: 'email',
-      placeholder: 'Enter your email address',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'email'),
-    },
-    {
-      label: 'PhoneNumber',
-      required: true,
-      type: 'text',
-      placeholder: 'Enter your phone number',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'phoneNumber'),
-    },
-    {
-      label: 'Password',
-      required: true,
-      type: 'password',
-      placeholder: 'Enter your password',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'password'),
-    },
-    {
-      label: 'ConfirmPassword',
-      required: true,
-      type: 'password',
-      placeholder: 'Confirm your password',
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
-        handleInputChange(event, 'confirmPassword'),
-    },
-  ];
+      {
+        label: 'Email',
+        required: true,
+        type: 'email',
+        placeholder: 'Enter your email address',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'email'),
+      },
+      {
+        label: 'PhoneNumber',
+        required: true,
+        type: 'text',
+        placeholder: 'Enter your phone number',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'phoneNumber'),
+      },
+      {
+        label: 'Password',
+        required: true,
+        type: 'password',
+        placeholder: 'Enter your password',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'password'),
+        helperComponent: <PasswordStrengthIndicator password={formData.password} />,
+      },
+      {
+        label: 'ConfirmPassword',
+        required: true,
+        type: 'password',
+        placeholder: 'Confirm your password',
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
+          handleInputChange(event, 'confirmPassword'),
+        helperComponent: <PasswordStrengthIndicator password={formData.confirmPassword} />,
+      },
+    ];
 
   const formFields = {
     header: isLogin ? 'Welcome back' : 'Create an account',
@@ -447,8 +496,8 @@ const AuthPage: React.FC = () => {
           {/* Background Ripple Animation - Centered behind text */}
           <div className='absolute w-full h-full flex items-center justify-center pointer-events-none z-0'>
             <div className='relative w-full max-w-2xl h-full flex items-center justify-center'>
-              <Ripple 
-                mainCircleSize={100} 
+              <Ripple
+                mainCircleSize={100}
                 mainCircleOpacity={0.24}
                 numCircles={11}
                 className='!max-w-full'
