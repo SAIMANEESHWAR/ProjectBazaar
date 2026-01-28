@@ -505,13 +505,12 @@ const MyProjectsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header with Title, Stats and View Toggle */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-bold text-gray-900">My Projects</h2>
+            {/* Header with Stats and View Toggle */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
                     {!isLoadingProjects && projects.length > 0 && (
-                        <p className="text-sm text-gray-500">
-                            <span className="font-semibold text-gray-700">{projects.length}</span> project{projects.length !== 1 ? 's' : ''} total
+                        <p className="text-sm text-gray-600">
+                            <span className="font-semibold text-gray-900">{projects.length}</span> project{projects.length !== 1 ? 's' : ''} total
                             {filteredAndSortedProjects.length !== projects.length && (
                                 <span className="ml-2 text-orange-600">
                                     ({filteredAndSortedProjects.length} filtered)
