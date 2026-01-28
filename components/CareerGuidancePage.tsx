@@ -1791,8 +1791,53 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     if (roadmapStep === 'roadmap' && roadmapData) {
         if (isGeneratingRoadmap) {
             return (
-                <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 p-8 flex items-center justify-center">
-                    <LoadingSpinner message="Generating your personalized learning roadmap..." />
+                <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
+                    <div className="w-full max-w-7xl mx-auto">
+                        {/* Skeleton Header */}
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 mb-6 animate-pulse">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <div className="h-8 bg-gray-200 rounded-lg w-64 mb-2"></div>
+                                    <div className="h-4 bg-gray-100 rounded w-48"></div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="h-8 bg-orange-100 rounded w-16 mb-1 ml-auto"></div>
+                                    <div className="h-3 bg-gray-100 rounded w-24"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Skeleton Weeks */}
+                        <div className="grid gap-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="bg-white border-2 border-gray-100 rounded-xl p-6 animate-pulse">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-gray-200"></div>
+                                            <div>
+                                                <div className="h-6 bg-gray-200 rounded w-32 mb-2"></div>
+                                                <div className="h-4 bg-gray-100 rounded w-24"></div>
+                                            </div>
+                                        </div>
+                                        <div className="w-24 h-10 bg-gray-200 rounded-lg"></div>
+                                    </div>
+                                    <div className="ml-16 space-y-6">
+                                        <div className="h-4 bg-gray-100 rounded w-1/3 mb-4"></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-4">
+                                                <div className="p-4 bg-gray-50 rounded-2xl h-32"></div>
+                                                <div className="p-4 bg-gray-50 rounded-2xl h-32"></div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="p-4 bg-gray-50 rounded-2xl h-24"></div>
+                                                <div className="p-4 bg-gray-50 rounded-2xl h-40"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -2319,8 +2364,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         {/* Quiz Result Display */}
                         {quizValidationResult && (
                             <div className={`mb-6 p-6 rounded-xl border-2 ${quizValidationResult.passed
-                                    ? 'bg-green-50 border-green-300'
-                                    : 'bg-red-50 border-red-300'
+                                ? 'bg-green-50 border-green-300'
+                                : 'bg-red-50 border-red-300'
                                 }`}>
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${quizValidationResult.passed ? 'bg-green-100' : 'bg-red-100'
@@ -2650,8 +2695,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                                     <div
                                                                         key={oIdx}
                                                                         className={`px-5 py-3 rounded-xl transition-all ${oIdx === q.correctAnswer
-                                                                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-3 border-green-500 shadow-md'
-                                                                                : 'bg-white border-2 border-gray-200'
+                                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-3 border-green-500 shadow-md'
+                                                                            : 'bg-white border-2 border-gray-200'
                                                                             }`}
                                                                     >
                                                                         <div className="flex items-center justify-between">
@@ -3453,7 +3498,6 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
     const tabs = [
         { id: 'trending' as CareerTab, label: 'Trending Careers', icon: <TrendingIcon /> },
-        { id: 'recommend' as CareerTab, label: 'Career Match', icon: <TargetIcon /> },
         { id: 'roadmap' as CareerTab, label: 'Roadmap', icon: <RoadmapIcon /> },
         { id: 'placement' as CareerTab, label: 'Placement Prep', icon: <PlacementIcon /> },
         { id: 'projects' as CareerTab, label: 'Project Ideas', icon: <ProjectIcon /> },
@@ -3493,7 +3537,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="mb-8">
+                <div className="mb-8 flex justify-center">
                     <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
                         {tabs.map(tab => (
                             <button
@@ -3572,72 +3616,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                         </div>
                     )}
 
-                    {/* Career Recommendation Tab */}
-                    {activeTab === 'recommend' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                            {recommendStep < 4 && (
-                                <>
-                                    <ProgressBar step={recommendStep} totalSteps={4} />
 
-                                    {recommendStep === 0 && (
-                                        <Selector
-                                            title={questions[0].title}
-                                            subtitle={questions[0].subtitle}
-                                            options={specializationOptions}
-                                            setOptions={setSpecializationOptions}
-                                            onContinue={handleContinue}
-                                            placeholder="Add your specialization..."
-                                        />
-                                    )}
-
-                                    {recommendStep === 1 && (
-                                        <Selector
-                                            title={questions[1].title}
-                                            subtitle={questions[1].subtitle}
-                                            options={interestOptions}
-                                            setOptions={setInterestOptions}
-                                            onContinue={handleContinue}
-                                            placeholder="Add your interest..."
-                                        />
-                                    )}
-
-                                    {recommendStep === 2 && (
-                                        <Selector
-                                            title={questions[2].title}
-                                            subtitle={questions[2].subtitle}
-                                            options={skillOptions}
-                                            setOptions={setSkillOptions}
-                                            onContinue={handleContinue}
-                                            placeholder="Add a skill..."
-                                        />
-                                    )}
-
-                                    {recommendStep === 3 && (
-                                        <Selector
-                                            title={questions[3].title}
-                                            subtitle={questions[3].subtitle}
-                                            options={certOptions}
-                                            setOptions={setCertOptions}
-                                            onContinue={handleContinue}
-                                            placeholder="Add a certification..."
-                                        />
-                                    )}
-                                </>
-                            )}
-
-                            {recommendStep === 4 && isLoading && (
-                                <LoadingSpinner message="AI is analyzing your profile..." />
-                            )}
-
-                            {recommendStep === 5 && careerResult && (
-                                <ResultComponent
-                                    result={careerResult}
-                                    onGenerateAgain={resetRecommendation}
-                                    onContinueToRoadmap={handleContinueToRoadmap}
-                                />
-                            )}
-                        </div>
-                    )}
 
                     {/* Roadmap Tab - New Full-Screen Implementation */}
                     {activeTab === 'roadmap' && (
@@ -3674,12 +3653,11 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                         {[
                             { icon: <TrendingIcon />, title: "Trending Careers", desc: "Hot jobs & salaries" },
-                            { icon: <TargetIcon />, title: "AI Career Match", desc: "Find your path" },
                             { icon: <RoadmapIcon />, title: "Learning Roadmap", desc: "Step-by-step guide" },
                             { icon: <PlacementIcon />, title: "Placement Prep", desc: "DSA & interviews" },
                             { icon: <ProjectIcon />, title: "Project Ideas", desc: "Build your portfolio" },
                         ].map((feature, idx) => (
-                            <div key={idx} className="text-center p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-orange-200 transition-all cursor-pointer" onClick={() => setActiveTab(idx === 0 ? 'trending' : idx === 1 ? 'recommend' : idx === 2 ? 'roadmap' : idx === 3 ? 'placement' : 'projects')}>
+                            <div key={idx} className="text-center p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-orange-200 transition-all cursor-pointer" onClick={() => setActiveTab(idx === 0 ? 'trending' : idx === 1 ? 'roadmap' : idx === 2 ? 'placement' : 'projects')}>
                                 <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                                     {feature.icon}
                                 </div>
