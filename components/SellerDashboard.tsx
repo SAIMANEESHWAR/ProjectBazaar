@@ -121,7 +121,7 @@ const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.c
 const GET_REPORTS_ENDPOINT = 'https://0en59tzhoa.execute-api.ap-south-2.amazonaws.com/default/Get_ReportDetails_by_sellerid_buyerId_ReportId';
 const ADMIN_APPROVAL_ENDPOINT = 'https://wt58x2f09d.execute-api.ap-south-2.amazonaws.com/default/Admin_approved_or_rejected';
 const MAX_IMAGE_SIZE_MB = 10;
-const MAX_IMAGES = 5;
+
 
 const PROJECT_CATEGORIES = [
     "Full Stack Web Development",

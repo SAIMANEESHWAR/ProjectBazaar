@@ -19,7 +19,7 @@ interface ProjectDashboardCardProps {
     showActions?: boolean;
 }
 
-const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category, adminComment, adminAction, projectId, onToggleStatus, onEdit, onDelete, showActions = false }) => {
+const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domain, description, logo, tags, status, sales, price, category, adminComment, adminAction, projectId, onToggleStatus, onEdit: _onEdit, onDelete: _onDelete, showActions: _showActions = false }) => {
     // Determine initial state: Active if status is 'Approved' or 'Live', Disabled otherwise
     const isInitiallyActive = status === 'Approved' || status === 'Live';
     const [isEnabled, setIsEnabled] = useState(isInitiallyActive);
@@ -40,10 +40,10 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                         {category && (
                             <p className="text-sm text-gray-500 mb-2">{category}</p>
                         )}
-                        <a 
-                            href={`https://${domain}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                        <a
+                            href={`https://${domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1.5 font-medium transition-colors"
                         >
                             <span>{domain}</span>
@@ -64,23 +64,22 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                         </span>
                     ))}
                 </div>
-                
+
                 {/* Sales, Price, and Status Info */}
                 {(sales !== undefined || price !== undefined || status) && (
                     <div className="mb-4 pt-4 border-t border-gray-100">
                         <div className="flex items-center justify-between gap-4 mb-3">
                             {status && (
-                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                                    status === 'Live' || status === 'Approved'
+                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${status === 'Live' || status === 'Approved'
                                         ? 'bg-green-100 text-green-800'
                                         : status === 'In Review'
-                                        ? 'bg-orange-100 text-orange-800'
-                                        : status === 'Rejected'
-                                        ? 'bg-red-100 text-red-800'
-                                        : status === 'Disabled'
-                                        ? 'bg-gray-200 text-gray-700'
-                                        : 'bg-gray-100 text-gray-800'
-                                }`}>
+                                            ? 'bg-orange-100 text-orange-800'
+                                            : status === 'Rejected'
+                                                ? 'bg-red-100 text-red-800'
+                                                : status === 'Disabled'
+                                                    ? 'bg-gray-200 text-gray-700'
+                                                    : 'bg-gray-100 text-gray-800'
+                                    }`}>
                                     {status}
                                 </span>
                             )}
@@ -112,10 +111,10 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                                 {adminAction && (
                                     <div className="mb-2">
                                         <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                                            {adminAction === 'project_disabled' ? 'Project Disabled' : 
-                                             adminAction === 'first_warning' ? 'First Warning' : 
-                                             adminAction === 'other_action' ? 'Admin Action' : 
-                                             adminAction}
+                                            {adminAction === 'project_disabled' ? 'Project Disabled' :
+                                                adminAction === 'first_warning' ? 'First Warning' :
+                                                    adminAction === 'other_action' ? 'Admin Action' :
+                                                        adminAction}
                                         </span>
                                     </div>
                                 )}
@@ -135,8 +134,8 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                             {isEnabled ? 'Active' : 'Disabled'}
                         </span>
                         <label className={`relative inline-flex items-center ${isUpdating || !projectId || !onToggleStatus || status === 'Draft' || status === 'In Review' || status === 'Rejected' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 checked={isEnabled}
                                 onChange={async () => {
                                     if (!projectId || !onToggleStatus || isUpdating || status === 'Draft' || status === 'In Review' || status === 'Rejected') {
@@ -155,7 +154,7 @@ const ProjectDashboardCard: React.FC<ProjectDashboardCardProps> = ({ name, domai
                                     }
                                 }}
                                 disabled={isUpdating || !projectId || !onToggleStatus || status === 'Draft' || status === 'In Review' || status === 'Rejected'}
-                                className="sr-only peer" 
+                                className="sr-only peer"
                             />
                             <div className={`w-12 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner ${isUpdating ? 'opacity-50' : ''}`}></div>
                         </label>

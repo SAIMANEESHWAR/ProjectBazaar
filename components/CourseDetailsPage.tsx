@@ -15,23 +15,24 @@ interface CourseDetailsPageProps {
     onBack: () => void;
     onPurchaseSuccess?: () => void;
     toggleSidebar?: () => void;
+    isPurchased?: boolean;
 }
 
-const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, onPurchaseSuccess, toggleSidebar }) => {
+const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, onPurchaseSuccess, toggleSidebar, isPurchased }) => {
     const { userId, userEmail, isLoggedIn } = useAuth();
     const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'instructor'>('overview');
     const [selectedPdf, setSelectedPdf] = useState<{ name: string; url: string } | null>(null);
     const [pdfPages, setPdfPages] = useState<Array<{ page: number; url: string }>>([]);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchaseError, setPurchaseError] = useState<string | null>(null);
-    const [isAlreadyPurchased, setIsAlreadyPurchased] = useState(false);
+    const [isAlreadyPurchased, setIsAlreadyPurchased] = useState(isPurchased || false);
     const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
     // Check if user already purchased this course
     useEffect(() => {
         const checkPurchaseStatus = async () => {
             if (!userId) return;
-            
+
             try {
                 const response = await getPurchasedCourses(userId);
                 if (response.success && response.purchasedCourses) {
@@ -94,7 +95,7 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
             // Handle free course enrollment
             if (course.isFree || course.price === 0) {
                 const response = await enrollFreeCourse(userId, course.courseId);
-                
+
                 if (response.success) {
                     setPurchaseSuccess(true);
                     setIsAlreadyPurchased(true);
@@ -281,31 +282,28 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                                 <nav className="flex -mb-px">
                                     <button
                                         onClick={() => setActiveTab('overview')}
-                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                                            activeTab === 'overview'
-                                                ? 'border-orange-500 text-orange-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
+                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'overview'
+                                            ? 'border-orange-500 text-orange-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
                                     >
                                         Overview
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('content')}
-                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                                            activeTab === 'content'
-                                                ? 'border-orange-500 text-orange-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
+                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'content'
+                                            ? 'border-orange-500 text-orange-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
                                     >
                                         Content
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('instructor')}
-                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                                            activeTab === 'instructor'
-                                                ? 'border-orange-500 text-orange-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
+                                        className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'instructor'
+                                            ? 'border-orange-500 text-orange-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
                                     >
                                         Instructor
                                     </button>
@@ -408,11 +406,10 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                                                         <button
                                                             key={index}
                                                             onClick={() => setSelectedPdf(pdf)}
-                                                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                                                                selectedPdf?.url === pdf.url
-                                                                    ? 'border-orange-500 bg-orange-50'
-                                                                    : 'border-gray-200 hover:border-orange-300 bg-white'
-                                                            }`}
+                                                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${selectedPdf?.url === pdf.url
+                                                                ? 'border-orange-500 bg-orange-50'
+                                                                : 'border-gray-200 hover:border-orange-300 bg-white'
+                                                                }`}
                                                         >
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center gap-3">
@@ -569,10 +566,10 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                                             (!course.content.videos || course.content.videos.length === 0) &&
                                             (!course.content.notes || course.content.notes.length === 0) &&
                                             (!course.content.additionalResources || course.content.additionalResources.length === 0) && (
-                                            <div className="text-center py-12 text-gray-500">
-                                                <p>No content available for this course yet.</p>
-                                            </div>
-                                        )}
+                                                <div className="text-center py-12 text-gray-500">
+                                                    <p>No content available for this course yet.</p>
+                                                </div>
+                                            )}
                                     </div>
                                 )}
 
@@ -637,7 +634,7 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
 
                             {/* Purchase Button */}
                             {isAlreadyPurchased || purchaseSuccess ? (
-                                <button 
+                                <button
                                     className="w-full bg-green-500 text-white font-semibold py-3 px-4 rounded-lg mb-4 flex items-center justify-center gap-2"
                                     disabled
                                 >
@@ -647,14 +644,13 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                                     {course.isFree ? 'Enrolled' : 'Purchased'}
                                 </button>
                             ) : (
-                                <button 
+                                <button
                                     onClick={handlePurchase}
                                     disabled={isPurchasing || !isLoggedIn}
-                                    className={`w-full font-semibold py-3 px-4 rounded-lg transition-colors mb-4 flex items-center justify-center gap-2 ${
-                                        isPurchasing || !isLoggedIn
-                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                            : 'bg-orange-500 text-white hover:bg-orange-600'
-                                    }`}
+                                    className={`w-full font-semibold py-3 px-4 rounded-lg transition-colors mb-4 flex items-center justify-center gap-2 ${isPurchasing || !isLoggedIn
+                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                        : 'bg-orange-500 text-white hover:bg-orange-600'
+                                        }`}
                                 >
                                     {isPurchasing ? (
                                         <>

@@ -202,15 +202,6 @@ const passwordRequirements: PasswordRequirement[] = [
   { id: 'special', label: 'One special character', test: (p) => /[@$!%*?&#^()_+=\-\[\]{}|\\:;"'<>,./]/.test(p) },
 ];
 
-const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
-  if (!password) return { score: 0, label: '', color: '' };
-  const passed = passwordRequirements.filter((req) => req.test(password)).length;
-  if (passed <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500' };
-  if (passed <= 2) return { score: 2, label: 'Fair', color: 'bg-orange-500' };
-  if (passed <= 3) return { score: 3, label: 'Good', color: 'bg-yellow-500' };
-  if (passed <= 4) return { score: 4, label: 'Strong', color: 'bg-lime-500' };
-  return { score: 5, label: 'Very Strong', color: 'bg-green-500' };
-};
 
 const PasswordStrengthIndicator: React.FC<{ password: string }> = ({ password }) => {
   if (!password) return null;
@@ -417,6 +408,7 @@ const AuthPage: React.FC = () => {
     type: FieldType;
     placeholder: string;
     onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    helperComponent?: ReactNode;
   }> = [
       {
         label: 'Email',
@@ -442,6 +434,7 @@ const AuthPage: React.FC = () => {
     type: FieldType;
     placeholder: string;
     onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    helperComponent?: ReactNode;
   }> = [
       {
         label: 'Email',
