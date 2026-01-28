@@ -2317,7 +2317,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   const renderHistorySection = () => {
     const renderHistoryCard = (result: TestResult, index: number) => {
-      const percentage = Math.round((result.score / result.totalQuestions) * 100);
+      // Note: result.score is already a percentage (0-100), not the number of correct answers
+      const percentage = Math.round(result.score);
       const isPassed = percentage >= 60;
       const assessment = assessments.find(a => a.id === result.assessmentId);
 
@@ -2356,7 +2357,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
           <div className="grid grid-cols-3 gap-2 mb-4 text-center">
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg py-2">
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">{result.score}/{result.totalQuestions}</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">{result.solved}/{result.totalQuestions}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Score</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg py-2">
@@ -2399,7 +2400,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     };
 
     const renderHistoryList = (result: TestResult, index: number) => {
-      const percentage = Math.round((result.score / result.totalQuestions) * 100);
+      // Note: result.score is already a percentage (0-100), not the number of correct answers
+      const percentage = Math.round(result.score);
       const isPassed = percentage >= 60;
       const assessment = assessments.find(a => a.id === result.assessmentId);
 
@@ -2427,7 +2429,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
             <div className="flex items-center gap-5 sm:gap-6">
               <div className="text-center">
-                <p className="text-base font-semibold text-gray-900 dark:text-white">{result.score}/{result.totalQuestions}</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-white">{result.solved}/{result.totalQuestions}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Score</p>
               </div>
               <div className="text-center">
@@ -2566,19 +2568,19 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
               <p className="text-2xl font-semibold text-emerald-600">
-                {testHistory.filter(r => Math.round((r.score / r.totalQuestions) * 100) >= 60).length}
+                {testHistory.filter(r => Math.round(r.score) >= 60).length}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Tests Passed</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
               <p className="text-2xl font-semibold text-orange-600">
-                {Math.round(testHistory.reduce((acc, r) => acc + (r.score / r.totalQuestions) * 100, 0) / testHistory.length)}%
+                {Math.round(testHistory.reduce((acc, r) => acc + r.score, 0) / testHistory.length)}%
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Avg. Score</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 text-center border border-gray-200 dark:border-gray-700">
               <p className="text-2xl font-semibold text-amber-600">
-                {testHistory.filter(r => Math.round((r.score / r.totalQuestions) * 100) >= 60).length}
+                {testHistory.filter(r => Math.round(r.score) >= 60).length}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Certificates</p>
             </div>
@@ -3981,7 +3983,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               </div>
             </div>
             {/* Show Certificate button only if passed (>= 60%) */}
-            {Math.round((testResult.score / testResult.totalQuestions) * 100) >= 60 && (
+            {Math.round(testResult.score) >= 60 && (
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleViewCertificate}
@@ -4356,8 +4358,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
               {/* Actions */}
               <div className="space-y-3">
-                {/* Download Certificate - Only if passed */}
-                {Math.round((testResult.score / testResult.totalQuestions) * 100) >= 60 && (
+                {/* Download Certificate - Only if passed (score is already a percentage) */}
+                {Math.round(testResult.score) >= 60 && (
                   <button
                     onClick={handleViewCertificate}
                     className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
