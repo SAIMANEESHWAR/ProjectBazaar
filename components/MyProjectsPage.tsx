@@ -470,43 +470,40 @@ const MyProjectsPage: React.FC = () => {
     ];
 
     return (
-        <div className="mt-8">
-            {/* Header with View Toggle */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">My Projects</h2>
-                        {!isLoadingProjects && projects.length > 0 && (
-                            <p className="text-sm text-gray-500 mt-1">
-                                {projects.length} project{projects.length !== 1 ? 's' : ''} total
-                                {filteredAndSortedProjects.length !== projects.length && (
-                                    <span className="ml-2">
-                                        ({filteredAndSortedProjects.length} shown)
-                                    </span>
-                                )}
-                            </p>
-                        )}
-                    </div>
+        <div className="space-y-6">
+            {/* Header with Stats and View Toggle */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                    {!isLoadingProjects && projects.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                            <span className="font-semibold text-gray-900">{projects.length}</span> project{projects.length !== 1 ? 's' : ''} total
+                            {filteredAndSortedProjects.length !== projects.length && (
+                                <span className="ml-2 text-orange-600">
+                                    ({filteredAndSortedProjects.length} filtered)
+                                </span>
+                            )}
+                        </p>
+                    )}
                     {!isLoadingProjects && (
                         <button
                             onClick={fetchProjects}
-                            className="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                             title="Refresh projects"
                         >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
                     )}
                 </div>
                 {/* View Toggle Buttons */}
-                <div className="flex items-center bg-orange-50 rounded-lg p-1 border border-orange-200">
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
                     <button
                         onClick={() => setViewMode('grid')}
                         className={`p-2 rounded-md transition-all duration-200 ${
                             viewMode === 'grid'
-                                ? 'bg-orange-500 text-white shadow-sm'
-                                : 'text-gray-600 hover:text-orange-600'
+                                ? 'bg-white text-orange-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                         }`}
                         title="Grid View"
                     >
@@ -518,8 +515,8 @@ const MyProjectsPage: React.FC = () => {
                         onClick={() => setViewMode('table')}
                         className={`p-2 rounded-md transition-all duration-200 ${
                             viewMode === 'table'
-                                ? 'bg-orange-500 text-white shadow-sm'
-                                : 'text-gray-600 hover:text-orange-600'
+                                ? 'bg-white text-orange-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                         }`}
                         title="Table View"
                     >
@@ -530,76 +527,80 @@ const MyProjectsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filters Section */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Search */}
-                    <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <path d="m21 21-4.35-4.35"></path>
-                            </svg>
-                        </span>
-                        <input
-                            type="text"
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            placeholder="Search projects..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+            {/* Filters Section - Improved Layout */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                {/* Main Filters Row */}
+                <div className="flex flex-wrap items-end gap-4">
+                    {/* Search - Takes more space */}
+                    <div className="flex-1 min-w-[200px] max-w-md">
+                        <div className="relative">
+                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                            </span>
+                            <input
+                                type="text"
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                                placeholder="Search projects..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
                     </div>
 
                     {/* Status Filter */}
-                    <div>
+                    <div className="w-40">
                         <select
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm"
                             value={selectedStatus}
                             onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'Live' | 'In Review' | 'Draft')}
                         >
                             <option value="all">All Status</option>
                             <option value="Live">Live</option>
+                            <option value="Approved">Approved</option>
                             <option value="In Review">In Review</option>
                             <option value="Draft">Draft</option>
                         </select>
                     </div>
 
                     {/* Price Range */}
-                    <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-2">Price Range: ${priceRange[0]} - ${priceRange[1]}</label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                min="0"
-                                max="9000"
-                                value={priceRange[0]}
-                                onChange={(e) => setPriceRange([Math.max(0, parseInt(e.target.value) || 0), priceRange[1]])}
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                            <span className="text-gray-500">-</span>
-                            <input
-                                type="number"
-                                min="0"
-                                max="9000"
-                                value={priceRange[1]}
-                                onChange={(e) => setPriceRange([priceRange[0], Math.min(9000, parseInt(e.target.value) || 9000)])}
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            />
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 whitespace-nowrap">Price ₹</span>
+                        <input
+                            type="number"
+                            min="0"
+                            max="9000"
+                            value={priceRange[0]}
+                            onChange={(e) => setPriceRange([Math.max(0, parseInt(e.target.value) || 0), priceRange[1]])}
+                            className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Min"
+                        />
+                        <span className="text-gray-400">-</span>
+                        <input
+                            type="number"
+                            min="0"
+                            max="9000"
+                            value={priceRange[1]}
+                            onChange={(e) => setPriceRange([priceRange[0], Math.min(9000, parseInt(e.target.value) || 9000)])}
+                            className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Max"
+                        />
                     </div>
 
                     {/* Sort By */}
-                    <div className="relative">
+                    <div className="relative w-36">
                         <button
                             onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                            className={`w-full flex items-center justify-between px-4 py-2 border rounded-lg transition-colors ${
+                            className={`w-full flex items-center justify-between px-3 py-2.5 border rounded-lg transition-colors text-sm ${
                                 isSortDropdownOpen
-                                    ? 'border-orange-500 bg-white'
+                                    ? 'border-orange-500 bg-orange-50'
                                     : 'border-gray-300 hover:bg-gray-50'
                             }`}
                         >
-                            <span className="text-sm font-medium text-gray-700">Sort by</span>
-                            <svg className="h-4 w-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <span className="text-gray-700">Sort by</span>
+                            <svg className={`h-4 w-4 text-gray-500 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
@@ -610,7 +611,7 @@ const MyProjectsPage: React.FC = () => {
                                     className="fixed inset-0 z-10"
                                     onClick={() => setIsSortDropdownOpen(false)}
                                 ></div>
-                                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-20">
                                     <div className="py-1">
                                         {sortOptions.map((option) => (
                                             <button
@@ -619,21 +620,20 @@ const MyProjectsPage: React.FC = () => {
                                                     setSortOption(option.value);
                                                     setIsSortDropdownOpen(false);
                                                 }}
-                                                className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between group"
+                                                className={`w-full px-4 py-2.5 text-left hover:bg-orange-50 flex items-center justify-between ${sortOption === option.value ? 'bg-orange-50' : ''}`}
                                             >
                                                 <div className="flex items-center">
-                                                    {sortOption === option.value && (
-                                                        <svg className="h-5 w-5 mr-2 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    {sortOption === option.value ? (
+                                                        <svg className="h-4 w-4 mr-2 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                             <polyline points="20 6 9 17 4 12"></polyline>
                                                         </svg>
-                                                    )}
-                                                    {sortOption !== option.value && (
-                                                        <div className="w-5 mr-2"></div>
+                                                    ) : (
+                                                        <div className="w-4 mr-2"></div>
                                                     )}
                                                     <span className="text-sm text-gray-700">{option.label}</span>
                                                 </div>
                                                 {option.subtext && (
-                                                    <span className="text-xs text-gray-500">{option.subtext}</span>
+                                                    <span className="text-xs text-gray-400">{option.subtext}</span>
                                                 )}
                                             </button>
                                         ))}
@@ -642,33 +642,9 @@ const MyProjectsPage: React.FC = () => {
                             </>
                         )}
                     </div>
-                </div>
 
-                {/* Category Filters */}
-                {categories.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Categories:</label>
-                        <div className="flex flex-wrap gap-2">
-                            {categories.map((category) => (
-                                <button
-                                    key={category}
-                                    onClick={() => toggleCategory(category)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                                        selectedCategories.includes(category)
-                                            ? 'bg-orange-500 text-white shadow-sm'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {category}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Clear Filters */}
-                {(searchQuery || selectedStatus !== 'all' || selectedCategories.length > 0 || priceRange[1] < 9000) && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    {/* Clear Filters Button */}
+                    {(searchQuery || selectedStatus !== 'all' || selectedCategories.length > 0 || priceRange[0] > 0 || priceRange[1] < 9000) && (
                         <button
                             onClick={() => {
                                 setSearchQuery('');
@@ -676,10 +652,32 @@ const MyProjectsPage: React.FC = () => {
                                 setSelectedCategories([]);
                                 setPriceRange([0, 9000]);
                             }}
-                            className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                            className="px-3 py-2.5 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg font-medium transition-colors"
                         >
-                            Clear all filters
+                            Clear filters
                         </button>
+                    )}
+                </div>
+
+                {/* Category Filters */}
+                {categories.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Categories:</span>
+                            {categories.map((category) => (
+                                <button
+                                    key={category}
+                                    onClick={() => toggleCategory(category)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                        selectedCategories.includes(category)
+                                            ? 'bg-orange-500 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {category}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
