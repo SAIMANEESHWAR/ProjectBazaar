@@ -1256,10 +1256,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     setCustomTestInput('');
     setCustomTestOutput('');
 
-    // Enter fullscreen mode only if anti-cheat is enabled
-    if (antiCheatMode) {
-      enterFullScreen();
-    }
+    // Enter fullscreen mode for both anti-cheat and cheated modes
+    enterFullScreen();
   };
 
   const handleAnswerSelect = (optionIndex: number) => {
@@ -2777,7 +2775,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             {!antiCheatMode && (
               <li className="flex gap-2">
                 <span className="font-medium text-gray-900 dark:text-white">4.</span>
-                <span><strong>Cheated Mode:</strong> Copy/paste and tab switching are allowed. No restrictions applied.</span>
+                <span><strong>Cheated Mode:</strong> Copy/paste and tab switching are allowed. Fullscreen mode is still required.</span>
               </li>
             )}
           </ol>
