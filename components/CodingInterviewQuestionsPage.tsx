@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import Lottie from 'lottie-react';
 import Editor from '@monaco-editor/react';
+import noCodingQuestionAnimation from '../lottiefiles/no_coding_question_animation.json';
 
 // Lambda API endpoints
 const CODING_QUESTIONS_API = 'https://6918395pal.execute-api.ap-south-2.amazonaws.com/default/coding-questions-service';
@@ -2805,9 +2807,13 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
 
                 {filteredQuestions.length === 0 && (
                   <div className="py-16 text-center">
-                    <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <div className="mx-auto mb-4 w-full max-w-[380px] h-[280px] flex items-center justify-center">
+                      <Lottie
+                        animationData={noCodingQuestionAnimation}
+                        loop
+                        className="w-full h-full"
+                      />
+                    </div>
                     <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No questions found</p>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
                   </div>
