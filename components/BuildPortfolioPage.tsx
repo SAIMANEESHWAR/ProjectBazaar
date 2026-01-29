@@ -675,22 +675,22 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
   };
 
   return (
-    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} bg-[#0d0d12] text-white ${embedded ? 'rounded-2xl' : ''}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} bg-gradient-to-br from-orange-50 via-white to-amber-50 text-gray-900 ${embedded ? 'rounded-2xl' : ''}`}>
       {/* Header */}
       {!embedded && (
-        <header className="fixed top-0 left-0 right-0 z-50 bg-[#0d0d12]/90 backdrop-blur-xl border-b border-violet-500/10">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-b border-orange-200/50 shadow-sm">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <button onClick={() => navigateTo('home')} className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                <span className="text-sm font-bold">PB</span>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                <span className="text-sm font-bold text-white">PB</span>
               </div>
-              <span className="text-xl font-bold group-hover:text-violet-400 transition-colors">ProjectBazaar</span>
+              <span className="text-xl font-bold text-gray-800 group-hover:text-orange-500 transition-colors">ProjectBazaar</span>
             </button>
             <nav className="flex items-center gap-4">
               {isLoggedIn ? (
-                <button onClick={() => navigateTo('dashboard')} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Dashboard</button>
+                <button onClick={() => navigateTo('dashboard')} className="px-4 py-2 text-sm text-gray-600 hover:text-orange-600 transition-colors">Dashboard</button>
               ) : (
-                <button onClick={() => navigateTo('auth')} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors">Sign In</button>
+                <button onClick={() => navigateTo('auth')} className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-lg font-medium transition-colors shadow-md shadow-orange-200">Sign In</button>
               )}
             </nav>
           </div>
@@ -703,10 +703,10 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {embedded && toggleSidebar && (
             <button
               onClick={toggleSidebar}
-              className="lg:hidden mb-4 p-2 -ml-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="lg:hidden mb-4 p-2 -ml-2 rounded-lg hover:bg-orange-100 transition-colors"
               aria-label="Toggle sidebar"
             >
-              <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -714,14 +714,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           
           {/* Hero */}
           <div className="text-center mb-6 sm:mb-8">
-            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-violet-500/10 border border-violet-500/20 mb-4">
-              <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-              <span className="text-xs sm:text-sm text-violet-400">Smart Portfolio Builder</span>
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-orange-100 border border-orange-200 mb-4">
+              <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+              <span className="text-xs sm:text-sm text-orange-600 font-medium">Smart Portfolio Builder</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3">
-              Build Your <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">Portfolio</span>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 text-gray-800">
+              Build Your <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">Portfolio</span>
             </h1>
-            <p className="text-sm sm:text-base text-gray-400 max-w-xl mx-auto px-4">
+            <p className="text-sm sm:text-base text-gray-500 max-w-xl mx-auto px-4">
               Upload your resume, choose a template, preview it live, and deploy instantly.
             </p>
           </div>
@@ -736,13 +736,13 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                 return (
                   <React.Fragment key={step}>
                     <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
-                      isComplete ? 'bg-green-500/20 text-green-400' : isActive ? 'bg-violet-500/20 text-violet-400' : 'bg-gray-800 text-gray-500'
+                      isComplete ? 'bg-green-100 text-green-600 border border-green-200' : isActive ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
                     }`}>
                       <span className="hidden sm:inline">{isComplete ? '✓' : i + 1}.</span>
                       <span className="sm:hidden">{isComplete ? '✓' : i + 1}</span>
                       <span className="hidden sm:inline">{step}</span>
                     </div>
-                    {i < 3 && <div className={`w-4 sm:w-8 h-0.5 flex-shrink-0 ${isComplete ? 'bg-green-500/50' : 'bg-gray-700'}`} />}
+                    {i < 3 && <div className={`w-4 sm:w-8 h-0.5 flex-shrink-0 ${isComplete ? 'bg-green-400' : 'bg-gray-300'}`} />}
                   </React.Fragment>
                 );
               })}
@@ -752,39 +752,39 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {/* STAGE: Upload */}
           {status.stage === 'idle' && !deploymentResult && (
             <div className="max-w-2xl mx-auto">
-              <div className="bg-[#1a1a24] rounded-3xl border border-violet-500/10 p-8">
+              <div className="bg-white rounded-3xl border border-orange-200 p-8 shadow-xl shadow-orange-100/50">
                 <div
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                   className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
-                    dragActive ? 'border-violet-500 bg-violet-500/10' : file ? 'border-green-500/50 bg-green-500/5' : 'border-gray-700 hover:border-gray-600'
+                    dragActive ? 'border-orange-500 bg-orange-50' : file ? 'border-green-500 bg-green-50' : 'border-orange-300 hover:border-orange-400 bg-orange-50/50'
                   }`}
                 >
                   <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   {file ? (
                     <div className="space-y-4">
-                      <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-2xl flex items-center justify-center">
-                        <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="w-16 h-16 mx-auto bg-green-100 rounded-2xl flex items-center justify-center">
+                        <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                       <div>
-                        <p className="text-lg font-medium text-white">{file.name}</p>
+                        <p className="text-lg font-medium text-gray-800">{file.name}</p>
                         <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
                       </div>
-                      <button onClick={(e) => { e.preventDefault(); setFile(null); }} className="text-sm text-gray-400 hover:text-red-400 transition-colors">Remove file</button>
+                      <button onClick={(e) => { e.preventDefault(); setFile(null); }} className="text-sm text-gray-500 hover:text-red-500 transition-colors">Remove file</button>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="w-16 h-16 mx-auto bg-violet-500/20 rounded-2xl flex items-center justify-center">
-                        <svg className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="w-16 h-16 mx-auto bg-orange-100 rounded-2xl flex items-center justify-center">
+                        <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                       </div>
                       <div>
-                        <p className="text-lg font-medium text-white">Drag & drop your resume here</p>
+                        <p className="text-lg font-medium text-gray-800">Drag & drop your resume here</p>
                         <p className="text-sm text-gray-500 mt-1">or click to browse • PDF, DOC, DOCX (max 10MB)</p>
                       </div>
                     </div>
@@ -795,7 +795,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                   onClick={parseResume}
                   disabled={!file}
                   className={`w-full mt-6 py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${
-                    file ? 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-500/25' : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    file ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-300/50' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >
                   {file ? '🚀 Continue to Templates' : 'Upload Resume to Continue'}
@@ -807,18 +807,18 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {/* STAGE: Processing (Uploading, Parsing, Extracting) */}
           {['uploading', 'parsing', 'extracting'].includes(status.stage) && (
             <div className="max-w-lg mx-auto">
-              <div className="bg-[#1a1a24] rounded-3xl border border-violet-500/10 p-8 text-center">
+              <div className="bg-white rounded-3xl border border-orange-200 p-8 text-center shadow-xl shadow-orange-100/50">
                 <div className="w-20 h-20 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
-                  <div className="absolute inset-2 rounded-full bg-violet-500/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
-                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <div className="absolute inset-0 rounded-full bg-orange-200 animate-ping" style={{ animationDuration: '1.5s' }} />
+                  <div className="absolute inset-2 rounded-full bg-orange-100 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
+                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-300/50">
                     <svg className="w-10 h-10 text-white animate-spin" style={{ animationDuration: '1s' }} fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">{status.message}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">{status.message}</h2>
                 <p className="text-gray-500 mb-4">
                   {status.progress < 30 && 'Reading your document...'}
                   {status.progress >= 30 && status.progress < 50 && 'Extracting text content...'}
@@ -826,9 +826,9 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                   {status.progress >= 70 && status.progress < 85 && 'Building your profile data...'}
                   {status.progress >= 85 && 'Almost done...'}
                 </p>
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+                <div className="h-3 bg-orange-100 rounded-full overflow-hidden mb-2">
                   <div 
-                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-600 rounded-full transition-all duration-300 ease-out"
+                    className="h-full bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500 rounded-full transition-all duration-300 ease-out"
                     style={{ 
                       width: `${status.progress}%`,
                       backgroundSize: '200% 100%',
@@ -836,7 +836,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                     }} 
                   />
                 </div>
-                <p className="text-xs text-gray-600">{Math.round(status.progress)}% complete</p>
+                <p className="text-xs text-gray-500">{Math.round(status.progress)}% complete</p>
                 <style>{`
                   @keyframes shimmer {
                     0% { background-position: 200% 0; }
@@ -855,7 +855,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                 {!isEditMode ? (
                   <>
                     {/* Template Selection - Show when not editing */}
-                <h2 className="text-lg sm:text-xl font-bold mb-4">Choose Your Template</h2>
+                <h2 className="text-lg sm:text-xl font-bold mb-4 text-gray-800">Choose Your Template</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {TEMPLATES.map((template) => (
                     <button
@@ -863,12 +863,12 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                       onClick={() => setSelectedTemplate(template.id)}
                       className={`relative p-4 rounded-2xl border-2 transition-all text-left ${
                         selectedTemplate === template.id
-                          ? 'border-violet-500 bg-violet-500/10'
-                          : 'border-white/10 bg-[#1a1a24] hover:border-violet-500/30'
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 bg-white hover:border-orange-300 shadow-sm'
                       }`}
                     >
                       {selectedTemplate === template.id && (
-                        <div className="absolute top-3 right-3 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                        <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
@@ -879,12 +879,12 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           {template.thumbnail}
                         </div>
                         <div>
-                          <p className="font-semibold text-white">{template.name}</p>
+                          <p className="font-semibold text-gray-800">{template.name}</p>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500">{template.description}</p>
                       <div className="flex gap-2 mt-3">
-                        <span className="w-4 h-4 rounded-full" style={{ background: template.bg, border: '1px solid rgba(255,255,255,0.2)' }} />
+                        <span className="w-4 h-4 rounded-full" style={{ background: template.bg, border: '1px solid rgba(0,0,0,0.1)' }} />
                         <span className="w-4 h-4 rounded-full" style={{ background: template.accent }} />
                       </div>
                     </button>
@@ -892,18 +892,18 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                 </div>
 
                     {/* Summary - Show when not editing */}
-                <div className="mt-6 p-4 bg-[#1a1a24] rounded-2xl border border-violet-500/10">
+                <div className="mt-6 p-4 bg-white rounded-2xl border border-orange-200 shadow-sm">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-white flex items-center gap-2">
-                    <span className="text-green-400">✓</span> Extracted from your resume
+                        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <span className="text-green-500">✓</span> Extracted from your resume
                   </h3>
                       </div>
                   <div className="space-y-2 text-sm">
-                    <p><span className="text-gray-500">Name:</span> <span className="text-white">{portfolioData.personal?.name || 'Not found'}</span></p>
-                    <p><span className="text-gray-500">Title:</span> <span className="text-white">{portfolioData.personal?.title || 'Not found'}</span></p>
-                    <p><span className="text-gray-500">Experience:</span> <span className="text-white">{portfolioData.experience?.length || 0} positions</span></p>
-                    <p><span className="text-gray-500">Skills:</span> <span className="text-white">{Object.values(portfolioData.skills || {}).flat().length} skills</span></p>
-                        <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-white/5">
+                    <p><span className="text-gray-500">Name:</span> <span className="text-gray-800">{portfolioData.personal?.name || 'Not found'}</span></p>
+                    <p><span className="text-gray-500">Title:</span> <span className="text-gray-800">{portfolioData.personal?.title || 'Not found'}</span></p>
+                    <p><span className="text-gray-500">Experience:</span> <span className="text-gray-800">{portfolioData.experience?.length || 0} positions</span></p>
+                    <p><span className="text-gray-500">Skills:</span> <span className="text-gray-800">{Object.values(portfolioData.skills || {}).flat().length} skills</span></p>
+                        <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
                           Click "Edit" button above to customize your portfolio content
                         </p>
                       </div>
@@ -911,23 +911,23 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                   </>
                 ) : (
                   /* Edit Mode - Full Edit Form */
-                  <div className="p-4 bg-[#1a1a24] rounded-2xl border border-violet-500/10">
+                  <div className="p-4 bg-white rounded-2xl border border-orange-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-white flex items-center gap-2">
-                        <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                         Edit Your Details
                       </h3>
-                      <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                         Auto-saving
                       </span>
                     </div>
                     <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2">
                       {/* Personal Info */}
                       <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
@@ -940,7 +940,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="text"
                               value={portfolioData.personal?.name || ''}
                               onChange={(e) => updatePortfolioField('personal', 'name', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors"
                               placeholder="Your Name"
                             />
                           </div>
@@ -950,7 +950,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="text"
                               value={portfolioData.personal?.title || ''}
                               onChange={(e) => updatePortfolioField('personal', 'title', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors"
                               placeholder="Software Developer"
                             />
                           </div>
@@ -962,7 +962,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="email"
                               value={portfolioData.personal?.email || ''}
                               onChange={(e) => updatePortfolioField('personal', 'email', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors"
                               placeholder="your@email.com"
                             />
                           </div>
@@ -972,7 +972,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="tel"
                               value={portfolioData.personal?.phone || ''}
                               onChange={(e) => updatePortfolioField('personal', 'phone', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors"
                               placeholder="+1 (555) 000-0000"
                             />
                           </div>
@@ -989,7 +989,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                             type="text"
                             value={portfolioData.personal?.location || ''}
                             onChange={(e) => updatePortfolioField('personal', 'location', e.target.value)}
-                            className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors"
                             placeholder="San Francisco, CA"
                           />
                         </div>
@@ -999,16 +999,16 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                             value={portfolioData.personal?.bio || ''}
                             onChange={(e) => updatePortfolioField('personal', 'bio', e.target.value)}
                             rows={3}
-                            className="w-full bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none transition-colors resize-none"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-200 transition-colors resize-none"
                             placeholder="A brief description about yourself..."
                           />
                         </div>
                   </div>
                   
                       {/* Experience */}
-                      <div className="space-y-3 pt-3 border-t border-white/10">
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
@@ -1016,7 +1016,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </h4>
                       <button
                             onClick={addExperience}
-                            className="flex items-center gap-1 px-2 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-lg text-xs font-medium transition-colors"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1025,10 +1025,10 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </button>
                         </div>
                         {portfolioData.experience && portfolioData.experience.map((exp, index) => (
-                          <div key={index} className="bg-[#0d0d12] rounded-lg p-3 space-y-2 relative group">
+                          <div key={index} className="bg-gray-50 rounded-lg p-3 space-y-2 relative group border border-gray-200">
                             <button
                               onClick={() => removeExperience(index)}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remove"
                             >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1040,14 +1040,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                                 type="text"
                                 value={exp.title || ''}
                                 onChange={(e) => updateExperience(index, 'title', e.target.value)}
-                                className="bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                                className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                                 placeholder="Job Title"
                               />
                               <input
                                 type="text"
                                 value={exp.company || ''}
                                 onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                                className="bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                                className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                                 placeholder="Company"
                               />
                             </div>
@@ -1055,14 +1055,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="text"
                               value={exp.period || ''}
                               onChange={(e) => updateExperience(index, 'period', e.target.value)}
-                              className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-400 focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 focus:border-orange-500 focus:outline-none"
                               placeholder="2020 - Present"
                             />
                             <textarea
                               value={exp.description || ''}
                               onChange={(e) => updateExperience(index, 'description', e.target.value)}
                               rows={2}
-                              className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:border-violet-500 focus:outline-none resize-none"
+                              className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:border-orange-500 focus:outline-none resize-none"
                               placeholder="Description..."
                             />
                           </div>
@@ -1073,9 +1073,9 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                       </div>
 
                       {/* Projects */}
-                      <div className="space-y-3 pt-3 border-t border-white/10">
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                             </svg>
@@ -1083,7 +1083,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </h4>
                           <button
                             onClick={addProject}
-                            className="flex items-center gap-1 px-2 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-lg text-xs font-medium transition-colors"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1092,10 +1092,10 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </button>
                           </div>
                         {portfolioData.projects && portfolioData.projects.map((project, index) => (
-                          <div key={index} className="bg-[#0d0d12] rounded-lg p-3 space-y-2 relative group">
+                          <div key={index} className="bg-gray-50 rounded-lg p-3 space-y-2 relative group border border-gray-200">
                             <button
                               onClick={() => removeProject(index)}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remove"
                             >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1106,14 +1106,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="text"
                               value={project.name || ''}
                               onChange={(e) => updateProject(index, 'name', e.target.value)}
-                              className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-medium focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 font-medium focus:border-orange-500 focus:outline-none"
                               placeholder="Project Name"
                             />
                             <textarea
                               value={project.description || ''}
                               onChange={(e) => updateProject(index, 'description', e.target.value)}
                               rows={2}
-                              className="w-full bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:border-violet-500 focus:outline-none resize-none"
+                              className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:border-orange-500 focus:outline-none resize-none"
                               placeholder="Project description..."
                             />
                             {/* Tech Stack */}
@@ -1133,7 +1133,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                                   const filteredTechs = techs.filter(t => t.length > 0);
                                   updateProject(index, 'technologies', filteredTechs);
                                 }}
-                                className="flex-1 bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-emerald-400 focus:border-violet-500 focus:outline-none placeholder:text-gray-500"
+                                className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-emerald-600 focus:border-orange-500 focus:outline-none placeholder:text-gray-400"
                                 placeholder="Tech stack (React, Node.js, PostgreSQL...)"
                               />
                         </div>
@@ -1147,7 +1147,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                                   type="url"
                                   value={project.github || ''}
                                   onChange={(e) => updateProject(index, 'github', e.target.value)}
-                                  className="flex-1 bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-400 focus:border-violet-500 focus:outline-none placeholder:text-gray-500"
+                                  className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 focus:border-orange-500 focus:outline-none placeholder:text-gray-400"
                                   placeholder="GitHub URL"
                                 />
                               </div>
@@ -1159,7 +1159,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                                   type="url"
                                   value={project.url || ''}
                                   onChange={(e) => updateProject(index, 'url', e.target.value)}
-                                  className="flex-1 bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-blue-400 focus:border-violet-500 focus:outline-none placeholder:text-gray-500"
+                                  className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-blue-600 focus:border-orange-500 focus:outline-none placeholder:text-gray-400"
                                   placeholder="Live Demo URL"
                                 />
                               </div>
@@ -1172,9 +1172,9 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                     </div>
 
                       {/* Education */}
-                      <div className="space-y-3 pt-3 border-t border-white/10">
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path d="M12 14l9-5-9-5-9 5 9 5z" />
                               <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
@@ -1183,7 +1183,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </h4>
                           <button
                             onClick={addEducation}
-                            className="flex items-center gap-1 px-2 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-lg text-xs font-medium transition-colors"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1192,10 +1192,10 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </button>
                         </div>
                         {portfolioData.education && portfolioData.education.map((edu, index) => (
-                          <div key={index} className="bg-[#0d0d12] rounded-lg p-3 space-y-2 relative group">
+                          <div key={index} className="bg-gray-50 rounded-lg p-3 space-y-2 relative group border border-gray-200">
                             <button
                               onClick={() => removeEducation(index)}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remove"
                             >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1207,14 +1207,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                                 type="text"
                                 value={edu.degree || ''}
                                 onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                                className="bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                                className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                                 placeholder="Degree / Institution"
                               />
                               <input
                                 type="text"
                                 value={edu.year || ''}
                                 onChange={(e) => updateEducation(index, 'year', e.target.value)}
-                                className="bg-transparent border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-400 focus:border-violet-500 focus:outline-none"
+                                className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 focus:border-orange-500 focus:outline-none"
                                 placeholder="Year"
                               />
                             </div>
@@ -1226,9 +1226,9 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                 </div>
 
                       {/* Skills */}
-                      <div className="space-y-3 pt-3 border-t border-white/10">
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                             </svg>
@@ -1236,7 +1236,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                           </h4>
                           <button
                             onClick={() => addSkill('other')}
-                            className="flex items-center gap-1 px-2 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-600 rounded-lg text-xs font-medium transition-colors"
                           >
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1251,17 +1251,17 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               {skills.map((skill, index) => {
                                 const skillName = typeof skill === 'string' ? skill : skill.name;
                                 return (
-                                  <div key={index} className="group relative flex items-center gap-1 bg-[#0d0d12] border border-white/10 rounded-lg px-2 py-1">
+                                  <div key={index} className="group relative flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
                                     <input
                                       type="text"
                                       value={skillName}
                                       onChange={(e) => updateSkill(category, index, 'name', e.target.value)}
-                                      className="bg-transparent text-xs text-white focus:outline-none w-20"
+                                      className="bg-transparent text-xs text-gray-800 focus:outline-none w-20"
                                       placeholder="Skill"
                                     />
                                     <button
                                       onClick={() => removeSkill(category, index)}
-                                      className="w-4 h-4 bg-red-500/50 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                                      className="w-4 h-4 bg-red-400 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                                     >
                                       ×
                                     </button>
@@ -1277,8 +1277,8 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                       </div>
 
                       {/* Links */}
-                      <div className="space-y-3 pt-3 border-t border-white/10">
-                        <h4 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                      <div className="space-y-3 pt-3 border-t border-gray-200">
+                        <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                           </svg>
@@ -1291,7 +1291,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="url"
                               value={portfolioData.links?.github || ''}
                               onChange={(e) => updatePortfolioField('links', 'github', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                               placeholder="https://github.com/username"
                             />
                           </div>
@@ -1301,7 +1301,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="url"
                               value={portfolioData.links?.linkedin || ''}
                               onChange={(e) => updatePortfolioField('links', 'linkedin', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                               placeholder="https://linkedin.com/in/username"
                             />
                           </div>
@@ -1313,7 +1313,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="url"
                               value={portfolioData.links?.twitter || ''}
                               onChange={(e) => updatePortfolioField('links', 'twitter', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                               placeholder="https://twitter.com/username"
                             />
                           </div>
@@ -1323,7 +1323,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                               type="url"
                               value={portfolioData.links?.website || ''}
                               onChange={(e) => updatePortfolioField('links', 'website', e.target.value)}
-                              className="w-full bg-[#0d0d12] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-violet-500 focus:outline-none"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:border-orange-500 focus:outline-none"
                               placeholder="https://yourwebsite.com"
                             />
                           </div>
@@ -1336,51 +1336,51 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                 {/* Deploy Button */}
                 <button
                   onClick={() => setShowDeployConfirm(true)}
-                  className="w-full mt-6 py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-violet-500/25"
+                  className="w-full mt-6 py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-semibold text-lg transition-all shadow-lg shadow-orange-300/50"
                 >
                   🚀 Deploy Portfolio
                 </button>
 
                 {/* Deploy Confirmation Modal */}
                 {showDeployConfirm && (
-                  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#1a1a24] rounded-2xl border border-violet-500/20 p-6 max-w-md w-full shadow-2xl">
+                  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl border border-orange-200 p-6 max-w-md w-full shadow-2xl">
                       <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-violet-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <svg className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                           </svg>
                         </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Ready to Deploy?</h3>
-                        <p className="text-gray-400 text-sm">
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">Ready to Deploy?</h3>
+                        <p className="text-gray-500 text-sm">
                           Your portfolio will be live on the web in seconds. Make sure you've reviewed all the details!
                         </p>
                       </div>
                       
                       {/* Quick Summary */}
-                      <div className="bg-[#0d0d12] rounded-xl p-4 mb-6 text-sm space-y-2">
+                      <div className="bg-orange-50 rounded-xl p-4 mb-6 text-sm space-y-2 border border-orange-100">
                         <div className="flex justify-between">
                           <span className="text-gray-500">Template:</span>
-                          <span className="text-white font-medium">{TEMPLATES.find(t => t.id === selectedTemplate)?.name}</span>
+                          <span className="text-gray-800 font-medium">{TEMPLATES.find(t => t.id === selectedTemplate)?.name}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Name:</span>
-                          <span className="text-white">{portfolioData?.personal?.name || 'Not set'}</span>
+                          <span className="text-gray-800">{portfolioData?.personal?.name || 'Not set'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Projects:</span>
-                          <span className="text-white">{portfolioData?.projects?.length || 0}</span>
+                          <span className="text-gray-800">{portfolioData?.projects?.length || 0}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Experience:</span>
-                          <span className="text-white">{portfolioData?.experience?.length || 0} positions</span>
+                          <span className="text-gray-800">{portfolioData?.experience?.length || 0} positions</span>
                         </div>
                       </div>
 
                       <div className="flex gap-3">
                         <button
                           onClick={() => setShowDeployConfirm(false)}
-                          className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium transition-colors"
+                          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
                         >
                           Cancel
                         </button>
@@ -1389,7 +1389,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                             setShowDeployConfirm(false);
                             deployPortfolio();
                           }}
-                          className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1405,14 +1405,14 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
               {/* Live Preview */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">Live Preview</h2>
+                  <h2 className="text-xl font-bold text-gray-800">Live Preview</h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setIsEditMode(!isEditMode)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         isEditMode 
-                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
-                          : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
+                          ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                          : 'bg-orange-100 text-orange-600 hover:bg-orange-200'
                       }`}
                     >
                       {isEditMode ? (
@@ -1431,17 +1431,17 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                         </>
                       )}
                     </button>
-                    <span className="text-xs text-gray-500 bg-gray-800 px-3 py-1.5 rounded-full">
+                    <span className="text-xs text-gray-600 bg-orange-100 px-3 py-1.5 rounded-full">
                     {TEMPLATES.find(t => t.id === selectedTemplate)?.name}
                   </span>
                   </div>
                 </div>
-                <div className="relative bg-[#1a1a24] rounded-2xl border border-violet-500/10 overflow-hidden" style={{ height: '600px' }}>
+                <div className="relative bg-white rounded-2xl border border-orange-200 overflow-hidden shadow-lg" style={{ height: '600px' }}>
                   {isLoadingPreview && (
-                    <div className="absolute inset-0 bg-[#1a1a24] flex items-center justify-center z-10">
+                    <div className="absolute inset-0 bg-white flex items-center justify-center z-10">
                       <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-sm text-gray-400">Loading preview...</p>
+                        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-sm text-gray-500">Loading preview...</p>
                       </div>
                     </div>
                   )}
@@ -1462,24 +1462,24 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {/* STAGE: Deploying */}
           {status.stage === 'deploying' && (
             <div className="max-w-lg mx-auto">
-              <div className="bg-[#1a1a24] rounded-3xl border border-violet-500/10 p-8 text-center">
+              <div className="bg-white rounded-3xl border border-orange-200 p-8 text-center shadow-xl shadow-orange-100/50">
                 <div className="w-20 h-20 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 rounded-full bg-violet-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
-                  <div className="absolute inset-2 rounded-full bg-purple-500/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
-                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <div className="absolute inset-0 rounded-full bg-orange-200 animate-ping" style={{ animationDuration: '1.5s' }} />
+                  <div className="absolute inset-2 rounded-full bg-amber-100 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.3s' }} />
+                  <div className="relative w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-300/50">
                     <span className="text-3xl animate-bounce" style={{ animationDuration: '1s' }}>🚀</span>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Deploying to Vercel</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Deploying to Vercel</h2>
                 <p className="text-gray-500 mb-4">
                   {status.progress < 40 && 'Generating your portfolio...'}
                   {status.progress >= 40 && status.progress < 60 && 'Uploading to Vercel cloud...'}
                   {status.progress >= 60 && status.progress < 80 && 'Configuring your domain...'}
                   {status.progress >= 80 && 'Finalizing deployment...'}
                 </p>
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+                <div className="h-3 bg-orange-100 rounded-full overflow-hidden mb-2">
                   <div 
-                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-violet-600 rounded-full transition-all duration-300 ease-out"
+                    className="h-full bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500 rounded-full transition-all duration-300 ease-out"
                     style={{ 
                       width: `${status.progress}%`,
                       backgroundSize: '200% 100%',
@@ -1487,7 +1487,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                     }} 
                   />
                 </div>
-                <p className="text-xs text-gray-600">{Math.round(status.progress)}% complete</p>
+                <p className="text-xs text-gray-500">{Math.round(status.progress)}% complete</p>
               </div>
             </div>
           )}
@@ -1495,25 +1495,25 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {/* STAGE: Complete */}
           {status.stage === 'complete' && deploymentResult?.success && (
             <div className="max-w-2xl mx-auto">
-              <div className="bg-[#1a1a24] rounded-3xl border border-violet-500/10 p-8 text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-3xl flex items-center justify-center">
+              <div className="bg-white rounded-3xl border border-orange-200 p-8 text-center shadow-xl shadow-orange-100/50">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-3xl flex items-center justify-center shadow-lg shadow-green-200">
                   <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 
-                <h2 className="text-3xl font-bold text-white mb-2">Your Portfolio is Live! 🎉</h2>
-                <p className="text-gray-400 mb-8">Share your new professional portfolio with the world</p>
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">Your Portfolio is Live! 🎉</h2>
+                <p className="text-gray-500 mb-8">Share your new professional portfolio with the world</p>
 
-                <div className="bg-[#0a0a0f] rounded-2xl p-6 mb-6">
+                <div className="bg-orange-50 rounded-2xl p-6 mb-6 border border-orange-100">
                   <p className="text-sm text-gray-500 mb-2">Your Portfolio URL</p>
                   <div className="flex items-center gap-3">
-                    <code className="flex-1 bg-gray-800/50 px-4 py-3 rounded-xl text-violet-400 font-mono text-sm overflow-hidden text-ellipsis">
+                    <code className="flex-1 bg-white px-4 py-3 rounded-xl text-orange-600 font-mono text-sm overflow-hidden text-ellipsis border border-orange-200">
                       {deploymentResult.liveUrl}
                     </code>
                     <button
                       onClick={() => navigator.clipboard.writeText(deploymentResult.liveUrl || '')}
-                      className="p-3 bg-violet-600 hover:bg-violet-500 rounded-xl transition-colors"
+                      className="p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition-colors shadow-md shadow-orange-200"
                       title="Copy URL"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1528,17 +1528,17 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
                     href={deploymentResult.liveUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-md shadow-orange-200"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                     View Portfolio
                   </a>
-                  <button onClick={goBackToTemplates} className="px-6 py-4 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold transition-colors">
+                  <button onClick={goBackToTemplates} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors">
                     Change Template
                   </button>
-                  <button onClick={resetForm} className="px-6 py-4 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold transition-colors">
+                  <button onClick={resetForm} className="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors">
                     Start Over
                   </button>
                 </div>
@@ -1549,15 +1549,15 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
           {/* STAGE: Error */}
           {status.stage === 'error' && (
             <div className="max-w-lg mx-auto">
-              <div className="bg-[#1a1a24] rounded-3xl border border-violet-500/10 p-8 text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-red-500/20 rounded-3xl flex items-center justify-center">
-                  <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-white rounded-3xl border border-red-200 p-8 text-center shadow-xl">
+                <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-3xl flex items-center justify-center">
+                  <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Something went wrong</h2>
-                <p className="text-gray-400 mb-6">{deploymentResult?.error || status.message}</p>
-                <button onClick={resetForm} className="px-8 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl font-semibold transition-colors">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Something went wrong</h2>
+                <p className="text-gray-500 mb-6">{deploymentResult?.error || status.message}</p>
+                <button onClick={resetForm} className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-semibold transition-colors shadow-md shadow-orange-200">
                   Try Again
                 </button>
               </div>
