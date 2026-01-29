@@ -104,6 +104,12 @@ const SettingsPage: React.FC = () => {
     const [linkedinUrl, setLinkedinUrl] = useState('');
     const [githubUrl, setGithubUrl] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+
+    // Become a Freelancer: not every user is a freelancer; switch to opt-in and enter skills/projects
+    const [isFreelancer, setIsFreelancer] = useState(false);
+    const [freelancerSkills, setFreelancerSkills] = useState<string[]>([]);
+    const [freelancerSkillInput, setFreelancerSkillInput] = useState('');
+    const [profileProjects, setProfileProjects] = useState<Array<{ id: string; title: string; url?: string; description?: string }>>([]);
     
     // GitHub OAuth state
     const [githubData, setGithubData] = useState<{
@@ -239,6 +245,11 @@ const SettingsPage: React.FC = () => {
                     setProfileImg(user.profilePictureUrl || null);
                     setEmailNotifications(user.emailNotifications ?? true);
                     setPushNotifications(user.pushNotifications ?? false);
+
+                    // Become a Freelancer
+                    setIsFreelancer(user.isFreelancer === true);
+                    setFreelancerSkills(Array.isArray(user.skills) ? user.skills : (typeof user.skills === 'string' ? (user.skills ? user.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : []) : []));
+                    setProfileProjects(Array.isArray(user.freelancerProjects) ? user.freelancerProjects.map((p: any, idx: number) => ({ id: p.id || `p-${idx}-${Date.now()}`, title: p.title || '', url: p.url, description: p.description })) : []);
                     
                     // GitHub data
                     if (user.githubData) {
@@ -1177,7 +1188,13 @@ const SettingsPage: React.FC = () => {
             if (phoneNumber.trim()) requestBody.phoneNumber = phoneNumber.trim();
             if (linkedinUrl.trim()) requestBody.linkedinUrl = linkedinUrl.trim();
             if (githubUrl.trim()) requestBody.githubUrl = githubUrl.trim();
-            
+
+            requestBody.isFreelancer = isFreelancer;
+            if (isFreelancer) {
+                requestBody.skills = freelancerSkills;
+                requestBody.freelancerProjects = profileProjects.map(({ id, title, url, description }) => ({ id, title, url, description }));
+            }
+
             // Include GitHub data if available
             if (githubData) {
                 requestBody.githubData = githubData;
@@ -1262,6 +1279,16 @@ const SettingsPage: React.FC = () => {
                             </button>
                         </div>
                     )}
+
+                    {/* Become a Freelancer switch - local state only; backend is called only when user clicks Save */}
+                    <div className="py-4">
+                        <ToggleSwitch
+                            label="Become a Freelancer"
+                            description="Offer your skills and projects to buyers. Add skills and projects below when enabled."
+                            enabled={isFreelancer}
+                            setEnabled={(value) => setIsFreelancer(value)}
+                        />
+                    </div>
 
                     {/* Profile Picture Section */}
                     <div className="flex items-center gap-6">
@@ -1378,7 +1405,134 @@ const SettingsPage: React.FC = () => {
                             />
                         </div>
                     </div>
-                    
+
+                    {/* Freelancer Profile: Skills & Projects (shown when freelancer is on) */}
+                    {isFreelancer && (
+                        <div className="border-t border-gray-200 pt-6 space-y-6">
+                            <h4 className="text-lg font-semibold text-gray-900">Freelancer Profile</h4>
+                            <p className="text-sm text-gray-500">Add your skills and projects so buyers can find you.</p>
+
+                            {/* Skills */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Skills <span className="text-orange-500">*</span></label>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {freelancerSkills.map((skill) => (
+                                        <span
+                                            key={skill}
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-100 text-orange-800 rounded-lg text-sm font-medium"
+                                        >
+                                            {skill}
+                                            {isEditingProfile && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFreelancerSkills((prev) => prev.filter((s) => s !== skill))}
+                                                    className="text-orange-600 hover:text-orange-800"
+                                                    aria-label={`Remove ${skill}`}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            )}
+                                        </span>
+                                    ))}
+                                </div>
+                                {isEditingProfile && (
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={freelancerSkillInput}
+                                            onChange={(e) => setFreelancerSkillInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    const v = freelancerSkillInput.trim();
+                                                    if (v && !freelancerSkills.includes(v)) {
+                                                        setFreelancerSkills((prev) => [...prev, v]);
+                                                        setFreelancerSkillInput('');
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="e.g. React, Node.js, Python"
+                                            className="flex-1 pl-4 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const v = freelancerSkillInput.trim();
+                                                if (v && !freelancerSkills.includes(v)) {
+                                                    setFreelancerSkills((prev) => [...prev, v]);
+                                                    setFreelancerSkillInput('');
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Projects */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Projects <span className="text-orange-500">*</span></label>
+                                <p className="text-xs text-gray-500 mb-3">List projects you've built or contributed to (title, optional link, description).</p>
+                                <div className="space-y-4">
+                                    {profileProjects.map((project) => (
+                                        <div key={project.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                                            {isEditingProfile ? (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        value={project.title}
+                                                        onChange={(e) => setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, title: e.target.value } : p))}
+                                                        placeholder="Project title"
+                                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                                    />
+                                                    <input
+                                                        type="url"
+                                                        value={project.url || ''}
+                                                        onChange={(e) => setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, url: e.target.value || undefined } : p))}
+                                                        placeholder="Project URL (optional)"
+                                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                                    />
+                                                    <textarea
+                                                        value={project.description || ''}
+                                                        onChange={(e) => setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, description: e.target.value || undefined } : p))}
+                                                        placeholder="Short description (optional)"
+                                                        rows={2}
+                                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProfileProjects((prev) => prev.filter((p) => p.id !== project.id))}
+                                                        className="text-sm text-red-600 hover:text-red-700"
+                                                    >
+                                                        Remove project
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <div>
+                                                    <p className="font-medium text-gray-900">{project.title}</p>
+                                                    {project.url && <a href={project.url} target="_blank" rel="noopener noreferrer" className="text-sm text-orange-600 hover:underline">{project.url}</a>}
+                                                    {project.description && <p className="text-sm text-gray-600 mt-1">{project.description}</p>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {isEditingProfile && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setProfileProjects((prev) => [...prev, { id: `p-${Date.now()}`, title: '', url: undefined, description: undefined }])}
+                                            className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-orange-400 hover:text-orange-600"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                            Add project
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* GitHub Integration Section */}
                     <div className="border-t border-gray-200 pt-6">
                         <div className="flex items-center justify-between mb-4">

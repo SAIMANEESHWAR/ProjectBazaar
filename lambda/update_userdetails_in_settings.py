@@ -125,7 +125,7 @@ def handle_update_settings(body):
             "message": "userId is required"
         })
 
-    # Updated allowed_fields to include integration data fields
+    # Updated allowed_fields to include integration and freelancer profile fields
     allowed_fields = [
         "fullName",
         "phoneNumber",
@@ -138,7 +138,11 @@ def handle_update_settings(body):
         "githubData",
         "driveData",
         "freelancerData",
-        "freelancerUrl"
+        "freelancerUrl",
+        # Become a Freelancer (skills, projects)
+        "isFreelancer",
+        "skills",
+        "freelancerProjects",
     ]
 
     updates = {k: v for k, v in body.items() if k in allowed_fields}

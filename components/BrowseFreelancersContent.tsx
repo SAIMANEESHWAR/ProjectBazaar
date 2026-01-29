@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Pagination from './Pagination';
 import OrangeCheckbox from './OrangeCheckbox';
 import type { Freelancer } from '../types/browse';
 import { getAllFreelancers, searchFreelancers, getAvailableSkills, getAvailableCountries } from '../services/freelancersApi';
+import { GET_USER_DETAILS_ENDPOINT } from '../services/buyerApi';
 import { useAuth } from '../App';
+import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 
 type SortOption = 'most-relevant' | 'highest-rated' | 'lowest-price';
 
@@ -42,6 +44,56 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
 
+  // Fetch user profile (name, profile image) from Get_user_Details_by_his_Id
+  const fetchUserProfile = useCallback(async (freelancerId: string) => {
+    try {
+      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: freelancerId }),
+      });
+      const data = await response.json();
+      const user = data.data || data.user || data;
+      if (!user || data.success === false) return undefined;
+      const profilePicture =
+        user.profilePictureUrl ??
+        user.profilePicture ??
+        user.profileImage ??
+        user.profile_picture ??
+        user.avatar ??
+        user.photoURL ??
+        user.imageUrl ??
+        user.photo;
+      const name = user.fullName || user.name;
+      return { profileImage: profilePicture || undefined, name: name || undefined };
+    } catch (err) {
+      console.error('Error fetching freelancer profile:', err);
+      return undefined;
+    }
+  }, []);
+
+  // Helper to enrich freelancers with profile image from Get_user_Details_by_his_Id
+  const enrichFreelancersWithProfiles = useCallback((data: Freelancer[]) => {
+    const uniqueIds = [...new Set(data.map((f) => f.id).filter(Boolean))];
+    uniqueIds.forEach((id) => {
+      fetchUserProfile(id).then((profile) => {
+        if (profile && (profile.profileImage || profile.name)) {
+          setFreelancers((prev) =>
+            prev.map((f) =>
+              f.id === id
+                ? {
+                    ...f,
+                    ...(profile!.profileImage && { profileImage: profile.profileImage }),
+                    ...(profile!.name && { name: profile!.name }),
+                  }
+                : f
+            )
+          );
+        }
+      });
+    });
+  }, [fetchUserProfile]);
+
   // Fetch freelancers from API
   useEffect(() => {
     const fetchFreelancers = async () => {
@@ -50,6 +102,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
       try {
         const { freelancers: data } = await getAllFreelancers(100, 0);
         setFreelancers(data);
+        enrichFreelancersWithProfiles(data);
       } catch (err) {
         console.error('Error fetching freelancers:', err);
         setError('Failed to load freelancers. Please try again.');
@@ -59,7 +112,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     };
 
     fetchFreelancers();
-  }, []);
+  }, [enrichFreelancersWithProfiles]);
 
   // Fetch filter metadata
   useEffect(() => {
@@ -86,6 +139,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
         try {
           const { freelancers: data } = await getAllFreelancers(100, 0);
           setFreelancers(data);
+          enrichFreelancersWithProfiles(data);
         } catch (err) {
           console.error('Error fetching all freelancers:', err);
         }
@@ -102,6 +156,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
           limit: 100,
         });
         setFreelancers(results);
+        enrichFreelancersWithProfiles(results);
       } catch (err) {
         console.error('Error searching freelancers:', err);
         // Ensure we don't crash, maybe set empty content or show error toast
@@ -110,7 +165,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
 
     const debounceTimer = setTimeout(searchWithFilters, 500);
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, selectedSkills, selectedCountry]);
+  }, [searchQuery, selectedSkills, selectedCountry, enrichFreelancersWithProfiles]);
 
   // Get unique skills and countries - removed derived memos
   // keeping simpler reference variables for compatibility if needed, but optimally we use state
@@ -655,13 +710,28 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                   >
                     {/* Header Section */}
                     <div className="flex items-start gap-3 mb-4">
-                      {/* Profile Image */}
+                      {/* Profile Image - show real photo or initial fallback */}
                       <div className="relative flex-shrink-0">
-                        <img
-                          src={freelancer.profileImage}
-                          alt={freelancer.name}
-                          className="w-16 h-16 rounded-full object-cover border-2 border-orange-200 dark:border-orange-800 group-hover:border-orange-500 dark:group-hover:border-orange-400 transition-colors"
-                        />
+                        <div className="w-16 h-16 rounded-full border-2 border-orange-200 dark:border-orange-800 group-hover:border-orange-500 dark:group-hover:border-orange-400 transition-colors overflow-hidden bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                          {freelancer.profileImage ? (
+                            <img
+                              src={freelancer.profileImage}
+                              alt={freelancer.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <span
+                            className={`w-full h-full flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-xl ${freelancer.profileImage ? 'hidden' : ''}`}
+                            aria-hidden={!!freelancer.profileImage}
+                          >
+                            {(freelancer.name || freelancer.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
                         {freelancer.isVerified && (
                           <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
                             <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -677,6 +747,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                           <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">
                             {freelancer.name}
                           </h3>
+                          <img src={verifiedFreelanceSvg} alt="Verified freelancer" className="w-5 h-5 flex-shrink-0" aria-hidden />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">@{freelancer.username}</p>
                       </div>
@@ -804,13 +875,31 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
             </div>
 
             <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-              <img
-                src={selectedFreelancer.profileImage}
-                alt={selectedFreelancer.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-orange-500"
-              />
-              <div>
-                <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+              <div className="w-16 h-16 rounded-full border-2 border-orange-500 overflow-hidden bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                {selectedFreelancer.profileImage ? (
+                  <img
+                    src={selectedFreelancer.profileImage}
+                    alt={selectedFreelancer.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className={`w-full h-full flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-xl ${selectedFreelancer.profileImage ? 'hidden' : ''}`}
+                  aria-hidden={!!selectedFreelancer.profileImage}
+                >
+                  {(selectedFreelancer.name || selectedFreelancer.username || 'U').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+                  <img src={verifiedFreelanceSvg} alt="Verified freelancer" className="w-5 h-5 flex-shrink-0" aria-hidden />
+                </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedFreelancer.username}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedFreelancer.skills.slice(0, 3).map(skill => (
@@ -906,13 +995,31 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
             </div>
 
             <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-              <img
-                src={selectedFreelancer.profileImage}
-                alt={selectedFreelancer.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-orange-500"
-              />
-              <div>
-                <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+              <div className="w-16 h-16 rounded-full border-2 border-orange-500 overflow-hidden bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                {selectedFreelancer.profileImage ? (
+                  <img
+                    src={selectedFreelancer.profileImage}
+                    alt={selectedFreelancer.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className={`w-full h-full flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-xl ${selectedFreelancer.profileImage ? 'hidden' : ''}`}
+                  aria-hidden={!!selectedFreelancer.profileImage}
+                >
+                  {(selectedFreelancer.name || selectedFreelancer.username || 'U').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-gray-900 dark:text-gray-100">{selectedFreelancer.name}</p>
+                  <img src={verifiedFreelanceSvg} alt="Verified freelancer" className="w-5 h-5 flex-shrink-0" aria-hidden />
+                </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedFreelancer.username}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">${selectedFreelancer.hourlyRate}/hr</span>
