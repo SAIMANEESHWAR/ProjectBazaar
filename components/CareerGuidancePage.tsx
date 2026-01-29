@@ -4,6 +4,7 @@ import PlacementPrepSection, { PlacementPhase } from './PlacementPrepSection';
 import { useAuth } from '../App';
 import careerGuidanceAnimation from '../lottiefiles/career_guidance_animation.json';
 import guidanceIconAnimation from '../lottiefiles/guidance.json';
+import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 
 // ============================================
 // TYPES & INTERFACES
@@ -2848,98 +2849,105 @@ const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers
             </div>
 
             {/* Career Cards */}
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-5">
                 {careers.map((career, idx) => (
                     <div
                         key={idx}
-                        onClick={() => setSelectedCareer(selectedCareer?.title === career.title ? null : career)}
-                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedCareer?.title === career.title ? 'border-orange-500 shadow-lg shadow-orange-500/10' : 'border-gray-200'
-                            }`}
+                        className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/10"
                     >
-                        <div className="flex items-start justify-between mb-3">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    {career.title}
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                                    <span className="truncate">{career.title}</span>
                                     {career.demand === 'Very High' && (
-                                        <span className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-medium">
+                                        <span className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-medium whitespace-nowrap">
                                             <FireIcon /> Hot
                                         </span>
                                     )}
                                 </h3>
-                                <p className="text-sm text-gray-500 mt-1">{career.description}</p>
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{career.description}</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 mb-3">
-                            <div className="flex items-center gap-1 text-green-600">
+                        {/* Stats Row */}
+                        <div className="flex items-center gap-3 flex-wrap mb-3">
+                            <div className="flex items-center gap-1.5 text-green-600 bg-green-50 px-2 py-1 rounded-lg">
                                 <CurrencyIcon />
-                                <span className="font-semibold">{career.avgSalary}</span>
+                                <span className="font-semibold text-sm">{career.avgSalary}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-blue-600">
+                            <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
                                 <TrendingIcon />
-                                <span className="font-semibold">{career.growth}</span>
+                                <span className="font-semibold text-sm">{career.growth}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${career.demand === 'Very High' ? 'bg-red-100 text-red-700' :
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${career.demand === 'Very High' ? 'bg-red-100 text-red-700' :
                                 career.demand === 'High' ? 'bg-orange-100 text-orange-700' :
                                     'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                {career.demand} Demand
+                                {career.demand}
                             </span>
                         </div>
 
-                        {selectedCareer?.title === career.title && (
-                            <div className="mt-4 pt-4 border-t border-gray-100 animate-fadeIn">
+                        {/* Expandable Content - Shows on Hover */}
+                        <div className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-[500px] group-hover:opacity-100 transition-all duration-500 ease-in-out">
+                            <div className="pt-3 border-t border-gray-100">
+                                {/* Skills */}
                                 <div className="mb-3">
                                     <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Key Skills</p>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {career.skills.map((skill, i) => (
-                                            <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                            <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
                                                 {skill}
                                             </span>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="mb-4">
+
+                                {/* Companies */}
+                                <div className="mb-3">
                                     <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Top Companies</p>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {career.companies.map((company, i) => (
-                                            <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                                            <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
                                                 {company}
                                             </span>
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Roadmap Links */}
                                 {career.links && career.links.length > 0 && (
-                                    <div className="mb-4">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Roadmap Links</p>
-                                        <ul className="space-y-1">
+                                    <div className="mb-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Resources</p>
+                                        <div className="flex flex-wrap gap-2">
                                             {career.links.map((link, i) => (
-                                                <li key={i} className="text-xs">
-                                                    <a
-                                                        href={link}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-orange-600 hover:text-orange-700 break-all"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        {link}
-                                                    </a>
-                                                </li>
+                                                <a
+                                                    key={i}
+                                                    href={link}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-orange-600 hover:text-orange-700 hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    Link {i + 1} ↗
+                                                </a>
                                             ))}
-                                        </ul>
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Explore Button - Smaller */}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onExploreRoadmap(career.title);
                                     }}
-                                    className="w-full py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                                    className="mt-2 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg text-sm font-medium hover:shadow-md transition-all"
                                 >
                                     Explore Roadmap →
                                 </button>
                             </div>
-                        )}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -2962,7 +2970,6 @@ interface ProjectIdeasSectionProps {
 
 const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
     const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
-    const [selectedProject, setSelectedProject] = useState<ProjectIdea | null>(ideas.length > 0 ? ideas[0] : null);
 
     const filteredProjects = filterDifficulty === 'all'
         ? ideas
@@ -2992,118 +2999,159 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                 ))}
             </div>
 
-            {/* Project Cards */}
-            <div className="grid md:grid-cols-2 gap-5">
-                {filteredProjects.map((project, idx) => (
-                    <div
-                        key={idx}
-                        className={`bg-white border rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedProject?.title === project.title ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-gray-200'
-                            }`}
-                        onClick={() => setSelectedProject(selectedProject?.title === project.title ? null : project)}
+            {/* Empty State */}
+            {filteredProjects.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                    <div className="w-64 h-64">
+                        <Lottie
+                            animationData={noProjectAnimation}
+                            loop
+                            className="w-full h-full"
+                        />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-700 mt-4">No Projects Found</h3>
+                    <p className="text-gray-500 mt-2 text-center">Try selecting a different difficulty level or check back later!</p>
+                    <button
+                        onClick={() => setFilterDifficulty('all')}
+                        className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
                     >
-                        <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-lg font-bold text-gray-900">{project.title}</h3>
-                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${project.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
-                                project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-red-100 text-red-700'
-                                }`}>
-                                {project.difficulty}
-                            </span>
-                        </div>
-
-                        <p className="text-gray-600 text-sm mb-3">{project.description}</p>
-
-                        <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                            <span>⏱️ {project.duration}</span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {project.technologies.map((tech, i) => (
-                                <span key={i} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                    {tech}
+                        Show All Projects
+                    </button>
+                </div>
+            ) : (
+                /* Project Cards */
+                <div className="grid md:grid-cols-2 gap-5">
+                    {filteredProjects.map((project, idx) => (
+                        <div
+                            key={idx}
+                            className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/10"
+                        >
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                                <h3 className="text-lg font-bold text-gray-900 flex-1 min-w-0 truncate">{project.title}</h3>
+                                <span className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${project.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
+                                        project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
+                                    }`}>
+                                    {project.difficulty}
                                 </span>
-                            ))}
-                        </div>
+                            </div>
 
-                        {selectedProject?.title === project.title && (
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Key Features to Build:</p>
-                                <ul className="space-y-1">
-                                    {project.features.map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                                            <CheckIcon />
-                                            {feature}
-                                        </li>
-                                    ))}
-                                </ul>
-                                {(project.githubLinks && project.githubLinks.length > 0) || (project.demoLinks && project.demoLinks.length > 0) ? (
-                                    <div className="mt-3 space-y-3">
-                                        {project.githubLinks && project.githubLinks.length > 0 && (
-                                            <div>
-                                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Helpful GitHub Links</p>
-                                                <ul className="space-y-1">
-                                                    {project.githubLinks.map((link, i) => (
-                                                        <li key={i} className="text-xs break-all">
-                                                            <a
-                                                                href={link}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-orange-600 hover:text-orange-700"
-                                                            >
-                                                                {link}
-                                                            </a>
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{project.description}</p>
+
+                            {/* Duration Badge */}
+                            <div className="flex items-center gap-3 flex-wrap mb-3">
+                                <span className="flex items-center gap-1.5 text-gray-600 bg-gray-100 px-2 py-1 rounded-lg text-sm">
+                                    ⏱️ {project.duration}
+                                </span>
+                            </div>
+
+                            {/* Technologies */}
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                                {project.technologies.slice(0, 4).map((tech, i) => (
+                                    <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+                                        {tech}
+                                    </span>
+                                ))}
+                                {project.technologies.length > 4 && (
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-md text-xs font-medium">
+                                        +{project.technologies.length - 4} more
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Expandable Content - Shows on Hover */}
+                            <div className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-[600px] group-hover:opacity-100 transition-all duration-500 ease-in-out">
+                                <div className="pt-3 border-t border-gray-100">
+                                    {/* All Technologies */}
+                                    {project.technologies.length > 4 && (
+                                        <div className="mb-3">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">All Technologies</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {project.technologies.map((tech, i) => (
+                                                    <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+                                                        {tech}
+                                                    </span>
+                                                ))}
                                             </div>
-                                        )}
-                                        {project.demoLinks && project.demoLinks.length > 0 && (
-                                            <div>
-                                                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Demo Links</p>
-                                                <ul className="space-y-1">
-                                                    {project.demoLinks.map((link, i) => (
-                                                        <li key={i} className="text-xs break-all">
-                                                            <a
-                                                                href={link}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-orange-600 hover:text-orange-700"
-                                                            >
-                                                                {link}
-                                                            </a>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
+                                        </div>
+                                    )}
+
+                                    {/* Key Features */}
+                                    <div className="mb-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Key Features to Build</p>
+                                        <ul className="space-y-1">
+                                            {project.features.map((feature, i) => (
+                                                <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <CheckIcon />
+                                                    {feature}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
-                                ) : null}
-                                <div className="mt-4 flex gap-2">
-                                    <a
-                                        href={`https://github.com/topics/${project.technologies[0].toLowerCase().replace(/[^a-z]/g, '')}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 py-2 bg-gray-900 text-white rounded-lg font-medium text-center text-sm hover:bg-gray-800 transition-colors"
-                                    >
-                                        Find Similar on GitHub
-                                    </a>
-                                    <a
-                                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(project.title + ' tutorial')}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium text-center text-sm hover:bg-red-700 transition-colors"
-                                    >
-                                        Watch Tutorials
-                                    </a>
+
+                                    {/* Resource Links */}
+                                    {((project.githubLinks && project.githubLinks.length > 0) || (project.demoLinks && project.demoLinks.length > 0)) && (
+                                        <div className="mb-3">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Resources</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {project.githubLinks?.map((link, i) => (
+                                                    <a
+                                                        key={`gh-${i}`}
+                                                        href={link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        GitHub ↗
+                                                    </a>
+                                                ))}
+                                                {project.demoLinks?.map((link, i) => (
+                                                    <a
+                                                        key={`demo-${i}`}
+                                                        href={link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded hover:bg-orange-100 transition-colors"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        Demo ↗
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons - Smaller */}
+                                    <div className="mt-3 flex gap-2">
+                                        <a
+                                            href={`https://github.com/topics/${project.technologies[0].toLowerCase().replace(/[^a-z]/g, '')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition-colors"
+                                        >
+                                            Find on GitHub
+                                        </a>
+                                        <a
+                                            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(project.title + ' tutorial')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                                        >
+                                            Watch Tutorials
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
+
 
 // ============================================
 // MAIN CAREER GUIDANCE PAGE
