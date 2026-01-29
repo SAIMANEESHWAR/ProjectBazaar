@@ -536,6 +536,12 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   // Reset code confirmation modal
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Custom test cases state
+  const [customTestCases, setCustomTestCases] = useState<Array<{ id: number; input: string; target: string }>>([
+    { id: 1, input: '[2,7,11,15]', target: '9' }
+  ]);
+  const [activeTestCaseId, setActiveTestCaseId] = useState(1);
+
   const problemDetails = question.problemDetails || defaultProblemDetails;
   
   // Use state for user auth to ensure re-render when user logs in
@@ -749,14 +755,17 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   const handleAddComment = async () => {
     if (!newComment.trim() || !currentUserId) return;
 
-    // Optimistic update
+    // Store comment content before clearing (to avoid closure issue)
+    const commentContent = newComment.trim();
     const tempId = `temp-${Date.now()}`;
+    
+    // Optimistic update
     const newDiscussion: DiscussionComment = {
       commentId: tempId,
       questionId: question.id,
       userId: currentUserId,
       userName: currentUserName,
-      content: newComment,
+      content: commentContent,
       upvotes: 0,
       downvotes: 0,
       repliesCount: 0,
@@ -778,7 +787,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           questionId: question.id,
           userId: currentUserId,
           userName: currentUserName,
-          content: newComment
+          content: commentContent
         })
       });
 
@@ -1726,20 +1735,61 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                 {showCustomInput && !showOutputPanel && (
                   <div className="h-full flex flex-col">
                     <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-400">
-                      <span className="px-2.5 py-1 bg-[#303030] hover:bg-[#3c3c3c] rounded text-gray-300 cursor-pointer">Case 1</span>
-                      <button className="w-6 h-6 flex items-center justify-center hover:bg-[#303030] rounded transition-colors text-gray-500 hover:text-gray-300">
+                      {customTestCases.map((tc) => (
+                        <span
+                          key={tc.id}
+                          onClick={() => setActiveTestCaseId(tc.id)}
+                          className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                            activeTestCaseId === tc.id
+                              ? 'bg-[#404040] text-white'
+                              : 'bg-[#303030] hover:bg-[#3c3c3c] text-gray-300'
+                          }`}
+                        >
+                          Case {tc.id}
+                        </span>
+                      ))}
+                      <button
+                        onClick={() => {
+                          const newId = Math.max(...customTestCases.map(tc => tc.id)) + 1;
+                          setCustomTestCases(prev => [...prev, { id: newId, input: '[]', target: '0' }]);
+                          setActiveTestCaseId(newId);
+                        }}
+                        className="w-6 h-6 flex items-center justify-center hover:bg-[#303030] rounded transition-colors text-gray-500 hover:text-gray-300"
+                        title="Add Test Case"
+                      >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                       </button>
+                      {customTestCases.length > 1 && (
+                        <button
+                          onClick={() => {
+                            if (customTestCases.length > 1) {
+                              setCustomTestCases(prev => prev.filter(tc => tc.id !== activeTestCaseId));
+                              setActiveTestCaseId(customTestCases[0].id === activeTestCaseId ? customTestCases[1].id : customTestCases[0].id);
+                            }
+                          }}
+                          className="w-6 h-6 flex items-center justify-center hover:bg-red-500/20 rounded transition-colors text-gray-500 hover:text-red-400"
+                          title="Remove Test Case"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                     <div className="flex-1 px-4 pb-4">
                       <label className="text-xs text-gray-500 mb-2 block font-medium">nums =</label>
                       <div className="bg-[#303030] rounded-lg p-3 mb-3">
                         <input
                           type="text"
-                          value={customInput || '[2,7,11,15]'}
-                          onChange={(e) => setCustomInput(e.target.value)}
+                          value={customTestCases.find(tc => tc.id === activeTestCaseId)?.input || '[]'}
+                          onChange={(e) => {
+                            setCustomTestCases(prev => prev.map(tc =>
+                              tc.id === activeTestCaseId ? { ...tc, input: e.target.value } : tc
+                            ));
+                            setCustomInput(e.target.value);
+                          }}
                           className="w-full bg-transparent text-gray-200 text-sm font-mono focus:outline-none"
                         />
                       </div>
@@ -1747,7 +1797,12 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                       <div className="bg-[#303030] rounded-lg p-3">
                         <input
                           type="text"
-                          defaultValue="9"
+                          value={customTestCases.find(tc => tc.id === activeTestCaseId)?.target || '0'}
+                          onChange={(e) => {
+                            setCustomTestCases(prev => prev.map(tc =>
+                              tc.id === activeTestCaseId ? { ...tc, target: e.target.value } : tc
+                            ));
+                          }}
                           className="w-full bg-transparent text-gray-200 text-sm font-mono focus:outline-none"
                         />
                       </div>
