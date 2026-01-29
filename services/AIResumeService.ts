@@ -1,18 +1,17 @@
 // AI Resume Service - Uses OpenAI/Gemini for content generation
 // For demo purposes, includes fallback mock responses
 
-declare const import_meta_env: { VITE_AI_API_ENDPOINT?: string; VITE_OPENAI_API_KEY?: string; VITE_GEMINI_API_KEY?: string };
-const getEnv = () => {
+type ViteEnv = { VITE_AI_API_ENDPOINT?: string; VITE_OPENAI_API_KEY?: string; VITE_GEMINI_API_KEY?: string };
+const getEnv = (): ViteEnv => {
   try {
-    // @ts-expect-error Vite injects import.meta.env at build time
-    return import.meta.env || {};
+    return (import.meta.env ?? {}) as ViteEnv;
   } catch {
     return {};
   }
 };
 const env = getEnv();
-const AI_API_ENDPOINT = (env.VITE_AI_API_ENDPOINT as string) || '';
-const AI_API_KEY = (env.VITE_OPENAI_API_KEY as string) || (env.VITE_GEMINI_API_KEY as string) || '';
+const AI_API_ENDPOINT = env.VITE_AI_API_ENDPOINT ?? '';
+const AI_API_KEY = env.VITE_OPENAI_API_KEY ?? env.VITE_GEMINI_API_KEY ?? '';
 
 interface SummaryResponse {
   summary: string;

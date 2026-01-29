@@ -24,7 +24,6 @@ const ReportProjectModal: React.FC<ReportProjectModalProps> = ({
   isOpen,
   onClose,
   projectId,
-  projectTitle,
   buyerId,
   isPurchased = false,
   onSuccess,

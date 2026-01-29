@@ -133,14 +133,6 @@ export interface ProjectIdea {
 // ICONS
 // ============================================
 
-const SparkleIcon = () => (
-    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M16 20L17.6 14.6L23 13L17.6 11.4L16 5.99999L14.4 11.4L9 13L14.4 14.6L16 20Z" />
-        <path d="M7.5 21L8.3 18.3L11 17.5L8.3 16.7L7.5 14L6.7 16.7L4 17.5L6.7 18.3L7.5 21Z" />
-        <path d="M7.5 10.8L8.07143 8.87142L10 8.29999L8.07143 7.72856L7.5 5.79999L6.92857 7.72856L5 8.29999L6.92857 8.87142L7.5 10.8Z" />
-    </svg>
-);
-
 const CheckIcon = () => (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -2836,8 +2828,6 @@ interface TrendingCareersSectionProps {
 }
 
 const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers, onExploreRoadmap }) => {
-    const [selectedCareer, setSelectedCareer] = useState<TrendingCareer | null>(careers.length > 0 ? careers[0] : null);
-
     // Calculate dynamic statistics from API-fetched careers data
     const stats = calculateCareerStats(careers);
 
