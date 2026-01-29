@@ -60,8 +60,14 @@ export default {
         orbit: "orbit calc(var(--duration) * 1s) linear infinite",
         marquee: "marquee var(--duration, 30s) linear infinite",
         "marquee-reverse": "marquee-reverse var(--duration, 30s) linear infinite",
+        progress: "progress 2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
       },
       keyframes: {
+        progress: {
+          "0%": { transform: "translateX(-100%)" },
+          "50%": { transform: "translateX(0%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
         ripple: {
           "0%, 100%": { transform: "translate(-50%, -50%) scale(1)" },
           "50%": { transform: "translate(-50%, -50%) scale(0.9)" },

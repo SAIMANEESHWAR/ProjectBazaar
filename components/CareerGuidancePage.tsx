@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import careerGuidanceAnimation from '../lottiefiles/career_guidance_animation.json';
 import guidanceIconAnimation from '../lottiefiles/guidance.json';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
+import robotLoadingAnimation from '../lottiefiles/Robot Futuristic Ai animated.json';
 
 // ============================================
 // TYPES & INTERFACES
@@ -743,7 +744,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
             preferredTechStack: [],
         };
         setCareerAnalysis(analysis);
-        setRoadmapStep('roadmap');
+        // Don't set roadmap step here - wait for generation to complete
+        // setRoadmapStep('roadmap'); 
         generateRoadmap(analysis, selectedWeeks);
     };
 
@@ -1455,130 +1457,151 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         return (
             <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
                 <div className="w-full">
-                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-7xl mx-auto">
-                        <div className="text-center mb-8">
-                            <h2 className="text-3xl font-bold text-gray-900 mb-3">Select Your Career Path</h2>
-                            <p className="text-gray-600">Choose a category and set your learning duration to generate a personalized roadmap</p>
-                        </div>
-
-                        {roadmapError && (
-                            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                {roadmapError}
-                                <button onClick={() => setRoadmapError(null)} className="ml-2 font-bold">×</button>
+                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-7xl mx-auto min-h-[500px] transition-all duration-300">
+                        {isGeneratingRoadmap ? (
+                            <div className="flex flex-col items-center justify-center min-h-[400px] animate-fadeIn">
+                                <div className="w-64 h-64 sm:w-80 sm:h-80 mb-6">
+                                    <Lottie
+                                        animationData={robotLoadingAnimation}
+                                        loop
+                                        className="w-full h-full"
+                                    />
+                                </div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 text-center">Crafting Your Roadmap...</h2>
+                                <p className="text-gray-600 text-center max-w-lg mb-8">
+                                    Our AI is analyzing industry trends to build a personalized {selectedWeeks}-week {categories.find(c => c.id === selectedCategory)?.name} learning path just for you.
+                                </p>
+                                <div className="w-64 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 animate-progress w-full origin-left-right"></div>
+                                </div>
                             </div>
-                        )}
+                        ) : (
+                            <>
+                                <div className="text-center mb-8">
+                                    <h2 className="text-3xl font-bold text-gray-900 mb-3">Select Your Career Path</h2>
+                                    <p className="text-gray-600">Choose a category and set your learning duration to generate a personalized roadmap</p>
+                                </div>
 
-                        <div className="space-y-8">
-                            {/* Category Selection */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-4">
-                                    Select Category *
-                                    <span className="text-xs font-normal text-gray-500 ml-2">
-                                        ({categories.length} {categories.length === 1 ? 'category' : 'categories'} available from API)
-                                    </span>
-                                </label>
-                                {categories.length === 0 ? (
-                                    <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-xl">
-                                        <div className="text-4xl mb-3">📚</div>
-                                        <p className="font-semibold mb-2">No categories available</p>
-                                        <p className="text-sm">Please add categories in admin dashboard.</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                        {categories.map((category) => (
-                                            <button
-                                                key={category.id}
-                                                onClick={() => handleCategorySelect(category.id)}
-                                                className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedCategory === category.id
-                                                    ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                                    }`}
-                                            >
-                                                <div className="text-3xl mb-2">{category.icon}</div>
-                                                <div className="text-sm font-semibold text-gray-900">{category.name}</div>
-                                            </button>
-                                        ))}
+                                {roadmapError && (
+                                    <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                                        {roadmapError}
+                                        <button onClick={() => setRoadmapError(null)} className="ml-2 font-bold">×</button>
                                     </div>
                                 )}
-                            </div>
 
-                            {/* Week Plan Selection */}
-                            <div className="space-y-4">
-                                <label className="block text-sm font-semibold text-gray-700">
-                                    Select Program Duration *
-                                    <span className="text-xs font-normal text-gray-500 ml-2">
-                                        (How many weeks of learning do you want?)
-                                    </span>
-                                </label>
-                                <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
-                                        <button
-                                            key={weekNum}
-                                            onClick={() => setSelectedWeeks(weekNum)}
-                                            className={`py-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${selectedWeeks === weekNum
-                                                ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                                }`}
-                                        >
-                                            <span className={`text-lg font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                {weekNum}
+                                <div className="space-y-8">
+                                    {/* Category Selection */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-4">
+                                            Select Category *
+                                            <span className="text-xs font-normal text-gray-500 ml-2">
+                                                ({categories.length} {categories.length === 1 ? 'category' : 'categories'} available from API)
                                             </span>
-                                            <span className="text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Week{weekNum > 1 ? 's' : ''}</span>
+                                        </label>
+                                        {categories.length === 0 ? (
+                                            <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-xl">
+                                                <div className="text-4xl mb-3">📚</div>
+                                                <p className="font-semibold mb-2">No categories available</p>
+                                                <p className="text-sm">Please add categories in admin dashboard.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                                {categories.map((category) => (
+                                                    <button
+                                                        key={category.id}
+                                                        onClick={() => handleCategorySelect(category.id)}
+                                                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedCategory === category.id
+                                                            ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
+                                                            : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
+                                                            }`}
+                                                    >
+                                                        <div className="text-3xl mb-2">{category.icon}</div>
+                                                        <div className="text-sm font-semibold text-gray-900">{category.name}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Week Plan Selection */}
+                                    <div className="space-y-4">
+                                        <label className="block text-sm font-semibold text-gray-700">
+                                            Select Program Duration *
+                                            <span className="text-xs font-normal text-gray-500 ml-2">
+                                                (How many weeks of learning do you want?)
+                                            </span>
+                                        </label>
+                                        <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+                                            {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
+                                                <button
+                                                    key={weekNum}
+                                                    onClick={() => setSelectedWeeks(weekNum)}
+                                                    className={`py-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${selectedWeeks === weekNum
+                                                        ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
+                                                        : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
+                                                        }`}
+                                                >
+                                                    <span className={`text-lg font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
+                                                        {weekNum}
+                                                    </span>
+                                                    <span className="text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Week{weekNum > 1 ? 's' : ''}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-center gap-3">
+                                            <span className="text-xl">🎯</span>
+                                            <p className="text-xs text-orange-800 leading-relaxed">
+                                                You've selected a <span className="font-bold">{selectedWeeks}-week plan</span>.
+                                                We'll fetch the industry-aligned curriculum for this specific duration.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons - Aligned & Compact */}
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+                                        <button
+                                            onClick={handleGenerateRoadmap}
+                                            disabled={!selectedCategory || isGeneratingRoadmap}
+                                            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
+                                        >
+                                            {isGeneratingRoadmap ? (
+                                                <span className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    Generating...
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <span>Start Learning</span>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                    </svg>
+                                                </>
+                                            )}
                                         </button>
-                                    ))}
-                                </div>
-                                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-center gap-3">
-                                    <span className="text-xl">🎯</span>
-                                    <p className="text-xs text-orange-800 leading-relaxed">
-                                        You've selected a <span className="font-bold">{selectedWeeks}-week plan</span>.
-                                        We'll fetch the industry-aligned curriculum for this specific duration.
-                                    </p>
-                                </div>
-                            </div>
 
-                            {/* Action Buttons - Aligned & Compact */}
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-                                <button
-                                    onClick={handleGenerateRoadmap}
-                                    disabled={!selectedCategory || isGeneratingRoadmap}
-                                    className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                >
-                                    {isGeneratingRoadmap ? (
-                                        <span className="flex items-center gap-2">
-                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            Generating...
-                                        </span>
-                                    ) : (
-                                        <>
-                                            <span>Start Learning</span>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                            </svg>
-                                        </>
-                                    )}
-                                </button>
-
-                                <button
-                                    onClick={fetchCompletedCourseDetails}
-                                    disabled={!selectedCategory || isLoadingCompletedCourse}
-                                    className="px-6 py-3 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                >
-                                    {isLoadingCompletedCourse ? (
-                                        <span className="flex items-center gap-2">
-                                            <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                                            Loading...
-                                        </span>
-                                    ) : (
-                                        <>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                            <span>View Completed</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                                        <button
+                                            onClick={fetchCompletedCourseDetails}
+                                            disabled={!selectedCategory || isLoadingCompletedCourse}
+                                            className="px-6 py-3 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
+                                        >
+                                            {isLoadingCompletedCourse ? (
+                                                <span className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                                                    Loading...
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                    <span>View Completed</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -2849,11 +2872,11 @@ const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers
             </div>
 
             {/* Career Cards */}
-            <div className="grid md:grid-cols-2 gap-5">
+            <div className="grid md:grid-cols-2 gap-5 items-start">
                 {careers.map((career, idx) => (
                     <div
                         key={idx}
-                        className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/10"
+                        className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                     >
                         {/* Header */}
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -3020,11 +3043,11 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                 </div>
             ) : (
                 /* Project Cards */
-                <div className="grid md:grid-cols-2 gap-5">
+                <div className="grid md:grid-cols-2 gap-5 items-start">
                     {filteredProjects.map((project, idx) => (
                         <div
                             key={idx}
-                            className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-xl hover:shadow-orange-500/10"
+                            className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between gap-3 mb-3">
