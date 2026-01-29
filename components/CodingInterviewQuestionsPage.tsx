@@ -588,10 +588,13 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     };
   }, [activeTab]);
 
-  // Fetch submission history from backend
+  // Fetch submission history from backend (merges with local submissions)
   const fetchSubmissionHistory = async () => {
     const userId = getCurrentUserId();
-    if (!userId) return;
+    if (!userId) {
+      console.log('No user ID found, skipping submission fetch');
+      return;
+    }
 
     setIsLoadingSubmissions(true);
     try {
@@ -605,38 +608,47 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data?.submissions) {
-          // Transform backend data to frontend format
-          const transformedSubmissions = data.data.submissions.map((sub: {
-            submissionId: string;
-            passed: boolean;
-            runtime?: string;
-            memory?: string;
-            language?: string;
-            submittedAt?: string;
-            code?: string;
-          }) => ({
-            id: sub.submissionId,
-            status: sub.passed ? 'Accepted' : 'Wrong Answer' as const,
-            runtime: sub.runtime || 'N/A',
-            memory: sub.memory || 'N/A',
-            language: supportedLanguages.find(l => l.id === sub.language)?.name || sub.language || 'Unknown',
-            timestamp: sub.submittedAt || new Date().toISOString(),
-            code: sub.code
-          }));
-          setSubmissionHistory(transformedSubmissions);
-        }
+      const data = await response.json();
+      console.log('Submission history response:', data);
+
+      if (data.success && data.data?.submissions && data.data.submissions.length > 0) {
+        // Transform backend data to frontend format
+        const transformedSubmissions = data.data.submissions.map((sub: {
+          submissionId: string;
+          passed: boolean;
+          runtime?: string;
+          memory?: string;
+          language?: string;
+          submittedAt?: string;
+          code?: string;
+        }) => ({
+          id: sub.submissionId,
+          status: sub.passed ? 'Accepted' : 'Wrong Answer' as const,
+          runtime: sub.runtime || 'N/A',
+          memory: sub.memory || 'N/A',
+          language: supportedLanguages.find(l => l.id === sub.language)?.name || sub.language || 'Unknown',
+          timestamp: sub.submittedAt || new Date().toISOString(),
+          code: sub.code
+        }));
+        
+        // Merge backend submissions with local session submissions (keep both, avoid duplicates)
+        setSubmissionHistory(prev => {
+          const backendIds = new Set(transformedSubmissions.map((s: { id: string }) => s.id));
+          // Keep local submissions that aren't in backend (local ones start with 'sub-')
+          const localSessionSubmissions = prev.filter(s => s.id.startsWith('sub-') && !backendIds.has(s.id));
+          return [...localSessionSubmissions, ...transformedSubmissions];
+        });
       }
+      // If no backend submissions, keep local ones (they'll show from the current session)
     } catch (error) {
       console.error('Error fetching submissions:', error);
+      // On error, keep local submissions
     } finally {
       setIsLoadingSubmissions(false);
     }
   };
 
-  // Fetch submission history when submissions tab is opened
+  // Fetch submission history when submissions tab is opened or question changes
   useEffect(() => {
     if (activeTab === 'submissions') {
       fetchSubmissionHistory();
