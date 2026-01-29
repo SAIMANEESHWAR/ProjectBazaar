@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ProjectDashboardCard from './ProjectDashboardCard';
 import { useNavigation, usePremium, useAuth } from '../App';
 import { fetchProjectDetails, ProjectDetails } from '../services/buyerApi';
+import Lottie from 'lottie-react';
+import projectStatusAnimation from '../lottiefiles/project_status.json';
 
 interface StatCardProps {
     title: string;
@@ -1679,9 +1681,30 @@ const SellerDashboard: React.FC = () => {
                                 if (filteredProjects.length === 0) {
                                     return (
                                         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-                                            <p className="text-gray-500 text-lg font-medium">
-                                                No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found.
+                                            <div className="w-64 h-64 mx-auto mb-6 flex items-center justify-center">
+                                                <Lottie 
+                                                    animationData={projectStatusAnimation} 
+                                                    loop={true} 
+                                                    autoplay={true}
+                                                    style={{ width: '100%', height: '100%' }}
+                                                />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                                No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found
+                                            </h3>
+                                            <p className="text-gray-500 mb-4">
+                                                {statusFilter === 'all' 
+                                                    ? 'You haven\'t uploaded any projects yet. Start by creating your first project!'
+                                                    : `You don't have any projects with "${statusFilter}" status. Try selecting a different status filter.`}
                                             </p>
+                                            {statusFilter !== 'all' && (
+                                                <button
+                                                    onClick={() => setStatusFilter('all')}
+                                                    className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold transition-colors"
+                                                >
+                                                    View All Projects
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 }
@@ -1754,8 +1777,33 @@ const SellerDashboard: React.FC = () => {
                                                                 if (filteredProjects.length === 0) {
                                                                     return (
                                                                         <tr>
-                                                                            <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                                                                No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found.
+                                                                            <td colSpan={5} className="px-6 py-12">
+                                                                                <div className="text-center">
+                                                                                    <div className="w-48 h-48 mx-auto mb-4 flex items-center justify-center">
+                                                                                        <Lottie 
+                                                                                            animationData={projectStatusAnimation} 
+                                                                                            loop={true} 
+                                                                                            autoplay={true}
+                                                                                            style={{ width: '100%', height: '100%' }}
+                                                                                        />
+                                                                                    </div>
+                                                                                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                                                                        No {statusFilter === 'all' ? '' : statusFilter.toLowerCase()} projects found
+                                                                                    </h3>
+                                                                                    <p className="text-gray-500 mb-4">
+                                                                                        {statusFilter === 'all' 
+                                                                                            ? 'You haven\'t uploaded any projects yet.'
+                                                                                            : `You don't have any projects with "${statusFilter}" status.`}
+                                                                                    </p>
+                                                                                    {statusFilter !== 'all' && (
+                                                                                        <button
+                                                                                            onClick={() => setStatusFilter('all')}
+                                                                                            className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold transition-colors"
+                                                                                        >
+                                                                                            View All Projects
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
                                                                     );
