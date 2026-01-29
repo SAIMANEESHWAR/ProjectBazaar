@@ -497,27 +497,38 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
                 
                 {/* Actions Toolbar - Always visible on hover */}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all bg-[#0d0d12]/95 backdrop-blur-sm rounded-lg p-1 border border-violet-500/20">
-                  <button
-                    onClick={(e) => copyToClipboard(portfolio.liveUrl, e)}
-                    className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                    title="Copy URL"
-                  >
-                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
+                  {/* Copy Button */}
+                  <div className="relative group/copy">
+                    <button
+                      onClick={(e) => copyToClipboard(portfolio.liveUrl, e)}
+                      className="p-2 hover:bg-violet-500/20 rounded-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-gray-400 group-hover/copy:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-white text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover/copy:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-50">
+                      Copy URL
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+                    </div>
+                  </div>
                   
                   {/* Share Button with Dropdown */}
-                  <div className="relative">
+                  <div className="relative group/share">
                     <button
                       onClick={(e) => handleShare(portfolio.liveUrl, portfolio.name, e)}
-                      className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                      title="Share Portfolio"
+                      className="p-2 hover:bg-violet-500/20 rounded-lg transition-colors"
                     >
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-gray-400 group-hover/share:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                     </button>
+                    {!shareMenuOpen && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-white text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover/share:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-50">
+                        Share
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+                      </div>
+                    )}
                     
                     {/* Share Dropdown Menu */}
                     {shareMenuOpen === portfolio.liveUrl && (
@@ -612,32 +623,45 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
                     )}
                   </div>
                   
-                  <a
-                    href={portfolio.liveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                    title="Open Portfolio"
-                  >
-                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                  <button
-                    onClick={(e) => handleDeleteClick(portfolio.portfolioId, e)}
-                    disabled={deletingId === portfolio.portfolioId}
-                    className="p-2 hover:bg-red-500/20 rounded-lg transition-colors group/del"
-                    title="Delete"
-                  >
-                    {deletingId === portfolio.portfolioId ? (
-                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-4 h-4 text-gray-400 group-hover/del:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  {/* Open Button */}
+                  <div className="relative group/open">
+                    <a
+                      href={portfolio.liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-2 hover:bg-violet-500/20 rounded-lg transition-colors block"
+                    >
+                      <svg className="w-4 h-4 text-gray-400 group-hover/open:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
-                    )}
-                  </button>
+                    </a>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-white text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover/open:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-50">
+                      Open
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Delete Button */}
+                  <div className="relative group/del">
+                    <button
+                      onClick={(e) => handleDeleteClick(portfolio.portfolioId, e)}
+                      disabled={deletingId === portfolio.portfolioId}
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                    >
+                      {deletingId === portfolio.portfolioId ? (
+                        <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-4 h-4 text-gray-400 group-hover/del:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-white text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover/del:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-50">
+                      Delete
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
