@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, useNavigation, usePremium } from '../App';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
+import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -109,7 +110,7 @@ const SettingsPage: React.FC = () => {
     const [isFreelancer, setIsFreelancer] = useState(false);
     const [freelancerSkills, setFreelancerSkills] = useState<string[]>([]);
     const [freelancerSkillInput, setFreelancerSkillInput] = useState('');
-    const [profileProjects, setProfileProjects] = useState<Array<{ id: string; title: string; url?: string; description?: string }>>([]);
+    const [profileProjects, setProfileProjects] = useState<Array<{ id: string; title: string; url?: string; description?: string; images?: string[] }>>([]);
     
     // GitHub OAuth state
     const [githubData, setGithubData] = useState<{
@@ -210,6 +211,7 @@ const SettingsPage: React.FC = () => {
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadingProjectImageId, setUploadingProjectImageId] = useState<string | null>(null);
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -249,7 +251,7 @@ const SettingsPage: React.FC = () => {
                     // Become a Freelancer
                     setIsFreelancer(user.isFreelancer === true);
                     setFreelancerSkills(Array.isArray(user.skills) ? user.skills : (typeof user.skills === 'string' ? (user.skills ? user.skills.split(',').map((s: string) => s.trim()).filter(Boolean) : []) : []));
-                    setProfileProjects(Array.isArray(user.freelancerProjects) ? user.freelancerProjects.map((p: any, idx: number) => ({ id: p.id || `p-${idx}-${Date.now()}`, title: p.title || '', url: p.url, description: p.description })) : []);
+                    setProfileProjects(Array.isArray(user.freelancerProjects) ? user.freelancerProjects.map((p: any, idx: number) => ({ id: p.id || `p-${idx}-${Date.now()}`, title: p.title || '', url: p.url, description: p.description, images: Array.isArray(p.images) ? p.images : [] })) : []);
                     
                     // GitHub data
                     if (user.githubData) {
@@ -1126,6 +1128,37 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    // Upload project image and return S3 URL (same Lambda presigned URL flow)
+    const uploadImageGetUrl = async (file: File): Promise<string | null> => {
+        if (!userId) return null;
+        if (file.size > MAX_SIZE_MB * 1024 * 1024) return null;
+        try {
+            const presignRes = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'getPresignedUrl',
+                    userId,
+                    fileName: file.name,
+                    fileType: file.type,
+                }),
+            });
+            const presignData = await presignRes.json();
+            if (!presignData.success) return null;
+            const { uploadUrl, fileUrl, contentType } = presignData;
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                ...(contentType && { headers: { 'Content-Type': contentType } }),
+            });
+            if (!uploadResponse.ok) return null;
+            return fileUrl;
+        } catch (err) {
+            console.error('Project image upload failed', err);
+            return null;
+        }
+    };
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !userId) return;
         const file = e.target.files[0];
@@ -1174,6 +1207,14 @@ const SettingsPage: React.FC = () => {
             return;
         }
 
+        if (isFreelancer && profileProjects.length > 0) {
+            const needsImage = profileProjects.find((p) => !p.images || p.images.length < 1);
+            if (needsImage) {
+                setSaveError('Each project must have at least one image. Add an image using the drag-and-drop area.');
+                return;
+            }
+        }
+
         setSaving(true);
         try {
             // Build request body - only include profilePictureUrl if it exists
@@ -1192,7 +1233,7 @@ const SettingsPage: React.FC = () => {
             requestBody.isFreelancer = isFreelancer;
             if (isFreelancer) {
                 requestBody.skills = freelancerSkills;
-                requestBody.freelancerProjects = profileProjects.map(({ id, title, url, description }) => ({ id, title, url, description }));
+                requestBody.freelancerProjects = profileProjects.map(({ id, title, url, description, images }) => ({ id, title, url, description, images: images || [] }));
             }
 
             // Include GitHub data if available
@@ -1306,6 +1347,11 @@ const SettingsPage: React.FC = () => {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
+                                </div>
+                            )}
+                            {isFreelancer && (
+                                <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5 shadow-sm" title="Verified freelancer">
+                                    <img src={verifiedFreelanceSvg} alt="Verified freelancer" className="w-7 h-7" aria-hidden />
                                 </div>
                             )}
                         </div>
@@ -1474,10 +1520,10 @@ const SettingsPage: React.FC = () => {
                             {/* Projects */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Projects <span className="text-orange-500">*</span></label>
-                                <p className="text-xs text-gray-500 mb-3">List projects you've built or contributed to (title, optional link, description).</p>
-                                <div className="space-y-4">
+                                <p className="text-xs text-gray-500 mb-3">List projects you've built or contributed to (title, optional link, description, and one image per project).</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {profileProjects.map((project) => (
-                                        <div key={project.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                                        <div key={project.id} className="flex flex-col p-4 bg-gray-50 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow space-y-2">
                                             {isEditingProfile ? (
                                                 <>
                                                     <input
@@ -1501,6 +1547,80 @@ const SettingsPage: React.FC = () => {
                                                         rows={2}
                                                         className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                                                     />
+                                                    {/* Project images (1 required) - drag and drop */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Project image <span className="text-orange-500">*</span> (1 required)</label>
+                                                        <p className="text-xs text-gray-500 mb-2">Add one image. Drag and drop or click to upload.</p>
+                                                        <div className="flex flex-wrap gap-2 mb-2">
+                                                            {(project.images || []).map((imgUrl, idx) => (
+                                                                <div key={idx} className="relative group">
+                                                                    <img src={imgUrl} alt="" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, images: (p.images || []).filter((_, i) => i !== idx) } : p))}
+                                                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 hover:bg-red-600"
+                                                                        aria-label="Remove image"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <label
+                                                                className={`flex flex-col items-center justify-center w-24 h-20 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${uploadingProjectImageId === project.id ? 'border-orange-400 bg-orange-50' : 'border-gray-300 hover:border-orange-400 hover:bg-gray-50'}`}
+                                                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                onDrop={async (e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    const files = e.dataTransfer.files;
+                                                                    if (!files?.length || !userId) return;
+                                                                    setUploadingProjectImageId(project.id);
+                                                                    setSaveError(null);
+                                                                    const urls: string[] = [];
+                                                                    for (let i = 0; i < files.length; i++) {
+                                                                        const file = files[i];
+                                                                        if (!file.type.startsWith('image/')) continue;
+                                                                        const url = await uploadImageGetUrl(file);
+                                                                        if (url) urls.push(url);
+                                                                    }
+                                                                    if (urls.length) setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, images: [...(p.images || []), ...urls] } : p));
+                                                                    setUploadingProjectImageId(null);
+                                                                }}
+                                                            >
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    multiple
+                                                                    className="hidden"
+                                                                    onChange={async (e) => {
+                                                                        const files = e.target.files;
+                                                                        if (!files?.length || !userId) return;
+                                                                        e.target.value = '';
+                                                                        setUploadingProjectImageId(project.id);
+                                                                        setSaveError(null);
+                                                                        const urls: string[] = [];
+                                                                        for (let i = 0; i < files.length; i++) {
+                                                                            const url = await uploadImageGetUrl(files[i]);
+                                                                            if (url) urls.push(url);
+                                                                        }
+                                                                        if (urls.length) setProfileProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, images: [...(p.images || []), ...urls] } : p));
+                                                                        setUploadingProjectImageId(null);
+                                                                    }}
+                                                                />
+                                                                {uploadingProjectImageId === project.id ? (
+                                                                    <span className="text-xs text-orange-600 px-2 text-center">Uploading...</span>
+                                                                ) : (
+                                                                    <>
+                                                                        <svg className="w-8 h-8 text-gray-400 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" /></svg>
+                                                                        <span className="text-xs text-gray-500">Drop or click</span>
+                                                                    </>
+                                                                )}
+                                                            </label>
+                                                        </div>
+                                                        {(project.images?.length ?? 0) < 1 && (
+                                                            <p className="text-xs text-amber-600">Add one image (required).</p>
+                                                        )}
+                                                    </div>
                                                     <button
                                                         type="button"
                                                         onClick={() => setProfileProjects((prev) => prev.filter((p) => p.id !== project.id))}
@@ -1510,10 +1630,22 @@ const SettingsPage: React.FC = () => {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <div>
-                                                    <p className="font-medium text-gray-900">{project.title}</p>
-                                                    {project.url && <a href={project.url} target="_blank" rel="noopener noreferrer" className="text-sm text-orange-600 hover:underline">{project.url}</a>}
-                                                    {project.description && <p className="text-sm text-gray-600 mt-1">{project.description}</p>}
+                                                <div className="flex flex-col flex-1 min-h-0">
+                                                    {(project.images?.length ?? 0) > 0 && (
+                                                        <div className="mb-2 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 aspect-video">
+                                                            <img src={project.images![0]} alt="" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    <p className="font-medium text-gray-900 truncate" title={project.title}>{project.title}</p>
+                                                    {project.url && (
+                                                        <a href={project.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:underline mt-0.5 min-w-0">
+                                                            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                            <span className="truncate" title={project.url}>
+                                                                {(() => { try { return new URL(project.url).hostname; } catch { return project.url.length > 28 ? project.url.slice(0, 25) + '...' : project.url; } })()}
+                                                            </span>
+                                                        </a>
+                                                    )}
+                                                    {project.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2 flex-1">{project.description}</p>}
                                                 </div>
                                             )}
                                         </div>
@@ -1521,8 +1653,8 @@ const SettingsPage: React.FC = () => {
                                     {isEditingProfile && (
                                         <button
                                             type="button"
-                                            onClick={() => setProfileProjects((prev) => [...prev, { id: `p-${Date.now()}`, title: '', url: undefined, description: undefined }])}
-                                            className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-orange-400 hover:text-orange-600"
+                                            onClick={() => setProfileProjects((prev) => [...prev, { id: `p-${Date.now()}`, title: '', url: undefined, description: undefined, images: [] }])}
+                                            className="col-span-full flex items-center justify-center gap-2 px-4 py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-orange-400 hover:bg-orange-50/50 hover:text-orange-600 transition-colors"
                                         >
                                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                                             Add project
