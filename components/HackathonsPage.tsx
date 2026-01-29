@@ -127,14 +127,14 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       domain: 'unstop.com', 
       logo: `https://www.google.com/s2/favicons?domain=unstop.com&sz=128`,
       fallback: 'U',
-      color: 'bg-gradient-to-br from-purple-500 to-purple-600'
+      color: 'bg-gradient-to-br from-orange-500 to-amber-500'
     },
     { 
       name: 'Devfolio', 
       domain: 'devfolio.co', 
       logo: `https://www.google.com/s2/favicons?domain=devfolio.co&sz=128`,
       fallback: 'DF',
-      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600'
+      color: 'bg-gradient-to-br from-orange-500 to-amber-500'
     },
     { 
       name: 'HackerEarth', 
@@ -155,7 +155,7 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       domain: 'skillenza.com', 
       logo: `https://www.google.com/s2/favicons?domain=skillenza.com&sz=128`,
       fallback: 'SK',
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600'
+      color: 'bg-gradient-to-br from-orange-500 to-amber-500'
     },
   ];
 
@@ -182,10 +182,10 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       </div>
 
       {/* Integrated Platforms Section */}
-      <div className="mb-6 bg-gradient-to-br from-blue-50/80 via-indigo-50/80 to-purple-50/80 backdrop-blur-sm rounded-2xl border border-blue-200/60 shadow-sm p-5">
+      <div className="mb-6 bg-gradient-to-br from-orange-50/80 via-white to-amber-50/80 backdrop-blur-sm rounded-2xl border border-orange-200/60 shadow-sm p-5">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             <span className="text-sm font-bold text-gray-800 whitespace-nowrap">
@@ -208,7 +208,7 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
                         className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-200 group relative overflow-hidden ${
                           hasError || !imageLoaded
                             ? `${platform.color} border-transparent hover:shadow-lg hover:-translate-y-1 text-white`
-                            : 'bg-white border-gray-200 hover:border-blue-400 hover:bg-white hover:shadow-lg hover:-translate-y-1'
+                            : 'bg-white border-gray-200 hover:border-orange-400 hover:bg-white hover:shadow-lg hover:-translate-y-1'
                         }`}
                       >
                         {hasError || !imageLoaded ? (
@@ -259,7 +259,7 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
               key={idx}
               className="relative h-full w-fit mx-8 flex items-center justify-start"
             >
-              <span className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/50 text-sm font-semibold text-gray-700 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap">
+              <span className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/50 text-sm font-semibold text-gray-700 hover:from-orange-100 hover:to-amber-100 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap">
                 {platform}
               </span>
             </div>

@@ -44,6 +44,7 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
   const [showSavedResumes, setShowSavedResumes] = useState(false);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showSaveToast, setShowSaveToast] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Map step IDs to section IDs and fallback heading text for scrolling
@@ -128,7 +129,37 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const previewContent = previewRef.current?.innerHTML || '';
+    // Find the actual resume content div (skip the wrapper)
+    let resumeContent = '';
+    if (previewRef.current) {
+      // previewRef.current is the wrapper div, we need the first child div which is the ResumePreview template
+      // The template is typically the first div child that contains sections or has bg-white
+      const firstChild = previewRef.current.firstElementChild as HTMLElement;
+      
+      if (firstChild && firstChild.tagName === 'DIV') {
+        // Clone to preserve all inline styles
+        const cloned = firstChild.cloneNode(true) as HTMLElement;
+        // Remove any highlight classes that might be present
+        cloned.querySelectorAll('.resume-section-highlight').forEach(el => {
+          el.classList.remove('resume-section-highlight');
+        });
+        // Get the outerHTML to preserve all attributes and inline styles
+        resumeContent = cloned.outerHTML;
+      } else {
+        // Fallback: try to find div with resume sections
+        const resumeDiv = previewRef.current.querySelector('[id^="resume-section"]')?.closest('div');
+        if (resumeDiv) {
+          const cloned = resumeDiv.cloneNode(true) as HTMLElement;
+          cloned.querySelectorAll('.resume-section-highlight').forEach(el => {
+            el.classList.remove('resume-section-highlight');
+          });
+          resumeContent = cloned.outerHTML;
+        } else {
+          // Last fallback: get innerHTML
+          resumeContent = previewRef.current.innerHTML;
+        }
+      }
+    }
     
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -137,13 +168,21 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
           <title>${resumeInfo.firstName} ${resumeInfo.lastName} - Resume</title>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
+            * { 
+              box-sizing: border-box; 
+              margin: 0; 
+              padding: 0;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
             
             body { 
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
               background: white;
               color: #1f2937;
               line-height: 1.5;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             
             /* Container styles */
@@ -160,6 +199,9 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
             .text-gray-100 { color: #f3f4f6; }
             .bg-gray-100 { background-color: #f3f4f6; }
             .bg-gray-50 { background-color: #f9fafb; }
+            .bg-gray-200 { background-color: #e5e7eb; }
+            .bg-gray-800 { background-color: #1f2937; }
+            .bg-gray-900 { background-color: #111827; }
             
             /* Typography */
             .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
@@ -242,7 +284,11 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
             .gap-3 { gap: 0.75rem; }
             .gap-4 { gap: 1rem; }
             .gap-6 { gap: 1.5rem; }
+            .gap-8 { gap: 2rem; }
+            .space-y-1 > * + * { margin-top: 0.25rem; }
             .space-y-2 > * + * { margin-top: 0.5rem; }
+            .space-y-3 > * + * { margin-top: 0.75rem; }
+            .space-y-4 > * + * { margin-top: 1rem; }
             
             .whitespace-nowrap { white-space: nowrap; }
             
@@ -321,21 +367,30 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
             /* Section container */
             section { page-break-inside: avoid; }
             
+            /* Ensure all inline styles and colors are preserved */
+            [style] {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            
             /* Print styles */
             @media print {
               body { 
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                margin: 0;
+                padding: 0;
               }
               @page { 
                 margin: 0.4in; 
                 size: letter;
               }
-              .rounded-full, .rounded-lg, .rounded {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
               * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              /* Force colors to print */
+              [style*="color"], [style*="background"], [style*="border"] {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
@@ -343,7 +398,7 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
           </style>
         </head>
         <body>
-          ${previewContent}
+          ${resumeContent}
         </body>
       </html>
     `);
@@ -356,7 +411,11 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
 
   const handleSave = () => {
     saveResume();
-    alert('Resume saved successfully!');
+    setShowSaveToast(true);
+    // Auto-hide toast after 4 seconds
+    setTimeout(() => {
+      setShowSaveToast(false);
+    }, 4000);
   };
 
   const renderStepContent = () => {
@@ -787,9 +846,9 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                 <h2 className="text-lg font-bold text-gray-900">Live Preview</h2>
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-orange-600 bg-white border border-orange-500 rounded-lg hover:bg-orange-50 hover:border-orange-600 transition-all"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   Download
@@ -858,6 +917,39 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
           </div>
         </div>
       </main>
+
+      {/* Save Toast Notification */}
+      {showSaveToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border border-orange-300/80 bg-white/95 backdrop-blur-sm animate-slide-up">
+          {/* Success Icon */}
+          <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          
+          {/* Message */}
+          <span className="text-sm font-medium text-gray-800">Resume saved successfully!</span>
+          
+          {/* Close Button */}
+          <button
+            onClick={() => setShowSaveToast(false)}
+            className="ml-2 p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          <style>{`
+            @keyframes slide-up {
+              from { transform: translateY(20px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+            .animate-slide-up { animation: slide-up 0.3s ease-out; }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 };
