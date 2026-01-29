@@ -1536,22 +1536,22 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 </div>
                             </div>
 
-                            {/* Action Buttons - Premium Styling */}
-                            <div className="space-y-3">
+                            {/* Action Buttons - Aligned & Compact */}
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
                                 <button
                                     onClick={handleGenerateRoadmap}
                                     disabled={!selectedCategory || isGeneratingRoadmap}
-                                    className="w-full py-5 bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 text-white rounded-2xl font-bold text-lg shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
+                                    className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
                                 >
                                     {isGeneratingRoadmap ? (
-                                        <span className="flex items-center justify-center gap-3">
-                                            <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            Generating Your Roadmap...
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Generating...
                                         </span>
                                     ) : (
                                         <>
-                                            <span>Start Your Learning Journey</span>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <span>Start Learning</span>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                             </svg>
                                         </>
@@ -1561,19 +1561,19 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 <button
                                     onClick={fetchCompletedCourseDetails}
                                     disabled={!selectedCategory || isLoadingCompletedCourse}
-                                    className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl font-semibold text-base shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.99] flex items-center justify-center gap-3"
+                                    className="px-6 py-3 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
                                 >
                                     {isLoadingCompletedCourse ? (
-                                        <span className="flex items-center justify-center gap-3">
-                                            <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                                             Loading...
                                         </span>
                                     ) : (
                                         <>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
-                                            <span>View Completed Course</span>
+                                            <span>View Completed</span>
                                         </>
                                     )}
                                 </button>
@@ -3030,8 +3030,8 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                             <div className="flex items-start justify-between gap-3 mb-3">
                                 <h3 className="text-lg font-bold text-gray-900 flex-1 min-w-0 truncate">{project.title}</h3>
                                 <span className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${project.difficulty === 'Beginner' ? 'bg-green-100 text-green-700' :
-                                        project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
+                                    project.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
                                     }`}>
                                     {project.difficulty}
                                 </span>
