@@ -238,6 +238,7 @@ def toggle_bookmark(user_id, question_id):
 def record_submission(user_id, question_id, submission_data):
     """
     Record a code submission for a question.
+    Stores in UserSubmissions table if available, otherwise stores in UserQuestionProgress.
     """
     if not user_id or not question_id:
         return response(400, {
@@ -263,13 +264,51 @@ def record_submission(user_id, question_id, submission_data):
             "submittedAt": timestamp
         }
         
-        submissions_table.put_item(Item=submission)
+        # Try to save to UserSubmissions table
+        try:
+            submissions_table.put_item(Item=submission)
+            print(f"Submission saved to UserSubmissions: {submission_id}")
+        except Exception as sub_error:
+            print(f"UserSubmissions table error (might not exist): {str(sub_error)}")
+            # Fallback: Store submission history in UserQuestionProgress as JSON array
+            try:
+                # Get existing progress
+                progress_result = progress_table.get_item(
+                    Key={'userId': user_id, 'questionId': question_id}
+                )
+                existing = progress_result.get('Item', {})
+                existing_submissions = existing.get('submissions', [])
+                
+                # Add new submission (keep last 20)
+                submission_for_progress = {
+                    "submissionId": submission_id,
+                    "passed": submission_data.get('passed', False),
+                    "runtime": submission_data.get('runtime'),
+                    "memory": submission_data.get('memory'),
+                    "language": submission_data.get('language', 'python'),
+                    "submittedAt": timestamp
+                }
+                existing_submissions.insert(0, submission_for_progress)
+                existing_submissions = existing_submissions[:20]  # Keep only last 20
+                
+                # Update progress with submissions array
+                progress_table.update_item(
+                    Key={'userId': user_id, 'questionId': question_id},
+                    UpdateExpression='SET submissions = :subs, updatedAt = :ts',
+                    ExpressionAttributeValues={
+                        ':subs': existing_submissions,
+                        ':ts': timestamp
+                    }
+                )
+                print(f"Submission saved to UserQuestionProgress (fallback): {submission_id}")
+            except Exception as fallback_error:
+                print(f"Fallback storage also failed: {str(fallback_error)}")
         
         # Update question status based on submission result
         if submission_data.get('passed'):
-            await_update = update_question_status(user_id, question_id, 'solved')
+            update_question_status(user_id, question_id, 'solved')
         else:
-            await_update = update_question_status(user_id, question_id, 'attempted')
+            update_question_status(user_id, question_id, 'attempted')
         
         return response(201, {
             "success": True,
@@ -294,6 +333,7 @@ def record_submission(user_id, question_id, submission_data):
 def get_submissions(user_id, question_id):
     """
     Get all submissions for a user on a specific question.
+    Tries UserSubmissions table first, falls back to UserQuestionProgress.submissions array.
     """
     if not user_id or not question_id:
         return response(400, {
@@ -301,6 +341,9 @@ def get_submissions(user_id, question_id):
             "error": {"code": "VALIDATION_ERROR", "message": "User ID and Question ID are required"}
         })
     
+    submissions = []
+    
+    # Try to get from UserSubmissions table first
     try:
         result = submissions_table.query(
             IndexName='userId-questionId-index',
@@ -308,21 +351,32 @@ def get_submissions(user_id, question_id):
                                    boto3.dynamodb.conditions.Key('questionId').eq(question_id),
             ScanIndexForward=False  # Most recent first
         )
-        
-        return response(200, {
-            "success": True,
-            "data": {
-                "submissions": result.get('Items', []),
-                "count": len(result.get('Items', []))
-            }
-        })
-        
+        submissions = result.get('Items', [])
+        print(f"Found {len(submissions)} submissions in UserSubmissions table")
     except Exception as e:
-        print(f"Error getting submissions: {str(e)}")
-        return response(500, {
-            "success": False,
-            "error": {"code": "INTERNAL_ERROR", "message": "Failed to get submissions"}
-        })
+        print(f"UserSubmissions table query failed (might not exist or no GSI): {str(e)}")
+    
+    # If no submissions found, try fallback from UserQuestionProgress
+    if not submissions:
+        try:
+            progress_result = progress_table.get_item(
+                Key={'userId': user_id, 'questionId': question_id}
+            )
+            item = progress_result.get('Item', {})
+            fallback_submissions = item.get('submissions', [])
+            if fallback_submissions:
+                submissions = fallback_submissions
+                print(f"Found {len(submissions)} submissions in UserQuestionProgress (fallback)")
+        except Exception as fallback_error:
+            print(f"Fallback query also failed: {str(fallback_error)}")
+    
+    return response(200, {
+        "success": True,
+        "data": {
+            "submissions": submissions,
+            "count": len(submissions)
+        }
+    })
 
 
 # ========================================
