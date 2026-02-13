@@ -42,7 +42,7 @@ const WishlistPage: React.FC<WishlistPageProps> = ({ allProjects, onViewDetails 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">My Wishlist</h2>
+        {/* <h2 className="text-2xl font-bold text-gray-900">My Wishlist</h2> */}
         <span className="text-gray-600">{wishlistProjects.length} {wishlistProjects.length === 1 ? 'item' : 'items'}</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
