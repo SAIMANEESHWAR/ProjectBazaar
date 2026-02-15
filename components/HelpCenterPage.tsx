@@ -3,6 +3,7 @@ import BugReportModal from './BugReportModal';
 import Lottie from 'lottie-react';
 import helpCenterAnimation from '../lottiefiles/helpcenter.json';
 import helpcenter from '../lottiefiles/helpcenter2.json';
+import { Play, Clock, ChevronRight } from 'lucide-react';
 
 interface FAQ {
   question: string;
@@ -14,6 +15,15 @@ interface HelpCenterPageProps {
   toggleSidebar?: () => void;
   userEmail?: string;
 }
+
+const tutorials = [
+  { id: 1, title: "Getting Started", duration: "5:20" },
+  { id: 2, title: "Advanced Techniques", duration: "12:45" },
+  { id: 3, title: "Workflow Optimization", duration: "8:15" },
+  { id: 4, title: "Project Management", duration: "10:30" },
+  { id: 5, title: "Custom Integration", duration: "7:50" },
+  { id: 6, title: "Security Best Practices", duration: "15:10" },
+];
 
 const HelpCenterPage: React.FC<HelpCenterPageProps> = ({ toggleSidebar, userEmail }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -154,8 +164,8 @@ const HelpCenterPage: React.FC<HelpCenterPageProps> = ({ toggleSidebar, userEmai
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedCategory === category
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
             >
               {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -239,77 +249,48 @@ const HelpCenterPage: React.FC<HelpCenterPageProps> = ({ toggleSidebar, userEmai
 
       </div>
 
-      {/* video tutorials */}
-      <div className="bg-white border border-white rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Video Tutorials
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-gray-100 rounded-lg overflow-hidden">
-            <div className="w-full h-40 bg-gray-300 flex items-center justify-center">
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* <svg
-          className="w-12 h-12 text-gray-500" */}
-
-      {/* FAQs
-      <div className="space-y-4">
-        {filteredFaqs.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-            <div className="w-64 h-64 mx-auto mb-6 flex items-center justify-center">
-              <Lottie 
-                animationData={helpCenterAnimation} 
-                loop={true} 
-                autoplay={true}
-                style={{ width: '100%', height: '100%' }}
-              />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No results found</h3>
-            <p className="text-gray-500 mb-4">Try a different search term or category.</p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-              }}
-              className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold transition-colors"
-            >
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          filteredFaqs.map((faq, index) => (
-     <div
-  key={index}className="bg-white border border-orange-600  rounded-tl-2xl  rounded-br-2xl">
-              <button
-                onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
-                    {faq.category}
-                  </span>
-                  <span className="text-left font-semibold text-gray-900">{faq.question}</span>
-                </div>
-                <svg
-                  className={`w-5 h-5 text-gray-500 transition-transform ${openIndex === index ? 'transform rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+{/* Video Tutorials */}
+      <div className="min-h-screen p-2 md:p-2">
+          <div className="bg-white border border-orange-600 rounded-xl p-4 md:p-5">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Video Tutorials</h2>
+                <p className="text-gray-500 mt-1">Master the platform with these step-by-step guides.</p>
+              </div>
+              <button className="hidden sm:flex items-center text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                View all tutorials <ChevronRight className="w-4 h-4 ml-1" />
               </button>
-              {openIndex === index && (
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                  <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
-                </div>
-              )}
             </div>
-          ))
-        )}
-      </div> */}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tutorials.map((video) => (
+                <div
+                  key={video.id}
+                  className="group bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  {/* Video Placeholder */}
+                  <div className="relative w-full h-48 bg-gray-900 flex items-center justify-center overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Play className="text-white fill-white w-6 h-6 ml-1" />
+                    </div>
+                    <span className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {video.duration}
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                      {video.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">Module {video.id} • Essential Training</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>    
+      </div>
 
       {/* Contact Support */}
       <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white relative overflow-hidden">
