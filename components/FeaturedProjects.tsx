@@ -59,10 +59,10 @@ const FeaturedProjects: React.FC = () => {
   const { navigateTo } = useNavigation();
 
   return (
-    <section className="py-20">
+    <section className="py-20 bg-black">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4">Featured Projects</h2>
-        <p className="text-gray-600 max-w-2xl mx-auto mb-12 text-center">
+        <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-4">Featured Projects</h2>
+        <p className="text-gray-400 max-w-2xl mx-auto mb-12 text-center">
           Explore a selection of high-quality projects from our talented creators.
         </p>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,7 +71,7 @@ const FeaturedProjects: React.FC = () => {
           ))}
         </div>
         <div className="text-center mt-12">
-            <button onClick={() => navigateTo('auth')} className="bg-gray-200 text-gray-800 font-semibold py-3 px-8 rounded-full hover:bg-gray-300:bg-gray-700 transition-colors duration-300">
+            <button onClick={() => navigateTo('auth')} className="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-8 rounded-full border border-white/20 transition-colors duration-300">
                 Browse More Projects
             </button>
         </div>

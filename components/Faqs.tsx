@@ -22,9 +22,9 @@ const Faqs: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 bg-gray-50 dark:bg-gray-800">
+    <section className="py-20 bg-gray-900">
       <div className="container mx-auto px-4 max-w-4xl">
-        <h2 className="text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white">Frequently Asked Questions</h2>
+        <h2 className="text-4xl font-bold text-center mb-12 text-white">Frequently Asked Questions</h2>
         <div className="space-y-4">
           {faqs.map((faq, index) => (
             <FaqItem key={index} question={faq.question} answer={faq.answer} />

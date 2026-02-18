@@ -39,20 +39,20 @@ const steps = [
 
 const Referral: React.FC = () => {
   return (
-    <section className="py-20 bg-gray-100">
+    <section className="py-20 bg-gray-900">
       <div className="container mx-auto px-4 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Student Referral Program</h2>
-        <p className="text-gray-600 max-w-2xl mx-auto mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Student Referral Program</h2>
+        <p className="text-gray-400 max-w-2xl mx-auto mb-12">
           Give a discount to your friends and get more. Here's how it works:
         </p>
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {steps.map((step, index) => (
             <div key={index} className="bg-transparent p-8 rounded-xl text-center flex flex-col items-center">
-              <div className="mb-6 bg-white p-4 rounded-full shadow-md">
+              <div className="mb-6 bg-white/10 p-4 rounded-full border border-white/10">
                 {step.icon}
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">{step.title}</h3>
-              <p className="text-gray-600">{step.description}</p>
+              <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
+              <p className="text-gray-400">{step.description}</p>
             </div>
           ))}
         </div>

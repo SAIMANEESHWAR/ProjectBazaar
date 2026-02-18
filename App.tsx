@@ -219,7 +219,7 @@ const AppContent: React.FC = () => {
     case 'home':
     default:
       return (
-        <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300">
+        <div className="dark bg-black text-gray-100 min-h-screen overflow-x-hidden transition-colors duration-300">
           <Header />
           <main>
             <Hero />
