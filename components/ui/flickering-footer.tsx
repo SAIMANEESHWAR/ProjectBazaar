@@ -418,7 +418,7 @@ export function FlickeringFooter() {
             className="h-full w-full"
             squareSize={2}
             gridGap={tablet ? 2 : 3}
-            color="#6B7280"
+            color="#f97316"
             maxOpacity={0.3}
             flickerChance={0.1}
           />
