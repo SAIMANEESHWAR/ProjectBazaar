@@ -379,14 +379,14 @@ export const FlickeringFooter: React.FC = () => {
   const tablet = useMediaQuery("(max-width: 1024px)");
 
   return (
-    <footer id="footer" className="w-full pb-0">
+    <footer id="footer" className="w-full pb-0 bg-[#0a0a0a]">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between p-10">
         <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
-          <a href="#" className="flex items-center gap-2" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-            <Icons.logo className="size-8" />
-            <p className="text-xl font-semibold text-primary">ProjectBazaar</p>
+          <a href="#" className="flex items-center gap-2 group" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            <Icons.logo className="size-8 [&_path]:fill-[#ff7a00]" />
+            <p className="text-xl font-semibold text-white group-hover:text-[#ff7a00] transition-colors">ProjectBazaar</p>
           </a>
-          <p className="tracking-tight text-muted-foreground font-medium">
+          <p className="tracking-tight text-white/70 font-medium">
             {siteConfig.hero.description}
           </p>
           <div className="flex items-center gap-2 dark:hidden">
@@ -404,11 +404,11 @@ export const FlickeringFooter: React.FC = () => {
           <div className="flex flex-col items-start justify-start md:flex-row md:items-center md:justify-between gap-y-5 lg:pl-10">
             {siteConfig.footerLinks.map((column, columnIndex) => (
               <ul key={columnIndex} className="flex flex-col gap-y-2">
-                <li className="mb-2 text-sm font-semibold text-primary">{column.title}</li>
+                <li className="mb-2 text-sm font-semibold text-[#ff7a00]">{column.title}</li>
                 {column.links.map((link) => (
                   <li
                     key={link.id}
-                    className="group inline-flex cursor-pointer items-center justify-start gap-1 text-[15px]/snug text-muted-foreground"
+                    className="group inline-flex cursor-pointer items-center justify-start gap-1 text-[15px]/snug text-white/80 hover:text-white transition-colors"
                   >
                     <a
                       href={link.url}
@@ -418,11 +418,12 @@ export const FlickeringFooter: React.FC = () => {
                           scrollToId(link.url);
                         }
                       }}
+                      className="hover:text-[#ff7a00] transition-colors"
                     >
                       {link.title}
                     </a>
-                    <div className="flex size-4 items-center justify-center border border-border rounded translate-x-0 transform opacity-0 transition-all duration-300 ease-out group-hover:translate-x-1 group-hover:opacity-100">
-                      <ChevronRightIcon className="h-4 w-4" />
+                    <div className="flex size-4 items-center justify-center border border-white/30 rounded translate-x-0 transform opacity-0 transition-all duration-300 ease-out group-hover:translate-x-1 group-hover:opacity-100 group-hover:border-[#ff7a00]">
+                      <ChevronRightIcon className="h-4 w-4 text-[#ff7a00]" />
                     </div>
                   </li>
                 ))}
@@ -432,7 +433,7 @@ export const FlickeringFooter: React.FC = () => {
         </div>
       </div>
       <div className="w-full h-48 md:h-64 relative mt-24 z-0">
-        <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-background" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-[#0a0a0a]" />
         <div className="absolute inset-0 mx-6">
           <FlickeringGrid
             text={tablet ? "Footer" : "Discover. Build. Earn."}
@@ -440,8 +441,8 @@ export const FlickeringFooter: React.FC = () => {
             className="h-full w-full"
             squareSize={2}
             gridGap={tablet ? 2 : 3}
-            color="#6B7280"
-            maxOpacity={0.3}
+            color="#ff7a00"
+            maxOpacity={0.25}
             flickerChance={0.1}
           />
         </div>
