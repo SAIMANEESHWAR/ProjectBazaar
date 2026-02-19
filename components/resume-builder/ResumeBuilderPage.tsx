@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Lottie from 'lottie-react';
 import { useNavigation, useAuth } from '../../App';
 import { ResumeInfoProvider, useResumeInfo } from '../../context/ResumeInfoContext';
 import PersonalDetailForm from './PersonalDetailForm';
@@ -11,14 +12,20 @@ import ResumePreview from './ResumePreview';
 import ThemeColorPicker from './ThemeColorPicker';
 import TemplatePicker from './TemplatePicker';
 import { getLlmKeysStatus, getAtsScore, buildResumeTextFromInfo, type AtsResult } from '../../services/atsService';
+import personalAvatarAnimation from '../../lottiefiles/personal_avatar.json';
+import educationSuitcaseAnimation from '../../lottiefiles/education_suitcase.json';
+import summaryDocumentAnimation from '../../lottiefiles/summary_document.json';
+import experienceComputerAnimation from '../../lottiefiles/experience_computer.json';
+import skillsEditAnimation from '../../lottiefiles/edit_pencil.json';
+import projectsBarchartAnimation from '../../lottiefiles/projects_barchart.json';
 
 const STEPS = [
-  { id: 1, name: 'Personal', shortName: 'Info', icon: '👤' },
-  { id: 2, name: 'Summary', shortName: 'Sum', icon: '📝' },
-  { id: 3, name: 'Experience', shortName: 'Exp', icon: '💼' },
-  { id: 4, name: 'Education', shortName: 'Edu', icon: '🎓' },
-  { id: 5, name: 'Skills', shortName: 'Skills', icon: '⚡' },
-  { id: 6, name: 'Projects', shortName: 'Proj', icon: '🚀' },
+  { id: 1, name: 'Personal', shortName: 'Info', icon: '👤', lottieAnimation: personalAvatarAnimation },
+  { id: 2, name: 'Summary', shortName: 'Sum', icon: '📝', lottieAnimation: summaryDocumentAnimation },
+  { id: 3, name: 'Experience', shortName: 'Exp', icon: '💼', lottieAnimation: experienceComputerAnimation },
+  { id: 4, name: 'Education', shortName: 'Edu', icon: '🎓', lottieAnimation: educationSuitcaseAnimation },
+  { id: 5, name: 'Skills', shortName: 'Skills', icon: '⚡', lottieAnimation: skillsEditAnimation },
+  { id: 6, name: 'Projects', shortName: 'Proj', icon: '🚀', lottieAnimation: projectsBarchartAnimation },
 ];
 
 interface ResumeBuilderContentProps {
@@ -816,7 +823,15 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                         : 'bg-gray-100 text-gray-500 border border-transparent'
                     }`}
                   >
-                    <span className="text-[10px]">{step.id < activeStep ? '✓' : step.icon}</span>
+                    {step.id < activeStep ? (
+                      <span className="text-[10px]">✓</span>
+                    ) : step.lottieAnimation ? (
+                      <div className="w-4 h-4 flex items-center justify-center">
+                        <Lottie animationData={step.lottieAnimation} loop className="w-full h-full" />
+                      </div>
+                    ) : (
+                      <span className="text-[10px]">{step.icon}</span>
+                    )}
                     <span>{step.shortName}</span>
                   </button>
                 ))}
@@ -837,7 +852,15 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                         : 'bg-gray-100 text-gray-500 border border-transparent'
                     }`}
                   >
-                    <span>{step.id < activeStep ? '✓' : step.icon}</span>
+                    {step.id < activeStep ? (
+                      <span>✓</span>
+                    ) : step.lottieAnimation ? (
+                      <div className="w-5 h-5 flex items-center justify-center">
+                        <Lottie animationData={step.lottieAnimation} loop className="w-full h-full" />
+                      </div>
+                    ) : (
+                      <span>{step.icon}</span>
+                    )}
                     <span>{step.name}</span>
                   </button>
                   {index < STEPS.length - 1 && (
