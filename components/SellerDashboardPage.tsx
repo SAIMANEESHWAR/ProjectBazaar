@@ -11,10 +11,12 @@ const SellerDashboardPage: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
-    // Keep global Buyer/Seller mode in sync: this page is seller mode
+    // Keep global Buyer/Seller mode in sync: this page is seller mode.
+    // Run only on mount so we don't reset activeView when context re-renders (which would prevent sidebar navigation from working).
     useEffect(() => {
         setDashboardMode('seller');
-    }, [setDashboardMode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <WishlistProvider userId={userId}>
