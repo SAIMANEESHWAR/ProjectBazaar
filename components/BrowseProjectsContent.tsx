@@ -137,7 +137,8 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     return undefined;
   }, [bidStatsCache]);
 
-  // Fetch bid request projects from API
+  // Fetch bid request projects from API once on mount. Profile and bid-stats updates
+  // are applied via state and must not retrigger this effect (they were causing triple refresh).
   useEffect(() => {
     const fetchProjects = async () => {
       setIsLoading(true);
@@ -182,7 +183,9 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     };
 
     fetchProjects();
-  }, [fetchOwnerProfile, fetchBidStats]);
+    // Intentionally run only on mount; profile/bid-stats cache updates must not re-fetch the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle opening project details modal (first step)
   const handleViewProjectDetails = async (project: BrowseProject) => {
