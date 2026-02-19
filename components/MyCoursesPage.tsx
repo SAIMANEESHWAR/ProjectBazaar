@@ -3,6 +3,7 @@ import { useAuth } from '../App';
 import { getPurchasedCourses, PurchasedCourse } from '../services/buyerApi';
 import Lottie from 'lottie-react';
 import noCourseAnimation from '../lottiefiles/no_courseanimation.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 
 interface MyCoursesPageProps {
     onViewCourse?: (course: PurchasedCourse) => void;
@@ -164,9 +165,8 @@ const MyCoursesPage: React.FC<MyCoursesPageProps> = ({ onViewCourse }) => {
 
             {/* Loading State */}
             {isLoading && courses.length === 0 && (
-                <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
-                    <p className="text-gray-600 font-medium">Loading your courses...</p>
+                <div className="space-y-8">
+                    <SkeletonDashboard />
                 </div>
             )}
 

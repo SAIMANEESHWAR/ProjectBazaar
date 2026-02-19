@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
-import Skeleton from './ui/skeleton';
 
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 
@@ -74,14 +73,11 @@ interface SidebarProps {
     onCollapseToggle: () => void;
 }
 
-const SIDEBAR_SKELETON_ITEMS = 10;
-
 const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveView, isOpen, isCollapsed, onCollapseToggle }) => {
     const { userEmail, userId, logout } = useAuth();
     const [isHovered, setIsHovered] = useState(false);
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
     const [userFullName, setUserFullName] = useState<string>('');
-    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
     // Always call the hook (React rules), but only use cartCount in buyer mode
     const cart = useCart();
@@ -92,10 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
     // Fetch user profile to get profile image
     useEffect(() => {
         const fetchUserProfile = async () => {
-            if (!userId) {
-                setIsLoadingProfile(false);
-                return;
-            }
+            if (!userId) return;
 
             try {
                 const response = await fetch(GET_USER_ENDPOINT, {
@@ -113,8 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                 }
             } catch (err) {
                 console.error('Failed to fetch user profile:', err);
-            } finally {
-                setIsLoadingProfile(false);
             }
         };
 
@@ -156,78 +147,46 @@ const Sidebar: React.FC<SidebarProps> = ({ dashboardMode, activeView, setActiveV
                     )}
                 </div>
                 <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-2 overflow-y-auto`}>
-                    {isLoadingProfile ? (
-                        <>
-                            {Array.from({ length: SIDEBAR_SKELETON_ITEMS }).map((_, i) => (
-                                <div
-                                    key={i}
-                                    className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 rounded-lg`}
-                                >
-                                    <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
-                                    {isExpanded && (
-                                        <Skeleton
-                                            className="ml-3 h-4 rounded flex-1"
-                                            style={{ maxWidth: i % 3 === 0 ? '80%' : i % 3 === 1 ? '60%' : '70%' }}
-                                        />
-                                    )}
-                                </div>
-                            ))}
-                        </>
-                    ) : (
-                        navItems.map((item) => (
-                            <button
-                                key={item.name}
-                                onClick={() => {
-                                    setActiveView(item.view);
-                                    // If collapsed and not hovered, expand on click
-                                    if (isCollapsed && !isHovered) {
-                                        onCollapseToggle();
-                                    }
-                                }}
-                                className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-colors relative group ${activeView === item.view
-                                    ? 'bg-orange-500 text-white'
-                                    : 'text-gray-600 hover:bg-orange-50'
-                                    }`}
-                            >
-                                <div className="flex-shrink-0 relative">
-                                    {item.icon}
-                                    {item.view === 'cart' && cartCount > 0 && (
-                                        <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                            {cartCount > 9 ? '9+' : cartCount}
-                                        </span>
-                                    )}
-                                </div>
-                                {isExpanded && (
-                                    <span className="ml-3 whitespace-nowrap">
-                                        {item.name}
+                    {navItems.map((item) => (
+                        <button
+                            key={item.name}
+                            onClick={() => {
+                                setActiveView(item.view);
+                                // If collapsed and not hovered, expand on click
+                                if (isCollapsed && !isHovered) {
+                                    onCollapseToggle();
+                                }
+                            }}
+                            className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-colors relative group ${activeView === item.view
+                                ? 'bg-orange-500 text-white'
+                                : 'text-gray-600 hover:bg-orange-50'
+                                }`}
+                        >
+                            <div className="flex-shrink-0 relative">
+                                {item.icon}
+                                {item.view === 'cart' && cartCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                        {cartCount > 9 ? '9+' : cartCount}
                                     </span>
                                 )}
-                                {/* Tooltip for collapsed state */}
-                                {!isExpanded && (
-                                    <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
-                                        {item.name}
-                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                                    </div>
-                                )}
-                            </button>
-                        ))
-                    )}
+                            </div>
+                            {isExpanded && (
+                                <span className="ml-3 whitespace-nowrap">
+                                    {item.name}
+                                </span>
+                            )}
+                            {/* Tooltip for collapsed state */}
+                            {!isExpanded && (
+                                <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                    {item.name}
+                                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                                </div>
+                            )}
+                        </button>
+                    ))}
                 </nav>
                 <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 border-t border-gray-200`}>
-                    {isLoadingProfile ? (
-                        <div className={`flex items-center ${isExpanded ? 'p-2' : 'flex-col gap-2'}`}>
-                            <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
-                            {isExpanded && (
-                                <>
-                                    <div className="ml-3 flex-1 min-w-0 space-y-2">
-                                        <Skeleton className="h-4 w-24 rounded" />
-                                        <Skeleton className="h-3 w-32 rounded" />
-                                    </div>
-                                    <Skeleton className="ml-2 h-9 w-9 rounded-full flex-shrink-0" />
-                                </>
-                            )}
-                        </div>
-                    ) : isExpanded ? (
+                    {isExpanded ? (
                         <div className="flex items-center p-2 bg-orange-50 rounded-lg">
                             <button
                                 onClick={() => setActiveView('settings')}

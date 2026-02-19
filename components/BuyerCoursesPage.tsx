@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import noCourseAnimation from '../lottiefiles/no_courseanimation.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 
 const GET_ALL_COURSES_ENDPOINT = 'https://lejjk9h72l.execute-api.ap-south-2.amazonaws.com/default/Get_all_courses_for_admin_and_buyer';
 
@@ -319,10 +320,8 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
 
             {/* Loading State */}
             {isLoading && courses.length === 0 && (
-                <div className="text-center py-20 bg-white border border-gray-200 rounded-2xl">
-                    <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mb-6"></div>
-                    <p className="text-gray-700 font-semibold text-lg mb-2">Loading courses...</p>
-                    <p className="text-gray-500 text-sm">Please wait while we fetch the latest courses</p>
+                <div className="space-y-8">
+                    <SkeletonDashboard />
                 </div>
             )}
 
