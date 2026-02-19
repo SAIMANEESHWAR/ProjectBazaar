@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { DashboardView } from './DashboardPage';
 import { useCart, useWishlist } from './DashboardPage';
-import { usePremium, useAuth } from '../App';
+import { usePremium, useAuth, useNavigation } from '../App';
+import { useDashboard } from '../context/DashboardContext';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
@@ -77,8 +78,8 @@ const viewTitles: Record<DashboardView, string> = {
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  dashboardMode,
-  setDashboardMode,
+  dashboardMode: _dashboardModeProp,
+  setDashboardMode: _setDashboardModeProp,
   searchQuery,
   setSearchQuery,
   activeView,
@@ -89,6 +90,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setBrowseView,
   toggleSidebar,
 }) => {
+  const { dashboardMode, setDashboardMode } = useDashboard();
+  const { navigateTo } = useNavigation();
   const title = viewTitles[activeView] || 'Dashboard';
   const isBuyerDashboard =
     activeView === 'dashboard' && dashboardMode === 'buyer';
@@ -98,6 +101,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const { cartCount } = useCart();
   const { wishlist } = useWishlist();
   const wishlistCount = wishlist.length;
+
+  const handleSetDashboardMode = (mode: 'buyer' | 'seller') => {
+    setDashboardMode(mode);
+    navigateTo(mode === 'buyer' ? 'dashboard' : 'seller');
+  };
 
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -354,10 +362,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             )}
           </div>
 
-          {/* MODE SWITCH */}
+          {/* MODE SWITCH - use context so Buyer/Seller is maintained across all components */}
           <div className="flex bg-orange-50 rounded-lg p-1">
             <button
-              onClick={() => setDashboardMode('buyer')}
+              onClick={() => handleSetDashboardMode('buyer')}
               className={`px-3 py-1 rounded ${dashboardMode === 'buyer'
                 ? 'bg-orange-500 text-white'
                 : ''
@@ -366,7 +374,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               Buyer
             </button>
             <button
-              onClick={() => setDashboardMode('seller')}
+              onClick={() => handleSetDashboardMode('seller')}
               className={`px-3 py-1 rounded ${dashboardMode === 'seller'
                 ? 'bg-orange-500 text-white'
                 : ''

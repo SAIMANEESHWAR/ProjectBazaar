@@ -177,7 +177,6 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
               </svg>
             </button>
           )}
-          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 tracking-tight">Discover Hackathons</h1>
         </div>
         <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Find and participate in exciting hackathons from top platforms</p>
       </div>

@@ -3450,7 +3450,6 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                                 />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">Career Guidance Hub</h1>
                                 <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
                             </div>
                         </div>

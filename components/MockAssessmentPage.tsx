@@ -1623,7 +1623,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               >
                 <ArrowLeftIcon />
               </button>
-              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">Mock Assessments</h1>
             </div>
 
             {/* Tabs */}

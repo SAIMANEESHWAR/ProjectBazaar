@@ -744,30 +744,25 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
     return (
         <main ref={mainScrollRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-white">
-            {activeView === 'help-center' ? (
-                dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()
-            ) : (
-                <div className="container mx-auto px-6 py-8">
-                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && activeView !== 'hackathons' && activeView !== 'build-portfolio' && activeView !== 'build-resume' && activeView !== 'career-guidance' && activeView !== 'mock-assessment' && activeView !== 'coding-questions' && (
-                        <DashboardHeader
-                            dashboardMode={dashboardMode}
-                            setDashboardMode={setDashboardMode}
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            activeView={activeView}
-                            setActiveView={setActiveView}
-                            buyerProjectView={buyerProjectView}
-                            setBuyerProjectView={setBuyerProjectView}
-                            browseView={browseView}
-                            setBrowseView={setBrowseView}
-                            isSidebarOpen={isSidebarOpen}
-                            toggleSidebar={toggleSidebar}
-                        />
-                    )}
+            <div className="container mx-auto px-6 py-8">
+                {/* Always show header so Buyer/Seller toggle is visible in all dashboard components */}
+                <DashboardHeader
+                    dashboardMode={dashboardMode}
+                    setDashboardMode={setDashboardMode}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    activeView={activeView}
+                    setActiveView={setActiveView}
+                    buyerProjectView={buyerProjectView}
+                    setBuyerProjectView={setBuyerProjectView}
+                    browseView={browseView}
+                    setBrowseView={setBrowseView}
+                    isSidebarOpen={isSidebarOpen}
+                    toggleSidebar={toggleSidebar}
+                />
 
-                    {dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()}
-                </div>
-            )}
+                {dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()}
+            </div>
         </main>
     );
 };

@@ -494,7 +494,6 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                 </svg>
               </div>
               <div>
-                <h1 className="text-base font-bold text-gray-900">AI Resume Builder</h1>
                 <p className="text-xs text-gray-500 hidden sm:block">Create your professional resume</p>
               </div>
             </div>
