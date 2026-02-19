@@ -38,6 +38,7 @@ const LLM_MODELS: Record<'openai' | 'gemini' | 'claude', { id: string; label: st
         { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
     ],
     gemini: [
+        { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
         { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
         { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
         { id: 'gemini-1.0-pro', label: 'Gemini 1.0 Pro' },

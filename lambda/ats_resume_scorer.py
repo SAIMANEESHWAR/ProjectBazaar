@@ -112,18 +112,28 @@ def _call_claude(api_key, prompt, model=None):
 
 
 def _call_gemini(api_key, prompt, model=None):
-    model = model or "gemini-1.5-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    data = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2000},
-    }).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        out = json.loads(resp.read().decode("utf-8"))
-    for part in (out.get("candidates") or [{}])[0].get("content", {}).get("parts") or []:
-        if "text" in part:
-            return part["text"].strip()
+    # Use gemini-2.0-flash by default (gemini-1.5-flash often 404 on v1beta); fallback to 2.0-flash on 404
+    model = model or "gemini-2.0-flash"
+    fallback_model = "gemini-2.0-flash"
+    to_try = [model] if model == fallback_model else [model, fallback_model]
+    for try_model in to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{try_model}:generateContent?key={api_key}"
+        data = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2000},
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                out = json.loads(resp.read().decode("utf-8"))
+            for part in (out.get("candidates") or [{}])[0].get("content", {}).get("parts") or []:
+                if "text" in part:
+                    return part["text"].strip()
+            return ""
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and try_model != fallback_model:
+                continue
+            raise
     return ""
 
 

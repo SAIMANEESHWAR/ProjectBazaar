@@ -101,7 +101,7 @@ def _test_openai_key(api_key):
 
 def _test_gemini_key(api_key):
     """Validate Gemini API key with generateContent."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     data = json.dumps({"contents": [{"parts": [{"text": "Hi"}]}]}).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
     try:
