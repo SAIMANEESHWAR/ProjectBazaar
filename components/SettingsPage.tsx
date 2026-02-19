@@ -198,6 +198,18 @@ const SettingsPage: React.FC = () => {
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
+
+    // LLM API Keys for ATS / Resume Builder
+    const [hasOpenAiKey, setHasOpenAiKey] = useState(false);
+    const [hasGeminiKey, setHasGeminiKey] = useState(false);
+    const [hasClaudeKey, setHasClaudeKey] = useState(false);
+    const [openaiKeyInput, setOpenaiKeyInput] = useState('');
+    const [geminiKeyInput, setGeminiKeyInput] = useState('');
+    const [claudeKeyInput, setClaudeKeyInput] = useState('');
+    const [llmTestingProvider, setLlmTestingProvider] = useState<string | null>(null);
+    const [llmSavingProvider, setLlmSavingProvider] = useState<string | null>(null);
+    const [llmKeyMessage, setLlmKeyMessage] = useState<string | null>(null);
+    const [llmKeyError, setLlmKeyError] = useState<string | null>(null);
     const [uploadingProjectImageId, setUploadingProjectImageId] = useState<string | null>(null);
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -291,6 +303,96 @@ const SettingsPage: React.FC = () => {
 
         fetchUserProfile();
     }, [userId]);
+
+    // Fetch LLM API key status (has key or not; we never load actual keys)
+    useEffect(() => {
+        if (!userId) return;
+        const fetchLlmKeysStatus = async () => {
+            try {
+                const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getLlmKeysStatus', userId }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setHasOpenAiKey(!!data.hasOpenAiKey);
+                    setHasGeminiKey(!!data.hasGeminiKey);
+                    setHasClaudeKey(!!data.hasClaudeKey);
+                }
+            } catch (e) {
+                console.error('Failed to fetch LLM keys status', e);
+            }
+        };
+        fetchLlmKeysStatus();
+    }, [userId]);
+
+    const testLlmApiKey = async (provider: string, apiKey: string) => {
+        const key = (apiKey || '').trim();
+        if (!key) {
+            setLlmKeyError(`Enter your ${provider} API key first.`);
+            return;
+        }
+        setLlmKeyError(null);
+        setLlmKeyMessage(null);
+        setLlmTestingProvider(provider);
+        try {
+            const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'testLlmApiKey', provider: provider.toLowerCase(), apiKey: key }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLlmKeyMessage(`${provider} API key is valid. Click Save to store it.`);
+            } else {
+                setLlmKeyError(data.message || `Invalid ${provider} key.`);
+            }
+        } catch (e) {
+            setLlmKeyError('Network error. Please try again.');
+        } finally {
+            setLlmTestingProvider(null);
+        }
+    };
+
+    const saveLlmApiKey = async (provider: string, apiKey: string) => {
+        const key = (apiKey || '').trim();
+        if (!userId) {
+            setLlmKeyError('You must be logged in.');
+            return;
+        }
+        setLlmKeyError(null);
+        setLlmKeyMessage(null);
+        setLlmSavingProvider(provider);
+        try {
+            const p = provider.toLowerCase();
+            const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'updateSettings',
+                    userId,
+                    llmApiKeys: { [p]: key },
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLlmKeyMessage(`${provider} key saved. You can use ATS Score in the Resume Builder.`);
+                if (p === 'openai') setHasOpenAiKey(!!key);
+                if (p === 'gemini') setHasGeminiKey(!!key);
+                if (p === 'claude') setHasClaudeKey(!!key);
+                if (p === 'openai') setOpenaiKeyInput('');
+                if (p === 'gemini') setGeminiKeyInput('');
+                if (p === 'claude') setClaudeKeyInput('');
+            } else {
+                setLlmKeyError(data.message || 'Failed to save key.');
+            }
+        } catch (e) {
+            setLlmKeyError('Network error. Please try again.');
+        } finally {
+            setLlmSavingProvider(null);
+        }
+    };
 
     // Handle GitHub OAuth callback (when Lambda redirects back to frontend)
     useEffect(() => {
@@ -2185,6 +2287,83 @@ const SettingsPage: React.FC = () => {
                 <div className="space-y-4">
                     <ToggleSwitch label="Email Notifications" description="Get emails about new projects and offers." enabled={emailNotifications} setEnabled={setEmailNotifications} />
                     <ToggleSwitch label="Push Notifications" description="Receive push notifications on your device." enabled={pushNotifications} setEnabled={setPushNotifications} />
+                </div>
+            </SectionCard>
+
+            <SectionCard title="AI & ATS (Resume Builder)" description="Add at least one API key to unlock ATS Score in the Resume Builder. Keys are tested before saving and stored securely.">
+                <div className="space-y-6">
+                    {llmKeyMessage && (
+                        <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">{llmKeyMessage}</div>
+                    )}
+                    {llmKeyError && (
+                        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">{llmKeyError}</div>
+                    )}
+                    <div className="space-y-4">
+                        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900">OpenAI (GPT)</span>
+                                {hasOpenAiKey && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Saved</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <input
+                                    type="password"
+                                    value={openaiKeyInput}
+                                    onChange={(e) => setOpenaiKeyInput(e.target.value)}
+                                    placeholder={hasOpenAiKey ? 'Enter new key to replace' : 'sk-...'}
+                                    className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                />
+                                <button type="button" onClick={() => testLlmApiKey('openai', openaiKeyInput)} disabled={llmTestingProvider !== null} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                    {llmTestingProvider === 'openai' ? 'Testing...' : 'Test'}
+                                </button>
+                                <button type="button" onClick={() => saveLlmApiKey('openai', openaiKeyInput)} disabled={llmSavingProvider !== null || !openaiKeyInput.trim()} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                                    {llmSavingProvider === 'openai' ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900">Google Gemini</span>
+                                {hasGeminiKey && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Saved</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <input
+                                    type="password"
+                                    value={geminiKeyInput}
+                                    onChange={(e) => setGeminiKeyInput(e.target.value)}
+                                    placeholder={hasGeminiKey ? 'Enter new key to replace' : 'AIza...'}
+                                    className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                />
+                                <button type="button" onClick={() => testLlmApiKey('gemini', geminiKeyInput)} disabled={llmTestingProvider !== null} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                    {llmTestingProvider === 'gemini' ? 'Testing...' : 'Test'}
+                                </button>
+                                <button type="button" onClick={() => saveLlmApiKey('gemini', geminiKeyInput)} disabled={llmSavingProvider !== null || !geminiKeyInput.trim()} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                                    {llmSavingProvider === 'gemini' ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900">Anthropic Claude</span>
+                                {hasClaudeKey && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Saved</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <input
+                                    type="password"
+                                    value={claudeKeyInput}
+                                    onChange={(e) => setClaudeKeyInput(e.target.value)}
+                                    placeholder={hasClaudeKey ? 'Enter new key to replace' : 'sk-ant-...'}
+                                    className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                />
+                                <button type="button" onClick={() => testLlmApiKey('claude', claudeKeyInput)} disabled={llmTestingProvider !== null} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                    {llmTestingProvider === 'claude' ? 'Testing...' : 'Test'}
+                                </button>
+                                <button type="button" onClick={() => saveLlmApiKey('claude', claudeKeyInput)} disabled={llmSavingProvider !== null || !claudeKeyInput.trim()} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                                    {llmSavingProvider === 'claude' ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500">Get keys from OpenAI, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
                 </div>
             </SectionCard>
 

@@ -1,6 +1,8 @@
 import json
 import boto3
 import uuid
+import urllib.request
+import urllib.error
 from datetime import datetime
 from decimal import Decimal
 from botocore.config import Config
@@ -80,6 +82,144 @@ def delete_s3_object(image_url):
     except Exception as e:
         print(f"S3 delete failed: {e}")
 
+# ---------- LLM API KEY TEST (OpenAI, Gemini, Claude) ----------
+def _test_openai_key(api_key):
+    """Validate OpenAI API key with a minimal request."""
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
+def _test_gemini_key(api_key):
+    """Validate Gemini API key with generateContent."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    data = json.dumps({"contents": [{"parts": [{"text": "Hi"}]}]}).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
+def _test_claude_key(api_key):
+    """Validate Claude API key with a minimal message."""
+    data = json.dumps({
+        "model": "claude-3-haiku-20240307",
+        "max_tokens": 50,
+        "messages": [{"role": "user", "content": "Hi"}],
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=data,
+        headers={
+            "x-api-key": api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
+def _test_llm_key(provider, api_key):
+    """Test a single LLM API key. Returns (success, error_message)."""
+    p = (provider or "").lower().strip()
+    key = (api_key or "").strip()
+    if not p or not key:
+        return False, "Provider and API key are required"
+    if p == "openai":
+        return _test_openai_key(key)
+    if p == "gemini":
+        return _test_gemini_key(key)
+    if p == "claude":
+        return _test_claude_key(key)
+    return False, "provider must be openai, gemini, or claude"
+
+
+def handle_test_llm_api_key(body):
+    provider = (body.get("provider") or "").lower().strip()
+    api_key = (body.get("apiKey") or "").strip()
+
+    if not provider or not api_key:
+        return response(400, {"success": False, "message": "provider and apiKey are required"})
+
+    ok, err = _test_llm_key(provider, api_key)
+    if ok:
+        return response(200, {"success": True, "message": "API key is valid"})
+    return response(200, {"success": False, "message": err or "API key validation failed"})
+
+
+# List of supported LLM providers (id, display name)
+LLM_PROVIDERS = [
+    {"id": "openai", "name": "OpenAI (GPT)"},
+    {"id": "gemini", "name": "Google Gemini"},
+    {"id": "claude", "name": "Anthropic Claude"},
+]
+
+
+def handle_get_llm_keys_status(body):
+    user_id = body.get("userId")
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+
+    try:
+        existing = table.get_item(Key={"userId": user_id})
+    except Exception as e:
+        print(f"DynamoDB get_item error: {e}")
+        return response(500, {"success": False, "message": str(e)})
+
+    if "Item" not in existing:
+        providers = [
+            {"id": p["id"], "name": p["name"], "hasKey": False}
+            for p in LLM_PROVIDERS
+        ]
+        return response(200, {
+            "success": True,
+            "hasOpenAiKey": False,
+            "hasGeminiKey": False,
+            "hasClaudeKey": False,
+            "providers": providers,
+        })
+
+    keys = existing["Item"].get("llmApiKeys") or {}
+    if not isinstance(keys, dict):
+        keys = {}
+    has_openai = bool(keys.get("openai"))
+    has_gemini = bool(keys.get("gemini"))
+    has_claude = bool(keys.get("claude"))
+    by_id = {"openai": has_openai, "gemini": has_gemini, "claude": has_claude}
+    providers = [
+        {"id": p["id"], "name": p["name"], "hasKey": by_id.get(p["id"], False)}
+        for p in LLM_PROVIDERS
+    ]
+
+    return response(200, {
+        "success": True,
+        "hasOpenAiKey": has_openai,
+        "hasGeminiKey": has_gemini,
+        "hasClaudeKey": has_claude,
+        "providers": providers,
+    })
+
+
 # ---------- ACTION: PRESIGNED URL ----------
 def handle_presigned_url(body):
     user_id = body.get("userId")
@@ -147,6 +287,8 @@ def handle_update_settings(body):
         "emailVerified",
         "phoneVerified",
         "paymentVerified",
+        # LLM API keys for ATS / Resume Builder (stored server-side only)
+        "llmApiKeys",
     ]
 
     updates = {k: v for k, v in body.items() if k in allowed_fields}
@@ -174,6 +316,31 @@ def handle_update_settings(body):
         })
 
     current_user = existing["Item"]
+
+    # When saving LLM keys: test each new key before storing (any model key must pass test)
+    if "llmApiKeys" in updates:
+        new_keys = updates["llmApiKeys"] or {}
+        if isinstance(new_keys, dict):
+            for provider, api_key in new_keys.items():
+                key_val = (api_key or "").strip()
+                if not key_val:
+                    continue
+                ok, err = _test_llm_key(provider, key_val)
+                if not ok:
+                    return response(400, {
+                        "success": False,
+                        "message": f"{provider.capitalize()} API key validation failed. {err or 'Please check your key and try again.'}"
+                    })
+
+        # Merge llmApiKeys so saving one provider does not wipe others
+        current_keys = current_user.get("llmApiKeys") or {}
+        if not isinstance(current_keys, dict):
+            current_keys = {}
+        if not isinstance(new_keys, dict):
+            new_keys = {}
+        merged = {**current_keys, **new_keys}
+        merged = {k: v for k, v in merged.items() if v}
+        updates["llmApiKeys"] = merged if merged else None  # remove attribute if all cleared
 
     # Delete old image if replaced (don't let this crash the update)
     if "profilePictureUrl" in updates:
@@ -260,6 +427,12 @@ def lambda_handler(event, context):
 
         if action == "updateSettings":
             return handle_update_settings(body)
+
+        if action == "testLlmApiKey":
+            return handle_test_llm_api_key(body)
+
+        if action == "getLlmKeysStatus":
+            return handle_get_llm_keys_status(body)
 
         return response(400, {
             "success": False,

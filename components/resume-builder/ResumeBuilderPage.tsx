@@ -10,6 +10,7 @@ import ProjectsForm from './ProjectsForm';
 import ResumePreview from './ResumePreview';
 import ThemeColorPicker from './ThemeColorPicker';
 import TemplatePicker from './TemplatePicker';
+import { getLlmKeysStatus, getAtsScore, buildResumeTextFromInfo, type AtsResult } from '../../services/atsService';
 
 const STEPS = [
   { id: 1, name: 'Personal', shortName: 'Info', icon: '👤' },
@@ -24,6 +25,7 @@ interface ResumeBuilderContentProps {
   embedded?: boolean;
   onBack?: () => void;
   toggleSidebar?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
 // Helper function to convert hex color to rgba
@@ -34,9 +36,9 @@ const hexToRgba = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack, toggleSidebar }) => {
+const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack, toggleSidebar, onNavigateToSettings }) => {
   const { navigateTo } = useNavigation();
-  useAuth();
+  const { userId } = useAuth();
   const { resumeInfo, saveResume, savedResumes, loadResume, resetResume, deleteResume } = useResumeInfo();
   
   const [activeStep, setActiveStep] = useState(1);
@@ -46,6 +48,15 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // ATS Score: key status and modal
+  const [hasAnyLlmKey, setHasAnyLlmKey] = useState(false);
+  const [showAtsModal, setShowAtsModal] = useState(false);
+  const [showAtsLockedMessage, setShowAtsLockedMessage] = useState(false);
+  const [jobDescriptionForAts, setJobDescriptionForAts] = useState('');
+  const [atsResult, setAtsResult] = useState<AtsResult | null>(null);
+  const [atsLoading, setAtsLoading] = useState(false);
+  const [atsError, setAtsError] = useState<string | null>(null);
 
   // Map step IDs to section IDs and fallback heading text for scrolling
   const stepToSectionMap: { [key: number]: { id: string; headings: string[] } } = {
@@ -103,6 +114,27 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
       }, 100);
     }
   }, [activeStep]);
+
+  // Fetch whether user has any LLM API key (for ATS unlock)
+  useEffect(() => {
+    if (!userId) {
+      setHasAnyLlmKey(false);
+      return;
+    }
+    getLlmKeysStatus(userId).then((status) => {
+      setHasAnyLlmKey(!!status.hasOpenAiKey || !!status.hasGeminiKey || !!status.hasClaudeKey);
+    }).catch(() => setHasAnyLlmKey(false));
+  }, [userId]);
+
+  const handleAtsClick = () => {
+    if (!hasAnyLlmKey) {
+      setShowAtsLockedMessage(true);
+      return;
+    }
+    setShowAtsModal(true);
+    setAtsResult(null);
+    setAtsError(null);
+  };
 
   const handleBack = () => {
     if (onBack) {
@@ -468,6 +500,22 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
             </div>
             
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleAtsClick}
+                className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all ${hasAnyLlmKey ? 'text-orange-600 border border-orange-200 hover:bg-orange-50' : 'text-gray-400 border border-gray-200 hover:bg-gray-50 cursor-pointer'}`}
+                title={hasAnyLlmKey ? 'Check ATS score for your resume' : 'Add an API key in Settings to unlock ATS Score'}
+              >
+                {hasAnyLlmKey ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2h12z" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">ATS Score</span>
+              </button>
               <TemplatePicker />
               <ThemeColorPicker />
               <button
@@ -510,9 +558,24 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
               
               {/* Desktop Actions */}
               <div className="hidden md:flex items-center gap-3">
+                <button
+                  onClick={handleAtsClick}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-all ${hasAnyLlmKey ? 'text-orange-600 border border-orange-200 hover:bg-orange-50' : 'text-gray-400 border border-gray-200 hover:bg-gray-50'}`}
+                  title={hasAnyLlmKey ? 'Check ATS score' : 'Add API key in Settings to unlock'}
+                >
+                  {hasAnyLlmKey ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2h12z" />
+                    </svg>
+                  )}
+                  ATS Score
+                </button>
                 <TemplatePicker />
                 <ThemeColorPicker />
-                
                 <button
                   onClick={() => setShowSavedResumes(!showSavedResumes)}
                   className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all"
@@ -546,6 +609,21 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                   <TemplatePicker />
                   <ThemeColorPicker />
                 </div>
+                <button
+                  onClick={() => { handleAtsClick(); setShowMobileMenu(false); }}
+                  className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-all ${hasAnyLlmKey ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : 'text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  {hasAnyLlmKey ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2h12z" />
+                    </svg>
+                  )}
+                  ATS Score
+                </button>
                 <button
                   onClick={() => {
                     setShowSavedResumes(!showSavedResumes);
@@ -918,6 +996,152 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
         </div>
       </main>
 
+      {/* ATS Locked message modal */}
+      {showAtsLockedMessage && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={() => setShowAtsLockedMessage(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl border border-gray-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a2 2 0 00-2-2H4a2 2 0 00-2 2v2h12z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">ATS Score is locked</h3>
+                <p className="text-sm text-gray-500">Unlock to check how your resume matches job descriptions</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Upload an API key in <strong>Settings</strong> to unlock this feature. Add at least one key (OpenAI, Google Gemini, or Anthropic Claude), then you can get an ATS score for your resume against any job description.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAtsLockedMessage(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">
+                Close
+              </button>
+              <button onClick={() => { setShowAtsLockedMessage(false); onNavigateToSettings ? onNavigateToSettings() : navigateTo('dashboard'); }} className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg">
+                {onNavigateToSettings ? 'Go to Settings' : 'Go to Dashboard'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ATS Score modal */}
+      {showAtsModal && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={() => setShowAtsModal(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+              <h2 className="text-lg font-bold text-gray-900">ATS Score</h2>
+              <button onClick={() => setShowAtsModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job description</label>
+                <textarea
+                  value={jobDescriptionForAts}
+                  onChange={(e) => setJobDescriptionForAts(e.target.value)}
+                  placeholder="Paste the full job description here to see how your resume matches..."
+                  rows={5}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setJobDescriptionForAts('')}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => {
+                    const text = buildResumeTextFromInfo(resumeInfo);
+                    if (!userId) return;
+                    setAtsError(null);
+                    setAtsResult(null);
+                    setAtsLoading(true);
+                    getAtsScore(userId, text, jobDescriptionForAts)
+                      .then((r) => {
+                        if (r.success && r.atsResult) setAtsResult(r.atsResult);
+                        else setAtsError(r.message || 'Could not get score');
+                      })
+                      .catch(() => setAtsError('Something went wrong. Try again.'))
+                      .finally(() => setAtsLoading(false));
+                  }}
+                  disabled={atsLoading || !jobDescriptionForAts.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {atsLoading ? 'Analyzing...' : 'Get ATS Score'}
+                </button>
+              </div>
+              {atsError && <p className="text-sm text-red-600">{atsError}</p>}
+              {atsResult && (
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="w-20 h-20 rounded-full border-4 border-orange-500 flex items-center justify-center">
+                      <span className="text-2xl font-bold text-orange-600">{atsResult.overallScore}</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Overall match</p>
+                      <p className="text-sm text-gray-500">0–100% fit for this job</p>
+                    </div>
+                  </div>
+                  {atsResult.breakdown && Object.keys(atsResult.breakdown).length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">Breakdown</p>
+                      <div className="space-y-2">
+                        {Object.entries(atsResult.breakdown).map(([key, value]) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="w-28 text-xs text-gray-600 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, Math.max(0, Number(value)))}%` }} />
+                            </div>
+                            <span className="text-xs font-medium text-gray-700 w-8">{typeof value === 'number' ? value : 0}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {atsResult.matchedKeywords?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Matched keywords</p>
+                      <div className="flex flex-wrap gap-1">
+                        {atsResult.matchedKeywords.map((k, i) => (
+                          <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">{k}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {atsResult.missingKeywords?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Missing or weak</p>
+                      <div className="flex flex-wrap gap-1">
+                        {atsResult.missingKeywords.map((k, i) => (
+                          <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">{k}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {atsResult.feedback?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Feedback</p>
+                      <ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">
+                        {atsResult.feedback.map((f, i) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Save Toast Notification */}
       {showSaveToast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border border-orange-300/80 bg-white/95 backdrop-blur-sm animate-slide-up">
@@ -958,12 +1182,13 @@ interface ResumeBuilderPageProps {
   embedded?: boolean;
   onBack?: () => void;
   toggleSidebar?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
-const ResumeBuilderPage: React.FC<ResumeBuilderPageProps> = ({ embedded = false, onBack, toggleSidebar }) => {
+const ResumeBuilderPage: React.FC<ResumeBuilderPageProps> = ({ embedded = false, onBack, toggleSidebar, onNavigateToSettings }) => {
   return (
     <ResumeInfoProvider>
-      <ResumeBuilderContent embedded={embedded} onBack={onBack} toggleSidebar={toggleSidebar} />
+      <ResumeBuilderContent embedded={embedded} onBack={onBack} toggleSidebar={toggleSidebar} onNavigateToSettings={onNavigateToSettings} />
     </ResumeInfoProvider>
   );
 };
