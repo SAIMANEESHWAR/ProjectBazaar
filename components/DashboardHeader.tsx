@@ -136,7 +136,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         body: JSON.stringify({ userId }),
       });
 
-      fetchNotifications();
     } catch (err) {
       console.error('Failed to mark notifications as read', err);
     }
@@ -308,22 +307,23 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </div>
 
                 <div className="max-h-96 overflow-y-auto">
-                  {loadingNotifications ? (
+                    {loadingNotifications && (
                     <p className="p-6 text-center text-sm text-gray-500">
                       Loading...
                     </p>
-                  ) : notifications.length > 0 ? (
+                  )}
+                  {!loadingNotifications && notifications.length > 0 && (
                     notifications.map((n) => (
                       <div
                         key={n.notificationId}
-                        className={`px-6 py-4 border-b hover:bg-orange-50 ${!n.isRead ? 'bg-orange-50/30' : ''
+                        className={`px-6 py-4 border-b hover:bg-orange-50 ${n.isRead ? '' : 'bg-orange-50/30'
                           }`}
                       >
                         <div className="flex gap-3">
                           {getNotificationIcon(n.type)}
                           <div>
                             <p
-                              className={`text-sm ${!n.isRead ? 'font-semibold' : ''
+                              className={`text-sm ${n.isRead ? '' : 'font-semibold'
                                 }`}
                             >
                               {n.message}
@@ -337,7 +337,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         </div>
                       </div>
                     ))
-                  ) : (
+                  )}
+                  {!loadingNotifications && notifications.length === 0 && (
                     <p className="p-6 text-center text-sm text-gray-500">
                       No notifications
                     </p>

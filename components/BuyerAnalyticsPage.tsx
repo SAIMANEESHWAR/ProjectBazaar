@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../App';
 import { fetchUserData, Purchase } from '../services/buyerApi';
+import {IndianRupee, ShoppingBag, Heart, Wallet} from "lucide-react";
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 
@@ -21,7 +22,7 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, colorClass }) => (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-shadow">
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClass} shadow-sm`}>
-            {icon}
+             {icon}
         </div>
         <div>
             <p className="text-sm text-gray-500">{title}</p>
@@ -245,25 +246,25 @@ const BuyerAnalyticsPage: React.FC = () => {
                 <StatCard 
                     title="Total Spent" 
                     value={`₹${userData?.totalSpent?.toFixed(2) || '0.00'}`} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} 
+                    icon={<Wallet className="h-6 w-6 text-white" />}
                     colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
                 <StatCard 
                     title="Projects Purchased" 
                     value={String(userData?.totalPurchases || 0)} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>} 
-                    colorClass="bg-gradient-to-br from-orange-400 to-orange-500" 
+                    icon={<ShoppingBag className="h-6 w-6 text-white" />}
+                    colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
                 <StatCard 
                     title="Favorite Category" 
                     value={favoriteCategory} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>} 
-                    colorClass="bg-gradient-to-br from-orange-600 to-orange-700" 
+                    icon={<Heart className="h-6 w-6 text-white" />}
+                    colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
                 <StatCard 
                     title="Avg. Project Cost" 
                     value={`₹${avgProjectCost.toFixed(2)}`} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>} 
+                    icon={<IndianRupee className="h-6 w-6 text-white" />}
                     colorClass="bg-gradient-to-br from-orange-500 to-orange-600" 
                 />
             </div>
