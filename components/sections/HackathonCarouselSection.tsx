@@ -145,8 +145,11 @@ const HackathonCarouselSection: React.FC = () => {
                         className="text-3xl md:text-[2.8rem] font-bold text-[#1a1a1a] dark:text-white tracking-[-0.02em] leading-tight"
                         style={{ fontFamily: "'Inter', sans-serif" }}
                     >
-                        Flagship Innovation Challenges
+                        Build, Compete & <span className="text-orange-500">Win Big</span>
                     </h2>
+                    <p className="mt-3 text-base md:text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                        Join the hottest <span className="text-orange-500 font-semibold">hackathons</span> from top platforms — ship projects, sharpen your skills, and stand out
+                    </p>
                 </div>
 
                 {/* Carousel */}
@@ -259,7 +262,7 @@ const HackathonCarouselSection: React.FC = () => {
                         href="/dashboard/hackathons"
                         className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-[#1a1a1a] dark:border-white text-[#1a1a1a] dark:text-white font-semibold text-sm hover:bg-[#1a1a1a] hover:text-white dark:hover:bg-white dark:hover:text-[#1a1a1a] transition-all duration-300"
                     >
-                        Our Initiatives
+                        Explore All Hackathons
                         <span className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
                             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
