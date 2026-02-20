@@ -13,6 +13,7 @@ import TestimonialsSection from './components/sections/TestimonialsSection';
 import InstructorSection from './components/sections/InstructorSection';
 import FAQSection from './components/sections/FAQSection';
 import FinalCTASection from './components/sections/FinalCTASection';
+import HackathonCarouselSection from './components/sections/HackathonCarouselSection';
 import AuthPage from './components/AuthPage';
 import DashboardPage from './components/DashboardPage';
 import SellerDashboardPage from './components/SellerDashboardPage';
@@ -236,6 +237,7 @@ const AppContent: React.FC = () => {
             <UniSystemSection />
             <CurriculumSection />
             <LanguagesSkillsSection />
+            <HackathonCarouselSection />
             <ResultsGridSection />
             <TestimonialsSection />
             <InstructorSection />
