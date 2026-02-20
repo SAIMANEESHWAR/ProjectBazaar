@@ -189,41 +189,14 @@ const supportedLanguages = [
   { id: 'groovy', name: 'Groovy', pistonId: 'groovy', version: '3.0.7', monacoId: 'groovy' },
 ];
 
-// Code execution using Piston API (free, no API key required)
+// Code execution using Judge0 (see services/codeExecution)
 const executeCode = async (code: string, language: string, input: string = ''): Promise<{ output: string; error: string; success: boolean }> => {
   const lang = supportedLanguages.find(l => l.id === language);
   if (!lang) {
     return { output: '', error: 'Unsupported language', success: false };
   }
-
-  try {
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: lang.pistonId,
-        version: lang.version,
-        files: [{ content: code }],
-        stdin: input,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.run) {
-      const output = data.run.stdout || '';
-      const error = data.run.stderr || '';
-      return {
-        output: output.trim(),
-        error: error.trim(),
-        success: !error && data.run.code === 0,
-      };
-    }
-
-    return { output: '', error: data.message || 'Execution failed', success: false };
-  } catch (err) {
-    return { output: '', error: 'Network error - please try again', success: false };
-  }
+  const { executeCodeJudge0 } = await import('../services/codeExecution');
+  return executeCodeJudge0({ code, language: lang.id, input });
 };
 
 interface TestResult {

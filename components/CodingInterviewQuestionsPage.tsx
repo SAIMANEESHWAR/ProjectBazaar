@@ -115,50 +115,27 @@ const supportedLanguages = [
   { id: 'swift', name: 'Swift', monacoId: 'swift' },
 ];
 
-// Piston API language mapping for code execution
-const pistonLanguageMap: Record<string, { pistonId: string; version: string }> = {
-  python: { pistonId: 'python', version: '3.10.0' },
-  javascript: { pistonId: 'javascript', version: '18.15.0' },
-  java: { pistonId: 'java', version: '15.0.2' },
-  cpp: { pistonId: 'cpp', version: '10.2.0' },
-  c: { pistonId: 'c', version: '10.2.0' },
-  typescript: { pistonId: 'typescript', version: '5.0.3' },
-  go: { pistonId: 'go', version: '1.16.2' },
-  rust: { pistonId: 'rust', version: '1.68.2' },
-  kotlin: { pistonId: 'kotlin', version: '1.8.20' },
-  swift: { pistonId: 'swift', version: '5.3.3' },
+// Judge0 language keys for code execution (see services/codeExecution judge0LanguageIdMap)
+const executionLanguageKeys: Record<string, string> = {
+  python: 'python',
+  javascript: 'javascript',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
+  typescript: 'typescript',
+  go: 'go',
+  rust: 'rust',
+  kotlin: 'kotlin',
+  swift: 'swift',
 };
 
 const executeCode = async (code: string, language: string, input: string = ''): Promise<{ output: string; error: string; success: boolean }> => {
-  const lang = pistonLanguageMap[language];
-  if (!lang) {
+  const langKey = executionLanguageKeys[language];
+  if (!langKey) {
     return { output: '', error: 'Unsupported language for execution', success: false };
   }
-  try {
-    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: lang.pistonId,
-        version: lang.version,
-        files: [{ content: code }],
-        stdin: input,
-      }),
-    });
-    const data = await response.json();
-    if (data.run) {
-      const output = (data.run.stdout || '').trim();
-      const error = (data.run.stderr || '').trim();
-      return {
-        output,
-        error,
-        success: !error && data.run.code === 0,
-      };
-    }
-    return { output: '', error: data.message || 'Execution failed', success: false };
-  } catch (err) {
-    return { output: '', error: 'Network error — please try again', success: false };
-  }
+  const { executeCodeJudge0 } = await import('../services/codeExecution');
+  return executeCodeJudge0({ code, language: langKey, input });
 };
 
 /** Classify execution error so we can show "Syntax Error" or "Runtime Error" instead of generic "Got: ..." */

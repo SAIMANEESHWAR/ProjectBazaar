@@ -115,7 +115,8 @@ const Header: React.FC = () => {
               </button>
               <button
                 onClick={logout}
-                className={`h-[42px] px-5 rounded-full text-sm font-semibold transition-all ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-black/5 hover:bg-black/10 text-black'}`}
+                className={`h-[42px] px-5 rounded-full text-sm font-semibold transition-all border ${theme === 'dark' ? 'border-white/25 text-white hover:bg-white/10 hover:border-white/35' : 'border-black/15 text-black hover:bg-black/5 hover:border-black/25'}`}
+                aria-label="Log out"
               >
                 Logout
               </button>
@@ -185,7 +186,8 @@ const Header: React.FC = () => {
                 </button>
                 <button
                   onClick={() => { logout(); setIsOpen(false); }}
-                  className={`w-full font-semibold py-3 px-6 rounded-full ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-black/5 hover:bg-black/10 text-black'}`}
+                  className={`w-full font-semibold py-3 px-6 rounded-full border ${theme === 'dark' ? 'border-white/25 text-white hover:bg-white/10' : 'border-black/15 text-black hover:bg-black/5'}`}
+                  aria-label="Log out"
                 >
                   Logout
                 </button>

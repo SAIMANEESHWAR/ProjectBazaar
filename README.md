@@ -41,7 +41,7 @@ ProjectBazaar is a comprehensive platform connecting buyers and sellers in the d
 -   **Database**: Amazon DynamoDB
 -   **API**: Amazon API Gateway
 -   **Storage**: Amazon S3 (for assets/resumes)
--   **Code Execution**: Piston API (for mock assessments)
+-   **Code Execution**: Judge0 (mock assessments & coding challenges; configurable — see below)
 
 ## 🚀 Getting Started
 
@@ -69,6 +69,20 @@ ProjectBazaar is a comprehensive platform connecting buyers and sellers in the d
     VITE_OPENAI_API_KEY=<your-openai-key>
     VITE_GEMINI_API_KEY=<your-gemini-key>
     ```
+
+    **Code execution (Judge0)**  
+    Run/Submit in Mock Assessments and Coding Questions uses [Judge0 CE](https://ce.judge0.com) by default. To use a different instance or authenticate:
+
+    - **Default**: No config needed; uses public Judge0 CE at `https://ce.judge0.com`.
+    - **Custom Judge0 host**: Set in `.env`:
+      ```env
+      VITE_JUDGE0_BASE_URL=https://your-judge0-host.com
+      ```
+    - **Auth (e.g. RapidAPI or private instance)**: Set in `.env`:
+      ```env
+      VITE_JUDGE0_AUTH_TOKEN=your-api-key
+      ```
+      Rebuild after changing (`npm run build` or restart `npm run dev`).
 
 4.  **Run the development server**
     ```bash

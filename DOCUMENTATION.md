@@ -104,7 +104,7 @@ Prepare for technical interviews with comprehensive assessments:
 - **Features**:
   - Timed and Practice modes
   - 20+ supported programming languages
-  - Real-time code execution via Piston API
+  - Real-time code execution via Judge0
   - Detailed explanations for answers
   - Performance tracking and history
   - Leaderboard system
@@ -237,7 +237,7 @@ ProjectBazaar/
 | **UI Components** | Radix UI (Primitives) |
 | **Icons** | Lucide React |
 | **Backend** | AWS Lambda (Serverless) |
-| **Code Execution** | Piston API |
+| **Code Execution** | Judge0 |
 
 ---
 
