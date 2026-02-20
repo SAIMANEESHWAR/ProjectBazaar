@@ -15,6 +15,7 @@ import FAQSection from './components/sections/FAQSection';
 import FinalCTASection from './components/sections/FinalCTASection';
 import HackathonCarouselSection from './components/sections/HackathonCarouselSection';
 import AuthPage from './components/AuthPage';
+import TopSellers from './components/TopSellers';
 import DashboardPage from './components/DashboardPage';
 import SellerDashboardPage from './components/SellerDashboardPage';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -240,6 +241,7 @@ const AppContent: React.FC = () => {
             <HackathonCarouselSection />
             <ResultsGridSection />
             <TestimonialsSection />
+            <TopSellers />
             <InstructorSection />
             <FAQSection />
             <FinalCTASection />

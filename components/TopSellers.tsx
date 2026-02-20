@@ -1,343 +1,462 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { Star, BadgeCheck, ShoppingBag, TrendingUp } from "lucide-react";
-import { getTopFreelancers } from "../services/freelancersApi";
-import type { Freelancer } from "../types/browse";
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { getAllFreelancers } from "../services/freelancersApi";
+import { getAllBidRequestProjects } from "../services/bidRequestProjectsApi";
+import type { Freelancer, BrowseProject } from "../types/browse";
+import { useAuth, useNavigation } from "../App";
+import verifiedFreelanceSvg from "../lottiefiles/verified_freelance.svg";
+import { GET_USER_DETAILS_ENDPOINT } from "../services/buyerApi";
 
-interface Seller {
-  name: string;
-  avatar: string;
-  specialty: string;
-  rating: number;
-  reviews: number;
-  projectsSold: number;
-  earnings: string;
-  badge: "top" | "rising" | "verified";
-  tags: string[];
-}
-
-// Fallback static data for when API is unavailable
-const fallbackSellers: Seller[] = [
-  {
-    name: "Aditya Verma",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face",
-    specialty: "Full Stack Developer",
-    rating: 4.9,
-    reviews: 234,
-    projectsSold: 89,
-    earnings: "₹4.2L",
-    badge: "top",
-    tags: ["React", "Node.js", "MongoDB"],
-  },
-  {
-    name: "Priya Sharma",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face",
-    specialty: "UI/UX Designer",
-    rating: 5.0,
-    reviews: 189,
-    projectsSold: 67,
-    earnings: "₹3.1L",
-    badge: "top",
-    tags: ["Figma", "UI Kit", "Mobile"],
-  },
-  {
-    name: "Rohit Kumar",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=face",
-    specialty: "ML Engineer",
-    rating: 4.8,
-    reviews: 156,
-    projectsSold: 54,
-    earnings: "₹2.8L",
-    badge: "verified",
-    tags: ["Python", "TensorFlow", "AI"],
-  },
-  {
-    name: "Sneha Patel",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face",
-    specialty: "Mobile Developer",
-    rating: 4.9,
-    reviews: 142,
-    projectsSold: 48,
-    earnings: "₹2.4L",
-    badge: "rising",
-    tags: ["Flutter", "React Native", "iOS"],
-  },
-  {
-    name: "Arjun Reddy",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face",
-    specialty: "Backend Developer",
-    rating: 4.7,
-    reviews: 128,
-    projectsSold: 42,
-    earnings: "₹2.1L",
-    badge: "verified",
-    tags: ["Java", "Spring", "AWS"],
-  },
-  {
-    name: "Kavya Nair",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face",
-    specialty: "Data Scientist",
-    rating: 4.8,
-    reviews: 98,
-    projectsSold: 36,
-    earnings: "₹1.8L",
-    badge: "rising",
-    tags: ["Python", "Pandas", "ML"],
-  },
-];
-
-// Helper to format earnings
-const formatEarnings = (amount: number): string => {
-  if (amount >= 100000) {
-    return `₹${(amount / 100000).toFixed(1)}L`;
-  } else if (amount >= 1000) {
-    return `₹${(amount / 1000).toFixed(1)}K`;
-  }
-  return `₹${amount}`;
-};
-
-// Helper to determine badge type
-const getBadgeType = (index: number, rating: number, sales: number): "top" | "rising" | "verified" => {
-  if (index < 2 || rating >= 4.9) return "top";
-  if (sales > 30 || rating >= 4.7) return "verified";
-  return "rising";
-};
-
-// Convert Freelancer from API to Seller format
-const freelancerToSeller = (freelancer: Freelancer, index: number): Seller => {
-  // @ts-ignore - Extended properties from API
-  const projectsSold = freelancer.projectsSold || Math.floor(Math.random() * 50 + 20);
-  // @ts-ignore - Extended properties from API
-  const totalEarnings = freelancer.totalEarnings || projectsSold * 5000;
-  
-  return {
-    name: freelancer.name,
-    avatar: freelancer.profileImage,
-    specialty: freelancer.skills[0] ? `${freelancer.skills[0]} Expert` : "Developer",
-    rating: freelancer.rating,
-    reviews: freelancer.reviewsCount,
-    projectsSold: projectsSold,
-    earnings: formatEarnings(totalEarnings),
-    badge: getBadgeType(index, freelancer.rating, projectsSold),
-    tags: freelancer.skills.slice(0, 3),
-  };
-};
-
-const BadgeIcon: React.FC<{ type: "top" | "rising" | "verified" }> = ({ type }) => {
-  switch (type) {
-    case "top":
-      return (
-        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-          <Star className="w-3 h-3 fill-current" />
-          TOP
-        </div>
-      );
-    case "rising":
-      return (
-        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-          <TrendingUp className="w-3 h-3" />
-          RISING
-        </div>
-      );
-    case "verified":
-      return (
-        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-          <BadgeCheck className="w-3 h-3" />
-          PRO
-        </div>
-      );
-  }
-};
-
-const SellerCard: React.FC<{ seller: Seller; index: number }> = ({ seller, index }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-      viewport={{ once: true }}
-      whileHover={{ y: -8 }}
-      className="group"
-    >
-      <div className="relative p-6 rounded-3xl border border-white/10 bg-black/80 backdrop-blur-sm hover:border-orange-500/30 transition-all duration-500 overflow-hidden">
-        {/* Background glow on hover */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        
-        {/* Badge */}
-        <div className="relative">
-          <BadgeIcon type={seller.badge} />
-          
-          {/* Avatar */}
-          <div className="flex justify-center mb-4">
-            <div className="relative">
-              <img
-                src={seller.avatar}
-                alt={seller.name}
-                className="w-20 h-20 rounded-full object-cover ring-4 ring-white/10 group-hover:ring-orange-500/30 transition-all duration-300"
-              />
-              <div className="absolute -bottom-1 -right-1 bg-orange-500 w-5 h-5 rounded-full border-2 border-black flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-full" />
-              </div>
-            </div>
-          </div>
-          
-          {/* Info */}
-          <div className="text-center relative z-10">
-            <h3 className="text-lg font-semibold text-white group-hover:text-orange-300 transition-colors">
-              {seller.name}
-            </h3>
-            <p className="text-white/50 text-sm mb-3">{seller.specialty}</p>
-            
-            {/* Rating */}
-            <div className="flex items-center justify-center gap-1 mb-4">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="text-white font-semibold">{seller.rating}</span>
-              <span className="text-white/40 text-sm">({seller.reviews} reviews)</span>
-            </div>
-            
-            {/* Tags */}
-            <div className="flex flex-wrap justify-center gap-2 mb-4">
-              {seller.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2.5 py-1 bg-white/5 text-white/70 text-xs rounded-full border border-white/10"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-            
-            {/* Stats */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/10">
-              <div className="text-center">
-                <div className="flex items-center gap-1 text-white font-semibold">
-                  <ShoppingBag className="w-3.5 h-3.5 text-orange-400" />
-                  {seller.projectsSold}
-                </div>
-                <div className="text-white/40 text-xs">Sold</div>
-              </div>
-              <div className="text-center">
-                <div className="text-white font-semibold text-orange-400">
-                  {seller.earnings}
-                </div>
-                <div className="text-white/40 text-xs">Earned</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* View Profile Button */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full mt-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-semibold rounded-xl transition-all duration-300 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0"
-        >
-          View Profile
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-};
+type ViewMode = "freelancers" | "projects";
 
 const TopSellers: React.FC = () => {
-  const [sellers, setSellers] = useState<Seller[]>(fallbackSellers);
-  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("freelancers");
+  const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
+  const [projects, setProjects] = useState<BrowseProject[]>([]);
+  const [isLoadingFreelancers, setIsLoadingFreelancers] = useState(true);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const { isLoggedIn } = useAuth();
+  const { navigateTo } = useNavigation();
 
-  useEffect(() => {
-    const fetchTopSellers = async () => {
-      try {
-        const freelancers = await getTopFreelancers(6);
-        if (freelancers.length > 0) {
-          const mappedSellers = freelancers.map((f, i) => freelancerToSeller(f, i));
-          setSellers(mappedSellers);
-        }
-      } catch (error) {
-        console.error('Error fetching top sellers:', error);
-        // Keep fallback data
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTopSellers();
+  // Fetch real profile picture
+  const fetchUserProfile = useCallback(async (freelancerId: string) => {
+    try {
+      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: freelancerId }),
+      });
+      const data = await response.json();
+      const user = data.data || data.user || data;
+      if (!user || data.success === false) return undefined;
+      const profilePicture =
+        user.profilePictureUrl ??
+        user.profilePicture ??
+        user.profileImage ??
+        user.profile_picture ??
+        user.avatar ??
+        user.photoURL ??
+        user.imageUrl ??
+        user.photo;
+      const name = user.fullName || user.name;
+      return { profileImage: profilePicture || undefined, name: name || undefined };
+    } catch {
+      return undefined;
+    }
   }, []);
 
+  // Load freelancers
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const result = await getAllFreelancers(50, 0, true);
+        if (result.freelancers.length > 0) {
+          const filtered = result.freelancers.filter((f) => {
+            const nameLower = f.name?.toLowerCase() || "";
+            const usernameLower = f.username?.toLowerCase() || "";
+            const isTestOrAdmin =
+              nameLower.includes("test") ||
+              nameLower.includes("admin") ||
+              usernameLower.includes("test") ||
+              usernameLower.includes("admin");
+            return !isTestOrAdmin;
+          });
+
+          const candidates = filtered.slice(0, 20);
+          setFreelancers(candidates.slice(0, 8));
+
+          const enriched = await Promise.all(
+            candidates.map(async (f) => {
+              if (!f.id) return f;
+              const profile = await fetchUserProfile(f.id);
+              if (profile) {
+                return {
+                  ...f,
+                  ...(profile.profileImage && { profileImage: profile.profileImage }),
+                  ...(profile.name && { name: profile.name }),
+                };
+              }
+              return f;
+            })
+          );
+
+          const hasRealImage = (url?: string) =>
+            !!url && url.trim() !== "" && !url.includes("dicebear") && !url.includes("placeholder");
+
+          enriched.sort((a, b) => {
+            const aReal = hasRealImage(a.profileImage) ? 0 : 1;
+            const bReal = hasRealImage(b.profileImage) ? 0 : 1;
+            return aReal - bReal;
+          });
+
+          setFreelancers(enriched.slice(0, 8));
+        }
+      } catch (err) {
+        console.error("Error fetching freelancers:", err);
+      } finally {
+        setIsLoadingFreelancers(false);
+      }
+    };
+    load();
+  }, [fetchUserProfile]);
+
+  // Load projects
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const allProjects = await getAllBidRequestProjects();
+        // Sort by bidsCount (most popular first), take top 8
+        const sorted = [...allProjects]
+          .filter((p) => p.title && p.status === "open")
+          .sort((a, b) => (b.bidsCount || 0) - (a.bidsCount || 0))
+          .slice(0, 8);
+        setProjects(sorted);
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleClick = () => {
+    if (!isLoggedIn) {
+      navigateTo("auth");
+    } else {
+      navigateTo(viewMode === "freelancers" ? "browseFreelancers" : "browseProjects");
+    }
+  };
+
+  const AvatarWithFallback: React.FC<{ src: string; name: string }> = ({ src, name }) => {
+    const [imgFailed, setImgFailed] = React.useState(false);
+    const hasImage = src && src.trim() !== "";
+
+    const getInitials = (n: string) =>
+      n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+
+    return (
+      <div className="w-[72px] h-[72px] rounded-full overflow-hidden ring-2 ring-gray-200 dark:ring-white/10 group-hover:ring-orange-500/40 transition-all duration-300 bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+        {hasImage && !imgFailed ? (
+          <img
+            src={src}
+            alt={name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <span className="text-white font-bold text-lg select-none">{getInitials(name)}</span>
+        )}
+      </div>
+    );
+  };
+
+  const isLoading = viewMode === "freelancers" ? isLoadingFreelancers : isLoadingProjects;
+
   return (
-    <section className="relative py-20 overflow-hidden bg-black">
-      {/* Background decorations - orange only */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute left-1/3 top-0 w-[600px] h-[600px] bg-orange-500/10 rounded-full blur-[200px]" />
-        <div className="absolute right-0 bottom-1/4 w-[400px] h-[400px] bg-orange-600/8 rounded-full blur-[150px]" />
+    <section className="relative py-20 md:py-28 overflow-hidden bg-gray-50 dark:bg-[#0a0a0a]">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute left-1/4 -top-20 w-[500px] h-[500px] bg-orange-500/5 dark:bg-orange-500/8 rounded-full blur-[180px]" />
+        <div className="absolute right-1/4 bottom-0 w-[400px] h-[400px] bg-orange-600/5 dark:bg-orange-600/6 rounded-full blur-[160px]" />
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="max-w-[1200px] mx-auto px-5 md:px-8 relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           viewport={{ once: true }}
-          className="text-center mb-14"
+          className="text-center mb-10"
         >
-          <div className="inline-flex items-center gap-2 border border-orange-500/30 bg-orange-500/10 text-orange-400 py-1.5 px-5 rounded-full text-sm font-medium mb-6">
-            <Star className="w-4 h-4 fill-current" />
-            Top Rated Sellers
-          </div>
-          
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            <span className="text-white">Meet Our </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400">
-              Star Creators
+          <h2 className="text-3xl md:text-[2.8rem] font-bold tracking-[-0.02em] leading-tight mb-4">
+            <span className="text-gray-900 dark:text-white">Discover </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-400">
+              Top Talent & Projects
             </span>
           </h2>
-          <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            Learn from the best. These top-rated sellers have earned the trust of hundreds of buyers 
-            with their exceptional projects and support.
+          <p className="text-gray-500 dark:text-white/50 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+            Find the best freelancers to hire or browse open projects to bid on
           </p>
         </motion.div>
 
-        {/* Sellers Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {isLoading ? (
-            // Loading skeleton
-            Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="animate-pulse">
-                <div className="p-6 rounded-3xl border border-white/10 bg-black/80 backdrop-blur-sm">
-                  <div className="flex justify-center mb-4">
-                    <div className="w-20 h-20 rounded-full bg-white/10"></div>
-                  </div>
-                  <div className="h-5 bg-white/10 rounded w-3/4 mx-auto mb-2"></div>
-                  <div className="h-4 bg-white/10 rounded w-1/2 mx-auto mb-4"></div>
-                  <div className="flex justify-center gap-2 mb-4">
-                    <div className="h-6 bg-white/10 rounded w-16"></div>
-                    <div className="h-6 bg-white/10 rounded w-16"></div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            sellers.map((seller, index) => (
-              <SellerCard key={seller.name + index} seller={seller} index={index} />
-            ))
-          )}
+        {/* Toggle Switch */}
+        <div className="flex flex-col items-center mb-12">
+          {/* Animated curved arrow */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            animate={{ x: [0, 6, 0] }}
+            transition={{ x: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.5 } }}
+            className="text-orange-500 mb-2"
+          >
+            <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 8 C6 8, 6 22, 20 22" />
+              <path d="M17 18l5 4-5 4" />
+            </svg>
+          </motion.div>
+
+          <div className="flex items-center gap-0">
+            <span
+              className={`text-base md:text-lg font-semibold italic cursor-pointer transition-colors duration-300 px-4 ${viewMode === "freelancers" ? "text-orange-500" : "text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text-white/60"
+                }`}
+              style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
+              onClick={() => setViewMode("freelancers")}
+            >
+              Top Freelancers
+            </span>
+
+            {/* Toggle pill */}
+            <motion.button
+              onClick={() => setViewMode(viewMode === "freelancers" ? "projects" : "freelancers")}
+              className="relative w-[80px] h-[40px] rounded-full cursor-pointer transition-all duration-300 mx-2 shadow-lg"
+              animate={{
+                backgroundColor: viewMode === "freelancers" ? "#f97316" : "#3b82f6",
+                boxShadow: viewMode === "freelancers" ? "0 10px 25px -5px rgba(249,115,22,0.3)" : "0 10px 25px -5px rgba(59,130,246,0.3)",
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <motion.div
+                className="absolute top-[5px] w-[30px] h-[30px] bg-white rounded-full shadow-md"
+                animate={{ left: viewMode === "freelancers" ? "5px" : "45px" }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            </motion.button>
+
+            <span
+              className={`text-base md:text-lg font-semibold italic cursor-pointer transition-colors duration-300 px-4 ${viewMode === "projects" ? "text-blue-500" : "text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text-white/60"
+                }`}
+              style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
+              onClick={() => setViewMode("projects")}
+            >
+              Top Projects
+            </span>
+          </div>
         </div>
+
+        {/* Content */}
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5"
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-2xl bg-gray-200 dark:bg-white/5 p-5">
+                  <div className="w-16 h-16 rounded-full bg-gray-300 dark:bg-white/10 mx-auto mb-3" />
+                  <div className="h-4 bg-gray-300 dark:bg-white/10 rounded w-3/4 mx-auto mb-2" />
+                  <div className="h-3 bg-gray-300 dark:bg-white/10 rounded w-1/2 mx-auto mb-4" />
+                </div>
+              ))}
+            </motion.div>
+          ) : viewMode === "freelancers" ? (
+            /* Freelancers Grid */
+            <motion.div
+              key="freelancers"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.35 }}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5"
+            >
+              {freelancers.map((f, i) => (
+                <motion.div
+                  key={f.id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -6 }}
+                  onClick={handleClick}
+                  className="group cursor-pointer"
+                >
+                  <div className="relative rounded-2xl bg-white dark:bg-gradient-to-b dark:from-white/[0.07] dark:to-white/[0.03] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm p-5 md:p-6 text-center hover:border-orange-500/30 hover:shadow-lg dark:hover:from-white/[0.10] dark:hover:to-white/[0.05] transition-all duration-400 h-full flex flex-col shadow-sm">
+                    {/* Avatar */}
+                    <div className="relative mx-auto mb-4">
+                      <AvatarWithFallback src={f.profileImage} name={f.name} />
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-[#0a0a0a]" />
+                    </div>
+
+                    {/* Name & Verified */}
+                    <div className="flex items-center justify-center gap-1">
+                      <h3 className="text-sm md:text-[0.95rem] font-semibold text-gray-900 dark:text-white group-hover:text-orange-500 dark:group-hover:text-orange-300 transition-colors leading-tight truncate">
+                        {f.name}
+                      </h3>
+                      <img src={verifiedFreelanceSvg} alt="Verified" className="w-5 h-5 flex-shrink-0" />
+                    </div>
+                    <p className="text-gray-500 dark:text-white/40 text-xs mt-0.5 truncate">
+                      {f.location?.city
+                        ? `${f.location.city}, ${f.location.country}`
+                        : f.location?.country || "Remote"}
+                    </p>
+
+                    {/* Rating */}
+                    <div className="flex items-center justify-center gap-1 mt-2.5">
+                      <svg className="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      </svg>
+                      <span className="text-gray-800 dark:text-white text-xs font-semibold">{f.rating?.toFixed(1) || "5.0"}</span>
+                      <span className="text-gray-400 dark:text-white/30 text-[10px]">({f.reviewsCount || 0})</span>
+                    </div>
+
+                    {/* Skills */}
+                    <div className="flex flex-wrap justify-center gap-1 mt-3 min-h-[24px]">
+                      {f.skills.slice(0, 3).map((skill) => (
+                        <span key={skill} className="px-2 py-0.5 text-[10px] font-medium bg-orange-50 dark:bg-white/[0.06] text-orange-600 dark:text-white/60 rounded-full border border-orange-100 dark:border-white/[0.06]">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Hourly Rate */}
+                    <div className="mt-auto pt-3 border-t border-gray-100 dark:border-white/[0.06] mt-3">
+                      <span className="text-orange-500 dark:text-orange-400 text-sm font-bold">₹{f.hourlyRate || "—"}</span>
+                      <span className="text-gray-400 dark:text-white/30 text-[10px] ml-0.5">/hr</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            /* Projects Grid */
+            <motion.div
+              key="projects"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.35 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
+            >
+              {projects.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -6 }}
+                  onClick={handleClick}
+                  className="group cursor-pointer"
+                >
+                  <div className="relative rounded-2xl bg-white dark:bg-gradient-to-b dark:from-white/[0.07] dark:to-white/[0.03] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm overflow-hidden hover:border-orange-500/30 hover:shadow-lg dark:hover:from-white/[0.10] dark:hover:to-white/[0.05] transition-all duration-400 h-full flex flex-col shadow-sm">
+                    {/* Category Thumbnail */}
+                    {(() => {
+                      const categoryColors: Record<string, string> = {
+                        "web development": "from-blue-600/80 to-cyan-500/80",
+                        "full stack development": "from-violet-600/80 to-fuchsia-500/80",
+                        "data science & ml": "from-emerald-600/80 to-teal-500/80",
+                        "game development": "from-red-600/80 to-orange-500/80",
+                        "mobile development": "from-indigo-600/80 to-blue-500/80",
+                        "devops": "from-amber-600/80 to-yellow-500/80",
+                        "ui/ux design": "from-pink-600/80 to-rose-500/80",
+                      };
+                      const cat = (p.category || "").toLowerCase();
+                      const gradient = categoryColors[cat] || "from-orange-600/80 to-amber-500/80";
+                      const categoryIcons: Record<string, React.ReactNode> = {
+                        "web development": (
+                          <svg className="w-10 h-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+                        ),
+                        "full stack development": (
+                          <svg className="w-10 h-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L12 12.75 6.429 9.75m11.142 0l4.179 2.25L12 17.25l-9.75-5.25 4.179-2.25" /></svg>
+                        ),
+                        "data science & ml": (
+                          <svg className="w-10 h-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                        ),
+                        "game development": (
+                          <svg className="w-10 h-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.491 48.491 0 01-4.163-.3c-1.108-.128-2.03-.786-2.03-1.899V4.874c0-.978.673-1.822 1.585-2.101a7.492 7.492 0 014.69 0c.912.28 1.585 1.123 1.585 2.101V6.087z" /></svg>
+                        ),
+                      };
+                      const icon = categoryIcons[cat] || (
+                        <svg className="w-10 h-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>
+                      );
+                      return (
+                        <div className={`w-full h-32 bg-gradient-to-br ${gradient} flex items-center justify-center relative overflow-hidden`}>
+                          {/* Decorative circles */}
+                          <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/10" />
+                          <div className="absolute -left-2 -bottom-2 w-14 h-14 rounded-full bg-white/10" />
+                          {icon}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="p-5 flex flex-col flex-1">
+                      {/* Category badge */}
+                      {p.category && (
+                        <span className="self-start px-2 py-0.5 text-[10px] font-semibold uppercase bg-orange-500/15 text-orange-400 rounded-full mb-2">
+                          {p.category}
+                        </span>
+                      )}
+
+                      {/* Title */}
+                      <h3 className="text-sm md:text-[0.95rem] font-semibold text-gray-900 dark:text-white group-hover:text-orange-500 dark:group-hover:text-orange-300 transition-colors leading-snug line-clamp-2 mb-1.5">
+                        {p.title}
+                      </h3>
+
+                      {/* Description */}
+                      <p className="text-gray-500 dark:text-white/40 text-xs leading-relaxed line-clamp-2 mb-3">
+                        {p.description}
+                      </p>
+
+                      {/* Skills */}
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {p.skills.slice(0, 3).map((skill) => (
+                          <span key={skill} className="px-2 py-0.5 text-[10px] font-medium bg-orange-50 dark:bg-white/[0.06] text-orange-600 dark:text-white/60 rounded-full border border-orange-100 dark:border-white/[0.06]">
+                            {skill}
+                          </span>
+                        ))}
+                        {p.skills.length > 3 && (
+                          <span className="text-gray-400 dark:text-white/30 text-[10px]">+{p.skills.length - 3}</span>
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="mt-auto pt-3 border-t border-gray-100 dark:border-white/[0.06] flex items-center justify-between">
+                        <div>
+                          <span className="text-orange-500 dark:text-orange-400 text-sm font-bold">
+                            ₹{p.budget?.min || 0}
+                          </span>
+                          <span className="text-gray-400 dark:text-white/30 text-[10px] ml-0.5">
+                            - ₹{p.budget?.max || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500 dark:text-white/40 text-[11px]">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                          </svg>
+                          {p.bidsCount || 0} bids
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* CTA */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
-          className="text-center mt-14"
+          className="text-center mt-12"
         >
-          <div className="inline-flex flex-col sm:flex-row items-center gap-4">
-            <button className="px-8 py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-full transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40">
-              Become a Seller
-            </button>
-            <button className="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-medium rounded-full transition-all duration-300">
-              View All Sellers
-            </button>
-          </div>
+          <button
+            onClick={handleClick}
+            className="inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold text-sm rounded-full transition-all duration-300 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/35"
+          >
+            {viewMode === "freelancers" ? "Browse All Freelancers" : "Browse All Projects"}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+            </svg>
+          </button>
         </motion.div>
       </div>
     </section>
