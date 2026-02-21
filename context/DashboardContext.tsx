@@ -72,8 +72,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     }, [dashboardMode]);
 
+    // Views that require runtime data and should not be persisted across reloads
+    const ephemeralViews: DashboardView[] = ['project-details', 'course-details', 'seller-profile'];
+
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !ephemeralViews.includes(activeView)) {
             localStorage.setItem('activeView', activeView);
         }
     }, [activeView]);

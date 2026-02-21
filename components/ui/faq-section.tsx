@@ -1,32 +1,47 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "../../App";
 
 export default function FAQWithSpiral() {
+  const { theme } = useTheme();
   const spiralRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  // Spiral configuration
-  const [cfg, setCfg] = useState({
-    points: 700,
-    dotRadius: 1.8,
-    duration: 3.0,
-    color: "#ffffff",
-    gradient: "none" as
-      | "none"
-      | "rainbow"
-      | "sunset"
-      | "ocean"
-      | "fire"
-      | "neon"
-      | "pastel"
-      | "grayscale",
-    pulseEffect: true,
-    opacityMin: 0.25,
-    opacityMax: 0.9,
-    sizeMin: 0.5,
-    sizeMax: 1.4,
-    background: "#000000",
+  // Spiral configuration (colors sync with theme; init from storage to avoid flash)
+  const [cfg, setCfg] = useState(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("landingTheme") : null;
+    const isDark = stored === "dark" || stored === null; // default dark
+    return {
+      points: 700,
+      dotRadius: 1.8,
+      duration: 3.0,
+      color: isDark ? "#ffffff" : "#333333",
+      gradient: "none" as
+        | "none"
+        | "rainbow"
+        | "sunset"
+        | "ocean"
+        | "fire"
+        | "neon"
+        | "pastel"
+        | "grayscale",
+      pulseEffect: true,
+      opacityMin: 0.25,
+      opacityMax: 0.9,
+      sizeMin: 0.5,
+      sizeMax: 1.4,
+      background: isDark ? "#000000" : "#f5f5f5",
+    };
   });
+
+  // Sync spiral background and dot color when user toggles theme
+  useEffect(() => {
+    setCfg((c) => ({
+      ...c,
+      background: theme === "dark" ? "#000000" : "#f5f5f5",
+      color: theme === "dark" ? "#ffffff" : "#333333",
+    }));
+  }, [theme]);
 
   // Gradient presets
   const gradients: Record<string, string[]> = useMemo(
@@ -57,7 +72,7 @@ export default function FAQWithSpiral() {
       ];
       const filtered = sample.filter(({ q, a }) => (q + a).toLowerCase().includes("yes"));
       console.assert(filtered.length === 1, "Filter should match one item containing 'yes'");
-    } catch {}
+    } catch { }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,8 +100,8 @@ export default function FAQWithSpiral() {
       gradient:
         Math.random() > 0.6
           ? (["rainbow", "ocean", "grayscale", "neon"] as const)[
-              Math.floor(Math.random() * 4)
-            ]
+          Math.floor(Math.random() * 4)
+          ]
           : "none",
     }));
   }, []);
@@ -227,13 +242,13 @@ export default function FAQWithSpiral() {
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden text-white"
+      className="relative min-h-screen w-full overflow-hidden text-gray-900 dark:text-white transition-colors duration-300"
       style={{ backgroundColor: cfg.background }}
     >
       {/* Background Spiral */}
       <div
         className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-30 [mask-image:radial-gradient(circle_at_center,rgba(255,255,255,1),rgba(255,255,255,0.1)_60%,transparent_75%)]"
-        style={{ mixBlendMode: "screen" }}
+        style={{ mixBlendMode: theme === "dark" ? "screen" : "multiply" }}
       >
         <div ref={spiralRef} />
       </div>
@@ -241,10 +256,10 @@ export default function FAQWithSpiral() {
       {/* Layout */}
       <div className="relative mx-auto max-w-5xl px-6 py-16">
         {/* Header */}
-        <header className="mb-10 flex items-end justify-between border-b border-white/20 pb-6">
+        <header className="mb-10 flex items-end justify-between border-b border-gray-300 dark:border-white/20 pb-6">
           <div>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight">FAQ</h1>
-            <p className="mt-2 text-sm md:text-base text-white/70">
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight text-gray-900 dark:text-white">FAQ</h1>
+            <p className="mt-2 text-sm md:text-base text-gray-600 dark:text-white/70">
               Clean, minimalistic, black‑and‑white.
             </p>
           </div>
@@ -253,7 +268,7 @@ export default function FAQWithSpiral() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search questions…"
-              className="h-10 w-56 rounded-xl border border-white/20 bg-transparent px-3 text-sm outline-none transition focus:border-white/60"
+              className="h-10 w-56 rounded-xl border border-gray-300 dark:border-white/20 bg-white/50 dark:bg-transparent px-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/50 outline-none transition focus:border-gray-500 dark:focus:border-white/60"
             />
           </div>
         </header>
@@ -268,24 +283,24 @@ export default function FAQWithSpiral() {
         </section>
 
         {/* Footer */}
-        <footer className="mt-16 border-t border-white/10 pt-6 text-xs text-white/50">
+        <footer className="mt-16 border-t border-gray-200 dark:border-white/10 pt-6 text-xs text-gray-500 dark:text-white/50">
           © {new Date().getFullYear()} Project Bazaar — Discover. Build. Earn.
         </footer>
       </div>
 
       {/* Control Panel */}
       {panelOpen && (
-        <aside className="fixed right-4 top-4 z-20 w-[320px] rounded-2xl border border-white/15 bg-black/70 p-4 backdrop-blur">
-          <h3 className="mb-3 text-sm font-semibold tracking-wide text-white/80">Spiral Controls</h3>
-          <div className="space-y-3 text-xs">
-            <Slider label="Points" min={100} max={2000} step={50} value={cfg.points} onChange={(v)=> setCfg({...cfg, points: v})} />
-            <Slider label="Dot radius" min={0.5} max={5} step={0.1} value={cfg.dotRadius} onChange={(v)=> setCfg({...cfg, dotRadius: v})} />
-            <Slider label="Duration" min={1} max={10} step={0.1} value={cfg.duration} onChange={(v)=> setCfg({...cfg, duration: v})} />
-            <Toggle label="Pulse" value={cfg.pulseEffect} onChange={(v)=> setCfg({...cfg, pulseEffect: v})} />
-            <Slider label="Opacity min" min={0} max={1} step={0.05} value={cfg.opacityMin} onChange={(v)=> setCfg({...cfg, opacityMin: v})} />
-            <Slider label="Opacity max" min={0} max={1} step={0.05} value={cfg.opacityMax} onChange={(v)=> setCfg({...cfg, opacityMax: v})} />
-            <Slider label="Size min" min={0.1} max={2} step={0.1} value={cfg.sizeMin} onChange={(v)=> setCfg({...cfg, sizeMin: v})} />
-            <Slider label="Size max" min={0.1} max={3} step={0.1} value={cfg.sizeMax} onChange={(v)=> setCfg({...cfg, sizeMax: v})} />
+        <aside className="fixed right-4 top-4 z-20 w-[320px] rounded-2xl border border-gray-300 dark:border-white/15 bg-white/90 dark:bg-black/70 p-4 backdrop-blur">
+          <h3 className="mb-3 text-sm font-semibold tracking-wide text-gray-800 dark:text-white/80">Spiral Controls</h3>
+          <div className="space-y-3 text-xs text-gray-900 dark:text-white">
+            <Slider label="Points" min={100} max={2000} step={50} value={cfg.points} onChange={(v) => setCfg({ ...cfg, points: v })} />
+            <Slider label="Dot radius" min={0.5} max={5} step={0.1} value={cfg.dotRadius} onChange={(v) => setCfg({ ...cfg, dotRadius: v })} />
+            <Slider label="Duration" min={1} max={10} step={0.1} value={cfg.duration} onChange={(v) => setCfg({ ...cfg, duration: v })} />
+            <Toggle label="Pulse" value={cfg.pulseEffect} onChange={(v) => setCfg({ ...cfg, pulseEffect: v })} />
+            <Slider label="Opacity min" min={0} max={1} step={0.05} value={cfg.opacityMin} onChange={(v) => setCfg({ ...cfg, opacityMin: v })} />
+            <Slider label="Opacity max" min={0} max={1} step={0.05} value={cfg.opacityMax} onChange={(v) => setCfg({ ...cfg, opacityMax: v })} />
+            <Slider label="Size min" min={0.1} max={2} step={0.1} value={cfg.sizeMin} onChange={(v) => setCfg({ ...cfg, sizeMin: v })} />
+            <Slider label="Size max" min={0.1} max={3} step={0.1} value={cfg.sizeMax} onChange={(v) => setCfg({ ...cfg, sizeMax: v })} />
             <Select
               label="Gradient"
               value={cfg.gradient}
@@ -299,18 +314,18 @@ export default function FAQWithSpiral() {
                 { label: "Pastel", value: "pastel" },
                 { label: "Grayscale", value: "grayscale" },
               ]}
-              onChange={(v)=> setCfg({...cfg, gradient: v as any})}
+              onChange={(v) => setCfg({ ...cfg, gradient: v as any })}
             />
             <div className="flex gap-2">
               <button
                 onClick={randomize}
-                className="w-full rounded-xl border border-white/20 px-3 py-2 text-xs hover:border-white/50"
+                className="w-full rounded-xl border border-gray-300 dark:border-white/20 px-3 py-2 text-xs hover:border-gray-500 dark:hover:border-white/50"
               >
                 Randomize (R)
               </button>
               <button
                 onClick={() => setPanelOpen(false)}
-                className="rounded-xl border border-white/20 px-3 py-2 text-xs hover:border-white/50"
+                className="rounded-xl border border-gray-300 dark:border-white/20 px-3 py-2 text-xs hover:border-gray-500 dark:hover:border-white/50"
               >
                 Close (H)
               </button>
@@ -326,29 +341,29 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/15 bg-black/40 p-5 transition hover:border-white/40">
+    <div className="group relative overflow-hidden rounded-2xl border border-gray-200 dark:border-white/15 bg-white/80 dark:bg-black/40 p-5 transition-colors duration-300 hover:border-gray-300 dark:hover:border-white/40">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left text-gray-900 dark:text-white"
         aria-expanded={open}
       >
         <div className="flex items-baseline gap-3">
-          <span className="text-xs text-white/40">{String(index).padStart(2, "0")}</span>
+          <span className="text-xs text-gray-500 dark:text-white/40">{String(index).padStart(2, "0")}</span>
           <h3 className="text-base md:text-lg font-semibold leading-tight">{q}</h3>
         </div>
-        <span className="ml-4 text-white/60 transition group-hover:text-white">{open ? "–" : "+"}</span>
+        <span className="ml-4 text-gray-600 dark:text-white/60 transition group-hover:text-gray-900 dark:group-hover:text-white">{open ? "–" : "+"}</span>
       </button>
       <div
         className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(.4,0,.2,1)] ${open ? "mt-3 grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="min-h-0 overflow-hidden">
-          <p className="text-sm text-white/70">{a}</p>
+          <p className="text-sm text-gray-600 dark:text-white/70">{a}</p>
         </div>
       </div>
       {/* Hover halo */}
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100">
         <div
-          className="absolute -inset-1 rounded-2xl border border-white/10"
+          className="absolute -inset-1 rounded-2xl border border-gray-200 dark:border-white/10"
           style={{ maskImage: "radial-gradient(180px_180px_at_var(--x,50%)_var(--y,50%),white,transparent)" }}
         />
       </div>
@@ -375,7 +390,7 @@ function Slider({
     <label className="block">
       <div className="mb-1 flex items-center justify-between">
         <span>{label}</span>
-        <span className="tabular-nums text-white/50">{value.toFixed(2)}</span>
+        <span className="tabular-nums text-gray-500 dark:text-white/50">{value.toFixed(2)}</span>
       </div>
       <input
         type="range"
@@ -384,7 +399,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full"
+        className="w-full accent-[#ff7a00]"
       />
     </label>
   );
@@ -396,10 +411,10 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
       <span>{label}</span>
       <button
         onClick={() => onChange(!value)}
-        className={`h-6 w-10 rounded-full border border-white/20 transition ${value ? "bg-white" : "bg-transparent"}`}
+        className={`h-6 w-10 rounded-full border border-gray-300 dark:border-white/20 transition ${value ? "bg-[#ff7a00] dark:bg-white" : "bg-gray-200 dark:bg-transparent"}`}
         aria-pressed={value}
       >
-        <span className={`block h-5 w-5 translate-x-0.5 rounded-full bg-black transition ${value ? "translate-x-4" : "translate-x-0"}`} />
+        <span className={`block h-5 w-5 translate-x-0.5 rounded-full bg-white dark:bg-black transition ${value ? "translate-x-4" : "translate-x-0"}`} />
       </button>
     </label>
   );
@@ -423,7 +438,7 @@ function Select({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full appearance-none rounded-xl border border-white/20 bg-black px-3 py-2 text-xs outline-none"
+          className="w-full appearance-none rounded-xl border border-gray-300 dark:border-white/20 bg-white dark:bg-black px-3 py-2 text-xs text-gray-900 dark:text-white outline-none"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>
@@ -431,7 +446,7 @@ function Select({
             </option>
           ))}
         </select>
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/50">▾</span>
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-white/50">▾</span>
       </div>
     </label>
   );

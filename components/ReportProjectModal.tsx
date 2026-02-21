@@ -157,205 +157,194 @@ const ReportProjectModal: React.FC<ReportProjectModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
         onClick={handleClose}
       ></div>
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all">
-          {/* Header - Orange Background */}
-          <div className="bg-orange-500 px-6 py-5 flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-              {/* Warning Icon */}
-              <div className="flex-shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden transform transition-all">
+
+          {/* Header - Clean & Minimal */}
+          <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Report an Issue</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Help us keep the marketplace safe</p>
+                </div>
+              </div>
+              <button
+                onClick={handleClose}
+                disabled={isSubmitting}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all disabled:opacity-50"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </div>
-              {/* Title and Subtitle */}
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-white">Report Project Issue</h2>
-                <p className="text-white/90 text-sm mt-0.5">AI Resume Analyzer</p>
-              </div>
+              </button>
             </div>
-            {/* Close Button */}
-            <button
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="text-white hover:text-white/80 p-2 hover:bg-white/10 rounded-lg transition-all disabled:opacity-50"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
 
           {/* Content */}
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
             {success ? (
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-4">
-                  <svg className="w-12 h-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <div className="text-center py-10">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-5">
+                  <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Report Submitted Successfully!</h3>
-                <p className="text-gray-600">Thank you for reporting this issue. Our team will review it shortly.</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Report Submitted</h3>
+                <p className="text-sm text-gray-500 max-w-xs mx-auto">Thank you for reporting. Our team will review this and take appropriate action.</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Reason for Reporting Section */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Note for non-purchasers */}
+                {!isPurchased && (
+                  <div className="flex items-start gap-2.5 p-3 bg-blue-50/70 rounded-xl">
+                    <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Since you haven't purchased this project, some report options are limited to issues visible in the description, preview, or images.
+                    </p>
+                  </div>
+                )}
+
+                {/* Reason Selection - Radio Cards */}
                 <div>
-                  {/* Blue Info Note Box - At the top */}
-                  {!isPurchased && (
-                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        <span className="font-semibold">Note:</span> Since you haven't purchased this project, some report options are limited. You can report issues visible in the description, preview, or images.
-                      </p>
-                    </div>
-                  )}
-
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">
-                    Reason for Reporting <span className="text-red-500">(Required)</span>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2.5">
+                    What's wrong? <span className="text-red-400 font-normal">*</span>
                   </label>
-
-                  {/* Dropdown Select */}
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm text-gray-700 whitespace-nowrap">
-                      I would like to
-                    </label>
-                    <div className="flex-1 relative">
-                      <select
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none cursor-pointer pr-10"
+                  <div className="grid grid-cols-2 gap-2">
+                    {REPORT_REASONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setReason(option.value)}
+                        className={`text-left p-3 rounded-xl border-2 transition-all duration-200 ${reason === option.value
+                            ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-200'
+                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          }`}
                       >
-                        <option value="">Select an option</option>
-                        {REPORT_REASONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      {/* Custom Dropdown Arrow */}
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
+                        <p className={`text-xs font-semibold ${reason === option.value ? 'text-orange-700' : 'text-gray-700'}`}>
+                          {option.label}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{option.subtext}</p>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Detailed Description Section */}
+                {/* Description */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">
-                    Detailed Description <span className="text-red-500">(Required)</span>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Tell us more <span className="text-red-400 font-normal">*</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    rows={6}
-                    placeholder="Please provide detailed information about the issue you encountered. Be as specific as possible to help us understand and resolve the problem quickly..."
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none transition-all"
+                    rows={4}
+                    placeholder="Describe the issue in detail so we can act quickly..."
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent resize-none transition-all text-sm bg-gray-50/50 placeholder:text-gray-400"
                   />
-                  <p className="text-sm text-red-500 mt-2">
-                    {description.length}/10 characters minimum
-                  </p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className={`text-[11px] ${description.trim().length >= 10 ? 'text-green-500' : 'text-gray-400'}`}>
+                      {description.trim().length >= 10 ? '✓ Minimum met' : `${description.trim().length}/10 characters minimum`}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Attachments Section */}
+                {/* Attachments - Simplified */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-1">
-                    Attachments (Optional)
+                  <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                    Evidence <span className="text-gray-400 font-normal text-xs">(optional)</span>
                   </label>
-                  <p className="text-xs text-gray-500 mb-3">Max 5 URLs</p>
-                  
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-xs text-gray-600 mb-4">
-                      Provide URLs to screenshots, error messages, or any other evidence that supports your report. Upload images to a service like imgur or use S3 URLs.
-                    </p>
-                    
-                    <div className="space-y-3">
-                      {attachments.map((url, index) => (
-                        <div key={index} className="flex gap-2">
-                          <input
-                            type="url"
-                            value={url}
-                            onChange={(e) => handleAttachmentChange(index, e.target.value)}
-                            placeholder="https://example.com/screenshot.png"
-                            className={`flex-1 px-4 py-2.5 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${
-                              url.trim() && !validateUrl(url)
-                                ? 'border-red-300 bg-red-50'
-                                : 'border-gray-300 bg-white'
+                  <p className="text-[11px] text-gray-400 mb-2.5">Add screenshot URLs to support your report</p>
+
+                  <div className="space-y-2">
+                    {attachments.map((url, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="url"
+                          value={url}
+                          onChange={(e) => handleAttachmentChange(index, e.target.value)}
+                          placeholder="https://imgur.com/screenshot.png"
+                          className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${url.trim() && !validateUrl(url)
+                              ? 'border-red-300 bg-red-50/50'
+                              : 'border-gray-200 bg-gray-50/50'
                             }`}
-                          />
-                          {attachments.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeAttachmentField(index)}
-                              className="px-4 py-2.5 text-red-600 hover:text-red-700 font-medium"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      
-                      {attachments.length < 5 && (
-                        <button
-                          type="button"
-                          onClick={addAttachmentField}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-orange-600 hover:text-orange-700 font-medium text-sm border-2 border-dashed border-orange-500 rounded-lg hover:bg-orange-50 transition-all"
-                        >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                          + Add Another Attachment URL ({attachments.length}/5)
-                        </button>
-                      )}
-                    </div>
+                        />
+                        {attachments.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeAttachmentField(index)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {attachments.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={addAttachmentField}
+                        className="flex items-center gap-1.5 text-xs text-orange-500 hover:text-orange-600 font-medium transition-colors py-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add URL ({attachments.length}/5)
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Error Message */}
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p className="text-red-800 text-sm">{error}</p>
+                  <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl">
+                    <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-red-700">{error}</p>
                   </div>
                 )}
 
                 {/* Footer Buttons */}
-                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-5 py-2.5 text-sm bg-gray-100 text-gray-600 font-medium rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || !reason || description.trim().length < 10}
-                    className="flex-1 px-6 py-3 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="flex-1 px-5 py-2.5 text-sm bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isSubmitting ? (
                       <>
-                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                         Submitting...
                       </>
                     ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Submit Report
-                      </>
+                      'Submit Report'
                     )}
                   </button>
                 </div>

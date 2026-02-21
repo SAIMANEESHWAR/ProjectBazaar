@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
 import { Plus } from 'lucide-react';
-import { useNavigation } from '../../App';
+import { useNavigation, useTheme } from '../../App';
 import { CTAArrowIcon } from '../CTAArrowIcon';
 
 const faqData = [
@@ -89,7 +89,7 @@ const FAQSection: React.FC = () => {
                     className="overflow-hidden"
                   >
                     <div className="px-6 pb-6">
-                      <p className="text-[#a1a1a1] leading-relaxed text-base md:text-lg">{item.answer}</p>
+                      <p className="text-gray-600 dark:text-[#a1a1a1] leading-relaxed text-base md:text-lg">{item.answer}</p>
                     </div>
                   </motion.div>
                 )}

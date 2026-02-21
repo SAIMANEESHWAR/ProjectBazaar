@@ -619,7 +619,11 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'settings':
                 return <SettingsPage />;
             case 'project-details':
-                if (!selectedProject) return null;
+                if (!selectedProject) {
+                    // Redirect to dashboard if project data is lost (e.g. page reload)
+                    setTimeout(() => setActiveView('dashboard'), 0);
+                    return null;
+                }
                 // Get seller info from map
                 const sellerInfo = projectSellerMap.get(selectedProject.id);
                 // Get cached seller profile
