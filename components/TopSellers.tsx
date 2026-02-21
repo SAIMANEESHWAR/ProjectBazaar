@@ -290,11 +290,11 @@ const TopSellers: React.FC = () => {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            animate={{ x: [0, 6, 0] }}
+            animate={{ x: [0, 8, 0] }}
             transition={{ x: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.5 } }}
-            className="text-orange-500 mb-2"
+            className="text-orange-500 dark:text-orange-400 mb-3"
           >
-            <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" strokeMiterlimit={10}>
+            <svg className="w-10 h-10 drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" strokeMiterlimit={10}>
               <path d="M6 8 C6 8 6 24 24 24" />
               <path d="M20 21 L24 24 L20 27" />
             </svg>
@@ -377,7 +377,7 @@ const TopSellers: React.FC = () => {
                   onClick={handleClick}
                   className="group cursor-pointer"
                 >
-                  <div className="relative rounded-2xl bg-white dark:bg-gradient-to-b dark:from-white/[0.07] dark:to-white/[0.03] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm p-5 md:p-6 text-center hover:border-orange-500/30 hover:shadow-lg dark:hover:from-white/[0.10] dark:hover:to-white/[0.05] transition-all duration-400 h-full flex flex-col shadow-sm">
+                  <div className="relative rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm p-5 md:p-6 text-center hover:border-orange-500/30 hover:shadow-lg dark:hover:bg-[#1c1c1c] transition-all duration-400 h-full flex flex-col shadow-sm dark:shadow-none">
                     {/* Avatar */}
                     <div className="relative mx-auto mb-4">
                       <AvatarWithFallback src={f.profileImage} name={f.name} />
@@ -445,7 +445,7 @@ const TopSellers: React.FC = () => {
                   onClick={handleClick}
                   className="group cursor-pointer"
                 >
-                  <div className="relative rounded-2xl bg-white dark:bg-gradient-to-b dark:from-white/[0.07] dark:to-white/[0.03] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm overflow-hidden hover:border-orange-500/30 hover:shadow-lg dark:hover:from-white/[0.10] dark:hover:to-white/[0.05] transition-all duration-400 h-full flex flex-col shadow-sm">
+                  <div className="relative rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-white/[0.08] backdrop-blur-sm overflow-hidden hover:border-orange-500/30 hover:shadow-lg dark:hover:bg-[#1c1c1c] transition-all duration-400 h-full flex flex-col shadow-sm dark:shadow-none">
                     {/* Project image (same visual weight as freelancer avatar in dark mode) */}
                     <ProjectImageBlock project={p} />
 
