@@ -290,13 +290,13 @@ const TopSellers: React.FC = () => {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            animate={{ x: [0, 8, 0] }}
+            animate={{ x: [0, 10, 0] }}
             transition={{ x: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }, opacity: { duration: 0.5 } }}
-            className="text-orange-500 dark:text-orange-400 mb-3"
+            className="text-orange-500 dark:text-orange-400 mb-1"
           >
-            <svg className="w-10 h-10 drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" strokeMiterlimit={10}>
-              <path d="M6 8 C6 8 6 24 24 24" />
-              <path d="M20 21 L24 24 L20 27" />
+            <svg className="w-14 h-14 md:w-16 md:h-16 rotate-[45deg] drop-shadow-[0_0_10px_rgba(249,115,22,0.5)]" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 38 C10 38 10 14 36 14" />
+              <path d="M30 8 L36 14 L30 20" />
             </svg>
           </motion.div>
 
