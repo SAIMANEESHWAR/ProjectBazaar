@@ -11,6 +11,7 @@ import {
     type Interaction,
 } from '../services/freelancerInteractionsApi';
 import { GET_USER_DETAILS_ENDPOINT } from '../services/buyerApi';
+import { playMessageSent, playMessageReceived } from '../utils/sounds';
 
 interface ConversationMeta {
     otherUserId: string;
@@ -150,6 +151,7 @@ const ChatRoom: React.FC = () => {
                 return next;
             });
             refreshUnread();
+            playMessageReceived();
         });
         return unsub;
     }, [userId, selectedId, subscribe, refreshUnread]);
@@ -207,6 +209,7 @@ const ChatRoom: React.FC = () => {
                 next.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
                 return next;
             });
+            playMessageSent();
         } catch (err) {
             console.error('Send failed', err);
         } finally {

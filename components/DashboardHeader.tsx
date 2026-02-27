@@ -4,6 +4,7 @@ import { useCart, useWishlist } from './DashboardPage';
 import { usePremium, useAuth, useNavigation } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { useMessagesUnread } from '../context/MessagesUnreadContext';
+import { playNotification } from '../utils/sounds';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
@@ -102,6 +103,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   const notificationRef = useRef<HTMLDivElement>(null);
+  const previousNotificationUnreadRef = useRef<number | null>(null);
 
   // ---------------- FETCH NOTIFICATIONS ----------------
   const fetchNotifications = async () => {
@@ -119,8 +121,13 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       const data = await res.json();
 
       if (data.success) {
+        const newUnread = data.unreadCount || 0;
+        if (previousNotificationUnreadRef.current !== null && newUnread > previousNotificationUnreadRef.current) {
+          playNotification();
+        }
+        previousNotificationUnreadRef.current = newUnread;
         setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        setUnreadCount(newUnread);
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);
