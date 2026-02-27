@@ -28,17 +28,49 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, colorClass }) =
 
 interface SectionCardProps {
     title: string;
+    subtitle?: string;
     children: React.ReactNode;
     step: number;
+    icon?: React.ReactNode;
+    isComplete?: boolean;
+    charCount?: number;
+    charMax?: number;
 }
 
-const SectionCard: React.FC<SectionCardProps> = ({ title, children, step }) => (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div className="p-6 border-b border-gray-200 flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-sm">{step}</div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+const SectionCard: React.FC<SectionCardProps> = ({ title, subtitle, children, step, icon, isComplete, charCount, charMax }) => (
+    <div className={`bg-white rounded-2xl shadow-sm transition-all duration-300 ${isComplete
+        ? 'border-2 border-green-200 shadow-green-100/50'
+        : 'border border-gray-200'
+        }`}>
+        <div className={`p-5 border-b flex items-center gap-4 ${isComplete ? 'border-green-100 bg-green-50/30' : 'border-gray-100'
+            }`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${isComplete
+                ? 'bg-green-500 text-white shadow-sm shadow-green-200'
+                : 'bg-orange-50 text-orange-500'
+                }`}>
+                {isComplete ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                ) : icon ? icon : (
+                    <span className="font-bold text-sm">{step}</span>
+                )}
+            </div>
+            <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    {title}
+                    <span className="text-red-500 text-sm">*</span>
+                </h3>
+                {subtitle && (
+                    <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
+                )}
+            </div>
+            {charMax !== undefined && charCount !== undefined && (
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${charCount > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'
+                    }`}>{charCount}/{charMax}</span>
+            )}
         </div>
-        <div className="p-6">
+        <div className="p-5">
             {children}
         </div>
     </div>
@@ -615,18 +647,38 @@ const SellerDashboard: React.FC = () => {
     const MIN_IMAGES = 2;
 
     // Validation function to check if all required fields are filled
-    const isFormValid = useMemo(() => {
+    // Per-section completion tracking
+    const sectionStatus = useMemo(() => {
         const hasTitle = formData.title.trim() !== '';
-        const hasCategory = formData.category.trim() !== '';
         const hasDescription = formData.description.trim() !== '';
         const hasTags = tags.length >= 1;
         const hasPrice = formData.price.trim() !== '' && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) > 0;
+        const hasCategory = formData.category.trim() !== '';
         const hasYoutubeUrl = formData.youtubeVideoUrl.trim() !== '';
         const hasGithubUrl = formData.githubUrl.trim() !== '' && githubValidated;
         const hasValidImages = imageFiles.length >= MIN_IMAGES && imageFiles.length <= MAX_IMAGES;
 
-        return hasTitle && hasCategory && hasDescription && hasTags && hasPrice && hasYoutubeUrl && hasGithubUrl && hasValidImages;
+        return {
+            title: hasTitle,
+            description: hasDescription,
+            skills: hasTags,
+            budget: hasPrice,
+            category: hasCategory,
+            media: hasYoutubeUrl,
+            github: hasGithubUrl,
+            images: hasValidImages,
+        };
     }, [formData, tags, githubValidated, imageFiles.length]);
+
+    const completionPercentage = useMemo(() => {
+        const sections = Object.values(sectionStatus);
+        const completed = sections.filter(Boolean).length;
+        return Math.round((completed / sections.length) * 100);
+    }, [sectionStatus]);
+
+    const isFormValid = useMemo(() => {
+        return Object.values(sectionStatus).every(Boolean);
+    }, [sectionStatus]);
 
     const addImages = (files: FileList | File[]) => {
         const fileArray = Array.from(files);
@@ -1422,14 +1474,34 @@ const SellerDashboard: React.FC = () => {
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex space-x-4 border-b border-gray-200 mb-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <button
+                            onClick={() => {
+                                handleUploadClick();
+                            }}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${showUploadForm
+                                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                                : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700'
+                                }`}
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Post New Project
+                        </button>
                         <button
                             onClick={() => {
                                 setActiveTab('projects');
                                 setShowUploadForm(false);
                             }}
-                            className={`py-3 px-4 outline-none font-medium text-sm transition-colors ${activeTab === 'projects' && !showUploadForm ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all ${activeTab === 'projects' && !showUploadForm
+                                ? 'bg-gray-100 text-gray-900'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
                         >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                             My Projects
                         </button>
                         <button
@@ -1437,9 +1509,15 @@ const SellerDashboard: React.FC = () => {
                                 setActiveTab('inbox');
                                 setShowUploadForm(false);
                             }}
-                            className={`py-3 px-4 outline-none font-medium text-sm transition-colors ${activeTab === 'inbox' && !showUploadForm ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all ${activeTab === 'inbox' && !showUploadForm
+                                ? 'bg-gray-100 text-gray-900'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
                         >
-                            Messages & Invitations
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Messages
                         </button>
                     </div>
 
@@ -1927,8 +2005,8 @@ const SellerDashboard: React.FC = () => {
 
                     {/* Upload Form (shown when Upload Project is clicked) */}
                     {showUploadForm && (
-                        <form className="space-y-8" onSubmit={handleSubmit}>
-                            <div className="flex items-center justify-between mb-6">
+                        <form className="space-y-6" onSubmit={handleSubmit}>
+                            <div className="flex items-center justify-between mb-2">
                                 <h2 className="text-2xl font-bold text-gray-900">
                                     {editingProjectId ? 'Edit Draft Project' : 'Upload New Project'}
                                 </h2>
@@ -1957,534 +2035,641 @@ const SellerDashboard: React.FC = () => {
                             {submitSuccess && (
                                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                                     <p className="text-sm text-green-600">
-                                        {isDraftSave ? 'Draft saved successfully! You can continue editing or submit for review when ready.' : 'Project uploaded successfully! Submitting for review...'}
+                                        {isDraftSave ? 'Draft saved successfully!' : 'Project uploaded successfully!'}
                                     </p>
                                 </div>
                             )}
 
-                            {/* Required fields note */}
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                                <span className="text-red-500">*</span> indicates required fields
-                            </div>
+                            {/* Two Column Layout */}
+                            <div className="flex gap-8 items-start">
+                                {/* Left Column - Form Sections */}
+                                <div className="flex-1 min-w-0 space-y-6">
 
-                            <SectionCard title="Project Details" step={1}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField
-                                        id="title"
-                                        label="Project Title"
-                                        placeholder="e.g., E-commerce Platform"
-                                        required
-                                        value={formData.title}
-                                        onChange={handleInputChange}
-                                    />
-                                    <div className="space-y-1">
-                                        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                                            Category <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            id="category"
-                                            value={formData.category}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                    <SectionCard title="Project Title" subtitle="Give your project a clear, descriptive title" step={1}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                                        isComplete={sectionStatus.title} charCount={formData.title.length} charMax={100}>
+                                        <InputField
+                                            id="title"
+                                            label="Project Title"
+                                            placeholder="e.g., Build a React Native Mobile App for E-commerce"
                                             required
-                                            className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
-                                        >
-                                            <option value="" disabled>Select a Category</option>
-                                            {PROJECT_CATEGORIES.map(category => (
-                                                <option key={category} value={category}>{category}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="mt-6">
-                                    <TextArea
-                                        id="description"
-                                        label="Description"
-                                        placeholder="Describe your project in detail..."
-                                        required
-                                        value={formData.description}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Features <span className="text-gray-400 font-normal">(optional, max 15)</span>
-                                    </label>
-                                    <div className={`w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all ${features.length >= 15 ? 'opacity-75' : ''}`}>
-                                        <div className="flex flex-wrap gap-2">
-                                            {features.map((feature, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full border border-blue-200"
-                                                >
-                                                    {feature}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeFeature(index)}
-                                                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                </span>
-                                            ))}
-                                            {features.length < 15 && (
-                                                <input
-                                                    type="text"
-                                                    value={featureInput}
-                                                    onChange={(e) => setFeatureInput(e.target.value)}
-                                                    onKeyDown={handleFeatureInputKeyDown}
-                                                    onBlur={() => { if (featureInput.trim()) addFeature(); }}
-                                                    placeholder={features.length === 0 ? "Type a feature and press Enter..." : "Add more..."}
-                                                    className="flex-1 min-w-[200px] bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 py-1"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="mt-1 text-xs text-gray-500">Press Enter to add a feature. Backspace to remove the last feature.</p>
-                                </div>
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Tags <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({tags.length}/10)</span>
-                                    </label>
-                                    <div className={`w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all ${tags.length >= 10 ? 'opacity-75' : ''}`}>
-                                        <div className="flex flex-wrap gap-2">
-                                            {tags.map((tag, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200"
-                                                >
-                                                    {tag}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeTag(index)}
-                                                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-orange-200 transition-colors"
-                                                    >
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                </span>
-                                            ))}
-                                            {tags.length < 10 && (
-                                                <input
-                                                    type="text"
-                                                    value={tagInput}
-                                                    onChange={(e) => setTagInput(e.target.value)}
-                                                    onKeyDown={handleTagInputKeyDown}
-                                                    onBlur={() => { if (tagInput.trim()) addTag(); }}
-                                                    placeholder={tags.length === 0 ? "Type a tag and press Enter..." : "Add more..."}
-                                                    className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 py-1"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                    <p className="mt-1 text-xs text-gray-500">Press Enter or comma to add a tag. Backspace to remove the last tag. <span className="text-orange-600 font-medium">At least 1 tag required.</span></p>
-                                </div>
-                            </SectionCard>
+                                            value={formData.title}
+                                            onChange={handleInputChange}
+                                        />
+                                        <p className="mt-2 text-xs text-gray-400">Be specific and descriptive</p>
+                                    </SectionCard>
 
-                            <SectionCard title="Pricing & Media" step={2}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InputField
-                                        id="price"
-                                        label="Price (INR)"
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="e.g., 49.99"
-                                        required
-                                        value={formData.price}
-                                        onChange={handleInputChange}
-                                    />
-                                    <InputField
-                                        id="originalPrice"
-                                        label="Original Price (INR) - Optional"
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="e.g., 59.99 (for discount)"
-                                        value={formData.originalPrice}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
-                                <div className="mt-6">
-                                    <InputField
-                                        id="youtubeVideoUrl"
-                                        label="YouTube Demo Video URL"
-                                        placeholder="https://youtube.com/watch?v=..."
-                                        required
-                                        value={formData.youtubeVideoUrl}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
+                                    <SectionCard title="Project Description" subtitle="Describe your requirements in detail" step={2}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                                        isComplete={sectionStatus.description} charCount={formData.description.length} charMax={2000}>
+                                        <TextArea
+                                            id="description"
+                                            label="Description"
+                                            placeholder="Describe your project requirements in detail. Include:\n• Key features and functionality\n• Specific technologies or frameworks\n• Design requirements\n• Any reference examples"
+                                            rows={6}
+                                            required
+                                            value={formData.description}
+                                            onChange={handleInputChange}
+                                        />
+                                        <p className="mt-2 text-xs text-gray-400">More detail = better proposals</p>
+                                    </SectionCard>
 
-                                {/* Resource Links - Improved UI */}
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                                        Resource Links
-                                        <span className="text-gray-400 font-normal ml-1">(optional - add supporting materials)</span>
-                                    </label>
-
-                                    {/* Resource type chips to select */}
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        {resourceOptions.map((option) => {
-                                            const isSelected = selectedResources.includes(option.key);
-                                            return (
-                                                <button
-                                                    key={option.key}
-                                                    type="button"
-                                                    onClick={() => toggleResource(option.key)}
-                                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-medium text-sm transition-all ${isSelected
-                                                        ? option.color + ' shadow-sm'
-                                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
-                                                        }`}
-                                                >
-                                                    {option.icon}
-                                                    {option.label}
-                                                    {isSelected && (
-                                                        <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                        {/* Add Custom button */}
-                                        <button
-                                            type="button"
-                                            onClick={addCustomResource}
-                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-dashed border-gray-300 text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 font-medium text-sm transition-all"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            Add Custom
-                                        </button>
-                                    </div>
-
-                                    {/* URL inputs for selected resources */}
-                                    {(selectedResources.length > 0 || customResources.length > 0) && (
-                                        <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                            {/* Predefined resources */}
-                                            {selectedResources.map((resourceKey) => {
-                                                const option = resourceOptions.find(o => o.key === resourceKey)!;
-                                                return (
-                                                    <div key={resourceKey} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${option.color}`}>
-                                                                {option.icon}
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <div className="text-sm font-medium text-gray-700 mb-1">{option.label}</div>
-                                                                <input
-                                                                    type="url"
-                                                                    value={resourceUrls[resourceKey]}
-                                                                    onChange={(e) => handleResourceUrlChange(resourceKey, e.target.value)}
-                                                                    placeholder={option.placeholder}
-                                                                    className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
-                                                                />
-                                                            </div>
+                                    <SectionCard title="Skills" subtitle={`Add relevant tags (${tags.length})`} step={3}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
+                                        isComplete={sectionStatus.skills}>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Features <span className="text-gray-400 font-normal">(optional, max 15)</span>
+                                            </label>
+                                            <div className={`w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all ${features.length >= 15 ? 'opacity-75' : ''}`}>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {features.map((feature, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full border border-blue-200"
+                                                        >
+                                                            {feature}
                                                             <button
                                                                 type="button"
-                                                                onClick={() => toggleResource(resourceKey)}
-                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors self-start"
-                                                                title="Remove"
+                                                                onClick={() => removeFeature(index)}
+                                                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
                                                             >
-                                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                                 </svg>
                                                             </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-
-                                            {/* Custom resources */}
-                                            {customResources.map((resource) => (
-                                                <div key={resource.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 text-green-600 border border-green-200 flex-shrink-0">
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                                            </svg>
-                                                        </div>
-                                                        <div className="flex-1 space-y-2">
-                                                            <input
-                                                                type="text"
-                                                                value={resource.label}
-                                                                onChange={(e) => updateCustomResource(resource.id, 'label', e.target.value)}
-                                                                placeholder="Resource name (e.g., Figma Design, API Docs)"
-                                                                className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm font-medium"
-                                                            />
-                                                            <input
-                                                                type="url"
-                                                                value={resource.url}
-                                                                onChange={(e) => updateCustomResource(resource.id, 'url', e.target.value)}
-                                                                placeholder="https://..."
-                                                                className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
-                                                            />
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeCustomResource(resource.id)}
-                                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Remove"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                                        </span>
+                                                    ))}
+                                                    {features.length < 15 && (
+                                                        <input
+                                                            type="text"
+                                                            value={featureInput}
+                                                            onChange={(e) => setFeatureInput(e.target.value)}
+                                                            onKeyDown={handleFeatureInputKeyDown}
+                                                            onBlur={() => { if (featureInput.trim()) addFeature(); }}
+                                                            placeholder={features.length === 0 ? "Type a feature and press Enter..." : "Add more..."}
+                                                            className="flex-1 min-w-[200px] bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 py-1"
+                                                        />
+                                                    )}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {selectedResources.length === 0 && customResources.length === 0 && (
-                                        <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-center border border-dashed border-gray-200">
-                                            Click on resource types above to add links, or use "Add Custom" for other resources
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* GitHub URL with validation */}
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Project GitHub URL <span className="text-red-500">*</span>
-                                        <span className="text-gray-400 font-normal ml-1">(must be public repository)</span>
-                                    </label>
-                                    <div className="flex gap-3">
-                                        <div className="flex-1 relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
-                                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                                                </svg>
                                             </div>
-                                            <input
-                                                type="url"
-                                                value={formData.githubUrl}
-                                                onChange={handleGithubUrlChange}
-                                                placeholder="https://github.com/username/repository"
-                                                className={`w-full pl-10 pr-10 py-2 rounded-lg bg-gray-50 border focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 ${githubValidationError
-                                                    ? 'border-red-300 bg-red-50'
-                                                    : githubValidated
-                                                        ? 'border-green-300 bg-green-50'
-                                                        : 'border-gray-200'
-                                                    }`}
+                                            <p className="mt-1 text-xs text-gray-500">Press Enter to add a feature. Backspace to remove the last feature.</p>
+                                        </div>
+                                        <div className="mt-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Tags <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({tags.length}/10)</span>
+                                            </label>
+                                            <div className={`w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500 transition-all ${tags.length >= 10 ? 'opacity-75' : ''}`}>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {tags.map((tag, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full border border-orange-200"
+                                                        >
+                                                            {tag}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeTag(index)}
+                                                                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-orange-200 transition-colors"
+                                                            >
+                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                    {tags.length < 10 && (
+                                                        <input
+                                                            type="text"
+                                                            value={tagInput}
+                                                            onChange={(e) => setTagInput(e.target.value)}
+                                                            onKeyDown={handleTagInputKeyDown}
+                                                            onBlur={() => { if (tagInput.trim()) addTag(); }}
+                                                            placeholder={tags.length === 0 ? "Type a tag and press Enter..." : "Add more..."}
+                                                            className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 py-1"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="mt-1 text-xs text-gray-500">Press Enter or comma to add a tag. Backspace to remove the last tag. <span className="text-orange-600 font-medium">At least 1 tag required.</span></p>
+                                        </div>
+                                    </SectionCard>
+
+                                    <SectionCard title="Budget" subtitle="Set your project pricing" step={4}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                        isComplete={sectionStatus.budget}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <InputField
+                                                id="price"
+                                                label="Price (INR)"
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="e.g., 49.99"
+                                                required
+                                                value={formData.price}
+                                                onChange={handleInputChange}
                                             />
-                                            {/* Status icon */}
-                                            {formData.githubUrl && (
-                                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                            <InputField
+                                                id="originalPrice"
+                                                label="Original Price (INR) - Optional"
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="e.g., 59.99 (for discount)"
+                                                value={formData.originalPrice}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+                                    </SectionCard>
+
+                                    <SectionCard title="Category" subtitle="Select your project category" step={5}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
+                                        isComplete={sectionStatus.category}>
+                                        <div className="space-y-1">
+                                            <label htmlFor="category2" className="block text-sm font-medium text-gray-700">
+                                                Category <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                id="category2"
+                                                value={formData.category}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                                required
+                                                className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
+                                            >
+                                                <option value="" disabled>Select a Category</option>
+                                                {PROJECT_CATEGORIES.map(category => (
+                                                    <option key={category} value={category}>{category}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </SectionCard>
+
+                                    <SectionCard title="Media & Links" subtitle="Add video demo and resource links" step={6}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+                                        isComplete={sectionStatus.media}>
+                                        <div>
+                                            <InputField
+                                                id="youtubeVideoUrl"
+                                                label="YouTube Demo Video URL"
+                                                placeholder="https://youtube.com/watch?v=..."
+                                                required
+                                                value={formData.youtubeVideoUrl}
+                                                onChange={handleInputChange}
+                                            />
+                                        </div>
+
+                                        {/* Resource Links - Improved UI */}
+                                        <div className="mt-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                Resource Links
+                                                <span className="text-gray-400 font-normal ml-1">(optional - add supporting materials)</span>
+                                            </label>
+
+                                            {/* Resource type chips to select */}
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {resourceOptions.map((option) => {
+                                                    const isSelected = selectedResources.includes(option.key);
+                                                    return (
+                                                        <button
+                                                            key={option.key}
+                                                            type="button"
+                                                            onClick={() => toggleResource(option.key)}
+                                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-medium text-sm transition-all ${isSelected
+                                                                ? option.color + ' shadow-sm'
+                                                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                                                                }`}
+                                                        >
+                                                            {option.icon}
+                                                            {option.label}
+                                                            {isSelected && (
+                                                                <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {/* Add Custom button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={addCustomResource}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-dashed border-gray-300 text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 font-medium text-sm transition-all"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    Add Custom
+                                                </button>
+                                            </div>
+
+                                            {/* URL inputs for selected resources */}
+                                            {(selectedResources.length > 0 || customResources.length > 0) && (
+                                                <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                                    {/* Predefined resources */}
+                                                    {selectedResources.map((resourceKey) => {
+                                                        const option = resourceOptions.find(o => o.key === resourceKey)!;
+                                                        return (
+                                                            <div key={resourceKey} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${option.color}`}>
+                                                                        {option.icon}
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <div className="text-sm font-medium text-gray-700 mb-1">{option.label}</div>
+                                                                        <input
+                                                                            type="url"
+                                                                            value={resourceUrls[resourceKey]}
+                                                                            onChange={(e) => handleResourceUrlChange(resourceKey, e.target.value)}
+                                                                            placeholder={option.placeholder}
+                                                                            className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleResource(resourceKey)}
+                                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors self-start"
+                                                                        title="Remove"
+                                                                    >
+                                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* Custom resources */}
+                                                    {customResources.map((resource) => (
+                                                        <div key={resource.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 text-green-600 border border-green-200 flex-shrink-0">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="flex-1 space-y-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={resource.label}
+                                                                        onChange={(e) => updateCustomResource(resource.id, 'label', e.target.value)}
+                                                                        placeholder="Resource name (e.g., Figma Design, API Docs)"
+                                                                        className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm font-medium"
+                                                                    />
+                                                                    <input
+                                                                        type="url"
+                                                                        value={resource.url}
+                                                                        onChange={(e) => updateCustomResource(resource.id, 'url', e.target.value)}
+                                                                        placeholder="https://..."
+                                                                        className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeCustomResource(resource.id)}
+                                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title="Remove"
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {selectedResources.length === 0 && customResources.length === 0 && (
+                                                <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4 text-center border border-dashed border-gray-200">
+                                                    Click on resource types above to add links, or use "Add Custom" for other resources
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* GitHub URL with validation */}
+                                        <div className="mt-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Project GitHub URL <span className="text-red-500">*</span>
+                                                <span className="text-gray-400 font-normal ml-1">(must be public repository)</span>
+                                            </label>
+                                            <div className="flex gap-3">
+                                                <div className="flex-1 relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                                                        </svg>
+                                                    </div>
+                                                    <input
+                                                        type="url"
+                                                        value={formData.githubUrl}
+                                                        onChange={handleGithubUrlChange}
+                                                        placeholder="https://github.com/username/repository"
+                                                        className={`w-full pl-10 pr-10 py-2 rounded-lg bg-gray-50 border focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all text-gray-900 ${githubValidationError
+                                                            ? 'border-red-300 bg-red-50'
+                                                            : githubValidated
+                                                                ? 'border-green-300 bg-green-50'
+                                                                : 'border-gray-200'
+                                                            }`}
+                                                    />
+                                                    {/* Status icon */}
+                                                    {formData.githubUrl && (
+                                                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                                            {isValidatingGithub ? (
+                                                                <svg className="animate-spin h-5 w-5 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                            ) : githubValidated ? (
+                                                                <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            ) : githubValidationError ? (
+                                                                <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            ) : null}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={validateGithubUrl}
+                                                    disabled={!formData.githubUrl.trim() || isValidatingGithub}
+                                                    className="px-4 py-2 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                                >
                                                     {isValidatingGithub ? (
-                                                        <svg className="animate-spin h-5 w-5 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <>
+                                                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                            Verifying...
+                                                        </>
+                                                    ) : (
+                                                        'Verify'
+                                                    )}
+                                                </button>
+                                            </div>
+                                            {/* Validation feedback */}
+                                            {githubValidationError && (
+                                                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                    </svg>
+                                                    {githubValidationError}
+                                                </p>
+                                            )}
+                                            {githubValidated && (
+                                                <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Public repository verified successfully!
+                                                </p>
+                                            )}
+                                        </div>
+                                    </SectionCard>
+
+                                    <SectionCard title="Image Uploads" subtitle="Add preview images for your project" step={7}
+                                        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                                        isComplete={sectionStatus.images}>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Project Images <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({imagePreviews.length}/{MAX_IMAGES})</span>
+                                                <span className="ml-2 text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">Min 2 Required</span>
+                                            </label>
+
+                                            {/* Drop Zone */}
+                                            <div
+                                                onDragOver={handleDragOver}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={handleDrop}
+                                                className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-all cursor-pointer ${isDragging
+                                                    ? 'border-orange-500 bg-orange-50'
+                                                    : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/50'
+                                                    } ${imageFiles.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
+                                            >
+                                                <div className="space-y-2 text-center">
+                                                    <svg className={`mx-auto h-12 w-12 ${isDragging ? 'text-orange-500' : 'text-gray-400'}`} stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                    <div className="flex text-sm text-gray-600 justify-center">
+                                                        <label htmlFor="image-upload" className="relative cursor-pointer rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none">
+                                                            <span>Click to upload</span>
+                                                            <input
+                                                                id="image-upload"
+                                                                name="image-upload"
+                                                                type="file"
+                                                                className="sr-only"
+                                                                onChange={handleImageChange}
+                                                                accept="image/*"
+                                                                multiple
+                                                                disabled={imageFiles.length >= MAX_IMAGES}
+                                                            />
+                                                        </label>
+                                                        <p className="pl-1">or drag and drop</p>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each • Min 2, Max {MAX_IMAGES} images</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Image Previews Grid */}
+                                            {imagePreviews.length > 0 && (
+                                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                                    {imagePreviews.map((preview, index) => (
+                                                        <div
+                                                            key={preview}
+                                                            className={`relative group cursor-grab active:cursor-grabbing transition-transform duration-150 ease-out ${draggedImageIndex === index ? 'z-10 scale-105 shadow-xl' : ''
+                                                                }`}
+                                                            draggable
+                                                            onDragStart={(e) => handleImageDragStart(e, index)}
+                                                            onDragEnd={handleImageDragEnd}
+                                                            onDragOver={(e) => handleImageDragOver(e, index)}
+                                                            onDragLeave={handleImageDragLeaveItem}
+                                                            onDrop={(e) => handleImageDropOnItem(e)}
+                                                        >
+                                                            <div className={`aspect-square rounded-lg overflow-hidden border-2 bg-gray-100 transition-all ${draggedImageIndex === index ? 'border-orange-500 ring-2 ring-orange-300 shadow-lg' : 'border-gray-200'
+                                                                }`}>
+                                                                <img
+                                                                    src={preview}
+                                                                    alt={`Preview ${index + 1}`}
+                                                                    className="w-full h-full object-cover pointer-events-none select-none"
+                                                                />
+                                                            </div>
+                                                            {/* Drag handle indicator */}
+                                                            <div className={`absolute top-1 left-1 w-6 h-6 bg-black/50 text-white rounded flex items-center justify-center transition-opacity ${draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                                                                }`}>
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                                                                </svg>
+                                                            </div>
+                                                            {/* Remove button */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeImage(index)}
+                                                                className={`absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity hover:bg-red-600 z-10 ${draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                                                                    }`}
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                            {/* First image badge */}
+                                                            {index === 0 && (
+                                                                <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded shadow">
+                                                                    Thumbnail
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {imagePreviews.length > 0 && (
+                                                <p className="mt-2 text-xs text-gray-500">
+                                                    The first image will be used as the project thumbnail. Drag images to reorder.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </SectionCard>
+
+                                    <div className="flex justify-end gap-4 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowUploadForm(false);
+                                                setSubmitError(null);
+                                                setSubmitSuccess(false);
+                                            }}
+                                            disabled={isSubmitting}
+                                            className="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveDraft}
+                                            disabled={isSubmitting || !formData.title.trim()}
+                                            className="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Save as Draft
+                                        </button>
+                                        <div title={
+                                            isSubmitting ? 'Submitting...' :
+                                                !formData.title.trim() ? 'Project title is required' :
+                                                    !formData.category.trim() ? 'Category is required' :
+                                                        !formData.price.trim() ? 'Price is required' :
+                                                            tags.length === 0 ? 'At least one tag is required' :
+                                                                imageFiles.length < 2 && !editingProjectId ? 'At least 2 images are required' :
+                                                                    (!formData.githubUrl.trim()) ? 'GitHub URL is required' :
+                                                                        !githubValidated ? 'GitHub URL must be verified' :
+                                                                            !isFormValid ? 'Please fill all required fields' :
+                                                                                'Ready to submit'
+                                        } className="flex">
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmitting || !isFormValid}
+                                                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[180px] justify-center"
+                                            >
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                         </svg>
-                                                    ) : githubValidated ? (
-                                                        <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                        <span className="text-sm">{uploadProgress || 'Submitting...'}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                                         </svg>
-                                                    ) : githubValidationError ? (
-                                                        <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    ) : null}
-                                                </div>
-                                            )}
+                                                        Submit for Review
+                                                    </>
+                                                )}
+                                            </button>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={validateGithubUrl}
-                                            disabled={!formData.githubUrl.trim() || isValidatingGithub}
-                                            className="px-4 py-2 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                        >
-                                            {isValidatingGithub ? (
-                                                <>
-                                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Verifying...
-                                                </>
-                                            ) : (
-                                                'Verify'
-                                            )}
-                                        </button>
                                     </div>
-                                    {/* Validation feedback */}
-                                    {githubValidationError && (
-                                        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                            </svg>
-                                            {githubValidationError}
-                                        </p>
-                                    )}
-                                    {githubValidated && (
-                                        <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
-                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            Public repository verified successfully!
-                                        </p>
-                                    )}
                                 </div>
-                            </SectionCard>
 
-                            <SectionCard title="Uploads" step={3}>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Project Images <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({imagePreviews.length}/{MAX_IMAGES})</span>
-                                        <span className="ml-2 text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">Min 2 Required</span>
-                                    </label>
+                                {/* Right Column - Sidebar */}
+                                <div className="w-80 flex-shrink-0 space-y-6 sticky top-24">
+                                    {/* Form Progress */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                        <div className="p-5 border-b border-gray-100">
+                                            <h3 className="font-bold text-gray-900 mb-4">Form Progress</h3>
 
-                                    {/* Drop Zone */}
-                                    <div
-                                        onDragOver={handleDragOver}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={handleDrop}
-                                        className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-all cursor-pointer ${isDragging
-                                            ? 'border-orange-500 bg-orange-50'
-                                            : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/50'
-                                            } ${imageFiles.length >= MAX_IMAGES ? 'opacity-50 pointer-events-none' : ''}`}
-                                    >
-                                        <div className="space-y-2 text-center">
-                                            <svg className={`mx-auto h-12 w-12 ${isDragging ? 'text-orange-500' : 'text-gray-400'}`} stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                            <div className="flex text-sm text-gray-600 justify-center">
-                                                <label htmlFor="image-upload" className="relative cursor-pointer rounded-md font-medium text-orange-600 hover:text-orange-500 focus-within:outline-none">
-                                                    <span>Click to upload</span>
-                                                    <input
-                                                        id="image-upload"
-                                                        name="image-upload"
-                                                        type="file"
-                                                        className="sr-only"
-                                                        onChange={handleImageChange}
-                                                        accept="image/*"
-                                                        multiple
-                                                        disabled={imageFiles.length >= MAX_IMAGES}
-                                                    />
-                                                </label>
-                                                <p className="pl-1">or drag and drop</p>
+                                            {/* Progress Bar */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium text-gray-700">Completion</span>
+                                                <span className="text-sm font-bold text-orange-600">{completionPercentage}%</span>
                                             </div>
-                                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each • Min 2, Max {MAX_IMAGES} images</p>
+                                            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-500"
+                                                    style={{ width: `${completionPercentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Checklist */}
+                                        <div className="p-3">
+                                            <ul className="space-y-1">
+                                                {[
+                                                    { id: 'title', label: 'Project Title', status: sectionStatus.title },
+                                                    { id: 'description', label: 'Description', status: sectionStatus.description },
+                                                    { id: 'skills', label: 'Skills & Tags', status: sectionStatus.skills },
+                                                    { id: 'budget', label: 'Budget/Pricing', status: sectionStatus.budget },
+                                                    { id: 'category', label: 'Category', status: sectionStatus.category },
+                                                    { id: 'media', label: 'Media & Links', status: sectionStatus.media },
+                                                    { id: 'images', label: 'Image Uploads', status: sectionStatus.images }
+                                                ].map((item, i) => (
+                                                    <li key={item.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${item.status ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400'
+                                                            }`}>
+                                                            {item.status ? (
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            ) : (
+                                                                <span className="text-xs font-medium">{i + 1}</span>
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-sm font-medium transition-colors ${item.status ? 'text-green-700' : 'text-gray-600'
+                                                            }`}>
+                                                            {item.label}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
                                     </div>
 
-                                    {/* Image Previews Grid */}
-                                    {imagePreviews.length > 0 && (
-                                        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                            {imagePreviews.map((preview, index) => (
-                                                <div
-                                                    key={preview}
-                                                    className={`relative group cursor-grab active:cursor-grabbing transition-transform duration-150 ease-out ${draggedImageIndex === index ? 'z-10 scale-105 shadow-xl' : ''
-                                                        }`}
-                                                    draggable
-                                                    onDragStart={(e) => handleImageDragStart(e, index)}
-                                                    onDragEnd={handleImageDragEnd}
-                                                    onDragOver={(e) => handleImageDragOver(e, index)}
-                                                    onDragLeave={handleImageDragLeaveItem}
-                                                    onDrop={(e) => handleImageDropOnItem(e)}
-                                                >
-                                                    <div className={`aspect-square rounded-lg overflow-hidden border-2 bg-gray-100 transition-all ${draggedImageIndex === index ? 'border-orange-500 ring-2 ring-orange-300 shadow-lg' : 'border-gray-200'
-                                                        }`}>
-                                                        <img
-                                                            src={preview}
-                                                            alt={`Preview ${index + 1}`}
-                                                            className="w-full h-full object-cover pointer-events-none select-none"
-                                                        />
-                                                    </div>
-                                                    {/* Drag handle indicator */}
-                                                    <div className={`absolute top-1 left-1 w-6 h-6 bg-black/50 text-white rounded flex items-center justify-center transition-opacity ${draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
-                                                        }`}>
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
-                                                        </svg>
-                                                    </div>
-                                                    {/* Remove button */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeImage(index)}
-                                                        className={`absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity hover:bg-red-600 z-10 ${draggedImageIndex !== null ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
-                                                            }`}
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                    {/* First image badge */}
-                                                    {index === 0 && (
-                                                        <span className="absolute bottom-1 left-1 px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded shadow">
-                                                            Thumbnail
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ))}
+                                    {/* Pro Tips */}
+                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="font-bold text-blue-900">Pro Tips</h3>
                                         </div>
-                                    )}
-
-                                    {imagePreviews.length > 0 && (
-                                        <p className="mt-2 text-xs text-gray-500">
-                                            The first image will be used as the project thumbnail. Drag images to reorder.
-                                        </p>
-                                    )}
-                                </div>
-                            </SectionCard>
-
-                            <div className="flex justify-end gap-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowUploadForm(false);
-                                        setSubmitError(null);
-                                        setSubmitSuccess(false);
-                                    }}
-                                    disabled={isSubmitting}
-                                    className="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSaveDraft}
-                                    disabled={isSubmitting || !formData.title.trim()}
-                                    className="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Save as Draft
-                                </button>
-                                <div title={
-                                    isSubmitting ? 'Submitting...' :
-                                        !formData.title.trim() ? 'Project title is required' :
-                                            !formData.category.trim() ? 'Category is required' :
-                                                !formData.price.trim() ? 'Price is required' :
-                                                    tags.length === 0 ? 'At least one tag is required' :
-                                                        imageFiles.length < 2 && !editingProjectId ? 'At least 2 images are required' :
-                                                            (!formData.githubUrl.trim()) ? 'GitHub URL is required' :
-                                                                !githubValidated ? 'GitHub URL must be verified' :
-                                                                    !isFormValid ? 'Please fill all required fields' :
-                                                                        'Ready to submit'
-                                } className="flex">
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting || !isFormValid}
-                                        className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[180px] justify-center"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
-                                                <span className="text-sm">{uploadProgress || 'Submitting...'}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                                </svg>
-                                                Submit for Review
-                                            </>
-                                        )}
-                                    </button>
+                                        <ul className="space-y-3">
+                                            <li className="flex items-start gap-2 text-sm text-blue-800">
+                                                <span className="text-blue-400 mt-1">•</span>
+                                                <p><strong>Be specific</strong> about your project requirements and deliverables.</p>
+                                            </li>
+                                            <li className="flex items-start gap-2 text-sm text-blue-800">
+                                                <span className="text-blue-400 mt-1">•</span>
+                                                <p><strong>Add detailed screenshots</strong> to help buyers understand your work.</p>
+                                            </li>
+                                            <li className="flex items-start gap-2 text-sm text-blue-800">
+                                                <span className="text-blue-400 mt-1">•</span>
+                                                <p><strong>Use relevant tags</strong> to improve search visibility.</p>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </form>
