@@ -189,6 +189,54 @@ export const getUserInteractions = async (userId: string): Promise<{
 };
 
 /**
+ * Get interactions (messages, invitations) sent by the user
+ */
+export const getSentInteractions = async (userId: string): Promise<{
+    interactions: Interaction[],
+    count: number
+}> => {
+    try {
+        const response = await apiRequest<{
+            interactions: Interaction[],
+            count: number
+        }>('GET_SENT_INTERACTIONS', { userId });
+
+        if (response.success && response.data) {
+            return response.data;
+        }
+
+        throw new Error(response.error?.message || 'Failed to fetch sent interactions');
+    } catch (error) {
+        console.error('Error fetching sent interactions:', error);
+        return { interactions: [], count: 0 };
+    }
+};
+
+/**
+ * Get all messages between current user and another user (for chat thread)
+ */
+export const getConversation = async (userId: string, otherUserId: string): Promise<{
+    messages: Interaction[],
+    count: number
+}> => {
+    try {
+        const response = await apiRequest<{
+            messages: Interaction[],
+            count: number
+        }>('GET_CONVERSATION', { userId, otherUserId });
+
+        if (response.success && response.data) {
+            return response.data;
+        }
+
+        throw new Error(response.error?.message || 'Failed to fetch conversation');
+    } catch (error) {
+        console.error('Error fetching conversation:', error);
+        return { messages: [], count: 0 };
+    }
+};
+
+/**
  * Update the status of a specific interaction
  */
 export const updateInteractionStatus = async (

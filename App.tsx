@@ -29,6 +29,7 @@ import BuildPortfolioPage from './components/BuildPortfolioPage';
 import { ResumeBuilderPage } from './components/resume-builder';
 import MockAssessmentPage from './components/MockAssessmentPage';
 import CodingInterviewQuestionsPage from './components/CodingInterviewQuestionsPage';
+import { SocketProvider } from './context/SocketContext';
 
 type Theme = 'light' | 'dark';
 type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'notFound';
@@ -481,9 +482,11 @@ const App: React.FC = () => {
         <PremiumProvider>
           <DashboardProvider>
             <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
-              <NavigationContext.Provider value={{ page, navigateTo }}>
-                <AppContent />
-              </NavigationContext.Provider>
+              <SocketProvider>
+                <NavigationContext.Provider value={{ page, navigateTo }}>
+                  <AppContent />
+                </NavigationContext.Provider>
+              </SocketProvider>
             </AuthContext.Provider>
           </DashboardProvider>
         </PremiumProvider>

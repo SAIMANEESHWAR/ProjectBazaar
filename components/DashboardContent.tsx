@@ -37,6 +37,7 @@ import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
+import ChatRoom from './ChatRoom';
 import { PurchasedCourse } from '../services/buyerApi';
 
 const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
@@ -571,6 +572,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 );
             case 'cart':
                 return <CartPage allProjects={projects} />;
+            case 'messages':
+                return <ChatRoom />;
             case 'courses':
                 return (
                     <BuyerCoursesPage
@@ -710,6 +713,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         switch (activeView) {
             case 'dashboard':
                 return <SellerDashboard />;
+            case 'messages':
+                return <ChatRoom />;
             case 'post-project':
                 return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':

@@ -2,6 +2,7 @@ import React, { useState, createContext, useContext, ReactNode, useEffect, useCa
 import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
+import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
 import { fetchUserData, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem } from '../services/buyerApi';
 
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -361,6 +362,7 @@ const DashboardPage: React.FC = () => {
     return (
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
+                <MessagesUnreadProvider userId={userId}>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
                     {/* Welcome Toast */}
                     <Toast
@@ -391,6 +393,7 @@ const DashboardPage: React.FC = () => {
                         />
                     </div>
                 </div>
+                </MessagesUnreadProvider>
             </CartProvider>
         </WishlistProvider>
     );

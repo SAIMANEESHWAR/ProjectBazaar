@@ -5,7 +5,7 @@ import { fetchProjectDetails, ProjectDetails } from '../services/buyerApi';
 import Lottie from 'lottie-react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import projectStatusAnimation from '../lottiefiles/project_status.json';
-import FreelancerInbox from './FreelancerInbox';
+import ChatRoom from './ChatRoom';
 
 interface StatCardProps {
     title: string;
@@ -1523,7 +1523,7 @@ const SellerDashboard: React.FC = () => {
 
                     {activeTab === 'inbox' && !showUploadForm && (
                         <div className="mt-6">
-                            <FreelancerInbox />
+                            <ChatRoom />
                         </div>
                     )}
 

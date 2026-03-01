@@ -12,6 +12,7 @@ import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 import Lottie from 'lottie-react';
 import noFreelancerUsersAnimation from '../lottiefiles/no_freelancer_users.json';
 import SkeletonDashboard from './ui/skeleton-dashboard';
+import { useSocket } from '../context/SocketContext';
 
 type SortOption = 'most-relevant' | 'highest-rated' | 'lowest-price';
 
@@ -21,6 +22,7 @@ interface BrowseFreelancersContentProps {
 
 export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> = () => {
   const { userId } = useAuth();
+  const { socket, isConnected, subscribe } = useSocket();
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +146,18 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     };
     fetchMetadata();
   }, []);
+
+  // Socket event listeners example
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const unsubscribe = subscribe('new_invitation', (data) => {
+      console.log('Real-time invitation received:', data);
+      // You can trigger a toast or update local state here
+    });
+
+    return () => unsubscribe();
+  }, [socket, isConnected, subscribe]);
 
   // Search with API when filters change significantly
   useEffect(() => {
@@ -698,7 +712,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                 {paginatedFreelancers.map((freelancer) => (
                   <div
                     key={freelancer.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-300 group"
+                    className="flex flex-col h-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-300 group"
                   >
                     {/* Header Section */}
                     <div className="flex items-start gap-3 mb-4">
@@ -808,7 +822,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-2">
+                    <div className="mt-auto flex flex-col gap-2">
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleInviteToBid(freelancer)}

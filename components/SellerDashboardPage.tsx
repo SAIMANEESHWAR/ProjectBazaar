@@ -4,6 +4,7 @@ import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { WishlistProvider, CartProvider } from './DashboardPage';
+import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
 
 const SellerDashboardPage: React.FC = () => {
     const { userId } = useAuth();
@@ -21,6 +22,7 @@ const SellerDashboardPage: React.FC = () => {
     return (
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
+                <MessagesUnreadProvider userId={userId}>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
                 {/* Overlay for mobile */}
                 {isSidebarOpen && (
@@ -45,6 +47,7 @@ const SellerDashboardPage: React.FC = () => {
                     />
                 </div>
             </div>
+                </MessagesUnreadProvider>
             </CartProvider>
         </WishlistProvider>
     );

@@ -68,11 +68,11 @@ describe('Bid Request Projects API', () => {
         }),
       });
 
-      const result = await getAllBidRequestProjects();
+      const { projects } = await getAllBidRequestProjects();
 
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('project-1');
-      expect(result[0].title).toBe('React Dashboard Development');
+      expect(projects).toHaveLength(2);
+      expect(projects[0].id).toBe('project-1');
+      expect(projects[0].title).toBe('React Dashboard Development');
     });
 
     it('should return empty array when no projects exist', async () => {
@@ -83,16 +83,16 @@ describe('Bid Request Projects API', () => {
         }),
       });
 
-      const result = await getAllBidRequestProjects();
-      expect(result).toHaveLength(0);
+      const { projects } = await getAllBidRequestProjects();
+      expect(projects).toHaveLength(0);
     });
 
     it('should fallback to mock data when API fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      const result = await getAllBidRequestProjects();
+      const { projects } = await getAllBidRequestProjects();
       // Should return mock data
-      expect(Array.isArray(result)).toBe(true);
+      expect(Array.isArray(projects)).toBe(true);
     });
 
     it('should handle API returning error response', async () => {
@@ -103,9 +103,9 @@ describe('Bid Request Projects API', () => {
         }),
       });
 
-      const result = await getAllBidRequestProjects();
+      const { projects } = await getAllBidRequestProjects();
       // Should return mock data on failure
-      expect(Array.isArray(result)).toBe(true);
+      expect(Array.isArray(projects)).toBe(true);
     });
   });
 
