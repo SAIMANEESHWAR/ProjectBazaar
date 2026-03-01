@@ -225,11 +225,20 @@ export interface ExtendedProject extends BuyerProject {
 
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
-    // Use global state
-    // Use global state
-    const { dashboardMode, activeView, setActiveView, browseView } = useDashboard();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // After login, show buyer dashboard with projects view
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (sessionStorage.getItem('justLoggedIn') === 'true') {
+            setDashboardMode('buyer');
+            setActiveView('dashboard');
+            setBrowseView('all');
+            sessionStorage.removeItem('justLoggedIn');
+        }
+    }, [setDashboardMode, setActiveView, setBrowseView]);
 
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
@@ -313,30 +322,34 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 throw new Error(`Failed to fetch projects: ${response.statusText}`);
             }
 
-            const data: ApiResponse = await response.json();
+            const data = await response.json();
 
-            if (data.success && data.projects) {
-                // Filter projects: Only show approved projects, exclude user's own projects, and exclude purchased projects
-                const filteredApiProjects = data.projects.filter((apiProject: ApiProject) => {
-                    // Check if project is approved
+            // Normalize: API may return data.projects or data.data (array)
+            const rawProjects: ApiProject[] = Array.isArray(data.projects)
+                ? data.projects
+                : Array.isArray(data.data)
+                    ? data.data
+                    : [];
+
+            if (data.success !== false && rawProjects.length >= 0) {
+                // Filter: show approved (or no approval info), exclude own and purchased
+                const filteredApiProjects = rawProjects.filter((apiProject: ApiProject) => {
+                    const status = (apiProject.status || '').toLowerCase();
+                    const approvalStatus = (apiProject.adminApprovalStatus || '').toLowerCase();
                     const isApproved =
-                        apiProject.adminApprovalStatus === 'approved' ||
-                        apiProject.status === 'approved' ||
-                        (apiProject.adminApproved === true && (apiProject.status === 'active' || apiProject.status === 'live'));
+                        approvalStatus === 'approved' ||
+                        status === 'approved' ||
+                        (apiProject.adminApproved === true && (status === 'active' || status === 'live')) ||
+                        (approvalStatus !== 'rejected' && approvalStatus !== 'disabled' && apiProject.adminApproved !== false);
 
-                    // Check if project is not owned by current user
                     const isNotOwnProject = userId ? apiProject.sellerId !== userId : true;
-
-                    // Check if project is not already purchased
                     const isNotPurchased = !purchasedProjectIds.includes(apiProject.projectId);
 
                     return isApproved && isNotOwnProject && isNotPurchased;
                 });
 
-                // Map filtered projects from API
                 const mappedProjects = filteredApiProjects.map(mapApiProjectToComponent);
 
-                // Create a map of projectId to sellerId and sellerEmail for later use
                 const sellerMap = new Map<string, { sellerId: string; sellerEmail: string }>();
                 filteredApiProjects.forEach((apiProject) => {
                     if (apiProject.projectId && apiProject.sellerId) {
@@ -350,12 +363,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
                 setProjects(mappedProjects);
                 setFilteredProjects(mappedProjects);
-                console.log('Fetched projects for buyer:', mappedProjects.length);
-                console.log('Total projects from API:', data.projects.length);
-                console.log('Approved projects (excluding own and purchased):', filteredApiProjects.length);
-                console.log('Purchased projects filtered out:', purchasedProjectIds.length);
-            } else {
-                throw new Error('Invalid response format from API');
+                console.log('Fetched projects for buyer:', mappedProjects.length, '| Raw from API:', rawProjects.length, '| After filter:', filteredApiProjects.length);
+            } else if (data.success === false || (rawProjects.length === 0 && !Array.isArray(data.projects) && !Array.isArray(data.data))) {
+                throw new Error(data.message || 'Invalid response format from API');
             }
         } catch (err) {
             console.error('Error fetching projects:', err);
@@ -368,12 +378,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     };
 
-    // Fetch projects on component mount (only for buyer mode)
+    // Fetch projects when in buyer mode (and when userId changes so purchased filter is correct after login)
     useEffect(() => {
         if (dashboardMode === 'buyer') {
             fetchProjects();
         }
-    }, [dashboardMode]);
+    }, [dashboardMode, userId]);
 
     // Function to fetch seller profile picture
     const fetchSellerProfile = async (sellerId: string) => {

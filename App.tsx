@@ -458,6 +458,8 @@ const App: React.FC = () => {
     if (role === 'admin') {
       navigateTo('admin');
     } else {
+      // Ensure buyer dashboard is shown after login (handled in dashboard via justLoggedIn)
+      sessionStorage.setItem('justLoggedIn', 'true');
       navigateTo('dashboard');
     }
   };
@@ -468,10 +470,11 @@ const App: React.FC = () => {
     setUserRole(null);
     setIsLoggedIn(false);
 
-    // Clear auth data from localStorage
+    // Clear auth and session data
     localStorage.removeItem('userData');
     localStorage.removeItem('authSession');
     localStorage.removeItem('currentPage');
+    sessionStorage.clear();
 
     navigateTo('home');
   };
