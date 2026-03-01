@@ -66,12 +66,6 @@ interface ApiProject {
     viewsCount?: number;
 }
 
-interface ApiResponse {
-    success: boolean;
-    count: number;
-    projects: ApiProject[];
-}
-
 // @ts-ignore - Mock data kept for potential future use
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const buyerProjects: BuyerProject[] = [

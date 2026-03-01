@@ -263,28 +263,119 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
     }, [progress, safePhases]);
 
     return (
-        <div className="w-full space-y-10 py-6">
+        <>
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes slideInLeft {
+                    from { opacity: 0; transform: translateX(-30px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes slideInRight {
+                    from { opacity: 0; transform: translateX(30px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes slideInUp {
+                    from { opacity: 0; transform: translateY(30px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes bounceIn {
+                    0% { opacity: 0; transform: scale(0.3); }
+                    50% { opacity: 1; transform: scale(1.05); }
+                    70% { transform: scale(0.9); }
+                    100% { transform: scale(1); }
+                }
+                @keyframes progressBar {
+                    from { width: 0%; }
+                }
+                @keyframes timelineFlow {
+                    0% { background-position: 0% 0%; }
+                    100% { background-position: 0% 100%; }
+                }
+                @keyframes iconPulse {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                }
+                @keyframes spin-slow {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                @keyframes shimmer {
+                    0% { background-position: -1000px 0; }
+                    100% { background-position: 1000px 0; }
+                }
+                @keyframes glow {
+                    0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+                    50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+                }
+                .animate-shimmer {
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                    background-size: 1000px 100%;
+                    animation: shimmer 3s infinite;
+                }
+                .animate-glow {
+                    animation: glow 2s ease-in-out infinite;
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.6s ease-out forwards;
+                }
+                .animate-slideInLeft {
+                    animation: slideInLeft 0.6s ease-out forwards;
+                }
+                .animate-slideInRight {
+                    animation: slideInRight 0.6s ease-out forwards;
+                    opacity: 0;
+                }
+                .animate-slideInUp {
+                    animation: slideInUp 0.6s ease-out forwards;
+                    opacity: 0;
+                }
+                .animate-bounceIn {
+                    animation: bounceIn 0.8s ease-out forwards;
+                }
+                .animate-progressBar {
+                    animation: progressBar 1.5s ease-out forwards;
+                }
+                .animate-timelineFlow {
+                    background-size: 100% 200%;
+                    animation: timelineFlow 3s ease-in-out infinite;
+                }
+                .animate-iconPulse {
+                    animation: iconPulse 2s ease-in-out infinite;
+                }
+                .animate-spin-slow {
+                    animation: spin-slow 3s linear infinite;
+                }
+                .animate-countUp {
+                    animation: fadeIn 0.8s ease-out forwards;
+                }
+            `}</style>
+            <div className="w-full space-y-10 py-6 animate-fadeIn">
             {/* Header / Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/30 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+                <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/30 relative overflow-hidden animate-slideInLeft hover:scale-105 transition-transform duration-300 animate-glow">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 animate-pulse"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                    <div className="absolute inset-0 animate-shimmer"></div>
                     <div className="relative z-10">
-                        <div className="text-4xl font-black mb-2">{totalProgress}%</div>
+                        <div className="text-4xl font-black mb-2 animate-countUp">{totalProgress}%</div>
                         <div className="text-sm font-medium opacity-90 mb-3">Total Progress</div>
                         <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                            <div className="h-full bg-white rounded-full transition-all duration-700 shadow-lg" style={{ width: `${totalProgress}%` }}></div>
+                            <div className="h-full bg-white rounded-full transition-all duration-1000 ease-out shadow-lg animate-progressBar" style={{ width: `${totalProgress}%` }}></div>
                         </div>
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all relative group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 relative group animate-slideInUp" style={{ animationDelay: '0.1s' }}>
                     {isSyncing && (
-                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5 animate-fadeIn">
                             <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
                             <span className="text-[10px] text-gray-500 font-medium">Syncing</span>
                         </div>
                     )}
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300">
                             <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -293,9 +384,9 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                     <div className="text-4xl font-black text-gray-900 mb-1">{analytics.completedTasks}/{analytics.totalTasks}</div>
                     <div className="text-sm font-medium text-gray-600">Tasks Completed</div>
                 </div>
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 group animate-slideInUp" style={{ animationDelay: '0.2s' }}>
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300">
                             <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
@@ -304,9 +395,9 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                     <div className="text-4xl font-black text-gray-900 mb-1">{analytics.phasesCompleted}/{analytics.totalPhases}</div>
                     <div className="text-sm font-medium text-gray-600">Phases Completed</div>
                 </div>
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 group animate-slideInUp" style={{ animationDelay: '0.3s' }}>
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300">
                             <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -319,34 +410,34 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
 
             {/* Timeline */}
             <div className="relative">
-                <div className="absolute left-10 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 via-green-400 via-orange-400 to-red-400 rounded-full hidden md:block shadow-lg"></div>
+                <div className="absolute left-10 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 via-green-400 via-orange-400 to-red-400 rounded-full hidden md:block shadow-lg animate-timelineFlow"></div>
 
                 <div className="space-y-8">
-                    {safePhases.map((phase, _idx) => {
+                    {safePhases.map((phase, idx) => {
                         const isExpanded = expandedPhase === phase.id;
                         const phaseProgress = getPhaseProgress(phase.id);
                         const isCompleted = phaseProgress === 100;
 
                         return (
-                            <div key={phase.id} className="relative">
-                                <div className={`relative flex items-start gap-6 transition-all duration-300 ${isExpanded ? 'mb-6' : ''}`}>
+                            <div key={phase.id} className="relative animate-slideInRight" style={{ animationDelay: `${idx * 0.15}s` }}>
+                                <div className={`relative flex items-start gap-6 transition-all duration-500 ${isExpanded ? 'mb-6' : ''}`}>
                                     {/* Timeline Dot */}
-                                    <div className={`relative z-10 w-20 h-20 rounded-2xl bg-gradient-to-br ${phase.colorClass} flex items-center justify-center text-3xl shadow-xl flex-shrink-0 transition-all duration-300 ${isExpanded ? 'scale-110 ring-4 ring-orange-200' : 'hover:scale-105 hover:shadow-2xl'} cursor-pointer border-4 border-white`}
+                                    <div className={`relative z-10 w-20 h-20 rounded-2xl bg-gradient-to-br ${phase.colorClass} flex items-center justify-center text-3xl shadow-xl flex-shrink-0 transition-all duration-500 ${isExpanded ? 'scale-110 ring-4 ring-orange-200 animate-pulse shadow-2xl' : 'hover:scale-110 hover:shadow-2xl hover:rotate-3 hover:ring-2 hover:ring-white/50'} cursor-pointer border-4 border-white animate-bounceIn`}
                                         onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
                                     >
-                                        {phase.icon}
+                                        <div className="animate-iconPulse">{phase.icon}</div>
                                         {isCompleted && (
-                                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 text-white rounded-full flex items-center justify-center text-sm border-4 border-white shadow-lg animate-pulse">
+                                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 text-white rounded-full flex items-center justify-center text-sm border-4 border-white shadow-lg animate-pulse animate-spin-slow">
                                                 <CheckIcon />
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Content Card */}
-                                    <div className={`flex-1 bg-white rounded-2xl transition-all duration-300 overflow-hidden ${isExpanded ? 'shadow-2xl ring-4 ring-orange-100 border-2 border-orange-300' : 'shadow-lg border border-gray-200 hover:shadow-xl hover:border-orange-200'
+                                    <div className={`flex-1 bg-white rounded-2xl transition-all duration-500 overflow-hidden ${isExpanded ? 'shadow-2xl ring-4 ring-orange-100 border-2 border-orange-300 scale-[1.02]' : 'shadow-lg border border-gray-200 hover:shadow-xl hover:border-orange-200 hover:scale-[1.01]'
                                         }`}>
                                         <div
-                                            className="p-6 cursor-pointer bg-gradient-to-br from-white to-gray-50/50"
+                                            className="p-6 cursor-pointer bg-gradient-to-br from-white to-gray-50/50 transition-all duration-300"
                                             onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
                                         >
                                             <div className="flex items-start justify-between mb-4">
@@ -382,25 +473,26 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                         </div>
 
                                         {/* Expanded Content */}
-                                        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[1000px] opacity-100 border-t-2 border-gray-200' : 'max-h-0 opacity-0'
+                                        <div className={`transition-all duration-700 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[1000px] opacity-100 border-t-2 border-gray-200' : 'max-h-0 opacity-0'
                                             }`}>
-                                            <div className="p-6 bg-gradient-to-br from-gray-50 to-white space-y-8">
+                                            <div className={`p-6 bg-gradient-to-br from-gray-50 to-white space-y-8 transition-all duration-500 ${isExpanded ? 'animate-fadeIn' : ''}`}>
                                                 {/* Tasks */}
                                                 <div>
                                                     <h4 className="text-base font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                                        <span className="text-xl">📋</span> Action Items
+                                                        <span className="text-xl animate-iconPulse">📋</span> Action Items
                                                     </h4>
                                                     <div className="space-y-3">
-                                                        {phase.tasks.map((task) => {
+                                                        {phase.tasks.map((task, taskIdx) => {
                                                             const isTaskCompleted = progress.phases[phase.id]?.tasks.find(t => t.id === task.id)?.completed || false;
                                                             return (
                                                                 <div
                                                                     key={task.id}
                                                                     onClick={() => toggleTask(phase.id, task.id)}
-                                                                    className={`group flex items-start gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer transform hover:scale-[1.02] ${isTaskCompleted
+                                                                    className={`group flex items-start gap-4 p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer transform hover:scale-[1.02] ${isTaskCompleted
                                                                         ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 shadow-md'
                                                                         : 'bg-white border-gray-200 hover:border-orange-300 hover:shadow-lg'
                                                                         }`}
+                                                                    style={{ animationDelay: `${taskIdx * 0.1}s` }}
                                                                 >
                                                                     <div className={`mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${isTaskCompleted
                                                                         ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-600 text-white shadow-md'
@@ -455,7 +547,7 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                 {phase.resources && phase.resources.length > 0 && (
                                                     <div>
                                                         <h4 className="text-base font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                                            <span className="text-xl">📚</span> Learning Resources
+                                                            <span className="text-xl animate-iconPulse">📚</span> Learning Resources
                                                         </h4>
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                             {phase.resources.map((resource, rIdx) => (
@@ -464,7 +556,8 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                                     href={resource.url}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="flex items-center gap-4 p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-xl transition-all group transform hover:scale-[1.02]"
+                                                                    className="flex items-center gap-4 p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-xl transition-all duration-300 group transform hover:scale-[1.02] hover:-translate-y-1"
+                                                                    style={{ animationDelay: `${rIdx * 0.1}s` }}
                                                                 >
                                                                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 flex items-center justify-center text-lg group-hover:scale-110 transition-transform shadow-sm">
                                                                         {resource.type === 'Video' ? '▶️' : resource.type === 'Practice' ? '💻' : '📄'}
@@ -491,6 +584,7 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                 </div>
             </div>
         </div>
+        </>
     );
 };
 
