@@ -263,41 +263,65 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
     }, [progress, safePhases]);
 
     return (
-        <div className="space-y-8">
+        <div className="w-full space-y-10 py-6">
             {/* Header / Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg shadow-blue-500/20">
-                    <div className="text-3xl font-bold mb-1">{totalProgress}%</div>
-                    <div className="text-sm opacity-90">Total Progress</div>
-                    <div className="mt-2 h-1 bg-black/20 rounded-full overflow-hidden">
-                        <div className="h-full bg-white/90 rounded-full transition-all duration-500" style={{ width: `${totalProgress}%` }}></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/30 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+                    <div className="relative z-10">
+                        <div className="text-4xl font-black mb-2">{totalProgress}%</div>
+                        <div className="text-sm font-medium opacity-90 mb-3">Total Progress</div>
+                        <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                            <div className="h-full bg-white rounded-full transition-all duration-700 shadow-lg" style={{ width: `${totalProgress}%` }}></div>
+                        </div>
                     </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm relative">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all relative group">
                     {isSyncing && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1">
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
                             <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                            <span className="text-[10px] text-gray-400 font-medium">Syncing</span>
+                            <span className="text-[10px] text-gray-500 font-medium">Syncing</span>
                         </div>
                     )}
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{analytics.completedTasks}/{analytics.totalTasks}</div>
-                    <div className="text-sm text-gray-500">Tasks Completed</div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div className="text-4xl font-black text-gray-900 mb-1">{analytics.completedTasks}/{analytics.totalTasks}</div>
+                    <div className="text-sm font-medium text-gray-600">Tasks Completed</div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{analytics.phasesCompleted}/{analytics.totalPhases}</div>
-                    <div className="text-sm text-gray-500">Phases Completed</div>
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div className="text-4xl font-black text-gray-900 mb-1">{analytics.phasesCompleted}/{analytics.totalPhases}</div>
+                    <div className="text-sm font-medium text-gray-600">Phases Completed</div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                    <div className="text-3xl font-bold text-gray-900 mb-1">{analytics.remainingTasks}</div>
-                    <div className="text-sm text-gray-500">Tasks Remaining</div>
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all group">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div className="text-4xl font-black text-gray-900 mb-1">{analytics.remainingTasks}</div>
+                    <div className="text-sm font-medium text-gray-600">Tasks Remaining</div>
                 </div>
             </div>
 
             {/* Timeline */}
             <div className="relative">
-                <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-green-500 via-orange-500 to-red-500 hidden md:block"></div>
+                <div className="absolute left-10 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 via-green-400 via-orange-400 to-red-400 rounded-full hidden md:block shadow-lg"></div>
 
-                <div className="space-y-6">
+                <div className="space-y-8">
                     {safePhases.map((phase, _idx) => {
                         const isExpanded = expandedPhase === phase.id;
                         const phaseProgress = getPhaseProgress(phase.id);
@@ -305,99 +329,99 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
 
                         return (
                             <div key={phase.id} className="relative">
-                                <div className={`relative flex items-start gap-4 transition-all duration-300 ${isExpanded ? 'mb-4' : ''}`}>
+                                <div className={`relative flex items-start gap-6 transition-all duration-300 ${isExpanded ? 'mb-6' : ''}`}>
                                     {/* Timeline Dot */}
-                                    <div className={`relative z-10 w-16 h-16 rounded-full bg-gradient-to-br ${phase.colorClass} flex items-center justify-center text-2xl shadow-lg flex-shrink-0 transition-transform ${isExpanded ? 'scale-110' : 'hover:scale-105'} cursor-pointer`}
+                                    <div className={`relative z-10 w-20 h-20 rounded-2xl bg-gradient-to-br ${phase.colorClass} flex items-center justify-center text-3xl shadow-xl flex-shrink-0 transition-all duration-300 ${isExpanded ? 'scale-110 ring-4 ring-orange-200' : 'hover:scale-105 hover:shadow-2xl'} cursor-pointer border-4 border-white`}
                                         onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
                                     >
                                         {phase.icon}
                                         {isCompleted && (
-                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs border-2 border-white">
-                                                ✓
+                                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 text-white rounded-full flex items-center justify-center text-sm border-4 border-white shadow-lg animate-pulse">
+                                                <CheckIcon />
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Content Card */}
-                                    <div className={`flex-1 bg-white border rounded-xl transition-all duration-300 overflow-hidden ${isExpanded ? 'border-orange-300 shadow-xl ring-2 ring-orange-100' : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+                                    <div className={`flex-1 bg-white rounded-2xl transition-all duration-300 overflow-hidden ${isExpanded ? 'shadow-2xl ring-4 ring-orange-100 border-2 border-orange-300' : 'shadow-lg border border-gray-200 hover:shadow-xl hover:border-orange-200'
                                         }`}>
                                         <div
-                                            className="p-5 cursor-pointer"
+                                            className="p-6 cursor-pointer bg-gradient-to-br from-white to-gray-50/50"
                                             onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
                                         >
-                                            <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-start justify-between mb-4">
                                                 <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{phase.year}</span>
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${phase.badgeClass}`}>
+                                                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                                        <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold uppercase tracking-wider">{phase.year}</span>
+                                                        <span className={`px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm ${phase.badgeClass}`}>
                                                             {phase.months}
                                                         </span>
                                                         {phaseProgress > 0 && (
-                                                            <span className="text-xs font-medium text-green-600">
+                                                            <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
                                                                 {phaseProgress}% Complete
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <h3 className="text-lg font-bold text-gray-900 mb-1">{phase.title}</h3>
-                                                    <p className="text-gray-600 text-sm leading-relaxed">{phase.description}</p>
+                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">{phase.title}</h3>
+                                                    <p className="text-gray-600 text-base leading-relaxed">{phase.description}</p>
                                                 </div>
-                                                <div className="ml-4">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                                                <div className="ml-4 flex-shrink-0">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 text-lg font-bold ${isExpanded ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg rotate-180' : 'bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-600'}`}>
                                                         {isExpanded ? '−' : '+'}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Progress Bar Mini */}
-                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
                                                 <div
-                                                    className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${phase.colorClass}`}
+                                                    className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${phase.colorClass} shadow-sm`}
                                                     style={{ width: `${phaseProgress}%` }}
                                                 ></div>
                                             </div>
                                         </div>
 
                                         {/* Expanded Content */}
-                                        <div className={`transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[800px] opacity-100 border-t border-gray-100' : 'max-h-0 opacity-0'
+                                        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[1000px] opacity-100 border-t-2 border-gray-200' : 'max-h-0 opacity-0'
                                             }`}>
-                                            <div className="p-5 bg-gray-50/50 space-y-6">
+                                            <div className="p-6 bg-gradient-to-br from-gray-50 to-white space-y-8">
                                                 {/* Tasks */}
                                                 <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                        <span>📋</span> Action Items
+                                                    <h4 className="text-base font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                                        <span className="text-xl">📋</span> Action Items
                                                     </h4>
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-3">
                                                         {phase.tasks.map((task) => {
                                                             const isTaskCompleted = progress.phases[phase.id]?.tasks.find(t => t.id === task.id)?.completed || false;
                                                             return (
                                                                 <div
                                                                     key={task.id}
                                                                     onClick={() => toggleTask(phase.id, task.id)}
-                                                                    className={`group flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${isTaskCompleted
-                                                                        ? 'bg-green-50 border-green-200'
-                                                                        : 'bg-white border-gray-200 hover:border-orange-200 hover:shadow-sm'
+                                                                    className={`group flex items-start gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer transform hover:scale-[1.02] ${isTaskCompleted
+                                                                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300 shadow-md'
+                                                                        : 'bg-white border-gray-200 hover:border-orange-300 hover:shadow-lg'
                                                                         }`}
                                                                 >
-                                                                    <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center transition-colors ${isTaskCompleted
-                                                                        ? 'bg-green-500 border-green-500 text-white'
-                                                                        : 'border-gray-300 group-hover:border-orange-400'
+                                                                    <div className={`mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${isTaskCompleted
+                                                                        ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-600 text-white shadow-md'
+                                                                        : 'border-gray-300 group-hover:border-orange-400 group-hover:bg-orange-50'
                                                                         }`}>
                                                                         {isTaskCompleted && <CheckIcon />}
                                                                     </div>
                                                                     <div className="flex-1">
-                                                                        <h5 className={`text-sm font-medium transition-colors ${isTaskCompleted ? 'text-green-800 line-through opacity-75' : 'text-gray-900'
+                                                                        <h5 className={`text-base font-bold transition-colors ${isTaskCompleted ? 'text-green-800 line-through opacity-80' : 'text-gray-900'
                                                                             }`}>
                                                                             {task.title}
                                                                         </h5>
                                                                         {task.description && (
-                                                                            <p className={`text-xs mt-0.5 ${isTaskCompleted ? 'text-green-600 opacity-75' : 'text-gray-500'
+                                                                            <p className={`text-sm mt-1 leading-relaxed ${isTaskCompleted ? 'text-green-700 opacity-70' : 'text-gray-600'
                                                                                 }`}>
                                                                                 {task.description}
                                                                             </p>
                                                                         )}
                                                                         {/* Helpful Links per task */}
                                                                         {task.helpfulLinks && task.helpfulLinks.length > 0 && (
-                                                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                                            <div className="mt-3 flex flex-wrap gap-2">
                                                                                 {task.helpfulLinks.map((link, lIdx) => (
                                                                                     <a
                                                                                         key={lIdx}
@@ -405,7 +429,7 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
                                                                                         onClick={(e) => e.stopPropagation()}
-                                                                                        className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100 hover:bg-blue-100 hover:border-blue-200 transition-colors flex items-center gap-1"
+                                                                                        className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100 hover:border-blue-300 hover:shadow-sm transition-all flex items-center gap-1.5 font-medium"
                                                                                     >
                                                                                         🔗 {link.name}
                                                                                     </a>
@@ -414,9 +438,9 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                                         )}
                                                                     </div>
                                                                     {task.difficulty && (
-                                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${task.difficulty === 'Hard' ? 'bg-red-100 text-red-600' :
-                                                                            task.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-600' :
-                                                                                'bg-green-100 text-green-600'
+                                                                        <span className={`text-xs px-3 py-1.5 rounded-lg font-bold shadow-sm ${task.difficulty === 'Hard' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                                                            task.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                                                                                'bg-green-100 text-green-700 border border-green-200'
                                                                             }`}>
                                                                             {task.difficulty}
                                                                         </span>
@@ -430,28 +454,28 @@ const PlacementPrepSection: React.FC<PlacementPrepSectionProps> = ({ phases }) =
                                                 {/* Resources - Now coming from Phase level resources */}
                                                 {phase.resources && phase.resources.length > 0 && (
                                                     <div>
-                                                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                            <span>📚</span> Learning Resources
+                                                        <h4 className="text-base font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                                            <span className="text-xl">📚</span> Learning Resources
                                                         </h4>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                             {phase.resources.map((resource, rIdx) => (
                                                                 <a
                                                                     key={rIdx}
                                                                     href={resource.url}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all group"
+                                                                    className="flex items-center gap-4 p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:shadow-xl transition-all group transform hover:scale-[1.02]"
                                                                 >
-                                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm group-hover:scale-110 transition-transform">
+                                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 flex items-center justify-center text-lg group-hover:scale-110 transition-transform shadow-sm">
                                                                         {resource.type === 'Video' ? '▶️' : resource.type === 'Practice' ? '💻' : '📄'}
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                                                                        <div className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                                                                             {resource.name}
                                                                         </div>
-                                                                        <div className="text-xs text-gray-500">{resource.type}</div>
+                                                                        <div className="text-xs text-gray-500 font-medium mt-0.5">{resource.type}</div>
                                                                     </div>
-                                                                    <div className="text-gray-400 group-hover:text-blue-500 transition-colors">↗</div>
+                                                                    <div className="text-gray-400 group-hover:text-blue-500 transition-colors text-lg font-bold">↗</div>
                                                                 </a>
                                                             ))}
                                                         </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import PlacementPrepSection, { PlacementPhase } from './PlacementPrepSection';
 import { useAuth } from '../App';
-import careerGuidanceAnimation from '../lottiefiles/career_guidance_animation.json';
 import guidanceIconAnimation from '../lottiefiles/guidance.json';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import robotLoadingAnimation from '../lottiefiles/Robot Futuristic Ai animated.json';
@@ -1448,152 +1447,182 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     // Render based on current step
     if (roadmapStep === 'analysis') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
-                <div className="w-full">
-                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-7xl mx-auto min-h-[500px] transition-all duration-300">
+            <div className="min-h-screen w-full -m-6 -mt-8 -mb-8 pt-6 pb-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-6xl mx-auto">
+                    <div className="w-full transition-all duration-300">
                         {isGeneratingRoadmap ? (
-                            <div className="flex flex-col items-center justify-center min-h-[400px] animate-fadeIn">
-                                <div className="w-64 h-64 sm:w-80 sm:h-80 mb-6">
+                            <div className="flex flex-col items-center justify-center min-h-[600px] animate-fadeIn">
+                                <div className="w-64 h-64 sm:w-80 sm:h-80 mb-8">
                                     <Lottie
                                         animationData={robotLoadingAnimation}
                                         loop
                                         className="w-full h-full"
                                     />
                                 </div>
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 text-center">Crafting Your Roadmap...</h2>
-                                <p className="text-gray-600 text-center max-w-lg mb-8">
+                                <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 text-center">Crafting Your Roadmap...</h2>
+                                <p className="text-gray-600 text-center max-w-lg mb-10 text-lg">
                                     Our AI is analyzing industry trends to build a personalized {selectedWeeks}-week {categories.find(c => c.id === selectedCategory)?.name} learning path just for you.
                                 </p>
-                                <div className="w-64 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="w-72 h-2 bg-gray-100 rounded-full overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 animate-progress w-full origin-left-right"></div>
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                <div className="text-center mb-8">
-                                    <h2 className="text-3xl font-bold text-gray-900 mb-3">Select Your Career Path</h2>
-                                    <p className="text-gray-600">Choose a category and set your learning duration to generate a personalized roadmap</p>
+                            <div className="space-y-8">
+                                {/* Header Section */}
+                                <div className="text-center space-y-2">
+                                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-700">Select Your Career Path</h2>
+                                    <p className="text-sm text-gray-500 max-w-2xl mx-auto">
+                                        Choose a category and set your learning duration to generate a personalized roadmap
+                                    </p>
                                 </div>
 
                                 {roadmapError && (
-                                    <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                        {roadmapError}
-                                        <button onClick={() => setRoadmapError(null)} className="ml-2 font-bold">×</button>
+                                    <div className="max-w-2xl mx-auto bg-red-50 border-l-4 border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-center justify-between">
+                                        <p className="text-sm font-medium">{roadmapError}</p>
+                                        <button onClick={() => setRoadmapError(null)} className="ml-4 text-red-700 hover:text-red-900 font-bold text-xl">×</button>
                                     </div>
                                 )}
 
-                                <div className="space-y-8">
-                                    {/* Category Selection */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-4">
-                                            Select Category *
-                                            <span className="text-xs font-normal text-gray-500 ml-2">
-                                                ({categories.length} {categories.length === 1 ? 'category' : 'categories'} available from API)
-                                            </span>
+                                {/* Category Selection Section */}
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-base font-semibold text-gray-900">
+                                            Select Category <span className="text-red-500">*</span>
                                         </label>
-                                        {categories.length === 0 ? (
-                                            <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-xl">
-                                                <div className="text-4xl mb-3">📚</div>
-                                                <p className="font-semibold mb-2">No categories available</p>
-                                                <p className="text-sm">Please add categories in admin dashboard.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                                {categories.map((category) => (
-                                                    <button
-                                                        key={category.id}
-                                                        onClick={() => handleCategorySelect(category.id)}
-                                                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedCategory === category.id
-                                                            ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                            : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                                            }`}
-                                                    >
-                                                        <div className="text-3xl mb-2">{category.icon}</div>
-                                                        <div className="text-sm font-semibold text-gray-900">{category.name}</div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <span className="text-xs text-gray-500 font-medium">
+                                            {categories.length} {categories.length === 1 ? 'category' : 'categories'} available
+                                        </span>
                                     </div>
-
-                                    {/* Week Plan Selection */}
-                                    <div className="space-y-4">
-                                        <label className="block text-sm font-semibold text-gray-700">
-                                            Select Program Duration *
-                                            <span className="text-xs font-normal text-gray-500 ml-2">
-                                                (How many weeks of learning do you want?)
-                                            </span>
-                                        </label>
-                                        <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                            {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
+                                    
+                                    {categories.length === 0 ? (
+                                        <div className="text-center py-16 text-gray-500 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50">
+                                            <div className="text-6xl mb-4">📚</div>
+                                            <p className="font-semibold text-lg mb-2">No categories available</p>
+                                            <p className="text-sm">Please add categories in admin dashboard.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                            {categories.map((category) => (
                                                 <button
-                                                    key={weekNum}
-                                                    onClick={() => setSelectedWeeks(weekNum)}
-                                                    className={`py-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${selectedWeeks === weekNum
-                                                        ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                        : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
+                                                    key={category.id}
+                                                    onClick={() => handleCategorySelect(category.id)}
+                                                    className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${selectedCategory === category.id
+                                                        ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg shadow-orange-500/20 scale-105'
+                                                        : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50 hover:shadow-md'
                                                         }`}
                                                 >
-                                                    <span className={`text-lg font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                        {weekNum}
-                                                    </span>
-                                                    <span className="text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Week{weekNum > 1 ? 's' : ''}</span>
+                                                    <div className="text-4xl mb-3 text-center">{category.icon}</div>
+                                                    <div className={`text-sm font-semibold text-center ${selectedCategory === category.id ? 'text-orange-700' : 'text-gray-900'}`}>
+                                                        {category.name}
+                                                    </div>
+                                                    {selectedCategory === category.id && (
+                                                        <div className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>
-                                        <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-center gap-3">
+                                    )}
+                                </div>
+
+                                {/* Week Plan Selection Section */}
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-base font-semibold text-gray-900">
+                                            Select Program Duration <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className="text-xs text-gray-500 font-medium">
+                                            Choose your learning timeline
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
+                                            <button
+                                                key={weekNum}
+                                                onClick={() => setSelectedWeeks(weekNum)}
+                                                className={`relative py-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 transform hover:scale-105 ${selectedWeeks === weekNum
+                                                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg shadow-orange-500/20 scale-105'
+                                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50 hover:shadow-md'
+                                                    }`}
+                                            >
+                                                <span className={`text-2xl font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
+                                                    {weekNum}
+                                                </span>
+                                                <span className={`text-[10px] uppercase tracking-wider font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-500'}`}>
+                                                    Week{weekNum > 1 ? 's' : ''}
+                                                </span>
+                                                {selectedWeeks === weekNum && (
+                                                    <div className="absolute top-1 right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                                                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-l-4 border-orange-400 rounded-xl p-4 flex items-start gap-4">
+                                        <div className="flex-shrink-0 w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                                             <span className="text-xl">🎯</span>
-                                            <p className="text-xs text-orange-800 leading-relaxed">
-                                                You've selected a <span className="font-bold">{selectedWeeks}-week plan</span>.
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm text-orange-900 leading-relaxed">
+                                                You've selected a <span className="font-bold text-orange-700">{selectedWeeks}-week plan</span>.
                                                 We'll fetch the industry-aligned curriculum for this specific duration.
                                             </p>
                                         </div>
                                     </div>
-
-                                    {/* Action Buttons - Aligned & Compact */}
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-                                        <button
-                                            onClick={handleGenerateRoadmap}
-                                            disabled={!selectedCategory || isGeneratingRoadmap}
-                                            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                        >
-                                            {isGeneratingRoadmap ? (
-                                                <span className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                    Generating...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <span>Start Learning</span>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                                    </svg>
-                                                </>
-                                            )}
-                                        </button>
-
-                                        <button
-                                            onClick={fetchCompletedCourseDetails}
-                                            disabled={!selectedCategory || isLoadingCompletedCourse}
-                                            className="px-6 py-3 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                        >
-                                            {isLoadingCompletedCourse ? (
-                                                <span className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                                                    Loading...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                    </svg>
-                                                    <span>View Completed</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
                                 </div>
-                            </>
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 border-t border-gray-200">
+                                    <button
+                                        onClick={handleGenerateRoadmap}
+                                        disabled={!selectedCategory || isGeneratingRoadmap}
+                                        className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-base shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        {isGeneratingRoadmap ? (
+                                            <span className="flex items-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generating...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <span>Start Learning</span>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                </svg>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        onClick={fetchCompletedCourseDetails}
+                                        disabled={!selectedCategory || isLoadingCompletedCourse}
+                                        className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        {isLoadingCompletedCourse ? (
+                                            <span className="flex items-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                                                Loading...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <span>View Completed</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -2661,122 +2690,6 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 // ============================================
 
 // ============================================
-// COUNT-UP ANIMATION COMPONENT
-// ============================================
-
-interface CountUpProps {
-    end: number;
-    duration?: number;
-    prefix?: string;
-    suffix?: string;
-    decimals?: number;
-}
-
-const CountUp: React.FC<CountUpProps> = ({ end, duration = 2000, prefix = '', suffix = '', decimals = 0 }) => {
-    const [count, setCount] = useState(0);
-
-    useEffect(() => {
-        let startTime: number | null = null;
-        let animationFrame: number;
-
-        const animate = (timestamp: number) => {
-            if (!startTime) startTime = timestamp;
-            const progress = Math.min((timestamp - startTime) / duration, 1);
-
-            // Easing function for smooth animation (easeOutCubic)
-            const easedProgress = 1 - Math.pow(1 - progress, 3);
-
-            setCount(easedProgress * end);
-
-            if (progress < 1) {
-                animationFrame = requestAnimationFrame(animate);
-            } else {
-                setCount(end);
-            }
-        };
-
-        animationFrame = requestAnimationFrame(animate);
-
-        return () => {
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-            }
-        };
-    }, [end, duration]);
-
-    const displayValue = decimals > 0 ? count.toFixed(decimals) : Math.floor(count);
-
-    return <>{prefix}{displayValue}{suffix}</>;
-};
-
-// ============================================
-// CAREER STATISTICS CALCULATOR
-// ============================================
-
-interface CareerStats {
-    hotCareers: number;
-    maxSalary: number;
-    avgGrowth: number;
-    companiesHiring: number;
-}
-
-const calculateCareerStats = (careers: TrendingCareer[]): CareerStats => {
-    if (!careers || careers.length === 0) {
-        return {
-            hotCareers: 0,
-            maxSalary: 0,
-            avgGrowth: 0,
-            companiesHiring: 0
-        };
-    }
-
-    // Count hot careers (Very High demand)
-    const hotCareers = careers.filter(c => c.demand === 'Very High').length;
-
-    // Extract max salary
-    let maxSalary = 0;
-    careers.forEach(career => {
-        // Parse salary string like "₹8-25 LPA" or "₹5-18 LPA"
-        const match = career.avgSalary.match(/₹(\d+)-(\d+)/);
-        if (match) {
-            const higherSalary = parseInt(match[2]);
-            if (higherSalary > maxSalary) {
-                maxSalary = higherSalary;
-            }
-        }
-    });
-
-    // Calculate average growth
-    let totalGrowth = 0;
-    let growthCount = 0;
-    careers.forEach(career => {
-        // Parse growth string like "+40%" or "+25%"
-        const match = career.growth.match(/\+(\d+)/);
-        if (match) {
-            totalGrowth += parseInt(match[1]);
-            growthCount++;
-        }
-    });
-    const avgGrowth = growthCount > 0 ? Math.round(totalGrowth / growthCount) : 0;
-
-    // Count unique companies
-    const uniqueCompanies = new Set<string>();
-    careers.forEach(career => {
-        career.companies.forEach(company => {
-            uniqueCompanies.add(company);
-        });
-    });
-    const companiesHiring = uniqueCompanies.size;
-
-    return {
-        hotCareers,
-        maxSalary,
-        avgGrowth,
-        companiesHiring
-    };
-};
-
-// ============================================
 // TRENDING CAREERS COMPONENT
 // ============================================
 
@@ -2786,45 +2699,14 @@ interface TrendingCareersSectionProps {
 }
 
 const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers, onExploreRoadmap }) => {
-    // Calculate dynamic statistics from API-fetched careers data
-    const stats = calculateCareerStats(careers);
-
     return (
         <div className="space-y-6">
-            {/* Header Stats - Dynamic from API data */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.hotCareers} suffix="+" />
-                    </div>
-                    <div className="text-sm opacity-90">Hot Careers</div>
-                </div>
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.maxSalary} prefix="₹" suffix="L+" />
-                    </div>
-                    <div className="text-sm opacity-90">Max Salary</div>
-                </div>
-                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.avgGrowth} suffix="%" />
-                    </div>
-                    <div className="text-sm opacity-90">Avg Growth</div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.companiesHiring} suffix="+" />
-                    </div>
-                    <div className="text-sm opacity-90">Companies Hiring</div>
-                </div>
-            </div>
-
             {/* Career Cards */}
-            <div className="grid md:grid-cols-2 gap-5 items-start">
+            <div className="grid md:grid-cols-2 gap-5 items-start w-full">
                 {careers.map((career, idx) => (
                     <div
                         key={idx}
-                        className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
+                        className="group bg-white rounded-2xl p-5 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                     >
                         {/* Header */}
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -2948,20 +2830,14 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">💡 B.Tech Project Ideas</h2>
-                <p className="text-gray-600">Stand out with impressive projects that showcase your skills</p>
-            </div>
-
             {/* Filter */}
-            <div className="flex justify-center gap-2 mb-6">
+            <div className="flex justify-start gap-2 mb-6">
                 {['all', 'Beginner', 'Intermediate', 'Advanced'].map(level => (
                     <button
                         key={level}
                         onClick={() => setFilterDifficulty(level)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${filterDifficulty === level
-                            ? 'bg-orange-500 text-white'
+                        className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-300 ${filterDifficulty === level
+                            ? 'bg-orange-500 text-white shadow-md'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
@@ -2994,8 +2870,8 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                 <div className="grid md:grid-cols-2 gap-5 items-start">
                     {filteredProjects.map((project, idx) => (
                         <div
-                            key={idx}
-                            className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
+                            key={`${project.title}-${filterDifficulty}-${idx}`}
+                            className="group bg-white rounded-2xl p-5 transition-all duration-500 ease-in-out hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between gap-3 mb-3">
@@ -3425,65 +3301,52 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                {/* Header */}
-                <div className="mb-6 sm:mb-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-3">
-                            {/* Mobile Menu Button */}
-                            {toggleSidebar && (
-                                <button
-                                    onClick={toggleSidebar}
-                                    className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                    aria-label="Toggle sidebar"
-                                >
-                                    <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                    </svg>
-                                </button>
-                            )}
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                <Lottie
-                                    animationData={guidanceIconAnimation}
-                                    loop
-                                    className="w-10 h-10 sm:w-12 sm:h-12"
-                                />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
-                            </div>
-                        </div>
-                        <div className="w-full sm:w-auto max-w-[320px] sm:max-w-[280px] h-[160px] sm:h-[140px] flex items-center justify-center flex-shrink-0">
+            <div className="w-full px-4 py-6">
+                {/* Header and Tab Navigation - Side by Side */}
+                <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    {/* Header - Left Column */}
+                    <div className="flex items-center gap-3">
+                        {/* Mobile Menu Button */}
+                        {toggleSidebar && (
+                            <button
+                                onClick={toggleSidebar}
+                                className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                aria-label="Toggle sidebar"
+                            >
+                                <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        )}
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <Lottie
-                                animationData={careerGuidanceAnimation}
+                                animationData={guidanceIconAnimation}
                                 loop
-                                className="w-full h-full"
+                                className="w-10 h-10 sm:w-12 sm:h-12"
                             />
                         </div>
+                        <div className="min-w-0">
+                            <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
+                        </div>
                     </div>
-                    <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl">
-                        <p className="text-xs sm:text-sm text-gray-700">
-                            🎓 <span className="font-semibold">Designed for Engineering Students:</span> Discover trending tech careers, prepare for campus placements, find project ideas, and build your career roadmap.
-                        </p>
-                    </div>
-                </div>
 
-                {/* Tab Navigation */}
-                <div className="mb-8 flex justify-center">
-                    <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
-                                    ? 'bg-white text-orange-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                                    }`}
-                            >
-                                {tab.icon}
-                                <span className="hidden sm:inline">{tab.label}</span>
-                            </button>
-                        ))}
+                    {/* Tab Navigation - Right Column */}
+                    <div className="flex justify-end">
+                        <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
+                                        ? 'bg-white text-orange-600 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    {tab.icon}
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -3491,7 +3354,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                 <div>
                     {/* Trending Careers Tab */}
                     {activeTab === 'trending' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
                                 <div className="space-y-8">
                                     <SkeletonDashboard />
@@ -3509,13 +3372,13 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
                     {/* Placement Prep Tab */}
                     {activeTab === 'placement' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
                                 <div className="space-y-8">
                                     <SkeletonDashboard />
                                 </div>
                             ) : placementPhasesData.length === 0 ? (
-                                <div className="text-center py-12">
+                                <div className="text-center py-16">
                                     <div className="text-6xl mb-4">📚</div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-2">No Placement Data Available</h3>
                                     <p className="text-gray-600">Placement preparation content will appear here once it's added by the admin.</p>
@@ -3528,7 +3391,7 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
                     {/* Project Ideas Tab */}
                     {activeTab === 'projects' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
                                 <div className="space-y-8">
                                     <SkeletonDashboard />
