@@ -320,11 +320,6 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
   const filteredAndSortedProjects = useMemo(() => {
     let filtered = [...projects];
 
-    // Filter out current user's own projects - users shouldn't bid on their own projects
-    if (userId) {
-      filtered = filtered.filter(p => p.ownerId !== userId);
-    }
-
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -384,7 +379,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     });
 
     return filtered;
-  }, [projects, searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory, userId]);
+  }, [projects, searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory]);
 
   const clearFilters = () => {
     setProjectType('all');
@@ -880,6 +875,13 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                         )}
                       </div>
 
+                      {/* Own Project Badge */}
+                      {userId && project.ownerId === userId && (
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                          Your Project
+                        </span>
+                      )}
+
                       {/* Project Status Badge */}
                       {project.status && project.status !== 'open' && (
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold mb-2 inline-block ${project.status === 'in_progress'
@@ -897,12 +899,17 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       {/* CTA Button */}
                       <button
                         onClick={() => handleViewProjectDetails(project)}
-                        className={`w-full md:w-auto px-6 py-3 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap ${project.status && project.status !== 'open'
+                        className={`w-full md:w-auto px-6 py-3 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap ${
+                          userId && project.ownerId === userId
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                          : project.status && project.status !== 'open'
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
                           : 'bg-orange-500 text-white hover:bg-orange-600'
                           }`}
                       >
-                        {project.status && project.status !== 'open'
+                        {userId && project.ownerId === userId
+                          ? 'View Details'
+                          : project.status && project.status !== 'open'
                           ? 'View Details'
                           : project.bidsCount === 0
                             ? 'Be First to Bid'
@@ -1110,7 +1117,14 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                   >
                     Close
                   </button>
-                  {selectedProject.status && selectedProject.status !== 'open' ? (
+                  {userId && selectedProject.ownerId === userId ? (
+                    <div className="flex-1 px-6 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-semibold rounded-xl flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Your Project
+                    </div>
+                  ) : selectedProject.status && selectedProject.status !== 'open' ? (
                     <div className="flex-1 px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold rounded-xl flex items-center justify-center gap-2">
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

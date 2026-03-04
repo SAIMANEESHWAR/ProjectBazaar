@@ -35,7 +35,8 @@ export type DashboardView =
     | 'freelancer-profile'
     | 'seller-profile'
     | 'edit-project'
-    | 'purchases'; // Add any missing views here
+    | 'purchases'
+    | 'my-bids';
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 

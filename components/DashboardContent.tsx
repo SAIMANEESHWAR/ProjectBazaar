@@ -37,6 +37,7 @@ import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
+import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
 import { PurchasedCourse } from '../services/buyerApi';
 
@@ -626,6 +627,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <HackathonsPage toggleSidebar={toggleSidebar} />;
             case 'post-project':
                 return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
+            case 'my-bids':
+                return <MyBidsPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
@@ -721,6 +724,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <ChatRoom />;
             case 'post-project':
                 return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
+            case 'my-bids':
+                return <MyBidsPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
