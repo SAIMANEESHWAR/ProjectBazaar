@@ -165,13 +165,12 @@ export const getBidsByFreelancerIdAsync = async (freelancerId: string): Promise<
       return response.data.bids;
     }
     
-    // API returned error - throw to allow caller to handle
-    const errorMessage = response.error?.message || 'Failed to fetch freelancer bids';
-    console.error('API error:', response.error);
-    throw new Error(errorMessage);
+    // If the API fails (e.g. missing DynamoDB GSI), fall back to localStorage
+    console.warn('API error fetching freelancer bids, falling back to localStorage:', response.error);
+    return getBidsByFreelancerId(freelancerId);
   } catch (error) {
-    console.error('Error fetching bids by freelancer:', error);
-    throw error instanceof Error ? error : new Error('Network error occurred');
+    console.warn('Error fetching bids by freelancer, falling back to localStorage:', error);
+    return getBidsByFreelancerId(freelancerId);
   }
 };
 
@@ -382,13 +381,11 @@ export const hasFreelancerBidOnProjectAsync = async (
       return response.data.hasBid;
     }
 
-    // API returned error - throw to allow caller to handle
-    const errorMessage = response.error?.message || 'Failed to check existing bid';
-    console.error('API error:', response.error);
-    throw new Error(errorMessage);
+    console.warn('API error checking existing bid, falling back to localStorage:', response.error);
+    return hasFreelancerBidOnProject(freelancerId, projectId);
   } catch (error) {
-    console.error('Error checking existing bid:', error);
-    throw error instanceof Error ? error : new Error('Network error occurred');
+    console.warn('Error checking existing bid, falling back to localStorage:', error);
+    return hasFreelancerBidOnProject(freelancerId, projectId);
   }
 };
 
@@ -418,13 +415,11 @@ export const getFreelancerBidOnProjectAsync = async (
       return response.data.hasBid ? response.data.bid : null;
     }
 
-    // API returned error - throw to allow caller to handle
-    const errorMessage = response.error?.message || 'Failed to get freelancer bid';
-    console.error('API error:', response.error);
-    throw new Error(errorMessage);
+    console.warn('API error getting freelancer bid, falling back to localStorage:', response.error);
+    return getFreelancerBidOnProject(freelancerId, projectId);
   } catch (error) {
-    console.error('Error getting freelancer bid:', error);
-    throw error instanceof Error ? error : new Error('Network error occurred');
+    console.warn('Error getting freelancer bid, falling back to localStorage:', error);
+    return getFreelancerBidOnProject(freelancerId, projectId);
   }
 };
 
