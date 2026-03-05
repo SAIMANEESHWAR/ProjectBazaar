@@ -5,8 +5,8 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 const animationProps = {
-  initial: { "--x": "100%", scale: 0.8 } as React.CSSProperties & { "--x"?: string },
-  animate: { "--x": "-100%", scale: 1 } as React.CSSProperties & { "--x"?: string },
+  initial: { "--x": "100%", scale: 0.8 } as Record<string, string | number>,
+  animate: { "--x": "-100%", scale: 1 } as Record<string, string | number>,
   whileTap: { scale: 0.95 },
   transition: {
     repeat: Infinity,
@@ -26,7 +26,7 @@ const animationProps = {
 };
 
 export interface ShinyButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, keyof typeof animationProps> {
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
   children: React.ReactNode;
   className?: string;
 }

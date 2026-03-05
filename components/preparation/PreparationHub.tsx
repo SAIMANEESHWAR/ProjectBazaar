@@ -11,7 +11,7 @@ import {
   Briefcase,
   PenLine,
   Map,
-  FolderStack,
+  FileStack,
 } from 'lucide-react';
 import {
   prepStats,
@@ -42,7 +42,7 @@ const featureCards = [
   { id: 'job-portals', view: 'prep-job-portals', title: 'Job Portals', description: 'Discover job opportunities across platforms', count: prepStats.totalJobPortals, Icon: Briefcase },
   { id: 'handwritten-notes', view: 'prep-notes', title: 'Handwritten Notes', description: 'Curated study materials and notes', count: handwrittenNotes.length, Icon: PenLine },
   { id: 'roadmaps', view: 'prep-roadmaps', title: 'Roadmaps', description: 'Step-by-step learning paths for every role', count: roadmaps.length, Icon: Map },
-  { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: collections.length, Icon: FolderStack },
+  { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: collections.length, Icon: FileStack },
 ];
 
 const totalPrepItems = prepStats.totalQuestions + prepStats.totalDSA + prepStats.totalQuizzes;
@@ -57,7 +57,6 @@ const activityIcons: Record<string, ReactNode> = {
   dm: <Mail className={activityIconClass} />,
 };
 
-const statIconClass = 'w-5 h-5 text-gray-600 dark:text-gray-400';
 const statItems = [
   { label: 'Total Questions', value: prepStats.totalQuestions, Icon: HelpCircle },
   { label: 'DSA Problems', value: prepStats.totalDSA, Icon: Code2 },
