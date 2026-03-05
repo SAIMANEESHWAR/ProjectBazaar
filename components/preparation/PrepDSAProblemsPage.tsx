@@ -173,86 +173,86 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             Clear
           </button>
         )}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-xs text-gray-400 mr-1">Sort:</span>
-          {([['title', 'Name'], ['topic', 'Topic'], ['difficulty', 'Difficulty']] as [SortKey, string][]).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => handleSort(key)}
-              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-200 ${
-                sortKey === key
-                  ? 'border-orange-300 bg-orange-50 text-orange-600'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              {label}
-              <SortIcon active={sortKey === key} dir={sortDir} />
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {paginatedProblems.map((problem) => (
-          <div
-            key={problem.id}
-            className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-200"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-gray-900">{problem.title}</h3>
-                  <DifficultyBadge difficulty={problem.difficulty} />
-                  <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                    {problem.topic}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2 line-clamp-2">{problem.description}</p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {problem.company.slice(0, 4).map((c) => (
-                    <span
-                      key={c}
-                      className="px-2 py-0.5 rounded text-xs bg-orange-50 text-orange-700"
-                    >
-                      {c}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Acceptance: {problem.acceptance}%
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => toggleSolved(problem.id)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 transition-all duration-200"
-                >
-                  <input
-                    type="checkbox"
-                    checked={problem.isSolved}
-                    onChange={() => toggleSolved(problem.id)}
-                    className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                  />
-                  <span>{problem.isSolved ? 'Solved' : 'Solve'}</span>
-                </button>
-                <button
-                  onClick={() => toggleBookmark(problem.id)}
-                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200"
-                >
-                  <svg
-                    className={`w-5 h-5 ${problem.isBookmarked ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`}
-                    fill={problem.isBookmarked ? 'currentColor' : 'none'}
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+      {filteredProblems.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+          <p className="text-gray-500 font-medium">No problems match your filters.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('title')}>
+                    <span className="inline-flex items-center">Problem <SortIcon active={sortKey === 'title'} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('topic')}>
+                    <span className="inline-flex items-center">Topic <SortIcon active={sortKey === 'topic'} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                    <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Companies</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedProblems.map((problem, idx) => {
+                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                  return (
+                    <tr key={problem.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{problem.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Acceptance: {problem.acceptance}%</p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{problem.topic}</span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <DifficultyBadge difficulty={problem.difficulty} />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {problem.company.slice(0, 3).map((c) => (
+                            <span key={c} className="px-1.5 py-0.5 rounded text-xs bg-orange-50 text-orange-700">{c}</span>
+                          ))}
+                          {problem.company.length > 3 && (
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">+{problem.company.length - 3}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {problem.isSolved ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {problem.isBookmarked ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
