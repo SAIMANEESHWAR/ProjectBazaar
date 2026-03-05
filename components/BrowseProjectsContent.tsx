@@ -4,7 +4,7 @@ import type { BrowseProject } from '../types/browse';
 import { useAuth } from '../App';
 import { saveBidAsync, hasFreelancerBidOnProjectAsync, getBidStatsForProjectAsync, type BidStats } from '../services/bidsService';
 import { getAllBidRequestProjects } from '../services/bidRequestProjectsApi';
-import { GET_USER_DETAILS_ENDPOINT } from '../services/buyerApi';
+import { cachedFetchUserProfile } from '../services/buyerApi';
 import type { BidFormData } from '../types/bids';
 import noProjectBidsAnimation from '../lottiefiles/no_project_bids_animation.json';
 import SkeletonDashboard from './ui/skeleton-dashboard';
@@ -84,23 +84,15 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
   const [hasAlreadyBid, setHasAlreadyBid] = useState(false);
   const [bidStatsCache, setBidStatsCache] = useState<Map<string, BidStats>>(new Map());
 
-  // Fetch owner profile
+  // Fetch owner profile using shared cache (deduplicated across all components)
   const fetchOwnerProfile = useCallback(async (ownerId: string) => {
     if (ownerProfileCache.has(ownerId)) {
       return ownerProfileCache.get(ownerId);
     }
 
     try {
-      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: ownerId }),
-      });
-
-      const data = await response.json();
-      const user = data.data || data.user || data;
-
-      if (user && data.success !== false) {
+      const user = await cachedFetchUserProfile(ownerId);
+      if (user) {
         const profilePicture =
           user.profilePictureUrl ??
           user.profilePicture ??

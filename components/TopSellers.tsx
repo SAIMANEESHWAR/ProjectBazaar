@@ -4,10 +4,7 @@ import { getAllFreelancers } from "../services/freelancersApi";
 import type { Freelancer, BrowseProject } from "../types/browse";
 import { useAuth, useNavigation } from "../App";
 import verifiedFreelanceSvg from "../lottiefiles/verified_freelance.svg";
-import { GET_USER_DETAILS_ENDPOINT } from "../services/buyerApi";
-
-// User/seller projects API (marketplace projects, not bid-request projects)
-const GET_ALL_PROJECTS_ENDPOINT = "https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer";
+import { cachedFetchUserProfile, cachedFetchAllProjects } from "../services/buyerApi";
 
 interface ApiUserProject {
   projectId: string;
@@ -136,17 +133,10 @@ const TopSellers: React.FC = () => {
     }
   }, [viewMode, playTabSwitchSound]);
 
-  // Fetch real profile picture
   const fetchUserProfile = useCallback(async (freelancerId: string) => {
     try {
-      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: freelancerId }),
-      });
-      const data = await response.json();
-      const user = data.data || data.user || data;
-      if (!user || data.success === false) return undefined;
+      const user = await cachedFetchUserProfile(freelancerId);
+      if (!user) return undefined;
       const profilePicture =
         user.profilePictureUrl ??
         user.profilePicture ??
@@ -222,9 +212,7 @@ const TopSellers: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
-        if (!response.ok) throw new Error("Failed to fetch projects");
-        const data = await response.json();
+        const data = await cachedFetchAllProjects();
         if (!data.success || !Array.isArray(data.projects)) {
           setProjects([]);
           return;

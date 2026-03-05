@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../App';
-import { fetchUserData, Purchase } from '../services/buyerApi';
+import { cachedFetchUserData, cachedFetchAllProjects, Purchase } from '../services/buyerApi';
 import SkeletonDashboard from './ui/skeleton-dashboard';
-
-const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 
 interface ApiProject {
     projectId: string;
@@ -68,21 +66,18 @@ const BuyerAnalyticsPage: React.FC = () => {
 
             setIsLoading(true);
             try {
-                // Fetch user data
-                const user = await fetchUserData(userId);
+                const [user, allProjectsData] = await Promise.all([
+                    cachedFetchUserData(userId),
+                    cachedFetchAllProjects(),
+                ]);
                 setUserData(user);
 
-                // Fetch all projects to get category information
-                const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.projects) {
-                        const projectMap = new Map<string, ApiProject>();
-                        data.projects.forEach((project: ApiProject) => {
-                            projectMap.set(project.projectId, project);
-                        });
-                        setProjects(projectMap);
-                    }
+                if (allProjectsData.success && allProjectsData.projects) {
+                    const projectMap = new Map<string, ApiProject>();
+                    allProjectsData.projects.forEach((project: ApiProject) => {
+                        projectMap.set(project.projectId, project);
+                    });
+                    setProjects(projectMap);
                 }
             } catch (error) {
                 console.error('Error loading analytics data:', error);

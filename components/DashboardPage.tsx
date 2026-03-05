@@ -3,9 +3,7 @@ import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
 import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
-import { fetchUserData, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem } from '../services/buyerApi';
-
-const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+import { cachedFetchUserData, cachedFetchUserProfile, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem, invalidateUserCache } from '../services/buyerApi';
 
 // Re-export DashboardView for compatibility
 export type { DashboardView } from '../context/DashboardContext';
@@ -75,7 +73,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode; userId: string | 
         }
 
         setIsLoading(true);
-        const userData = await fetchUserData(userId);
+        const userData = await cachedFetchUserData(userId);
         if (userData && userData.wishlist) {
             setWishlist(userData.wishlist);
         } else {
@@ -112,6 +110,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode; userId: string | 
             } else {
                 await likeProject(userId, projectId);
             }
+            if (userId) invalidateUserCache(userId);
         } catch (error) {
             // Revert on error
             setWishlist(prev =>
@@ -148,7 +147,7 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
 
         setIsLoading(true);
         try {
-            const userData = await fetchUserData(userId);
+            const userData = await cachedFetchUserData(userId);
             if (userData && userData.cart) {
                 // Handle both string[] and CartItem[] formats
                 const cartData = Array.isArray(userData.cart) ? userData.cart : [];
@@ -199,8 +198,9 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
         // Sync with API
         try {
             const result = await apiAddToCart(userId, projectId);
-            if (!result.success) {
-                // Revert on error
+            if (result.success) {
+                invalidateUserCache(userId);
+            } else {
                 setCart(prev => prev.filter(id => id !== projectId));
                 setCartItems(prev => prev.filter(item => item.projectId !== projectId));
                 console.error('Failed to add to cart:', result.error || 'Unknown error');
@@ -224,10 +224,11 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
         // Sync with API
         try {
             const result = await apiRemoveFromCart(userId, projectId);
-            if (!result.success) {
-                // Revert on error - reload from API
+            if (result.success) {
+                invalidateUserCache(userId);
+            } else {
                 console.error('Failed to remove from cart:', result.error || 'Unknown error');
-                await loadCart(); // Use loadCart to properly handle data format
+                await loadCart();
             }
         } catch (error) {
             // Revert on error - reload from API
@@ -327,17 +328,7 @@ const DashboardPage: React.FC = () => {
             }
 
             try {
-                // Fetch user details to get name
-                const response = await fetch(GET_USER_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ userId }),
-                });
-
-                const data = await response.json();
-                const user = data.data || data.user || data;
+                const user = await cachedFetchUserProfile(userId);
 
                 if (user) {
                     const name = user.fullName || user.name || userEmail?.split('@')[0] || 'User';

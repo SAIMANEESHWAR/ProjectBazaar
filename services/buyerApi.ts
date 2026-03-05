@@ -1,10 +1,12 @@
 /**
  * API service for buyer actions (like, cart, purchase)
  */
+import { cachedFetch, invalidateCache } from '../lib/apiCache';
 
 const LAMBDA_ENDPOINT = 'https://tcladht447.execute-api.ap-south-2.amazonaws.com/default/Like_Addtocart_purcaseproject_for_Buyer';
 export const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.amazonaws.com/default/Get_project_details_by_projectId';
+export const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazonaws.com/default/Report_projects_by_buyerId';
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
@@ -1068,3 +1070,46 @@ export const getPurchasedCourses = async (
   }
 };
 
+
+// ── Cached API wrappers ──────────────────────────────────────────────
+// These deduplicate in-flight requests and cache responses with a TTL,
+// so multiple components mounting simultaneously share a single fetch.
+
+const USER_TTL = 60_000;      // 1 min
+const PROJECT_TTL = 90_000;   // 1.5 min
+const ALL_PROJECTS_TTL = 120_000; // 2 min
+
+export const cachedFetchUserData = (userId: string): Promise<UserData | null> =>
+  cachedFetch(`user:${userId}`, () => fetchUserData(userId), USER_TTL);
+
+export const cachedFetchProjectDetails = (projectId: string): Promise<ProjectDetails | null> =>
+  cachedFetch(`project:${projectId}`, () => fetchProjectDetails(projectId), PROJECT_TTL);
+
+export const cachedFetchAllProjects = (): Promise<any> =>
+  cachedFetch('all-projects', async () => {
+    const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+    if (!response.ok) throw new Error(`Failed to fetch projects: ${response.statusText}`);
+    return response.json();
+  }, ALL_PROJECTS_TTL);
+
+export const cachedFetchUserProfile = (userId: string): Promise<any> =>
+  cachedFetch(`user-profile:${userId}`, async () => {
+    const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) throw new Error('Failed to fetch user profile');
+    const data = await response.json();
+    return data.success !== false ? (data.data || data.user || data) : null;
+  }, USER_TTL);
+
+/** Call after mutations that change user data (purchase, cart, wishlist). */
+export const invalidateUserCache = (userId?: string) =>
+  invalidateCache(userId ? `user:${userId}` : 'user');
+
+/** Call after project mutations (upload, edit, approve). */
+export const invalidateProjectCache = (projectId?: string) => {
+  invalidateCache('all-projects');
+  if (projectId) invalidateCache(`project:${projectId}`);
+};

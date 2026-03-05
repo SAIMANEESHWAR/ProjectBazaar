@@ -4,7 +4,6 @@ import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
-import { fetchUserData } from '../services/buyerApi';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
 import type { BuyerProject } from './BuyerProjectCard';
@@ -39,10 +38,7 @@ import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
-import { PurchasedCourse } from '../services/buyerApi';
-
-const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
-const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 
 interface ApiProject {
     projectId: string;
@@ -297,30 +293,22 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         };
     };
 
-    // Fetch projects from API
+    // Fetch projects from API (cached + deduplicated)
     const fetchProjects = async () => {
         setIsLoadingProjects(true);
         setProjectsError(null);
 
         try {
-            // Fetch user data to get purchased project IDs
-            let purchasedProjectIds: string[] = [];
-            if (userId) {
-                const userData = await fetchUserData(userId);
-                if (userData && userData.purchases) {
-                    purchasedProjectIds = userData.purchases.map((p: any) => p.projectId);
-                }
-            }
+            // Both calls are cached & deduplicated -- if Sidebar or DashboardPage
+            // already fetched user data, this returns instantly from cache.
+            const [userData, data] = await Promise.all([
+                userId ? cachedFetchUserData(userId) : Promise.resolve(null),
+                cachedFetchAllProjects(),
+            ]);
 
-            const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+            const purchasedProjectIds: string[] =
+                userData?.purchases?.map((p: any) => p.projectId) ?? [];
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch projects: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            // Normalize: API may return data.projects or data.data (array)
             const rawProjects: ApiProject[] = Array.isArray(data.projects)
                 ? data.projects
                 : Array.isArray(data.data)
@@ -328,7 +316,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     : [];
 
             if (data.success !== false && rawProjects.length >= 0) {
-                // Filter: show approved (or no approval info), exclude purchased
                 const filteredApiProjects = rawProjects.filter((apiProject: ApiProject) => {
                     const status = (apiProject.status || '').toLowerCase();
                     const approvalStatus = (apiProject.adminApprovalStatus || '').toLowerCase();
@@ -358,14 +345,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
                 setProjects(mappedProjects);
                 setFilteredProjects(mappedProjects);
-                console.log('Fetched projects for buyer:', mappedProjects.length, '| Raw from API:', rawProjects.length, '| After filter:', filteredApiProjects.length);
             } else if (data.success === false || (rawProjects.length === 0 && !Array.isArray(data.projects) && !Array.isArray(data.data))) {
                 throw new Error(data.message || 'Invalid response format from API');
             }
         } catch (err) {
             console.error('Error fetching projects:', err);
             setProjectsError(err instanceof Error ? err.message : 'Failed to fetch projects');
-            // Keep empty array on error
             setProjects([]);
             setFilteredProjects([]);
         } finally {
@@ -380,30 +365,19 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     }, [dashboardMode, userId]);
 
-    // Function to fetch seller profile picture
+    // Fetch seller profile using centralized cache (deduplicates across components)
     const fetchSellerProfile = async (sellerId: string) => {
-        // Check if already cached
         if (sellerProfileCache.has(sellerId)) {
             return sellerProfileCache.get(sellerId);
         }
 
         try {
-            const response = await fetch(GET_USER_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: sellerId }),
-            });
-
-            const data = await response.json();
-            const user = data.data || data.user || data;
-
-            if (user && data.success !== false) {
+            const user = await cachedFetchUserProfile(sellerId);
+            if (user) {
                 const profile = {
                     profilePicture: user.profilePictureUrl || undefined,
                     fullName: user.fullName || user.name || undefined,
                 };
-
-                // Cache the result
                 setSellerProfileCache(prev => new Map(prev).set(sellerId, profile));
                 return profile;
             }

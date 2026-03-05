@@ -6,7 +6,7 @@ import type { BrowseProject } from '../types/browse';
 import { getAllFreelancers, searchFreelancers, getAvailableSkills, getAvailableCountries } from '../services/freelancersApi';
 import { getBidRequestProjectsByBuyer } from '../services/bidRequestProjectsApi';
 import { sendFreelancerMessage, sendFreelancerInvitation } from '../services/freelancerInteractionsApi';
-import { GET_USER_DETAILS_ENDPOINT } from '../services/buyerApi';
+import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useAuth } from '../App';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 import Lottie from 'lottie-react';
@@ -56,17 +56,11 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   const [selectedInviteProjectId, setSelectedInviteProjectId] = useState('');
   const [loadingUserProjects, setLoadingUserProjects] = useState(false);
 
-  // Fetch user profile (name, profile image) from Get_user_Details_by_his_Id
+  // Fetch user profile using shared cache (deduplicated across components)
   const fetchUserProfile = useCallback(async (freelancerId: string) => {
     try {
-      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: freelancerId }),
-      });
-      const data = await response.json();
-      const user = data.data || data.user || data;
-      if (!user || data.success === false) return undefined;
+      const user = await cachedFetchUserProfile(freelancerId);
+      if (!user) return undefined;
       const profilePicture =
         user.profilePictureUrl ??
         user.profilePicture ??

@@ -3,7 +3,7 @@ import { useAuth } from '../App';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
 import { useDashboard } from '../context/DashboardContext';
-const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+import { cachedFetchUserProfile } from '../services/buyerApi';
 
 const LogoIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -92,31 +92,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
 
     const navItems = dashboardMode === 'buyer' ? buyerNavItems : sellerNavItems;
 
-    // Fetch user profile to get profile image
+    // Fetch user profile (shared cache -- if DashboardContent already fetched, this is instant)
     useEffect(() => {
-        const fetchUserProfile = async () => {
-            if (!userId) return;
-
-            try {
-                const response = await fetch(GET_USER_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId }),
-                });
-
-                const data = await response.json();
-                const user = data.data || data.user || data;
-
-                if (user && data.success !== false) {
-                    setUserProfileImage(user.profilePictureUrl || null);
-                    setUserFullName(user.fullName || user.name || '');
-                }
-            } catch (err) {
-                console.error('Failed to fetch user profile:', err);
+        if (!userId) return;
+        cachedFetchUserProfile(userId).then((user) => {
+            if (user) {
+                setUserProfileImage(user.profilePictureUrl || null);
+                setUserFullName(user.fullName || user.name || '');
             }
-        };
-
-        fetchUserProfile();
+        }).catch(() => {});
     }, [userId]);
 
     // When collapsed and hovered, show expanded version
