@@ -17,6 +17,7 @@ export interface BuyerProject {
   likesCount?: number;
   purchasesCount?: number;
   sellerEmail?: string;
+  isOwnProject?: boolean;
 }
 
 interface BuyerProjectCardProps {
@@ -81,7 +82,7 @@ const Tooltip = ({ children, text, position = 'bottom' }: { children: React.Reac
 
 
 const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDetails }) => {
-  const { id, imageUrl, category, title, description, tags, price, isPremium, hasDocumentation, hasExecutionVideo } = project;
+  const { id, imageUrl, category, title, description, tags, price, isPremium, hasDocumentation, hasExecutionVideo, isOwnProject } = project;
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isInCart, addToCart, removeFromCart } = useCart();
   const liked = isInWishlist(id);
@@ -90,6 +91,7 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
   const [isCartAnimating, setIsCartAnimating] = useState(false);
 
   const handleLikeClick = () => {
+    if (isOwnProject) return;
     setIsAnimating(true);
     toggleWishlist(id);
     setTimeout(() => setIsAnimating(false), 300);
@@ -97,6 +99,7 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOwnProject) return;
     setIsCartAnimating(true);
     if (inCart) {
       removeFromCart(id);
@@ -115,9 +118,17 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
       onClick={handleCardClick}
       className="bg-white rounded-2xl overflow-hidden group transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1.5 border border-gray-200/60 hover:border-orange-200 flex flex-col h-full relative w-full cursor-pointer"
     >
-      {/* Premium Badge */}
-      {isPremium && (
-        <div className="absolute top-3 left-3 z-10">
+      {/* Badges - Top Left */}
+      <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+        {isOwnProject && (
+          <div className="bg-blue-600 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-white/20">
+            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-xs text-white font-bold uppercase tracking-wider">Your Project</span>
+          </div>
+        )}
+        {isPremium && (
           <div className="relative group/premium">
             <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full blur-[3px] opacity-60"></div>
             <div className="relative bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-white/20">
@@ -125,10 +136,11 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
               <span className="text-xs text-white font-bold uppercase tracking-wider">Pro</span>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Action Buttons - Top Right */}
+      {!isOwnProject && (
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         {/* Wishlist Button */}
         <Tooltip text={liked ? 'Remove from Wishlist' : 'Add to Wishlist'} position="left">
@@ -146,6 +158,7 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
           </button>
         </Tooltip>
       </div>
+      )}
 
       {/* Image Section - Larger Height */}
       <div className="relative overflow-hidden bg-gray-100 h-52">
@@ -201,23 +214,25 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
           </div>
 
           <div className="flex items-center gap-2">
-            <Tooltip text={inCart ? 'Remove from Cart' : 'Add to Cart'} position="top">
-              <button
-                onClick={handleAddToCart}
-                className={`p-2.5 rounded-xl transition-all ${inCart
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
-                  } ${isCartAnimating ? 'scale-90' : ''}`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {inCart ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                  )}
-                </svg>
-              </button>
-            </Tooltip>
+            {!isOwnProject && (
+              <Tooltip text={inCart ? 'Remove from Cart' : 'Add to Cart'} position="top">
+                <button
+                  onClick={handleAddToCart}
+                  className={`p-2.5 rounded-xl transition-all ${inCart
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                    } ${isCartAnimating ? 'scale-90' : ''}`}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {inCart ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    )}
+                  </svg>
+                </button>
+              </Tooltip>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();

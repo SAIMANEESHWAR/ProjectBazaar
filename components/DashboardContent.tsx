@@ -293,6 +293,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             likesCount: apiProject.likesCount || 0,
             purchasesCount: apiProject.purchasesCount || 0,
             sellerEmail: apiProject.sellerEmail || '',
+            isOwnProject: userId ? apiProject.sellerId === userId : false,
         };
     };
 
@@ -327,7 +328,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     : [];
 
             if (data.success !== false && rawProjects.length >= 0) {
-                // Filter: show approved (or no approval info), exclude own and purchased
+                // Filter: show approved (or no approval info), exclude purchased
                 const filteredApiProjects = rawProjects.filter((apiProject: ApiProject) => {
                     const status = (apiProject.status || '').toLowerCase();
                     const approvalStatus = (apiProject.adminApprovalStatus || '').toLowerCase();
@@ -337,10 +338,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         (apiProject.adminApproved === true && (status === 'active' || status === 'live')) ||
                         (approvalStatus !== 'rejected' && approvalStatus !== 'disabled' && apiProject.adminApproved !== false);
 
-                    const isNotOwnProject = userId ? apiProject.sellerId !== userId : true;
                     const isNotPurchased = !purchasedProjectIds.includes(apiProject.projectId);
 
-                    return isApproved && isNotOwnProject && isNotPurchased;
+                    return isApproved && isNotPurchased;
                 });
 
                 const mappedProjects = filteredApiProjects.map(mapApiProjectToComponent);
