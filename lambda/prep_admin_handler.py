@@ -572,6 +572,7 @@ def lambda_handler(event, context):
     body = parse_body(event)
     query_params = get_query_params(event)
     action = body.get("action") or query_params.get("action", "")
+    print(f"[prep_admin_handler] {http_method} action={action!r} contentType={body.get('contentType') or query_params.get('contentType')!r}")
 
     try:
         if action == "list_content":
@@ -607,6 +608,7 @@ def lambda_handler(event, context):
         if action == "get_content_stats":
             return handle_get_content_stats()
 
+        print(f"[prep_admin_handler] Unknown action: {action!r}")
         return api_response(400, {
             "success": False,
             "message": f"Unknown action: '{action}'",
@@ -618,5 +620,7 @@ def lambda_handler(event, context):
         })
 
     except Exception as e:
+        import traceback
         print(f"[prep_admin_handler] Unhandled error: {e}")
+        traceback.print_exc()
         return api_response(500, {"success": False, "message": "Internal Server Error", "error": str(e)})

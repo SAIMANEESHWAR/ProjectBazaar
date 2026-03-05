@@ -48,9 +48,10 @@ CONTENT_TYPE_TABLE_MAP = {
     "fundamentals": TABLE_FUNDAMENTALS,
 }
 
+# CORS: allow browser requests from any origin (enable in API Gateway too if needed)
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,Accept,Origin",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
     "Access-Control-Max-Age": "3600",
 }
@@ -807,8 +808,16 @@ def lambda_handler(event, context):
         or event.get("requestContext", {}).get("httpMethod", "")
     )
 
+    # CORS preflight: must return CORS headers and 2xx so browser sends actual request
     if http_method == "OPTIONS":
-        return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
+        return {
+            "statusCode": 200,
+            "headers": {
+                **CORS_HEADERS,
+                "Content-Type": "application/json",
+            },
+            "body": "",
+        }
 
     body = parse_body(event)
     qp = get_query_params(event)
