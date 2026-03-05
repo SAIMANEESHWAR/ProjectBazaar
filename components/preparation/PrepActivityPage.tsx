@@ -1,4 +1,6 @@
-import { prepStats, recentActivity } from '../../data/preparationMockData';
+import { useState, useEffect } from 'react';
+import { prepStats as mockStats, recentActivity as mockActivity } from '../../data/preparationMockData';
+import { prepUserApi, type PrepStats, type PrepActivity } from '../../services/preparationApi';
 
 interface PrepActivityPageProps {
   toggleSidebar?: () => void;
@@ -36,13 +38,33 @@ const activityIcons: Record<string, string> = {
 };
 
 const PrepActivityPage = (_props: PrepActivityPageProps) => {
-  const totalQuestions = prepStats.totalQuestions;
-  const totalDSA = prepStats.totalDSA;
-  const totalQuizzes = prepStats.totalQuizzes;
-  const solvedQuestions = prepStats.solvedQuestions;
-  const solvedDSA = prepStats.solvedDSA;
-  const completedQuizzes = prepStats.completedQuizzes;
-  const streak = prepStats.streak;
+  const [stats, setStats] = useState<PrepStats | null>(null);
+  const [activities, setActivities] = useState<(PrepActivity | typeof mockActivity[0])[]>(mockActivity);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [s, a] = await Promise.all([
+          prepUserApi.getStats(),
+          prepUserApi.getActivity(20),
+        ]);
+        if (!cancelled) {
+          if (s) setStats(s);
+          if (a.length > 0) setActivities(a);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const totalQuestions = mockStats.totalQuestions;
+  const totalDSA = mockStats.totalDSA;
+  const totalQuizzes = mockStats.totalQuizzes;
+  const solvedQuestions = stats?.solvedQuestions ?? mockStats.solvedQuestions;
+  const solvedDSA = stats?.solvedDSA ?? mockStats.solvedDSA;
+  const completedQuizzes = stats?.completedQuizzes ?? mockStats.completedQuizzes;
+  const streak = stats?.streak ?? mockStats.streak;
 
   const interviewProgress = totalQuestions > 0 ? (solvedQuestions / totalQuestions) * 100 : 0;
   const dsaProgress = totalDSA > 0 ? (solvedDSA / totalDSA) * 100 : 0;
@@ -142,19 +164,26 @@ const PrepActivityPage = (_props: PrepActivityPageProps) => {
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <h3 className="font-semibold text-gray-900 mb-4">Recent Activity</h3>
           <div className="space-y-3">
-            {recentActivity.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200"
-              >
-                <span className="text-2xl">{activityIcons[item.type] || '📌'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{item.title}</p>
-                  <p className="text-sm text-gray-600 truncate">{item.description}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.timestamp}</p>
+            {activities.map((item, i) => {
+              const key = 'id' in item ? (item as any).id : `act-${i}`;
+              const type = 'type' in item ? (item as any).type : (item as PrepActivity).action;
+              const title = 'title' in item ? (item as any).title : ((item as PrepActivity).metadata?.title as string || type);
+              const desc = 'description' in item ? (item as any).description : ((item as PrepActivity).metadata?.description as string || '');
+              const ts = (item as any).timestamp;
+              return (
+                <div
+                  key={key}
+                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                >
+                  <span className="text-2xl">{activityIcons[type] || '📌'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm">{title}</p>
+                    <p className="text-sm text-gray-600 truncate">{desc}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{ts}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

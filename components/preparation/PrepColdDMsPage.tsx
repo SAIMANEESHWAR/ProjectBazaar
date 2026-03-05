@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { coldDMTemplates } from '../../data/preparationMockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { coldDMTemplates as mockTemplates } from '../../data/preparationMockData';
 import type { ColdDMTemplate } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -26,14 +27,28 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [templates, setTemplates] = useState<ColdDMTemplate[]>(mockTemplates);
 
-  const categories = useMemo(() => {
-    const cats = new Set(coldDMTemplates.map((t) => t.category));
-    return Array.from(cats).sort();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContent<ColdDMTemplate>('cold_dm_templates', { limit: 200 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setTemplates(resp.items);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
+  const categories = useMemo(() => {
+    const cats = new Set(templates.map((t) => t.category));
+    return Array.from(cats).sort();
+  }, [templates]);
+
   const filteredTemplates = useMemo(() => {
-    let result = [...coldDMTemplates];
+    let result = [...templates];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(

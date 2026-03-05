@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { jobPortals } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { jobPortals as mockPortals } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -17,10 +18,23 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   const [region, setRegion] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
-  const [portals, setPortals] = useState(jobPortals);
+  const [portals, setPortals] = useState(mockPortals);
 
-  const categories = useMemo(() => [...new Set(jobPortals.map((p) => p.category))], []);
-  const regions = useMemo(() => [...new Set(jobPortals.map((p) => p.region))], []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContentWithProgress('job_portals', { limit: 200 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setPortals(resp.items as any);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const categories = useMemo(() => [...new Set(portals.map((p) => p.category))], [portals]);
+  const regions = useMemo(() => [...new Set(portals.map((p) => p.region))], [portals]);
 
   const filteredPortals = useMemo(() => {
     let list = portals;
@@ -45,17 +59,19 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
 
   const totalPages = Math.ceil(filteredPortals.length / itemsPerPage);
 
-  const toggleFavorite = (id: string) => {
+  const toggleFavorite = useCallback((id: string) => {
     setPortals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isFavorite: !p.isFavorite } : p))
     );
-  };
+    prepUserApi.toggleFavorite('job_portals', id).catch(() => {});
+  }, []);
 
-  const toggleApplied = (id: string) => {
+  const toggleApplied = useCallback((id: string) => {
     setPortals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isApplied: !p.isApplied } : p))
     );
-  };
+    prepUserApi.toggleApplied('job_portals', id).catch(() => {});
+  }, []);
 
   const tabs: { key: TabType; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },

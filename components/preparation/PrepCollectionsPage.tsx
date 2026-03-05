@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { collections as initialCollections } from '../../data/preparationMockData';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { collections as mockCollections } from '../../data/preparationMockData';
 import type { Collection } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepCollectionsPageProps {
@@ -20,13 +21,33 @@ const PRESET_COLORS = [
 
 const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar }) => {
   const [viewMode, setViewMode] = useViewMode('grid');
-  const [collections, setCollections] = useState<Collection[]>(initialCollections);
+  const [collections, setCollections] = useState<Collection[]>(mockCollections);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const apiCols = await prepUserApi.listCollections();
+        if (!cancelled && apiCols.length > 0) {
+          setCollections(apiCols.map((c) => ({
+            id: c.collectionId,
+            name: c.name,
+            description: c.description,
+            itemCount: c.itemCount,
+            createdAt: c.createdAt,
+            color: c.color,
+          })));
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredAndSorted = useMemo(() => {
     let result = [...collections];
@@ -45,9 +66,9 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
     return result;
   }, [collections, searchQuery, sortBy]);
 
-  const handleCreate = () => {
+  const handleCreate = useCallback(async () => {
     if (!newName.trim()) return;
-    const newCollection: Collection = {
+    const optimistic: Collection = {
       id: `col-${Date.now()}`,
       name: newName.trim(),
       description: newDescription.trim(),
@@ -55,12 +76,24 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
       createdAt: new Date().toISOString(),
       color: newColor,
     };
-    setCollections((prev) => [newCollection, ...prev]);
+    setCollections((prev) => [optimistic, ...prev]);
     setNewName('');
     setNewDescription('');
     setNewColor(PRESET_COLORS[0]);
     setShowCreateForm(false);
-  };
+
+    try {
+      const created = await prepUserApi.createCollection(optimistic.name, optimistic.description, optimistic.color);
+      if (created) {
+        setCollections((prev) =>
+          prev.map((c) => c.id === optimistic.id
+            ? { ...c, id: created.collectionId }
+            : c
+          )
+        );
+      }
+    } catch { /* optimistic item stays */ }
+  }, [newName, newDescription, newColor]);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);

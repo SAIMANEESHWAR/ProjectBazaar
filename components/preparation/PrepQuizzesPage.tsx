@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { quizzes } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { quizzes as mockQuizzes } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepQuizzesPageProps {
@@ -31,6 +32,20 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useViewMode('grid');
+  const [quizzes, setQuizzes] = useState(mockQuizzes);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContent('quizzes', { limit: 200 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setQuizzes(resp.items as any);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter((q) => {

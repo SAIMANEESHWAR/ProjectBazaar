@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
-import { interviewQuestions, prepStats } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { interviewQuestions as mockQuestions, prepStats } from '../../data/preparationMockData';
 import type { InterviewQuestion } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -41,10 +42,23 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [questions, setQuestions] = useState<InterviewQuestion[]>(interviewQuestions);
+  const [questions, setQuestions] = useState<InterviewQuestion[]>(mockQuestions);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', { limit: 500 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setQuestions(resp.items);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -81,17 +95,19 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
 
   const roles = useMemo(() => [...new Set(questions.map((q) => q.role))], [questions]);
 
-  const toggleSolved = (id: string) => {
+  const toggleSolved = useCallback((id: string) => {
     setQuestions((prev) =>
       prev.map((q) => (q.id === id ? { ...q, isSolved: !q.isSolved } : q))
     );
-  };
+    prepUserApi.toggleSolved('interview_questions', id).catch(() => {});
+  }, []);
 
-  const toggleBookmark = (id: string) => {
+  const toggleBookmark = useCallback((id: string) => {
     setQuestions((prev) =>
       prev.map((q) => (q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q))
     );
-  };
+    prepUserApi.toggleBookmarked('interview_questions', id).catch(() => {});
+  }, []);
 
   const totalProgress = prepStats.totalQuestions;
   const easyProgress = (prepStats.questionsEasy / totalProgress) * 100;

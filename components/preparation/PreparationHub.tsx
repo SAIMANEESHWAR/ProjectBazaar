@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   HelpCircle,
   Code2,
@@ -14,14 +14,15 @@ import {
   FileStack,
 } from 'lucide-react';
 import {
-  prepStats,
-  recentActivity,
-  collections,
+  prepStats as mockStats,
+  recentActivity as mockActivity,
+  collections as mockCollections,
   massRecruitmentCompanies,
   handwrittenNotes,
   roadmaps,
   positionResources,
 } from '../../data/preparationMockData';
+import { prepUserApi, type DashboardData, type PrepActivity } from '../../services/preparationApi';
 import { ShinyButton } from '../ui/ShinyButton';
 
 interface PreparationHubProps {
@@ -30,24 +31,22 @@ interface PreparationHubProps {
 
 const iconClass = 'w-6 h-6 text-gray-600 dark:text-gray-400';
 
-const featureCards = [
-  { id: 'interview-questions', view: 'prep-interview-questions', title: 'Interview Questions', description: 'Practice technical and behavioral questions', count: prepStats.totalQuestions, Icon: HelpCircle },
-  { id: 'dsa-problems', view: 'prep-dsa', title: 'DSA Problems', description: 'Data structures and algorithms practice', count: prepStats.totalDSA, Icon: Code2 },
-  { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: prepStats.totalQuizzes, Icon: ClipboardList },
-  { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: 51, Icon: Building2 },
-  { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: 18, Icon: BookOpen },
-  { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: positionResources.length, Icon: Target },
-  { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: massRecruitmentCompanies.length, Icon: Users },
-  { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: prepStats.totalColdDMs, Icon: Mail },
-  { id: 'job-portals', view: 'prep-job-portals', title: 'Job Portals', description: 'Discover job opportunities across platforms', count: prepStats.totalJobPortals, Icon: Briefcase },
-  { id: 'handwritten-notes', view: 'prep-notes', title: 'Handwritten Notes', description: 'Curated study materials and notes', count: handwrittenNotes.length, Icon: PenLine },
-  { id: 'roadmaps', view: 'prep-roadmaps', title: 'Roadmaps', description: 'Step-by-step learning paths for every role', count: roadmaps.length, Icon: Map },
-  { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: collections.length, Icon: FileStack },
-];
-
-const totalPrepItems = prepStats.totalQuestions + prepStats.totalDSA + prepStats.totalQuizzes;
-const completedItems = prepStats.solvedQuestions + prepStats.solvedDSA + prepStats.completedQuizzes;
-const progressPercent = totalPrepItems > 0 ? Math.min(100, (completedItems / totalPrepItems) * 100) : 0;
+function buildFeatureCards(counts: Record<string, number>) {
+  return [
+    { id: 'interview-questions', view: 'prep-interview-questions', title: 'Interview Questions', description: 'Practice technical and behavioral questions', count: counts.interview_questions ?? mockStats.totalQuestions, Icon: HelpCircle },
+    { id: 'dsa-problems', view: 'prep-dsa', title: 'DSA Problems', description: 'Data structures and algorithms practice', count: counts.dsa_problems ?? mockStats.totalDSA, Icon: Code2 },
+    { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: counts.quizzes ?? mockStats.totalQuizzes, Icon: ClipboardList },
+    { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: counts.system_design ?? 51, Icon: Building2 },
+    { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: counts.fundamentals ?? 18, Icon: BookOpen },
+    { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: counts.position_resources ?? positionResources.length, Icon: Target },
+    { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: counts.mass_recruitment ?? massRecruitmentCompanies.length, Icon: Users },
+    { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: counts.cold_dm_templates ?? mockStats.totalColdDMs, Icon: Mail },
+    { id: 'job-portals', view: 'prep-job-portals', title: 'Job Portals', description: 'Discover job opportunities across platforms', count: counts.job_portals ?? mockStats.totalJobPortals, Icon: Briefcase },
+    { id: 'handwritten-notes', view: 'prep-notes', title: 'Handwritten Notes', description: 'Curated study materials and notes', count: counts.handwritten_notes ?? handwrittenNotes.length, Icon: PenLine },
+    { id: 'roadmaps', view: 'prep-roadmaps', title: 'Roadmaps', description: 'Step-by-step learning paths for every role', count: counts.roadmaps ?? roadmaps.length, Icon: Map },
+    { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: mockCollections.length, Icon: FileStack },
+  ];
+}
 
 const activityIconClass = 'w-4 h-4 text-gray-500 dark:text-gray-400';
 const activityIcons: Record<string, ReactNode> = {
@@ -55,16 +54,75 @@ const activityIcons: Record<string, ReactNode> = {
   dsa: <Code2 className={activityIconClass} />,
   quiz: <ClipboardList className={activityIconClass} />,
   dm: <Mail className={activityIconClass} />,
+  toggle_isSolved: <HelpCircle className={activityIconClass} />,
+  toggle_isBookmarked: <Mail className={activityIconClass} />,
+  submit_quiz: <ClipboardList className={activityIconClass} />,
 };
 
-const statItems = [
-  { label: 'Total Questions', value: prepStats.totalQuestions, Icon: HelpCircle },
-  { label: 'DSA Problems', value: prepStats.totalDSA, Icon: Code2 },
-  { label: 'Quizzes', value: prepStats.totalQuizzes, Icon: ClipboardList },
-  { label: 'Cold DM Templates', value: prepStats.totalColdDMs, Icon: Mail },
-];
+function formatTimestamp(ts: string): string {
+  try {
+    const date = new Date(ts);
+    const diff = Date.now() - date.getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  } catch {
+    return ts;
+  }
+}
 
 export default function PreparationHub({ onNavigate }: PreparationHubProps) {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await prepUserApi.getDashboard();
+        if (!cancelled && data) setDashboard(data);
+        await prepUserApi.updateStreak();
+      } catch {
+        /* fall back to mock data */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const stats = dashboard?.stats ?? {
+    solvedQuestions: mockStats.solvedQuestions,
+    solvedDSA: mockStats.solvedDSA,
+    completedQuizzes: mockStats.completedQuizzes,
+    streak: mockStats.streak,
+  } as any;
+
+  const contentCounts = dashboard?.contentCounts ?? {};
+  const activities: (PrepActivity | { id: string; type: string; title: string; description: string; timestamp: string })[] =
+    dashboard?.recentActivity?.length
+      ? dashboard.recentActivity
+      : mockActivity;
+
+  const featureCards = buildFeatureCards(contentCounts);
+
+  const totalIQ = contentCounts.interview_questions ?? mockStats.totalQuestions;
+  const totalDSA = contentCounts.dsa_problems ?? mockStats.totalDSA;
+  const totalQuiz = contentCounts.quizzes ?? mockStats.totalQuizzes;
+  const totalPrepItems = totalIQ + totalDSA + totalQuiz;
+  const completedItems = (stats.solvedQuestions ?? 0) + (stats.solvedDSA ?? 0) + (stats.completedQuizzes ?? 0);
+  const progressPercent = totalPrepItems > 0 ? Math.min(100, (completedItems / totalPrepItems) * 100) : 0;
+
+  const statItems = [
+    { label: 'Total Questions', value: totalIQ, Icon: HelpCircle },
+    { label: 'DSA Problems', value: totalDSA, Icon: Code2 },
+    { label: 'Quizzes', value: totalQuiz, Icon: ClipboardList },
+    { label: 'Cold DM Templates', value: contentCounts.cold_dm_templates ?? mockStats.totalColdDMs, Icon: Mail },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Hero */}
@@ -86,7 +144,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
           <div className="mt-6 flex items-center gap-6">
             <div>
               <p className="text-sm text-orange-200">Overall Progress</p>
-              <p className="text-2xl font-bold">{Math.round(progressPercent)}%</p>
+              <p className="text-2xl font-bold">{loading ? '—' : `${Math.round(progressPercent)}%`}</p>
             </div>
             <div className="flex-1 max-w-xs">
               <div className="h-2 rounded-full bg-white/20">
@@ -97,7 +155,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
             <div className="hidden sm:flex items-center gap-2 ml-auto">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 rounded-lg backdrop-blur-sm">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>
-                <span className="text-sm font-semibold">{prepStats.streak} day streak</span>
+                <span className="text-sm font-semibold">{stats.streak ?? 0} day streak</span>
               </div>
             </div>
           </div>
@@ -159,18 +217,28 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
             <button className="text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors">View all</button>
           </div>
           <ul className="divide-y divide-gray-100">
-            {recentActivity.map((activity) => (
-              <li key={activity.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
-                  {activityIcons[activity.type] || activityIcons.question}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{activity.title}</p>
-                  <p className="text-xs text-gray-500 truncate">{activity.description}</p>
-                </div>
-                <span className="flex-shrink-0 text-xs text-gray-400">{activity.timestamp}</span>
-              </li>
-            ))}
+            {activities.map((activity, i) => {
+              const key = 'timestamp' in activity && 'action' in activity ? `${(activity as PrepActivity).timestamp}-${i}` : (activity as any).id;
+              const actType = 'action' in activity ? (activity as PrepActivity).action : (activity as any).type;
+              const title = 'metadata' in activity ? ((activity as PrepActivity).metadata?.title as string || actType) : (activity as any).title;
+              const desc = 'metadata' in activity ? ((activity as PrepActivity).metadata?.description as string || '') : (activity as any).description;
+              const time = 'timestamp' in activity && typeof (activity as any).timestamp === 'string' && (activity as any).timestamp.includes('T')
+                ? formatTimestamp((activity as PrepActivity).timestamp)
+                : (activity as any).timestamp;
+
+              return (
+                <li key={key} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
+                    {activityIcons[actType] || activityIcons.question}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
+                    <p className="text-xs text-gray-500 truncate">{desc}</p>
+                  </div>
+                  <span className="flex-shrink-0 text-xs text-gray-400">{time}</span>
+                </li>
+              );
+            })}
           </ul>
         </section>
 
@@ -192,15 +260,15 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
             <div className="w-full space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Questions</span>
-                <span className="font-semibold text-gray-900">{prepStats.solvedQuestions}/{prepStats.totalQuestions}</span>
+                <span className="font-semibold text-gray-900">{stats.solvedQuestions ?? 0}/{totalIQ}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">DSA Problems</span>
-                <span className="font-semibold text-gray-900">{prepStats.solvedDSA}/{prepStats.totalDSA}</span>
+                <span className="font-semibold text-gray-900">{stats.solvedDSA ?? 0}/{totalDSA}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Quizzes</span>
-                <span className="font-semibold text-gray-900">{prepStats.completedQuizzes}/{prepStats.totalQuizzes}</span>
+                <span className="font-semibold text-gray-900">{stats.completedQuizzes ?? 0}/{totalQuiz}</span>
               </div>
             </div>
           </div>

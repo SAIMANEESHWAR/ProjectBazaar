@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { handwrittenNotes } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect } from 'react';
+import { handwrittenNotes as mockNotes } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepHandwrittenNotesPageProps {
@@ -21,15 +22,29 @@ const topicEmojis: Record<string, string> = {
 const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useViewMode('grid');
+  const [notes, setNotes] = useState(mockNotes);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContent('handwritten_notes', { limit: 200 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setNotes(resp.items as any);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredNotes = useMemo(() => {
-    if (!search.trim()) return handwrittenNotes;
+    if (!search.trim()) return notes;
     const q = search.toLowerCase();
-    return handwrittenNotes.filter(
+    return notes.filter(
       (n) =>
         n.title.toLowerCase().includes(q) || n.description.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [notes, search]);
 
   return (
     <div className="p-6">
