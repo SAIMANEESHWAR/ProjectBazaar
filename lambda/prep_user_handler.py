@@ -1,4 +1,5 @@
 import json
+import traceback
 import uuid
 import math
 from datetime import datetime, timedelta
@@ -185,8 +186,12 @@ def handle_get_content(content_type: str, item_id: str) -> dict:
         return api_response(400, {"success": False, "message": f"Unknown content type: {content_type}"})
 
     table = get_table(table_name)
+    # DynamoDB key type must match schema: content tables use partition key "id" (String)
+    key_id = str(item_id) if item_id is not None else ""
+    if not key_id:
+        return api_response(400, {"success": False, "message": "Missing item id"})
     try:
-        result = table.get_item(Key={"id": item_id})
+        result = table.get_item(Key={"id": key_id})
         item = result.get("Item")
         if not item:
             return api_response(404, {"success": False, "message": "Item not found"})
@@ -210,10 +215,14 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
 
     merged = []
     for item in items:
-        key = _progress_key(content_type, item["id"])
+        # Normalize id to string so key matches progress stored by toggle (DynamoDB keys type-sensitive)
+        raw_id = item.get("id")
+        id_str = str(raw_id) if raw_id is not None else ""
+        key = _progress_key(content_type, id_str)
         p = progress_map.get(key, {})
         merged.append({
             **item,
+            "id": id_str,  # ensure frontend always gets string id for toggle_solved etc.
             "isSolved": p.get("isSolved", False),
             "isBookmarked": p.get("isBookmarked", False),
             "isFavorite": p.get("isFavorite", False),
@@ -269,8 +278,13 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
     if field not in valid_fields:
         return api_response(400, {"success": False, "message": f"Invalid field: {field}"})
 
+    # Coerce to string so progress key and itemId attribute match list_with_progress (DynamoDB type-sensitive)
+    item_id_str = str(item_id) if item_id is not None else ""
+    if not item_id_str:
+        return api_response(400, {"success": False, "message": "Missing itemId"})
+
     table = get_table(TABLE_USER_PROGRESS)
-    item_key = _progress_key(content_type, item_id)
+    item_key = _progress_key(content_type, item_id_str)
     now = now_iso()
 
     try:
@@ -281,7 +295,7 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
         # Use ExpressionAttributeNames for all attribute names to avoid DynamoDB reserved words (e.g. type, id)
         update_expr = "SET #field = :val, #ua = :now, #ct = :ct, #iid = :iid"
         expr_names = {"#field": field, "#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId"}
-        expr_values = {":val": new_value, ":now": now, ":ct": content_type, ":iid": item_id}
+        expr_values = {":val": new_value, ":now": now, ":ct": content_type, ":iid": item_id_str}
 
         if field == "isSolved" and new_value:
             update_expr += ", #sa = :now"
@@ -294,17 +308,20 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
             ExpressionAttributeValues=expr_values,
         )
 
-        _log_activity(user_id, f"toggle_{field}", content_type, item_id, {"new_value": new_value})
+        _log_activity(user_id, f"toggle_{field}", content_type, item_id_str, {"new_value": new_value})
 
         if field == "isSolved":
             _update_stat_counter(user_id, content_type, 1 if new_value else -1)
 
         return api_response(200, {
             "success": True, "field": field, "value": new_value,
-            "contentType": content_type, "itemId": item_id,
+            "contentType": content_type, "itemId": item_id_str,
         })
     except ClientError as e:
-        return api_response(500, {"success": False, "message": "Database error", "error": str(e)})
+        err_msg = str(e)
+        print(f"[prep_user_handler] toggle_progress error: {err_msg}", flush=True)
+        traceback.print_exc()
+        return api_response(500, {"success": False, "message": "Database error", "error": err_msg})
 
 
 def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
@@ -318,11 +335,14 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
             ct, iid, field, value = u.get("contentType"), u.get("itemId"), u.get("field"), u.get("value")
             if not all([ct, iid, field]):
                 continue
-            item_key = _progress_key(ct, iid)
+            iid_str = str(iid) if iid is not None else ""
+            if not iid_str:
+                continue
+            item_key = _progress_key(ct, iid_str)
 
             update_expr = "SET #field = :val, #ua = :now, #ct = :ct, #iid = :iid"
             expr_names = {"#field": field, "#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId"}
-            expr_values = {":val": bool(value), ":now": now, ":ct": ct, ":iid": iid}
+            expr_values = {":val": bool(value), ":now": now, ":ct": ct, ":iid": iid_str}
             if field == "isSolved" and value:
                 update_expr += ", #sa = :now"
                 expr_names["#sa"] = "solvedAt"
