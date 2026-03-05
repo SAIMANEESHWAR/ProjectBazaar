@@ -15,6 +15,7 @@ import CareerContentManagementPage from './CareerContentManagementPage';
 import RoadmapManagementPage from './RoadmapManagementPage';
 import PlacementPrepManagementPage from './PlacementPrepManagementPage';
 import PrepContentManagementPage from './PrepContentManagementPage';
+import CoverageReportPage from './CoverageReportPage';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 
@@ -74,6 +75,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'admin-project-details': selectedProject ? `Project: ${selectedProject.title}` : 'Project Details',
         'admin-report-details': 'Report Details',
         'prep-mode': 'Preparation Mode',
+        'coverage-report': 'Test Coverage',
     };
 
     const handleViewUser = (user: { id: string; name: string; email: string }) => {
@@ -246,6 +248,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'placement-prep' && <PlacementPrepManagementPage />}
                 {activeView === 'prep-content' && <PrepContentManagementPage />}
                 {activeView === 'prep-mode' && <PrepContentManagementPage />}
+                {activeView === 'coverage-report' && <CoverageReportPage />}
             </div>
         </div>
     );

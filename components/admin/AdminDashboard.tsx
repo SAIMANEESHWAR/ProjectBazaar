@@ -18,7 +18,8 @@ export type AdminView =
     | 'user-profile'
     | 'admin-project-details'
     | 'admin-report-details'
-    | 'prep-mode';
+    | 'prep-mode'
+    | 'coverage-report';
 
 const AdminDashboard: React.FC = () => {
     const [activeView, setActiveView] = useState<AdminView>('project-management');
