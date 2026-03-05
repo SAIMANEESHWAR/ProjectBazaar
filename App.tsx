@@ -1,38 +1,44 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, Suspense, lazy } from 'react';
 import { DashboardProvider } from './context/DashboardContext';
+import { SocketProvider } from './context/SocketContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import PageLoader from './components/PageLoader';
+import CookieConsent from './components/CookieConsent';
+
+// -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
 import Hero from './components/Hero';
-import FlickeringFooter from './components/ui/flickering-footer';
-import ProblemsSection from './components/ProblemsSection';
-import PlatformCardsSection from './components/sections/PlatformCardsSection';
-import UniSystemSection from './components/sections/UniSystemSection';
-import CurriculumSection from './components/sections/CurriculumSection';
-import LanguagesSkillsSection from './components/sections/LanguagesSkillsSection';
-import ResultsGridSection from './components/sections/ResultsGridSection';
-import TestimonialsSection from './components/sections/TestimonialsSection';
-import InstructorSection from './components/sections/InstructorSection';
-import FAQSection from './components/sections/FAQSection';
-import FinalCTASection from './components/sections/FinalCTASection';
-import HackathonCarouselSection from './components/sections/HackathonCarouselSection';
-import InterviewPrepHowItWorks from './components/sections/InterviewPrepHowItWorks';
-import AuthPage from './components/AuthPage';
-import TopSellers from './components/TopSellers';
-import DashboardPage from './components/DashboardPage';
-import SellerDashboardPage from './components/SellerDashboardPage';
-import AdminDashboard from './components/admin/AdminDashboard';
-import NotFound from './components/NotFound';
-import FAQWithSpiral from './components/ui/faq-section';
-import BrowseProjects from './components/BrowseProjects';
-import FreelancerProfilePage from './components/FreelancerProfilePage';
-import DashboardLayoutWrapper from './components/DashboardLayoutWrapper';
-import BuildPortfolioPage from './components/BuildPortfolioPage';
-import { ResumeBuilderPage } from './components/resume-builder';
-import MockAssessmentPage from './components/MockAssessmentPage';
-import CodingInterviewQuestionsPage from './components/CodingInterviewQuestionsPage';
-import PrivacyPolicyPage from './components/PrivacyPolicyPage';
-import TermsAndConditionsPage from './components/TermsAndConditionsPage';
-import CookieConsent from './components/CookieConsent';
-import { SocketProvider } from './context/SocketContext';
+
+// -- Lazy-loaded route components --
+const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
+const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
+const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
+const UniSystemSection = lazy(() => import('./components/sections/UniSystemSection'));
+const CurriculumSection = lazy(() => import('./components/sections/CurriculumSection'));
+const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
+const ResultsGridSection = lazy(() => import('./components/sections/ResultsGridSection'));
+const TestimonialsSection = lazy(() => import('./components/sections/TestimonialsSection'));
+const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
+const FAQSection = lazy(() => import('./components/sections/FAQSection'));
+const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
+const HackathonCarouselSection = lazy(() => import('./components/sections/HackathonCarouselSection'));
+const InterviewPrepHowItWorks = lazy(() => import('./components/sections/InterviewPrepHowItWorks'));
+const TopSellers = lazy(() => import('./components/TopSellers'));
+const AuthPage = lazy(() => import('./components/AuthPage'));
+const DashboardPage = lazy(() => import('./components/DashboardPage'));
+const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+const NotFound = lazy(() => import('./components/NotFound'));
+const FAQWithSpiral = lazy(() => import('./components/ui/faq-section'));
+const BrowseProjects = lazy(() => import('./components/BrowseProjects'));
+const FreelancerProfilePage = lazy(() => import('./components/FreelancerProfilePage'));
+const DashboardLayoutWrapper = lazy(() => import('./components/DashboardLayoutWrapper'));
+const BuildPortfolioPage = lazy(() => import('./components/BuildPortfolioPage'));
+const MockAssessmentPage = lazy(() => import('./components/MockAssessmentPage'));
+const CodingInterviewQuestionsPage = lazy(() => import('./components/CodingInterviewQuestionsPage'));
+const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage'));
+const TermsAndConditionsPage = lazy(() => import('./components/TermsAndConditionsPage'));
+const ResumeBuilderPage = lazy(() => import('./components/resume-builder').then(m => ({ default: m.ResumeBuilderPage })));
 
 type Theme = 'light' | 'dark';
 type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'privacy' | 'terms' | 'notFound';
@@ -252,77 +258,87 @@ const AppContent: React.FC = () => {
     updatePageMeta(page);
   }, [page]);
 
-  switch (page) {
-    case 'auth':
-      return <AuthPage />;
-    case 'admin':
-      return isLoggedIn && userRole === 'admin' ? <AdminDashboard /> : <AuthPage />;
-    case 'dashboard':
-      return isLoggedIn ? <DashboardPage /> : <AuthPage />;
-    case 'seller':
-      return isLoggedIn ? <SellerDashboardPage /> : <AuthPage />;
-    case 'faq':
-      return (
-        <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300">
-          <Header />
-          <FAQWithSpiral />
-        </div>
-      );
-    case 'browseProjects':
-      return <BrowseProjects />;
-    case 'freelancerProfile':
-      return (
-        <DashboardLayoutWrapper>
-          <FreelancerProfilePage />
-        </DashboardLayoutWrapper>
-      );
-    case 'buildPortfolio':
-      return <BuildPortfolioPage />;
-    case 'buildResume':
-      return <ResumeBuilderPage />;
-    case 'mockAssessment':
-      return <MockAssessmentPage initialView="list" />;
-    case 'mockLeaderboard':
-      return <MockAssessmentPage initialView="leaderboard" />;
-    case 'mockAchievements':
-      return <MockAssessmentPage initialView="achievements" />;
-    case 'mockDailyChallenge':
-      return <MockAssessmentPage initialView="daily-challenge" />;
-    case 'mockHistory':
-      return <MockAssessmentPage initialView="history" />;
-    case 'codingQuestions':
-      return <CodingInterviewQuestionsPage />;
-    case 'privacy':
-      return <PrivacyPolicyPage />;
-    case 'terms':
-      return <TermsAndConditionsPage />;
-    case 'notFound':
-      return <NotFound />;
-    case 'home':
-    default:
-      return (
-        <div className="min-h-screen overflow-x-hidden transition-colors duration-300 font-sans bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100">
-          <Header />
-          <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
-            <Hero />
-            <InterviewPrepHowItWorks />
-            <ProblemsSection />
-            <PlatformCardsSection />
-            <UniSystemSection />
-            <CurriculumSection />
-            <LanguagesSkillsSection />
-            <HackathonCarouselSection />
-            <ResultsGridSection />
-            <TestimonialsSection />
-            <TopSellers />
-            <InstructorSection />
-            <FAQSection />
-            <FinalCTASection />
-          </main>
-          <FlickeringFooter />
-        </div>
-      );
-  }
+  const renderPage = () => {
+    switch (page) {
+      case 'auth':
+        return <AuthPage />;
+      case 'admin':
+        return isLoggedIn && userRole === 'admin' ? <AdminDashboard /> : <AuthPage />;
+      case 'dashboard':
+        return isLoggedIn ? <DashboardPage /> : <AuthPage />;
+      case 'seller':
+        return isLoggedIn ? <SellerDashboardPage /> : <AuthPage />;
+      case 'faq':
+        return (
+          <div className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300">
+            <Header />
+            <FAQWithSpiral />
+          </div>
+        );
+      case 'browseProjects':
+        return <BrowseProjects />;
+      case 'freelancerProfile':
+        return (
+          <DashboardLayoutWrapper>
+            <FreelancerProfilePage />
+          </DashboardLayoutWrapper>
+        );
+      case 'buildPortfolio':
+        return <BuildPortfolioPage />;
+      case 'buildResume':
+        return <ResumeBuilderPage />;
+      case 'mockAssessment':
+        return <MockAssessmentPage initialView="list" />;
+      case 'mockLeaderboard':
+        return <MockAssessmentPage initialView="leaderboard" />;
+      case 'mockAchievements':
+        return <MockAssessmentPage initialView="achievements" />;
+      case 'mockDailyChallenge':
+        return <MockAssessmentPage initialView="daily-challenge" />;
+      case 'mockHistory':
+        return <MockAssessmentPage initialView="history" />;
+      case 'codingQuestions':
+        return <CodingInterviewQuestionsPage />;
+      case 'privacy':
+        return <PrivacyPolicyPage />;
+      case 'terms':
+        return <TermsAndConditionsPage />;
+      case 'notFound':
+        return <NotFound />;
+      case 'home':
+      default:
+        return (
+          <div className="min-h-screen overflow-x-hidden transition-colors duration-300 font-sans bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100">
+            <Header />
+            <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
+              <Hero />
+              <InterviewPrepHowItWorks />
+              <ProblemsSection />
+              <PlatformCardsSection />
+              <UniSystemSection />
+              <CurriculumSection />
+              <LanguagesSkillsSection />
+              <HackathonCarouselSection />
+              <ResultsGridSection />
+              <TestimonialsSection />
+              <TopSellers />
+              <InstructorSection />
+              <FAQSection />
+              <FinalCTASection />
+            </main>
+            <FlickeringFooter />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        {renderPage()}
+      </Suspense>
+    </ErrorBoundary>
+  );
 };
 
 const App: React.FC = () => {
@@ -465,7 +481,7 @@ const App: React.FC = () => {
       try {
         const userData = JSON.parse(storedUserData);
         if (userData.userId && userData.email) {
-          const role = userData.email === 'saimanee@gmail.com' ? 'admin' : (userData.role || 'user');
+          const role: UserRole = userData.role === 'admin' ? 'admin' : 'user';
           setUserId(userData.userId);
           setUserEmail(userData.email);
           setUserRole(role);

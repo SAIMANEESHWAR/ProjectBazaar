@@ -1,19 +1,48 @@
 import json
 import re
 import uuid
+import hashlib
+import hmac
+import os
+import secrets
 import boto3
 from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
+try:
+    from rate_limiter import check_rate_limit
+except ImportError:
+    def check_rate_limit(*args, **kwargs):
+        return None
+
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://projectbazaar.in")
 
 EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(USERS_TABLE)
+
+# ---------- PASSWORD HASHING ----------
+def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+    """Hash password with PBKDF2-HMAC-SHA256. Returns (hash_hex, salt_hex)."""
+    if salt is None:
+        salt = secrets.token_hex(32)
+    pw_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt),
+        iterations=600_000,
+    )
+    return pw_hash.hex(), salt
+
+def _verify_password(password: str, stored_hash: str, salt: str) -> bool:
+    """Verify a password against stored hash and salt."""
+    computed_hash, _ = _hash_password(password, salt)
+    return hmac.compare_digest(computed_hash, stored_hash)
 
 # ---------- DECIMAL FIX ----------
 def decimal_to_native(obj):
@@ -31,9 +60,10 @@ def response(status, body):
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "POST,OPTIONS"
+            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Methods": "POST,OPTIONS",
+            "Access-Control-Allow-Credentials": "true",
         },
         "body": json.dumps(decimal_to_native(body))
     }
@@ -54,13 +84,24 @@ def get_password_error(password):
 
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
+    # Handle CORS preflight
+    http_method = event.get("httpMethod", "")
+    if http_method == "OPTIONS":
+        return response(200, {})
+
     try:
         body = json.loads(event.get("body", "{}"))
         action = body.get("action")
 
         if action == "signup":
+            blocked = check_rate_limit(event, action="signup", max_requests=3, window_seconds=300)
+            if blocked:
+                return blocked
             return handle_signup(body)
         elif action == "login":
+            blocked = check_rate_limit(event, action="login", max_requests=5, window_seconds=300)
+            if blocked:
+                return blocked
             return handle_login(body)
 
         return response(400, {
@@ -77,7 +118,6 @@ def lambda_handler(event, context):
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "Server error",
-                "details": str(e)
             }
         })
 
@@ -141,12 +181,14 @@ def handle_signup(body):
 
     user_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
+    pw_hash, pw_salt = _hash_password(password)
 
     table.put_item(Item={
         "userId": user_id,
         "email": email,
         "phoneNumber": phone,
-        "passwordHash": password,  # ⚠️ HASH IN PRODUCTION
+        "passwordHash": pw_hash,
+        "passwordSalt": pw_salt,
         "role": "user",
         "status": "active",
 
@@ -239,14 +281,34 @@ def handle_login(body):
             }
         })
 
-    if password != user["passwordHash"]:
-        return response(401, {
-            "success": False,
-            "error": {
-                "code": "INVALID_CREDENTIALS",
-                "message": "Invalid credentials"
-            }
-        })
+    stored_hash = user.get("passwordHash", "")
+    stored_salt = user.get("passwordSalt")
+
+    if stored_salt:
+        if not _verify_password(password, stored_hash, stored_salt):
+            return response(401, {
+                "success": False,
+                "error": {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "Invalid credentials"
+                }
+            })
+    else:
+        # Legacy plain-text fallback: verify then migrate to hashed
+        if password != stored_hash:
+            return response(401, {
+                "success": False,
+                "error": {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "Invalid credentials"
+                }
+            })
+        pw_hash, pw_salt = _hash_password(password)
+        table.update_item(
+            Key={"userId": user["userId"]},
+            UpdateExpression="SET passwordHash = :h, passwordSalt = :s",
+            ExpressionAttributeValues={":h": pw_hash, ":s": pw_salt}
+        )
 
     table.update_item(
         Key={"userId": user["userId"]},

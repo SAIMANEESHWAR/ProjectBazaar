@@ -300,13 +300,10 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        // Determine role - check if admin
-        const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
+        const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
 
-        // Call the login function with user data
         login(data.data.userId, data.data.email, userRole);
       } else {
         setError(data.error?.message || 'Login failed. Please check your credentials.');
@@ -336,9 +333,8 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
+        const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
 
         login(data.data.userId, data.data.email, userRole);
