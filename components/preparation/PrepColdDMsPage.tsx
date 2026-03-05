@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { coldDMTemplates as mockTemplates } from '../../data/preparationMockData';
 import type { ColdDMTemplate } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
@@ -27,7 +26,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [templates, setTemplates] = useState<ColdDMTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<ColdDMTemplate[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +36,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
         if (!cancelled && resp.success && resp.items.length > 0) {
           setTemplates(resp.items);
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);

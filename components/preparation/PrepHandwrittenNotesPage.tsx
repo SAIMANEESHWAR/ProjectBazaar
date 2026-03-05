@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { handwrittenNotes as mockNotes } from '../../data/preparationMockData';
+import type { HandwrittenNote } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -22,7 +22,7 @@ const topicEmojis: Record<string, string> = {
 const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useViewMode('grid');
-  const [notes, setNotes] = useState(mockNotes);
+  const [notes, setNotes] = useState<HandwrittenNote[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,9 +30,9 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
       try {
         const resp = await prepUserApi.listContent('handwritten_notes', { limit: 200 });
         if (!cancelled && resp.success && resp.items.length > 0) {
-          setNotes(resp.items as any);
+          setNotes((resp.items || []) as unknown as HandwrittenNote[]);
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);

@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { dsaProblems as mockProblems, prepStats } from '../../data/preparationMockData';
 import type { DSAProblem } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
@@ -42,7 +41,8 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [search, setSearch] = useState('');
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
-  const [problems, setProblems] = useState<DSAProblem[]>(mockProblems);
+  const [problems, setProblems] = useState<DSAProblem[]>([]);
+  const [stats, setStats] = useState<{ totalDSA: number; dsaEasy: number; dsaMedium: number; dsaHard: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -52,11 +52,22 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', { limit: 500 });
-        if (!cancelled && resp.success && resp.items.length > 0) {
-          setProblems(resp.items);
+        const [resp, dashboard] = await Promise.all([
+          prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', { limit: 500 }),
+          prepUserApi.getDashboard(),
+        ]);
+        if (!cancelled && resp.success && resp.items.length > 0) setProblems(resp.items);
+        if (!cancelled && dashboard?.contentCounts) {
+          const cc = dashboard.contentCounts;
+          const total = (cc.dsa_problems as number) ?? 0;
+          setStats({
+            totalDSA: total,
+            dsaEasy: Math.floor(total * 0.35),
+            dsaMedium: Math.floor(total * 0.5),
+            dsaHard: Math.floor(total * 0.15),
+          });
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -124,19 +135,19 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Total</p>
-          <p className="text-2xl font-bold text-gray-900">{prepStats.totalDSA}</p>
+          <p className="text-2xl font-bold text-gray-900">{stats?.totalDSA ?? problems.length}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Easy</p>
-          <p className="text-2xl font-bold text-green-700">{prepStats.dsaEasy}</p>
+          <p className="text-2xl font-bold text-green-700">{stats?.dsaEasy ?? problems.filter((p) => p.difficulty === 'Easy').length}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Medium</p>
-          <p className="text-2xl font-bold text-yellow-700">{prepStats.dsaMedium}</p>
+          <p className="text-2xl font-bold text-yellow-700">{stats?.dsaMedium ?? problems.filter((p) => p.difficulty === 'Medium').length}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Hard</p>
-          <p className="text-2xl font-bold text-red-700">{prepStats.dsaHard}</p>
+          <p className="text-2xl font-bold text-red-700">{stats?.dsaHard ?? problems.filter((p) => p.difficulty === 'Hard').length}</p>
         </div>
       </div>
 

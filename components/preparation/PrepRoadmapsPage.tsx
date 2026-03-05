@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { roadmaps as mockRoadmaps } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -20,9 +19,7 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
   const [viewMode, setViewMode] = useViewMode('grid');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [localRoadmaps, setLocalRoadmaps] = useState<RoadmapWithLocalSteps[]>(() =>
-    mockRoadmaps.map((r) => ({ ...r, steps: r.steps.map((s) => ({ ...s })) }))
-  );
+  const [localRoadmaps, setLocalRoadmaps] = useState<RoadmapWithLocalSteps[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +32,7 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
             steps: (r.steps || []).map((s: any) => ({ ...s })),
           })));
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);

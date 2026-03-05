@@ -13,15 +13,6 @@ import {
   Map,
   FileStack,
 } from 'lucide-react';
-import {
-  prepStats as mockStats,
-  recentActivity as mockActivity,
-  collections as mockCollections,
-  massRecruitmentCompanies,
-  handwrittenNotes,
-  roadmaps,
-  positionResources,
-} from '../../data/preparationMockData';
 import { prepUserApi, type DashboardData, type PrepActivity } from '../../services/preparationApi';
 import { ShinyButton } from '../ui/ShinyButton';
 
@@ -31,20 +22,20 @@ interface PreparationHubProps {
 
 const iconClass = 'w-6 h-6 text-gray-600 dark:text-gray-400';
 
-function buildFeatureCards(counts: Record<string, number>) {
+function buildFeatureCards(counts: Record<string, number>, collectionsCount: number) {
   return [
-    { id: 'interview-questions', view: 'prep-interview-questions', title: 'Interview Questions', description: 'Practice technical and behavioral questions', count: counts.interview_questions ?? mockStats.totalQuestions, Icon: HelpCircle },
-    { id: 'dsa-problems', view: 'prep-dsa', title: 'DSA Problems', description: 'Data structures and algorithms practice', count: counts.dsa_problems ?? mockStats.totalDSA, Icon: Code2 },
-    { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: counts.quizzes ?? mockStats.totalQuizzes, Icon: ClipboardList },
-    { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: counts.system_design ?? 51, Icon: Building2 },
-    { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: counts.fundamentals ?? 18, Icon: BookOpen },
-    { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: counts.position_resources ?? positionResources.length, Icon: Target },
-    { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: counts.mass_recruitment ?? massRecruitmentCompanies.length, Icon: Users },
-    { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: counts.cold_dm_templates ?? mockStats.totalColdDMs, Icon: Mail },
-    { id: 'job-portals', view: 'prep-job-portals', title: 'Job Portals', description: 'Discover job opportunities across platforms', count: counts.job_portals ?? mockStats.totalJobPortals, Icon: Briefcase },
-    { id: 'handwritten-notes', view: 'prep-notes', title: 'Handwritten Notes', description: 'Curated study materials and notes', count: counts.handwritten_notes ?? handwrittenNotes.length, Icon: PenLine },
-    { id: 'roadmaps', view: 'prep-roadmaps', title: 'Roadmaps', description: 'Step-by-step learning paths for every role', count: counts.roadmaps ?? roadmaps.length, Icon: Map },
-    { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: mockCollections.length, Icon: FileStack },
+    { id: 'interview-questions', view: 'prep-interview-questions', title: 'Interview Questions', description: 'Practice technical and behavioral questions', count: counts.interview_questions ?? 0, Icon: HelpCircle },
+    { id: 'dsa-problems', view: 'prep-dsa', title: 'DSA Problems', description: 'Data structures and algorithms practice', count: counts.dsa_problems ?? 0, Icon: Code2 },
+    { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: counts.quizzes ?? 0, Icon: ClipboardList },
+    { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: counts.system_design ?? 0, Icon: Building2 },
+    { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: counts.fundamentals ?? 0, Icon: BookOpen },
+    { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: counts.position_resources ?? 0, Icon: Target },
+    { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: counts.mass_recruitment ?? 0, Icon: Users },
+    { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: counts.cold_dm_templates ?? 0, Icon: Mail },
+    { id: 'job-portals', view: 'prep-job-portals', title: 'Job Portals', description: 'Discover job opportunities across platforms', count: counts.job_portals ?? 0, Icon: Briefcase },
+    { id: 'handwritten-notes', view: 'prep-notes', title: 'Handwritten Notes', description: 'Curated study materials and notes', count: counts.handwritten_notes ?? 0, Icon: PenLine },
+    { id: 'roadmaps', view: 'prep-roadmaps', title: 'Roadmaps', description: 'Step-by-step learning paths for every role', count: counts.roadmaps ?? 0, Icon: Map },
+    { id: 'collections', view: 'prep-collections', title: 'Collections', description: 'Organize and save your favorite items', count: collectionsCount, Icon: FileStack },
   ];
 }
 
@@ -77,6 +68,7 @@ function formatTimestamp(ts: string): string {
 export default function PreparationHub({ onNavigate }: PreparationHubProps) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [collectionsCount, setCollectionsCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,9 +76,11 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
       try {
         const data = await prepUserApi.getDashboard();
         if (!cancelled && data) setDashboard(data);
+        const cols = await prepUserApi.listCollections();
+        if (!cancelled) setCollectionsCount(cols?.length ?? 0);
         await prepUserApi.updateStreak();
       } catch {
-        /* fall back to mock data */
+        /* use API-only; no fallback */
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -95,23 +89,21 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
   }, []);
 
   const stats = dashboard?.stats ?? {
-    solvedQuestions: mockStats.solvedQuestions,
-    solvedDSA: mockStats.solvedDSA,
-    completedQuizzes: mockStats.completedQuizzes,
-    streak: mockStats.streak,
+    solvedQuestions: 0,
+    solvedDSA: 0,
+    completedQuizzes: 0,
+    streak: 0,
   } as any;
 
   const contentCounts = dashboard?.contentCounts ?? {};
   const activities: (PrepActivity | { id: string; type: string; title: string; description: string; timestamp: string })[] =
-    dashboard?.recentActivity?.length
-      ? dashboard.recentActivity
-      : mockActivity;
+    dashboard?.recentActivity?.length ? dashboard.recentActivity : [];
 
-  const featureCards = buildFeatureCards(contentCounts);
+  const featureCards = buildFeatureCards(contentCounts, collectionsCount);
 
-  const totalIQ = contentCounts.interview_questions ?? mockStats.totalQuestions;
-  const totalDSA = contentCounts.dsa_problems ?? mockStats.totalDSA;
-  const totalQuiz = contentCounts.quizzes ?? mockStats.totalQuizzes;
+  const totalIQ = contentCounts.interview_questions ?? 0;
+  const totalDSA = contentCounts.dsa_problems ?? 0;
+  const totalQuiz = contentCounts.quizzes ?? 0;
   const totalPrepItems = totalIQ + totalDSA + totalQuiz;
   const completedItems = (stats.solvedQuestions ?? 0) + (stats.solvedDSA ?? 0) + (stats.completedQuizzes ?? 0);
   const progressPercent = totalPrepItems > 0 ? Math.min(100, (completedItems / totalPrepItems) * 100) : 0;
@@ -120,7 +112,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
     { label: 'Total Questions', value: totalIQ, Icon: HelpCircle },
     { label: 'DSA Problems', value: totalDSA, Icon: Code2 },
     { label: 'Quizzes', value: totalQuiz, Icon: ClipboardList },
-    { label: 'Cold DM Templates', value: contentCounts.cold_dm_templates ?? mockStats.totalColdDMs, Icon: Mail },
+    { label: 'Cold DM Templates', value: contentCounts.cold_dm_templates ?? 0, Icon: Mail },
   ];
 
   return (

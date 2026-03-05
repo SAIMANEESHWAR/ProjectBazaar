@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { jobPortals as mockPortals } from '../../data/preparationMockData';
+import type { JobPortal } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
@@ -18,7 +18,7 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   const [region, setRegion] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
-  const [portals, setPortals] = useState(mockPortals);
+  const [portals, setPortals] = useState<JobPortal[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,9 +26,9 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
       try {
         const resp = await prepUserApi.listContentWithProgress('job_portals', { limit: 200 });
         if (!cancelled && resp.success && resp.items.length > 0) {
-          setPortals(resp.items as any);
+          setPortals((resp.items || []) as unknown as JobPortal[]);
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);

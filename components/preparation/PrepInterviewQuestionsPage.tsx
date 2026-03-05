@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { interviewQuestions as mockQuestions, prepStats } from '../../data/preparationMockData';
 import type { InterviewQuestion } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
@@ -42,7 +41,8 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [questions, setQuestions] = useState<InterviewQuestion[]>(mockQuestions);
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [contentStats, setContentStats] = useState<{ total: number; easy: number; medium: number; hard: number }>({ total: 0, easy: 0, medium: 0, hard: 0 });
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
@@ -52,10 +52,17 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
     (async () => {
       try {
         const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', { limit: 500 });
-        if (!cancelled && resp.success && resp.items.length > 0) {
-          setQuestions(resp.items);
+        if (!cancelled && resp.success) {
+          const items = (resp.items || []) as InterviewQuestion[];
+          setQuestions(items);
+          setContentStats({
+            total: items.length,
+            easy: items.filter((q) => q.difficulty === 'Easy').length,
+            medium: items.filter((q) => q.difficulty === 'Medium').length,
+            hard: items.filter((q) => q.difficulty === 'Hard').length,
+          });
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -109,10 +116,10 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
     prepUserApi.toggleBookmarked('interview_questions', id).catch(() => {});
   }, []);
 
-  const totalProgress = prepStats.totalQuestions;
-  const easyProgress = (prepStats.questionsEasy / totalProgress) * 100;
-  const mediumProgress = (prepStats.questionsMedium / totalProgress) * 100;
-  const hardProgress = (prepStats.questionsHard / totalProgress) * 100;
+  const totalProgress = contentStats.total || 1;
+  const easyProgress = (contentStats.easy / totalProgress) * 100;
+  const mediumProgress = (contentStats.medium / totalProgress) * 100;
+  const hardProgress = (contentStats.hard / totalProgress) * 100;
 
   return (
     <div className="space-y-6">
@@ -124,28 +131,28 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Total</p>
-          <p className="text-2xl font-bold text-gray-900">{prepStats.totalQuestions}</p>
+          <p className="text-2xl font-bold text-gray-900">{contentStats.total}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-orange-500 rounded-full" style={{ width: '100%' }} />
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Easy</p>
-          <p className="text-2xl font-bold text-green-700">{prepStats.questionsEasy}</p>
+          <p className="text-2xl font-bold text-green-700">{contentStats.easy}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-green-500 rounded-full" style={{ width: `${easyProgress}%` }} />
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Medium</p>
-          <p className="text-2xl font-bold text-yellow-700">{prepStats.questionsMedium}</p>
+          <p className="text-2xl font-bold text-yellow-700">{contentStats.medium}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${mediumProgress}%` }} />
           </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Hard</p>
-          <p className="text-2xl font-bold text-red-700">{prepStats.questionsHard}</p>
+          <p className="text-2xl font-bold text-red-700">{contentStats.hard}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-red-500 rounded-full" style={{ width: `${hardProgress}%` }} />
           </div>
