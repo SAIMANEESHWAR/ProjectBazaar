@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { hldQuestions, lldQuestions, hldSections, lldSections, type SDQuestion } from '../../data/systemDesignData';
-
-interface Props { toggleSidebar?: () => void; }
+import PrepFilterDropdown from './PrepFilterDropdown';
 
 type DesignTab = 'hld' | 'lld';
+
+export interface PrepSystemDesignPageProps { toggleSidebar?: () => void; designTab?: DesignTab; }
 type FilterTab = 'all' | 'solved' | 'revision';
 const ITEMS_PER_PAGE = 15;
 
@@ -13,8 +14,20 @@ const difficultyClass = (d: string) => {
   return 'bg-red-100 text-red-700';
 };
 
-export default function PrepSystemDesignPage(_props: Props) {
-  const [designTab, setDesignTab] = useState<DesignTab>('hld');
+const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
+
+type SortKey = 'title' | 'section' | 'difficulty' | null;
+type SortDir = 'asc' | 'desc';
+
+const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
+  <span className={`inline-flex flex-col ml-1.5 -space-y-0.5 ${active ? '' : 'opacity-30'}`}>
+    <svg className={`w-3 h-3 ${active && dir === 'asc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 0l5 6H0z" /></svg>
+    <svg className={`w-3 h-3 ${active && dir === 'desc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 6L0 0h10z" /></svg>
+  </span>
+);
+
+export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' }: PrepSystemDesignPageProps) {
+  const designTab = designTabProp;
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState('all');
@@ -22,6 +35,13 @@ export default function PrepSystemDesignPage(_props: Props) {
   const [solvedMap, setSolvedMap] = useState<Record<string, boolean>>({});
   const [revisionMap, setRevisionMap] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
 
   const allQuestions = designTab === 'hld' ? hldQuestions : lldQuestions;
   const sections = designTab === 'hld' ? hldSections : lldSections;
@@ -29,7 +49,7 @@ export default function PrepSystemDesignPage(_props: Props) {
   const shortLabel = designTab === 'hld' ? 'HLD' : 'LLD';
 
   const questions = useMemo(() => {
-    return allQuestions.filter((q) => {
+    const filtered = allQuestions.filter((q) => {
       const isSolved = solvedMap[q.id] ?? q.isSolved;
       const isRevision = revisionMap[q.id] ?? q.isRevision;
       if (filterTab === 'solved' && !isSolved) return false;
@@ -42,7 +62,15 @@ export default function PrepSystemDesignPage(_props: Props) {
       }
       return true;
     });
-  }, [allQuestions, filterTab, sectionFilter, difficultyFilter, search, solvedMap, revisionMap]);
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'title') cmp = a.title.localeCompare(b.title);
+      else if (sortKey === 'section') cmp = a.section.localeCompare(b.section);
+      else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [allQuestions, filterTab, sectionFilter, difficultyFilter, search, solvedMap, revisionMap, sortKey, sortDir]);
 
   const totalPages = Math.ceil(questions.length / ITEMS_PER_PAGE);
   const paginated = useMemo(() => {
@@ -51,7 +79,7 @@ export default function PrepSystemDesignPage(_props: Props) {
   }, [questions, currentPage]);
 
   useEffect(() => { setCurrentPage(1); }, [designTab, filterTab, sectionFilter, difficultyFilter, search]);
-  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); }, [designTab]);
+  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); setCurrentPage(1); }, [designTab]);
 
   const stats = useMemo(() => {
     const total = allQuestions.length;
@@ -84,16 +112,6 @@ export default function PrepSystemDesignPage(_props: Props) {
             My progress
           </button>
         </div>
-      </div>
-
-      {/* HLD / LLD tabs */}
-      <div className="mb-5 flex gap-1 border-b border-gray-200">
-        {(['hld', 'lld'] as DesignTab[]).map(tab => (
-          <button key={tab} onClick={() => setDesignTab(tab)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 ${designTab === tab ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
-            {tab === 'hld' ? 'High Level Design' : 'Low Level Design'}
-          </button>
-        ))}
       </div>
 
       {/* Filter tabs */}
@@ -145,18 +163,23 @@ export default function PrepSystemDesignPage(_props: Props) {
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </div>
-        <select value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}
-          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-          <option value="all">All Sections</option>
-          {sections.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={difficultyFilter} onChange={e => setDifficultyFilter(e.target.value)}
-          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-          <option value="all">All Difficulties</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
+        <PrepFilterDropdown
+          value={sectionFilter}
+          onChange={setSectionFilter}
+          options={[{ value: 'all', label: 'All Sections' }, ...sections.map(s => ({ value: s, label: s }))]}
+        />
+        <PrepFilterDropdown
+          value={difficultyFilter}
+          onChange={setDifficultyFilter}
+          options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
+        />
+        {(sectionFilter !== 'all' || difficultyFilter !== 'all' || search.trim()) && (
+          <button onClick={() => { setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); }}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -171,9 +194,15 @@ export default function PrepSystemDesignPage(_props: Props) {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Question</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-44">Section</th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Difficulty</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('title')}>
+                    <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'title'} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-44 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('section')}>
+                    <span className="inline-flex items-center">Section <SortIcon active={sortKey === 'section'} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                    <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                  </th>
                   <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
                   <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
                 </tr>

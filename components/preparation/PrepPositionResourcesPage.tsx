@@ -6,6 +6,17 @@ interface PrepPositionResourcesPageProps {
 }
 
 const ITEMS_PER_PAGE = 15;
+const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
+
+type SortKey = 'question' | 'category' | 'difficulty' | null;
+type SortDir = 'asc' | 'desc';
+
+const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
+  <span className={`inline-flex flex-col ml-1.5 -space-y-0.5 ${active ? '' : 'opacity-30'}`}>
+    <svg className={`w-3 h-3 ${active && dir === 'asc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 0l5 6H0z" /></svg>
+    <svg className={`w-3 h-3 ${active && dir === 'desc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 6L0 0h10z" /></svg>
+  </span>
+);
 
 const difficultyClass = (d: string) => {
   if (d === 'Easy') return 'bg-green-100 text-green-700';
@@ -19,10 +30,17 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
   const [solvedMap, setSolvedMap] = useState<Record<string, boolean>>({});
   const [revisionMap, setRevisionMap] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
 
   const selectedRole = useMemo(() => roles.find((r) => r.id === selectedRoleId) ?? roles[0], [selectedRoleId]);
 
-  const questions: PositionQuestion[] = useMemo(() => {
+  const rawQuestions: PositionQuestion[] = useMemo(() => {
     switch (activeSubTab) {
       case 'interview': return selectedRole.interviewQuestions;
       case 'dsa': return selectedRole.dsaQuestions;
@@ -32,6 +50,17 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
       default: return [];
     }
   }, [selectedRole, activeSubTab]);
+
+  const questions = useMemo(() => {
+    if (!sortKey) return rawQuestions;
+    return [...rawQuestions].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'question') cmp = a.question.localeCompare(b.question);
+      else if (sortKey === 'category') cmp = (a.category ?? '').localeCompare(b.category ?? '');
+      else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [rawQuestions, sortKey, sortDir]);
 
   const totalPages = Math.ceil(questions.length / ITEMS_PER_PAGE);
   const paginatedQuestions = useMemo(() => {
@@ -132,11 +161,17 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Question</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('question')}>
+                    <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'question'} dir={sortDir} /></span>
+                  </th>
                   {showCategory && (
-                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Category</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('category')}>
+                      <span className="inline-flex items-center">Category <SortIcon active={sortKey === 'category'} dir={sortDir} /></span>
+                    </th>
                   )}
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Difficulty</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                    <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                  </th>
                   <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
                   <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
                 </tr>

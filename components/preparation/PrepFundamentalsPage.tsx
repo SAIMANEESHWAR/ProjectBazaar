@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { oopsConcepts, languageConcepts, groupByCategory, type Concept } from '../../data/fundamentalsData';
 
-interface Props { toggleSidebar?: () => void; }
-
 type FundSection = 'language' | 'oops';
+
+export interface PrepFundamentalsPageProps { toggleSidebar?: () => void; section?: FundSection; }
 type DiffFilter = 'all' | 'Easy' | 'Medium' | 'Hard';
 
 const diffBadge = (d: string) => {
@@ -12,8 +12,8 @@ const diffBadge = (d: string) => {
   return 'bg-red-100 text-red-700';
 };
 
-export default function PrepFundamentalsPage(_props: Props) {
-  const [section, setSection] = useState<FundSection>('oops');
+export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: PrepFundamentalsPageProps) {
+  const section = sectionProp;
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('all');
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
 
@@ -125,16 +125,6 @@ export default function PrepFundamentalsPage(_props: Props) {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           Search
         </button>
-      </div>
-
-      {/* Section tabs */}
-      <div className="mb-5 flex gap-1 border-b border-gray-200">
-        {([['language', 'Language'], ['oops', 'OOPs Concepts']] as [FundSection, string][]).map(([key, lbl]) => (
-          <button key={key} onClick={() => { setSection(key); setDiffFilter('all'); }}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-all duration-200 ${section === key ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
-            {lbl}
-          </button>
-        ))}
       </div>
 
       {/* Difficulty filter tabs */}

@@ -83,7 +83,11 @@ const viewTitles: Record<DashboardView, string> = {
   'prep-roadmaps': 'Roadmaps',
   'prep-position-resources': 'Position Resources',
   'prep-system-design': 'System Design',
+  'prep-hld': 'High Level Design',
+  'prep-lld': 'Low Level Design',
   'prep-fundamentals': 'Fundamentals',
+  'prep-language': 'Language Fundamentals',
+  'prep-oops': 'OOPs Concepts',
   'prep-activity': 'My Activity',
 };
 

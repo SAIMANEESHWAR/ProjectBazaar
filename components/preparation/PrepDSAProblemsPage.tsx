@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { dsaProblems, prepStats } from '../../data/preparationMockData';
 import type { DSAProblem } from '../../data/preparationMockData';
+import PrepFilterDropdown from './PrepFilterDropdown';
 
 interface PrepDSAProblemsPageProps {
   toggleSidebar?: () => void;
@@ -9,6 +10,17 @@ interface PrepDSAProblemsPageProps {
 const TABS = ['All problems', 'Real World Scenarios', 'Problem Sets', 'Solved', 'Revision', 'Folders'] as const;
 const TOPICS = ['Arrays', 'Dynamic Programming', 'Trees', 'Stack', 'Linked List', 'Graph', 'Design', 'Binary Search'];
 const ITEMS_PER_PAGE = 10;
+const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
+
+type SortKey = 'title' | 'topic' | 'difficulty' | null;
+type SortDir = 'asc' | 'desc';
+
+const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
+  <span className={`inline-flex flex-col ml-1.5 -space-y-0.5 ${active ? '' : 'opacity-30'}`}>
+    <svg className={`w-3 h-3 ${active && dir === 'asc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 0l5 6H0z" /></svg>
+    <svg className={`w-3 h-3 ${active && dir === 'desc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 6L0 0h10z" /></svg>
+  </span>
+);
 
 function DifficultyBadge({ difficulty }: { difficulty: 'Easy' | 'Medium' | 'Hard' }) {
   const styles = {
@@ -30,9 +42,16 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [problems, setProblems] = useState<DSAProblem[]>(dsaProblems);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
 
   const filteredProblems = useMemo(() => {
-    return problems.filter((p) => {
+    const filtered = problems.filter((p) => {
       const matchesSearch =
         p.title.toLowerCase().includes(search.toLowerCase()) ||
         p.description.toLowerCase().includes(search.toLowerCase());
@@ -47,7 +66,15 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
         activeTab === 'Folders';
       return matchesSearch && matchesTopic && matchesDifficulty && matchesTab;
     });
-  }, [problems, search, topicFilter, difficultyFilter, activeTab]);
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'title') cmp = a.title.localeCompare(b.title);
+      else if (sortKey === 'topic') cmp = a.topic.localeCompare(b.topic);
+      else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [problems, search, topicFilter, difficultyFilter, activeTab, sortKey, sortDir]);
 
   const totalPages = Math.ceil(filteredProblems.length / ITEMS_PER_PAGE);
   const paginatedProblems = useMemo(() => {
@@ -129,28 +156,40 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <select
+        <PrepFilterDropdown
           value={topicFilter}
-          onChange={(e) => setTopicFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-        >
-          <option value="all">All topics</option>
-          {TOPICS.map((topic) => (
-            <option key={topic} value={topic}>
-              {topic}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={setTopicFilter}
+          options={[{ value: 'all', label: 'All Topics' }, ...TOPICS.map(t => ({ value: t, label: t }))]}
+        />
+        <PrepFilterDropdown
           value={difficultyFilter}
-          onChange={(e) => setDifficultyFilter(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-        >
-          <option value="all">All difficulties</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
+          onChange={setDifficultyFilter}
+          options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
+        />
+        {(topicFilter !== 'all' || difficultyFilter !== 'all' || search.trim()) && (
+          <button onClick={() => { setTopicFilter('all'); setDifficultyFilter('all'); setSearch(''); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            Clear
+          </button>
+        )}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs text-gray-400 mr-1">Sort:</span>
+          {([['title', 'Name'], ['topic', 'Topic'], ['difficulty', 'Difficulty']] as [SortKey, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleSort(key)}
+              className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-200 ${
+                sortKey === key
+                  ? 'border-orange-300 bg-orange-50 text-orange-600'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {label}
+              <SortIcon active={sortKey === key} dir={sortDir} />
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4">

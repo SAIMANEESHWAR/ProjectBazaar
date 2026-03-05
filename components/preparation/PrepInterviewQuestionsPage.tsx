@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { interviewQuestions, prepStats } from '../../data/preparationMockData';
 import type { InterviewQuestion } from '../../data/preparationMockData';
+import PrepFilterDropdown from './PrepFilterDropdown';
 
 interface PrepInterviewQuestionsPageProps {
   toggleSidebar?: () => void;
@@ -8,6 +9,17 @@ interface PrepInterviewQuestionsPageProps {
 
 const TABS = ['All questions', 'Solved', 'Revision', 'Folders'] as const;
 const ITEMS_PER_PAGE = 10;
+const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
+
+type SortKey = 'question' | 'difficulty' | 'category' | null;
+type SortDir = 'asc' | 'desc';
+
+const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
+  <span className={`inline-flex flex-col ml-1.5 -space-y-0.5 ${active ? '' : 'opacity-30'}`}>
+    <svg className={`w-3 h-3 ${active && dir === 'asc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 0l5 6H0z" /></svg>
+    <svg className={`w-3 h-3 ${active && dir === 'desc' ? 'text-orange-500' : ''}`} viewBox="0 0 10 6" fill="currentColor"><path d="M5 6L0 0h10z" /></svg>
+  </span>
+);
 
 function DifficultyBadge({ difficulty }: { difficulty: 'Easy' | 'Medium' | 'Hard' }) {
   const styles = {
@@ -29,9 +41,16 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [questions, setQuestions] = useState<InterviewQuestion[]>(interviewQuestions);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
 
   const filteredQuestions = useMemo(() => {
-    return questions.filter((q) => {
+    const filtered = questions.filter((q) => {
       const matchesSearch = q.question.toLowerCase().includes(search.toLowerCase());
       const matchesDifficulty = difficultyFilter === 'all' || q.difficulty === difficultyFilter;
       const matchesRole = roleFilter === 'all' || q.role === roleFilter;
@@ -42,7 +61,15 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         activeTab === 'Folders';
       return matchesSearch && matchesDifficulty && matchesRole && matchesTab;
     });
-  }, [questions, search, difficultyFilter, roleFilter, activeTab]);
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'question') cmp = a.question.localeCompare(b.question);
+      else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
+      else if (sortKey === 'category') cmp = a.category.localeCompare(b.category);
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [questions, search, difficultyFilter, roleFilter, activeTab, sortKey, sortDir]);
 
   const totalPages = Math.ceil(filteredQuestions.length / ITEMS_PER_PAGE);
   const paginatedQuestions = filteredQuestions.slice(
@@ -147,46 +174,41 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <select
+        <PrepFilterDropdown
           value={difficultyFilter}
-          onChange={(e) => {
-            setDifficultyFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-        >
-          <option value="all">All difficulties</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
-        <select
+          onChange={(v) => { setDifficultyFilter(v); setCurrentPage(1); }}
+          options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
+        />
+        <PrepFilterDropdown
           value={roleFilter}
-          onChange={(e) => {
-            setRoleFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-        >
-          <option value="all">All roles</option>
-          {roles.map((role) => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}
+          options={[{ value: 'all', label: 'All Roles' }, ...roles.map(r => ({ value: r, label: r }))]}
+        />
+        {(difficultyFilter !== 'all' || roleFilter !== 'all' || search.trim()) && (
+          <button onClick={() => { setDifficultyFilter('all'); setRoleFilter('all'); setSearch(''); setCurrentPage(1); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            Clear
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 w-12">#</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Question</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 w-24">Difficulty</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 w-28">Category</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 w-24">Status</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('question')}>
+                  <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'question'} dir={sortDir} /></span>
+                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                  <span className="inline-flex items-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('category')}>
+                  <span className="inline-flex items-center">Category <SortIcon active={sortKey === 'category'} dir={sortDir} /></span>
+                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Status</th>
                 <th className="w-16" />
               </tr>
             </thead>

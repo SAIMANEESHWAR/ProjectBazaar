@@ -805,9 +805,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'prep-position-resources':
                 return <PrepPositionResourcesPage toggleSidebar={toggleSidebar} />;
             case 'prep-system-design':
-                return <PrepSystemDesignPage toggleSidebar={toggleSidebar} />;
+            case 'prep-hld':
+                return <PrepSystemDesignPage {...{ designTab: 'hld' as const, toggleSidebar }} />;
+            case 'prep-lld':
+                return <PrepSystemDesignPage {...{ designTab: 'lld' as const, toggleSidebar }} />;
             case 'prep-fundamentals':
-                return <PrepFundamentalsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-oops':
+                return <PrepFundamentalsPage {...{ section: 'oops' as const, toggleSidebar }} />;
+            case 'prep-language':
+                return <PrepFundamentalsPage {...{ section: 'language' as const, toggleSidebar }} />;
             case 'prep-activity':
                 return <PrepActivityPage toggleSidebar={toggleSidebar} />;
             default:
@@ -868,6 +874,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
                         .prep-dark-mode .border-orange-100 { border-color: rgba(249, 115, 22, 0.2) !important; }
                         .prep-dark-mode .border-orange-200 { border-color: rgba(249, 115, 22, 0.25) !important; }
+                        .prep-dark-mode .border-orange-300 { border-color: rgba(249, 115, 22, 0.35) !important; }
 
                         /* Hover states */
                         .prep-dark-mode .hover\\:bg-gray-50:hover { background-color: #2c2c2e !important; }
@@ -914,6 +921,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         .prep-dark-mode th {
                             color: #8e8e93 !important;
                         }
+                        .prep-dark-mode th:hover {
+                            color: #e5e5ea !important;
+                        }
 
                         /* Shadows */
                         .prep-dark-mode .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
@@ -947,6 +957,35 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         /* Progress ring & SVG */
                         .prep-dark-mode svg path[stroke="#e5e7eb"],
                         .prep-dark-mode svg circle[stroke="#e5e7eb"] { stroke: #2c2c2e; }
+
+                        /* Custom filter dropdowns */
+                        .prep-dark-mode .prep-filter-btn {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            color: #f5f5f7 !important;
+                        }
+                        .prep-dark-mode .prep-filter-btn:hover {
+                            background-color: #2c2c2e !important;
+                        }
+                        .prep-dark-mode .prep-filter-btn span { color: #e5e5ea !important; }
+                        .prep-dark-mode .prep-filter-btn svg { color: #636366 !important; }
+                        .prep-dark-mode .prep-filter-menu {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu button {
+                            color: #e5e5ea !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu button:hover {
+                            background-color: #2c2c2e !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu .bg-orange-50 {
+                            background-color: rgba(249, 115, 22, 0.1) !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu .text-orange-600 {
+                            color: #fb923c !important;
+                        }
 
                         /* Smooth transition on theme change */
                         .prep-dark-mode * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }

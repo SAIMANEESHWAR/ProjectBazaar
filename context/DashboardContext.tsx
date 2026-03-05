@@ -50,7 +50,11 @@ export type DashboardView =
     | 'prep-position-resources'
     | 'prep-activity'
     | 'prep-system-design'
-    | 'prep-fundamentals';
+    | 'prep-hld'
+    | 'prep-lld'
+    | 'prep-fundamentals'
+    | 'prep-language'
+    | 'prep-oops';
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
