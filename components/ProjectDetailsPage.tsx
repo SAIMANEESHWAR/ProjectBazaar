@@ -5,6 +5,39 @@ import { useAuth } from '../App';
 import { fetchUserData } from '../services/buyerApi';
 import ReportProjectModal from './ReportProjectModal';
 
+const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.amazonaws.com/default/Get_project_details_by_projectId';
+
+interface BackendProjectDetails {
+    projectId: string;
+    title: string;
+    description: string;
+    price: number;
+    category: string;
+    tags: string[];
+    thumbnailUrl?: string;
+    imageUrls?: string[];
+    sellerId: string;
+    sellerEmail: string;
+    sellerName?: string;
+    status: string;
+    adminApprovalStatus?: string;
+    uploadedAt: string;
+    documentationUrl?: string;
+    youtubeVideoUrl?: string;
+    demoVideoUrl?: string;
+    githubUrl?: string;
+    liveDemoUrl?: string;
+    purchasesCount?: number;
+    likesCount?: number;
+    viewsCount?: number;
+    projectFilesUrl?: string;
+    features?: string[];
+    supportInfo?: string;
+    isPremium?: boolean;
+    originalPrice?: number;
+    discount?: number;
+}
+
 interface ExtendedProject extends BuyerProject {
     likes: number;
     purchases: number;
@@ -46,9 +79,38 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
     const [cartAnimating, setCartAnimating] = useState(false);
     const [cartAdded, setCartAdded] = useState(false);
     const [isHoveringImage, setIsHoveringImage] = useState(false);
+    const [projectDetails, setProjectDetails] = useState<BackendProjectDetails | null>(null);
+    const [loadingDetails, setLoadingDetails] = useState(false);
 
     // Manage local likes for immediate visual feedback
     const [localLikes, setLocalLikes] = useState(project.likes || 0);
+
+    // Fetch full project details from backend API to get features and other data
+    useEffect(() => {
+        const fetchProjectDetails = async () => {
+            setLoadingDetails(true);
+            try {
+                const response = await fetch(GET_PROJECT_DETAILS_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId: project.id }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.project) {
+                        setProjectDetails(data.project);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching project details:', error);
+            } finally {
+                setLoadingDetails(false);
+            }
+        };
+
+        fetchProjectDetails();
+    }, [project.id]);
 
     // Update local likes if project changes
     useEffect(() => {
@@ -98,15 +160,47 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
 
         checkPurchaseStatus();
     }, [userId, project.id]);
-    const images = project.images || [project.imageUrl];
-    const finalPrice = project.price;
-    const discount = project.discount || (project.originalPrice ? Math.round(((project.originalPrice - project.price) / project.originalPrice) * 100) : 0);
+    // Get images from backend data, fallback to project prop
+    const getAllImagesFromDB = (): string[] => {
+        if (!projectDetails) {
+            return project.images || [project.imageUrl];
+        }
+
+        const imagesFromDB: string[] = [];
+        
+        // Add thumbnailUrl if it exists and is valid
+        if (projectDetails.thumbnailUrl && projectDetails.thumbnailUrl.trim() !== '') {
+            imagesFromDB.push(projectDetails.thumbnailUrl);
+        }
+        
+        // Add all imageUrls from the array if they exist
+        if (projectDetails.imageUrls && Array.isArray(projectDetails.imageUrls)) {
+            projectDetails.imageUrls.forEach((imgUrl: string) => {
+                if (imgUrl && imgUrl.trim() !== '' && !imagesFromDB.includes(imgUrl)) {
+                    imagesFromDB.push(imgUrl);
+                }
+            });
+        }
+        
+        return imagesFromDB.length > 0 ? imagesFromDB : (project.images || [project.imageUrl]);
+    };
+
+    const images = getAllImagesFromDB();
+    const finalPrice = projectDetails?.price ?? project.price;
+    const discount = (projectDetails?.discount ?? project.discount) || (projectDetails?.originalPrice ? Math.round(((projectDetails.originalPrice - finalPrice) / projectDetails.originalPrice) * 100) : (project.originalPrice ? Math.round(((project.originalPrice - project.price) / project.originalPrice) * 100) : 0));
 
     const handleLikeClick = () => {
         const currentlyLiked = isInWishlist(project.id);
         toggleWishlist(project.id);
         setLocalLikes(prev => currentlyLiked ? Math.max(0, prev - 1) : prev + 1);
     };
+
+    // Reset image index when images change
+    useEffect(() => {
+        if (images.length > 0 && currentImageIndex >= images.length) {
+            setCurrentImageIndex(0);
+        }
+    }, [images.length, currentImageIndex]);
 
     // Auto-scroll images
     useEffect(() => {
@@ -117,10 +211,18 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
         return () => clearInterval(interval);
     }, [images.length, isHoveringImage, isPreviewOpen]);
 
-    const features = project.features;
+    // Get features from backend data, fallback to project prop
+    const features = projectDetails?.features && projectDetails.features.length > 0
+        ? projectDetails.features
+        : project.features && project.features.length > 0
+        ? project.features
+        : [];
     
-    // Get video URL - try demoVideoUrl first, then youtubeVideoUrl
-    const videoUrl = project.demoVideoUrl || project.youtubeVideoUrl;
+    // Get video URL - try demoVideoUrl first, then youtubeVideoUrl (from backend or project prop)
+    const videoUrl = projectDetails?.demoVideoUrl || projectDetails?.youtubeVideoUrl || project.demoVideoUrl || project.youtubeVideoUrl;
+    
+    // Get support info from backend data, fallback to project prop
+    const supportInfo = projectDetails?.supportInfo || project.supportInfo;
 
     return (
         <div className="max-w-6xl mx-auto pb-12">
@@ -443,21 +545,27 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
                         </div>
                     )}
 
-                    {activeTab === 'features' && features && features.length > 0 && (
+                    {activeTab === 'features' && (
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 mb-4">What's Included</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {features.map((feature, index) => (
-                                    <div key={index} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-orange-200 hover:shadow-sm transition-all">
-                                        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                                            <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                            </svg>
+                            {features && features.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {features.map((feature, index) => (
+                                        <div key={index} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:border-orange-200 hover:shadow-sm transition-all">
+                                            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <span className="text-gray-700 text-sm font-medium">{feature}</span>
                                         </div>
-                                        <span className="text-gray-700 text-sm font-medium">{feature}</span>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+                                    <p className="text-gray-500">No features listed for this project</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -466,7 +574,7 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
                             <h2 className="text-xl font-bold text-gray-900 mb-4">Support & Help</h2>
                             <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
                                 <p className="text-gray-600 leading-relaxed mb-6 text-[15px]">
-                                    {project.supportInfo || 'For any questions or support regarding this project, please contact the seller directly through their profile or email.'}
+                                    {supportInfo || 'For any questions or support regarding this project, please contact the seller directly through their profile or email.'}
                                 </p>
                                 <div className="flex flex-wrap gap-3">
                                     <button

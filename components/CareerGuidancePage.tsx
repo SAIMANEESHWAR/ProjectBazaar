@@ -2262,17 +2262,22 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     if (roadmapStep === 'completed-view' && completedCourseDetails) {
         const courseDetails = completedCourseDetails;
 
-        // Calculate analytics
-        const totalWeeks = courseDetails.weeksDetails?.length || 0;
+        // Filter to only show completed weeks for the selected category and duration
+        const completedWeeks = courseDetails.weeksDetails?.filter((w: any) => 
+            w.isCompleted === true && w.quizCompleted === true
+        ) || [];
+
+        // Calculate analytics based on completed weeks only
+        const totalWeeks = completedWeeks.length;
         const avgScore = courseDetails.finalScore || 0;
-        const totalQuestions = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0) || 0;
+        const totalQuestions = completedWeeks.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0);
         
-        // Calculate correct/incorrect answers
+        // Calculate correct/incorrect answers from completed weeks only
         let correctAnswers = 0;
         let incorrectAnswers = 0;
         const allQuestions: any[] = [];
         
-        courseDetails.weeksDetails?.forEach((week: any) => {
+        completedWeeks.forEach((week: any) => {
             if (week.quiz && week.quiz.length > 0) {
                 week.quiz.forEach((q: any, qIdx: number) => {
                     const questionData = {
@@ -2300,6 +2305,54 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         
         // Calculate accuracy
         const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+        // If no completed weeks found for this category and duration, show message
+        if (completedWeeks.length === 0) {
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8">
+                    <div className="max-w-7xl mx-auto space-y-6">
+                        {/* Back Button */}
+                        <button
+                            onClick={() => {
+                                setRoadmapStep('analysis');
+                                setCompletedCourseDetails(null);
+                            }}
+                            className="mb-4 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            <span className="font-medium">Back</span>
+                        </button>
+
+                        {/* No Completed Weeks Message */}
+                        <div className="bg-white rounded-2xl p-12 shadow-xl border border-gray-200 text-center">
+                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-3">No Completed Weeks Found</h2>
+                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                                You haven't completed any weeks for <strong>{courseDetails.categoryName || 'this category'}</strong> with a <strong>{courseDetails.duration || selectedWeeks}-week</strong> duration yet.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setRoadmapStep('analysis');
+                                    setCompletedCourseDetails(null);
+                                }}
+                                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Start Learning
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         return (
             <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8">
