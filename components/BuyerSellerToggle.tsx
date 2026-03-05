@@ -241,9 +241,10 @@ const BenefitCard: React.FC<{ benefit: Benefit; index: number; mode: Mode }> = (
 };
 
 const BuyerSellerToggle: React.FC = () => {
-  const { dashboardMode: mode, setDashboardMode: setMode } = useDashboard();
+  const { dashboardMode, setDashboardMode: setMode } = useDashboard();
   const { navigateTo } = useNavigation();
 
+  const mode: Mode = dashboardMode === 'preparation' ? 'buyer' : dashboardMode;
   const steps = mode === "buyer" ? buyerSteps : sellerSteps;
   const benefits = mode === "buyer" ? buyerBenefits : sellerBenefits;
 

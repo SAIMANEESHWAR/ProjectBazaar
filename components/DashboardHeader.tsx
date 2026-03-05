@@ -71,6 +71,18 @@ const viewTitles: Record<DashboardView, string> = {
   'edit-project': 'Edit Project',
   notifications: 'Notifications',
   'freelancer-profile': 'Freelancer Profile',
+  'prep-hub': 'Preparation Hub',
+  'prep-interview-questions': 'Interview Questions',
+  'prep-dsa': 'DSA Problems',
+  'prep-quizzes': 'Quizzes',
+  'prep-cold-dms': 'Cold DMs & Emails',
+  'prep-collections': 'Collections',
+  'prep-mass-recruitment': 'Mass Recruitment',
+  'prep-job-portals': 'Job Portals',
+  'prep-notes': 'Handwritten Notes',
+  'prep-roadmaps': 'Roadmaps',
+  'prep-position-resources': 'Position Resources',
+  'prep-activity': 'My Activity',
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({

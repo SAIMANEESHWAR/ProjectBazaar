@@ -39,6 +39,18 @@ import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
+import PreparationHub from './preparation/PreparationHub';
+import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
+import PrepDSAProblemsPage from './preparation/PrepDSAProblemsPage';
+import PrepQuizzesPage from './preparation/PrepQuizzesPage';
+import PrepColdDMsPage from './preparation/PrepColdDMsPage';
+import PrepCollectionsPage from './preparation/PrepCollectionsPage';
+import PrepMassRecruitmentPage from './preparation/PrepMassRecruitmentPage';
+import PrepJobPortalsPage from './preparation/PrepJobPortalsPage';
+import PrepHandwrittenNotesPage from './preparation/PrepHandwrittenNotesPage';
+import PrepRoadmapsPage from './preparation/PrepRoadmapsPage';
+import PrepPositionResourcesPage from './preparation/PrepPositionResourcesPage';
+import PrepActivityPage from './preparation/PrepActivityPage';
 
 interface ApiProject {
     projectId: string;
@@ -187,7 +199,7 @@ const activatedProjects = [
 
 
 interface DashboardContentProps {
-    dashboardMode?: 'buyer' | 'seller';
+    dashboardMode?: 'buyer' | 'seller' | 'preparation';
     setDashboardMode?: (mode: 'buyer' | 'seller') => void;
     activeView?: DashboardView;
     isSidebarOpen: boolean;
@@ -766,14 +778,66 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     };
 
+    const renderPreparationContent = () => {
+        switch (activeView) {
+            case 'prep-hub':
+                return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
+            case 'prep-interview-questions':
+                return <PrepInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-dsa':
+                return <PrepDSAProblemsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-quizzes':
+                return <PrepQuizzesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-cold-dms':
+                return <PrepColdDMsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-collections':
+                return <PrepCollectionsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-mass-recruitment':
+                return <PrepMassRecruitmentPage toggleSidebar={toggleSidebar} />;
+            case 'prep-job-portals':
+                return <PrepJobPortalsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-notes':
+                return <PrepHandwrittenNotesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-roadmaps':
+                return <PrepRoadmapsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-position-resources':
+                return <PrepPositionResourcesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-activity':
+                return <PrepActivityPage toggleSidebar={toggleSidebar} />;
+            default:
+                return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
+        }
+    };
+
     const isCodingQuestions = activeView === 'coding-questions';
+
+    const renderModeContent = () => {
+        if (dashboardMode === 'preparation') return renderPreparationContent();
+        if (dashboardMode === 'buyer') return renderBuyerContent();
+        return renderSellerContent();
+    };
+
+    const isPreparationMode = dashboardMode === 'preparation';
 
     return (
         <main
             ref={mainScrollRef}
             className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} bg-white custom-scrollbar`}
         >
-            {isCodingQuestions ? (
+            {isPreparationMode ? (
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn">
+                    <style>{`
+                        @keyframes fadeIn {
+                            from { opacity: 0; transform: translateY(12px); }
+                            to { opacity: 1; transform: translateY(0); }
+                        }
+                        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+                    `}</style>
+                    <div className="container mx-auto px-6 py-8">
+                        {renderModeContent()}
+                    </div>
+                </div>
+            ) : isCodingQuestions ? (
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 px-6">
                     <div className="flex-shrink-0">
                         <DashboardHeader
@@ -785,7 +849,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                             toggleSidebar={toggleSidebar}
                         />
                     </div>
-                    {dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()}
+                    {renderModeContent()}
                 </div>
             ) : (
                 <div className="container mx-auto px-6 py-8">
@@ -797,7 +861,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         isSidebarOpen={isSidebarOpen}
                         toggleSidebar={toggleSidebar}
                     />
-                    {dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()}
+                    {renderModeContent()}
                 </div>
             )}
         </main>

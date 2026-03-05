@@ -14,6 +14,7 @@ import MockAssessmentsManagementPage from './MockAssessmentsManagementPage';
 import CareerContentManagementPage from './CareerContentManagementPage';
 import RoadmapManagementPage from './RoadmapManagementPage';
 import PlacementPrepManagementPage from './PlacementPrepManagementPage';
+import PrepContentManagementPage from './PrepContentManagementPage';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 interface AdminProject extends BuyerProject {
@@ -67,6 +68,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'career-guidance': 'Career Guidance Content',
         'roadmap-management': 'Roadmap Management',
         'placement-prep': 'Placement Preparation Management',
+        'prep-content': 'Preparation Content Management',
         'user-profile': selectedUser ? `${selectedUser.name}'s Profile` : 'User Profile',
         'admin-project-details': selectedProject ? `Project: ${selectedProject.title}` : 'Project Details',
         'admin-report-details': 'Report Details',
@@ -260,6 +262,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'career-guidance' && <CareerContentManagementPage />}
                 {activeView === 'roadmap-management' && <RoadmapManagementPage />}
                 {activeView === 'placement-prep' && <PlacementPrepManagementPage />}
+                {activeView === 'prep-content' && <PrepContentManagementPage />}
             </div>
         </div>
     );

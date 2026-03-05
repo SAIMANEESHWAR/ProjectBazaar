@@ -14,6 +14,7 @@ export type AdminView =
     | 'career-guidance'
     | 'roadmap-management'
     | 'placement-prep'
+    | 'prep-content'
     | 'user-profile'
     | 'admin-project-details'
     | 'admin-report-details';

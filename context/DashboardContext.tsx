@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 // Define the available dashboard modes
-export type DashboardMode = 'buyer' | 'seller';
+export type DashboardMode = 'buyer' | 'seller' | 'preparation';
 
 // Define the available views (keep in sync with DashboardPage/Sidebar)
 // This is a superset of views for both buyer and seller dashboards
@@ -36,7 +36,19 @@ export type DashboardView =
     | 'seller-profile'
     | 'edit-project'
     | 'purchases'
-    | 'my-bids';
+    | 'my-bids'
+    | 'prep-hub'
+    | 'prep-interview-questions'
+    | 'prep-dsa'
+    | 'prep-quizzes'
+    | 'prep-cold-dms'
+    | 'prep-collections'
+    | 'prep-mass-recruitment'
+    | 'prep-job-portals'
+    | 'prep-notes'
+    | 'prep-roadmaps'
+    | 'prep-position-resources'
+    | 'prep-activity';
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
@@ -104,12 +116,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     const setDashboardMode = (mode: DashboardMode) => {
         setDashboardModeState(mode);
-        // When switching modes, reset active view to dashboard if needed, or keep last visited view for that mode if we want to be fancy.
-        // For now, let's just default to 'dashboard' when switching modes unless we want to persist per-mode views.
-        // However, the requirement is mainly about persisting the current state.
-        // If the user was deep in a view that doesn't exist in the other mode, we should reset.
-        // But let's keep it simple: switching mode often implies going to the landing of that mode.
-        setActiveViewState('dashboard');
+        if (mode === 'preparation') {
+            setActiveViewState('prep-hub');
+        } else {
+            setActiveViewState('dashboard');
+        }
     };
 
     const setActiveView = (view: DashboardView) => {
@@ -121,7 +132,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const toggleDashboardMode = () => {
-        setDashboardMode(dashboardMode === 'buyer' ? 'seller' : 'buyer');
+        if (dashboardMode === 'preparation') {
+            setDashboardMode('buyer');
+        } else {
+            setDashboardMode(dashboardMode === 'buyer' ? 'seller' : 'buyer');
+        }
     };
 
     return (
