@@ -3,7 +3,7 @@ import Pagination from './Pagination';
 import OrangeCheckbox from './OrangeCheckbox';
 import type { Freelancer } from '../types/browse';
 import type { BrowseProject } from '../types/browse';
-import { getAllFreelancers, searchFreelancers, getAvailableSkills, getAvailableCountries } from '../services/freelancersApi';
+import { getAllFreelancers, searchFreelancers, getAvailableFilters } from '../services/freelancersApi';
 import { getBidRequestProjectsByBuyer } from '../services/bidRequestProjectsApi';
 import { sendFreelancerMessage, sendFreelancerInvitation } from '../services/freelancerInteractionsApi';
 import { cachedFetchUserProfile } from '../services/buyerApi';
@@ -128,10 +128,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const [skills, countries] = await Promise.all([
-          getAvailableSkills(),
-          getAvailableCountries()
-        ]);
+        const { skills, countries } = await getAvailableFilters();
         setAvailableSkills(skills);
         setAvailableCountries(countries);
       } catch (err) {

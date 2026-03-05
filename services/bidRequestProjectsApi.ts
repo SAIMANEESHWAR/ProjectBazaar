@@ -4,6 +4,7 @@
  */
 
 import type { BrowseProject } from '../types/browse';
+import { cachedFetch, invalidateCache } from '../lib/apiCache';
 
 // API Endpoint for Bid Request Projects Lambda
 const BID_REQUEST_PROJECTS_API_ENDPOINT = 'https://ai0hb6211e.execute-api.ap-south-2.amazonaws.com/default/bid_request_projects_handle';
@@ -124,15 +125,17 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
   }
 }
 
+const BID_PROJECTS_TTL = 90_000;
+
 /**
- * Get all open bid request projects for freelancers to browse
+ * Get all open bid request projects for freelancers to browse (cached)
  */
 export const getAllBidRequestProjects = async (): Promise<{ projects: BrowseProject[]; maxBudget?: number }> => {
   if (!BID_REQUEST_PROJECTS_API_ENDPOINT) {
     return { projects: [] };
   }
 
-  try {
+  return cachedFetch('bid-request-projects:all', async () => {
     const response = await apiRequest<ProjectsData>('GET_ALL_PROJECTS');
 
     if (response.success && response.data?.projects) {
@@ -143,10 +146,7 @@ export const getAllBidRequestProjects = async (): Promise<{ projects: BrowseProj
     }
 
     return { projects: [] };
-  } catch (error) {
-    console.error('Error fetching bid request projects:', error);
-    return { projects: [] };
-  }
+  }, BID_PROJECTS_TTL);
 };
 
 /**
@@ -172,15 +172,14 @@ export const getBidRequestProject = async (projectId: string): Promise<BrowsePro
 };
 
 /**
- * Get all bid request projects posted by a specific buyer
+ * Get all bid request projects posted by a specific buyer (cached)
  */
 export const getBidRequestProjectsByBuyer = async (buyerId: string): Promise<BrowseProject[]> => {
   if (!BID_REQUEST_PROJECTS_API_ENDPOINT) {
-    // Return empty for mock (no buyer-specific mock data)
     return [];
   }
 
-  try {
+  return cachedFetch(`bid-request-projects:buyer:${buyerId}`, async () => {
     const response = await apiRequest<ProjectsData>('GET_PROJECTS_BY_BUYER', { buyerId });
 
     if (response.success && response.data?.projects) {
@@ -188,11 +187,11 @@ export const getBidRequestProjectsByBuyer = async (buyerId: string): Promise<Bro
     }
 
     return [];
-  } catch (error) {
-    console.error('Error fetching buyer projects:', error);
-    return [];
-  }
+  }, BID_PROJECTS_TTL);
 };
+
+/** Call after creating/updating/deleting a bid request project */
+export const invalidateBidRequestCache = () => invalidateCache('bid-request-projects');
 
 /**
  * Create a new bid request project (posted by buyer)
