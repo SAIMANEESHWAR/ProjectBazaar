@@ -48,7 +48,9 @@ export type DashboardView =
     | 'prep-notes'
     | 'prep-roadmaps'
     | 'prep-position-resources'
-    | 'prep-activity';
+    | 'prep-activity'
+    | 'prep-system-design'
+    | 'prep-fundamentals';
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
@@ -96,9 +98,10 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     const [prepDarkMode, setPrepDarkMode] = useState<boolean>(() => {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem('prepDarkMode') === 'true';
+            const stored = localStorage.getItem('prepDarkMode');
+            return stored === null ? true : stored === 'true';
         }
-        return false;
+        return true;
     });
 
     // Persist state changes to localStorage

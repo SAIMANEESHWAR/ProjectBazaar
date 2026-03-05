@@ -1,0 +1,69 @@
+export interface SDQuestion {
+  id: string;
+  title: string;
+  description: string;
+  section: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  isSolved: boolean;
+  isRevision: boolean;
+}
+
+export const hldQuestions: SDQuestion[] = [
+  { id: 'hld-1', title: 'Design a URL Shortener (TinyURL)', description: 'Designing a URL Shortener requires handling high read traffic and ensuring low latency...', section: 'System Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'hld-2', title: 'Design YouTube (Video Sharing Platform)', description: 'Designing YouTube involves handling massive storage (blobs) and streaming throughput...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-3', title: 'Design a Chat System (WhatsApp)', description: 'A Chat System requires real-time delivery and extreme consistency...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-4', title: 'Design Instagram (Photo Feed)', description: 'Instagram is a Read-Heavy system (Read:Write ratio ~ 100:1). The core challenge is News Feed...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-5', title: 'Design a Rate Limiter', description: 'A Rate Limiter prevents abuse and ensures fair usage. It is typically a middleware or part of the API...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-6', title: 'Design a Web Crawler', description: 'A Web Crawler (Google Bot) indexes the internet...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-7', title: 'Design Uber (Ride Sharing)', description: 'Uber matches Riders with Drivers based on Geo-Location...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-8', title: 'Design Google Drive (File Storage)', description: 'Google Drive is a read-heavy sync-heavy system focusing on data integrity and consistency...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-9', title: 'Design Twitter (Social Network)', description: 'Twitter is a write-heavy system with fan-out on write pattern for timeline delivery...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-10', title: 'Design a Notification System', description: 'A multi-channel notification system supporting push, SMS, email with priority queues...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-11', title: 'Design a Search Autocomplete System', description: 'Typeahead suggestion system using Trie data structures with ranking algorithms...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-12', title: 'Design Netflix (Video Streaming)', description: 'Video streaming platform with CDN, adaptive bitrate streaming, and recommendation engine...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-13', title: 'Design a Distributed Cache (Redis)', description: 'Distributed caching system with consistent hashing, eviction policies, and replication...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-14', title: 'Design Amazon (E-commerce)', description: 'Large-scale e-commerce platform with product catalog, cart, checkout, and payment...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-15', title: 'Design a Load Balancer', description: 'L4/L7 load balancer with health checks, consistent hashing, and failover mechanisms...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-16', title: 'Design a Ticket Booking System', description: 'Movie/event ticket booking with seat locking, concurrent transactions, and payment integration...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-17', title: 'Design Spotify (Music Streaming)', description: 'Music streaming with playlist management, recommendation engine, and offline mode...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-18', title: 'Design a Pub/Sub Messaging System', description: 'Distributed messaging system like Kafka with topics, partitions, and consumer groups...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-19', title: 'Design a Key-Value Store', description: 'Distributed key-value store with partitioning, replication, consistency models...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-20', title: 'Design Google Maps', description: 'Location services with routing algorithms, map tiles, ETA calculation, and traffic data...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-21', title: 'Design Dropbox (File Sync)', description: 'File synchronization service with chunking, deduplication, and conflict resolution...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-22', title: 'Design a Payment System', description: 'Payment gateway with idempotency, double-entry ledger, and fraud detection...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-23', title: 'Design a Content Delivery Network', description: 'CDN with edge caching, cache invalidation strategies, and origin shield...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-24', title: 'Design Stack Overflow', description: 'Q&A platform with voting, reputation system, search, and real-time updates...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-25', title: 'Design a Recommendation Engine', description: 'Collaborative filtering and content-based recommendations with real-time personalization...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-26', title: 'Design WhatsApp Status (Stories)', description: 'Ephemeral content with TTL, fan-out, and media storage for short-lived stories...', section: 'System Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'hld-27', title: 'Design a Logging System', description: 'Centralized logging with ELK stack, log aggregation, search, and alerting...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'hld-28', title: 'Design a Job Scheduler', description: 'Distributed job scheduling with cron-like triggers, retry mechanisms, and exactly-once semantics...', section: 'Distributed Systems', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'hld-29', title: 'Design Pastebin', description: 'Text sharing service with URL shortening, expiration, and syntax highlighting...', section: 'System Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'hld-30', title: 'Design a Metrics Monitoring System', description: 'Time-series data collection, aggregation, dashboarding, and anomaly detection...', section: 'Distributed Systems', difficulty: 'Medium', isSolved: false, isRevision: false },
+];
+
+export const lldQuestions: SDQuestion[] = [
+  { id: 'lld-1', title: 'Design a Parking Lot System', description: 'To design a Parking Lot system, we use an Object-Oriented approach. The core classes are ParkingLot, ParkingFloor, ParkingSpot, and Vehicle. The ParkingLot acts as a...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-2', title: 'Design a Rate Limiter', description: 'A Rate Limiter restricts the number of requests a user can make in a given timeframe. The most common low-level implementation uses the Token Bucket Algorithm. We define a Bucket class containing...', section: 'System Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-3', title: 'Design a Tic-Tac-Toe Game', description: 'We model this with a Board class (NxN grid), a Player class, and a Game controller. The Board holds a 2D array of pieces. The critical logic is the checkWin() algorithm. A naive approach...', section: 'Game Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'lld-4', title: 'Design an Elevator System', description: 'This requires a Controller that manages multiple ElevatorCars. We use the State Pattern for the car (Idle, MovingUp, MovingDown). The dispatching logic typically uses the SCAN (LOOK) Algorith...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-5', title: 'Design an LRU Cache', description: 'An LRU (Least Recently Used) Cache evicts the least recently accessed item when capacity is reached. The standard LLD implementation uses a HashMap combined with a Doubly Linked List. The HashMap...', section: 'Data Structures', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-6', title: 'Design a Library Management System', description: 'This system manages Book, Member, Lending, and Fine. We use a Librarian actor. Implements search by title, author, ISBN...', section: 'Object-Oriented Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'lld-7', title: 'Design a Vending Machine', description: 'State pattern with states: Idle, HasMoney, Dispensing, OutOfStock. Product inventory management with slot mapping...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-8', title: 'Design a Snake and Ladder Game', description: 'Board with cells, snakes, ladders. Dice rolling, player turns, win condition detection. Uses composition over inheritance...', section: 'Game Design', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'lld-9', title: 'Design a Chess Game', description: 'Piece hierarchy (King, Queen, Rook, Bishop, Knight, Pawn) with polymorphic move validation. Board manages state...', section: 'Game Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-10', title: 'Design a Hotel Booking System', description: 'Room types, reservation management, payment processing, cancellation policies. Uses Strategy pattern for pricing...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-11', title: 'Design an ATM Machine', description: 'Chain of Responsibility for cash dispensing (100s, 50s, 20s). Transaction types: Withdraw, Deposit, Balance Check...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-12', title: 'Design a Movie Ticket Booking System', description: 'Theater, Screen, Show, Seat, Booking entities. Seat locking with TTL for concurrent booking prevention...', section: 'Object-Oriented Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-13', title: 'Design an Online Shopping Cart', description: 'Cart, CartItem, Product, Coupon entities. Observer pattern for price updates. Strategy for discount calculation...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-14', title: 'Design a File System', description: 'Composite pattern for files and directories. FileSystem, File, Directory classes with recursive operations...', section: 'Data Structures', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-15', title: 'Design a Logger System', description: 'Chain of Responsibility with log levels (DEBUG, INFO, WARN, ERROR). Singleton LogManager, multiple handlers...', section: 'Design Patterns', difficulty: 'Easy', isSolved: false, isRevision: false },
+  { id: 'lld-16', title: 'Design a Stack Overflow Clone', description: 'User, Question, Answer, Comment, Vote entities. Reputation system with Observer pattern...', section: 'Object-Oriented Design', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-17', title: 'Design a Pub-Sub System', description: 'Topic, Publisher, Subscriber interfaces. Message broker with queue-based delivery and acknowledgment...', section: 'Design Patterns', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-18', title: 'Design a Task Scheduler', description: 'Priority queue with delayed execution. Task, Scheduler, ThreadPool classes. Cron expression parsing...', section: 'Data Structures', difficulty: 'Hard', isSolved: false, isRevision: false },
+  { id: 'lld-19', title: 'Design a Social Media Feed', description: 'Post, User, Feed classes. Fan-out on write vs read. Ranking algorithm for feed ordering...', section: 'System Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-20', title: 'Design a Splitwise (Expense Sharing)', description: 'User, Expense, Split (Equal, Exact, Percentage) classes. Graph-based debt simplification algorithm...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+  { id: 'lld-21', title: 'Design a Cricbuzz (Live Score)', description: 'Match, Innings, Over, Ball entities. Observer pattern for real-time score updates to subscribers...', section: 'Object-Oriented Design', difficulty: 'Medium', isSolved: false, isRevision: false },
+];
+
+export const hldSections = [...new Set(hldQuestions.map(q => q.section))];
+export const lldSections = [...new Set(lldQuestions.map(q => q.section))];

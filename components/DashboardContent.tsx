@@ -51,6 +51,8 @@ import PrepHandwrittenNotesPage from './preparation/PrepHandwrittenNotesPage';
 import PrepRoadmapsPage from './preparation/PrepRoadmapsPage';
 import PrepPositionResourcesPage from './preparation/PrepPositionResourcesPage';
 import PrepActivityPage from './preparation/PrepActivityPage';
+import PrepSystemDesignPage from './preparation/PrepSystemDesignPage';
+import PrepFundamentalsPage from './preparation/PrepFundamentalsPage';
 
 interface ApiProject {
     projectId: string;
@@ -802,6 +804,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <PrepRoadmapsPage toggleSidebar={toggleSidebar} />;
             case 'prep-position-resources':
                 return <PrepPositionResourcesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-system-design':
+                return <PrepSystemDesignPage toggleSidebar={toggleSidebar} />;
+            case 'prep-fundamentals':
+                return <PrepFundamentalsPage toggleSidebar={toggleSidebar} />;
             case 'prep-activity':
                 return <PrepActivityPage toggleSidebar={toggleSidebar} />;
             default:
