@@ -56,10 +56,12 @@ interface DashboardContextType {
     dashboardMode: DashboardMode;
     activeView: DashboardView;
     browseView: BrowseView;
+    prepDarkMode: boolean;
     setDashboardMode: (mode: DashboardMode) => void;
     setActiveView: (view: DashboardView) => void;
     setBrowseView: (view: BrowseView) => void;
     toggleDashboardMode: () => void;
+    togglePrepDarkMode: () => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -92,6 +94,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         return 'all';
     });
 
+    const [prepDarkMode, setPrepDarkMode] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('prepDarkMode') === 'true';
+        }
+        return false;
+    });
+
     // Persist state changes to localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -113,6 +122,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
             localStorage.setItem('browseView', browseView);
         }
     }, [browseView]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('prepDarkMode', String(prepDarkMode));
+        }
+    }, [prepDarkMode]);
 
     const setDashboardMode = (mode: DashboardMode) => {
         setDashboardModeState(mode);
@@ -139,16 +154,22 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     };
 
+    const togglePrepDarkMode = () => {
+        setPrepDarkMode((prev) => !prev);
+    };
+
     return (
         <DashboardContext.Provider
             value={{
                 dashboardMode,
                 activeView,
                 browseView,
+                prepDarkMode,
                 setDashboardMode,
                 setActiveView,
                 setBrowseView,
                 toggleDashboardMode,
+                togglePrepDarkMode,
             }}
         >
             {children}

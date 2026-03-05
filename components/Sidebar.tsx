@@ -105,7 +105,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle, onClose }) => {
     const { userEmail, userId, logout } = useAuth();
     // Use global state
-    const { dashboardMode, activeView, setActiveView, setDashboardMode } = useDashboard();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode } = useDashboard();
 
     const [isHovered, setIsHovered] = useState(false);
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
@@ -142,11 +142,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     // When collapsed and hovered, show expanded version
     const isExpanded = isOpen && (!isCollapsed || isHovered);
     const sidebarWidth = isExpanded ? 'w-64' : 'w-16';
+    const isDark = dashboardMode === 'preparation' && prepDarkMode;
 
     return (
         <>
             <div
-                className={`fixed lg:static inset-y-0 left-0 z-50 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out shadow-sm ${isOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-500 ease-in-out ${
+                    isDark
+                        ? 'bg-black border-r border-[#1c1c1e] shadow-[0_0_15px_rgba(0,0,0,0.5)]'
+                        : 'bg-white border-r border-gray-200 shadow-sm'
+                } ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     } ${sidebarWidth} ${isCollapsed && isHovered ? 'shadow-xl z-[60]' : ''}`}
                 onMouseEnter={() => {
                     if (isCollapsed && isOpen) {
@@ -160,11 +165,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                 }}
             >
                 {/* Header with logo */}
-                <div className={`flex items-center ${isExpanded ? 'justify-start' : 'justify-center'} h-16 border-b border-gray-200 ${isExpanded ? 'px-4' : 'px-2'}`}>
+                <div className={`flex items-center ${isExpanded ? 'justify-start' : 'justify-center'} h-16 ${isDark ? 'border-b border-[#1c1c1e]' : 'border-b border-gray-200'} ${isExpanded ? 'px-4' : 'px-2'}`}>
                     {isExpanded && (
                         <div className="flex items-center gap-2">
                             <LogoIcon />
-                            <span className="text-lg font-bold whitespace-nowrap">ProjectBazaar</span>
+                            <span className={`text-lg font-bold whitespace-nowrap transition-colors duration-300 ${isDark ? 'text-white' : ''}`}>ProjectBazaar</span>
                         </div>
                     )}
                     {!isExpanded && (
@@ -182,8 +187,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                             }}
                             className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
                                 dashboardMode === 'preparation'
-                                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200'
-                                    : 'bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200'
+                                    ? isDark
+                                        ? 'bg-white text-black shadow-lg shadow-white/10'
+                                        : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200'
+                                    : isDark
+                                        ? 'bg-[#1c1c1e] text-white hover:bg-[#2c2c2e] border border-[#38383a]'
+                                        : 'bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200'
                             }`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,13 +213,46 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                 `}</style>
                 {dashboardMode === 'preparation' && isExpanded && (
                     <div className="px-4 pb-2">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg border border-orange-100">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                            <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">Prep Mode</span>
+                        <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-300 ${
+                            isDark
+                                ? 'bg-[#1c1c1e] border border-[#2c2c2e]'
+                                : 'bg-orange-50 border border-orange-100'
+                        }`}>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-white' : 'bg-orange-500'}`} />
+                                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-white' : 'text-orange-600'}`}>Prep Mode</span>
+                            </div>
+                            <button
+                                onClick={togglePrepDarkMode}
+                                className={`p-1.5 rounded-lg transition-all duration-300 ${
+                                    isDark
+                                        ? 'text-yellow-300 hover:bg-[#2c2c2e]'
+                                        : 'text-gray-500 hover:bg-orange-100'
+                                }`}
+                                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                            >
+                                {isDark ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="4" />
+                                        <path d="M12 2v2" />
+                                        <path d="M12 20v2" />
+                                        <path d="m4.93 4.93 1.41 1.41" />
+                                        <path d="m17.66 17.66 1.41 1.41" />
+                                        <path d="M2 12h2" />
+                                        <path d="M20 12h2" />
+                                        <path d="m6.34 17.66-1.41 1.41" />
+                                        <path d="m19.07 4.93-1.41 1.41" />
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                                    </svg>
+                                )}
+                            </button>
                         </div>
                     </div>
                 )}
-                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-2 overflow-y-auto`}>
+                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto`}>
                     {navItems.map((item, index) => (
                         <button
                             key={item.name}
@@ -223,9 +265,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     onCollapseToggle();
                                 }
                             }}
-                            className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
-                                ? 'bg-orange-500 text-white'
-                                : 'text-gray-600 hover:bg-orange-50'
+                            className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
+                                activeView === item.view
+                                    ? isDark
+                                        ? 'bg-white text-black'
+                                        : 'bg-orange-500 text-white'
+                                    : isDark
+                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                        : 'text-gray-600 hover:bg-orange-50'
                                 } ${isTransitioning ? 'nav-item-animate' : ''}`}
                             style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
                         >
@@ -252,9 +299,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </button>
                     ))}
                 </nav>
-                <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 border-t border-gray-200`}>
+                <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 ${isDark ? 'border-t border-[#1c1c1e]' : 'border-t border-gray-200'}`}>
                     {isExpanded ? (
-                        <div className="flex items-center p-2 bg-orange-50 rounded-lg">
+                        <div className={`flex items-center p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>
                             <button
                                 onClick={() => setActiveView('settings')}
                                 className="relative flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
@@ -275,12 +322,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 )}
                             </button>
                             <div className="ml-3 flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-900 truncate">{userFullName || 'User'}</p>
-                                <p className="text-xs text-gray-500 truncate">{userEmail ?? 'user@example.com'}</p>
+                                <p className={`text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{userFullName || 'User'}</p>
+                                <p className={`text-xs truncate ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>{userEmail ?? 'user@example.com'}</p>
                             </div>
                             <button
                                 onClick={logout}
-                                className="ml-2 p-2 rounded-full text-gray-500 hover:bg-orange-100 flex-shrink-0 relative group"
+                                className={`ml-2 p-2 rounded-full flex-shrink-0 relative group ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
                                 title="Logout"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -317,7 +364,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                             </button>
                             <button
                                 onClick={logout}
-                                className="p-2 rounded-full text-gray-500 hover:bg-orange-100 relative group"
+                                className={`p-2 rounded-full relative group ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">

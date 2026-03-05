@@ -228,7 +228,7 @@ export interface ExtendedProject extends BuyerProject {
 
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
-    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView } = useDashboard();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -818,20 +818,132 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     };
 
     const isPreparationMode = dashboardMode === 'preparation';
+    const isPrepDark = isPreparationMode && prepDarkMode;
 
     return (
         <main
             ref={mainScrollRef}
-            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} bg-white custom-scrollbar`}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn">
+                <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn ${isPrepDark ? 'prep-dark-mode' : ''}`}>
                     <style>{`
                         @keyframes fadeIn {
                             from { opacity: 0; transform: translateY(12px); }
                             to { opacity: 1; transform: translateY(0); }
                         }
                         .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+
+                        /* ========== Apple-inspired pure black dark theme ========== */
+                        .prep-dark-mode {
+                            background-color: #000000;
+                            color: #f5f5f7;
+                        }
+
+                        /* Card & surface backgrounds */
+                        .prep-dark-mode .bg-white { background-color: #1c1c1e !important; }
+                        .prep-dark-mode .bg-gray-50 { background-color: #111111 !important; }
+
+                        /* Borders */
+                        .prep-dark-mode .border-gray-200 { border-color: #2c2c2e !important; }
+                        .prep-dark-mode .border-gray-100 { border-color: #1c1c1e !important; }
+                        .prep-dark-mode .border-b { border-color: #2c2c2e; }
+
+                        /* Text hierarchy */
+                        .prep-dark-mode .text-gray-900 { color: #f5f5f7 !important; }
+                        .prep-dark-mode .text-gray-800 { color: #e5e5ea !important; }
+                        .prep-dark-mode .text-gray-700 { color: #d1d1d6 !important; }
+                        .prep-dark-mode .text-gray-600 { color: #aeaeb2 !important; }
+                        .prep-dark-mode .text-gray-500 { color: #8e8e93 !important; }
+                        .prep-dark-mode .text-gray-400 { color: #636366 !important; }
+
+                        /* Orange tinted backgrounds */
+                        .prep-dark-mode .bg-orange-50 { background-color: rgba(249, 115, 22, 0.08) !important; }
+                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .border-orange-100 { border-color: rgba(249, 115, 22, 0.2) !important; }
+                        .prep-dark-mode .border-orange-200 { border-color: rgba(249, 115, 22, 0.25) !important; }
+
+                        /* Hover states */
+                        .prep-dark-mode .hover\\:bg-gray-50:hover { background-color: #2c2c2e !important; }
+                        .prep-dark-mode .hover\\:bg-orange-50:hover { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .hover\\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.15) !important; }
+                        .prep-dark-mode .hover\\:bg-orange-50\\/30:hover { background-color: rgba(249, 115, 22, 0.08) !important; }
+                        .prep-dark-mode .hover\\:border-orange-500:hover { border-color: #f97316 !important; }
+                        .prep-dark-mode .hover\\:shadow-md:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+                        .prep-dark-mode .hover\\:bg-gray-100:hover { background-color: #2c2c2e !important; }
+
+                        /* Badge difficulty colors on dark */
+                        .prep-dark-mode .bg-green-100 { background-color: rgba(34, 197, 94, 0.12) !important; }
+                        .prep-dark-mode .text-green-700 { color: #4ade80 !important; }
+                        .prep-dark-mode .bg-green-50 { background-color: rgba(34, 197, 94, 0.08) !important; }
+                        .prep-dark-mode .text-green-600 { color: #22c55e !important; }
+                        .prep-dark-mode .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.12) !important; }
+                        .prep-dark-mode .text-yellow-700 { color: #fbbf24 !important; }
+                        .prep-dark-mode .bg-red-100 { background-color: rgba(239, 68, 68, 0.12) !important; }
+                        .prep-dark-mode .text-red-700 { color: #f87171 !important; }
+
+                        /* Inputs & selects */
+                        .prep-dark-mode input,
+                        .prep-dark-mode select,
+                        .prep-dark-mode textarea {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            color: #f5f5f7 !important;
+                        }
+                        .prep-dark-mode input::placeholder,
+                        .prep-dark-mode textarea::placeholder {
+                            color: #636366 !important;
+                        }
+                        .prep-dark-mode input:focus,
+                        .prep-dark-mode select:focus,
+                        .prep-dark-mode textarea:focus {
+                            border-color: #f97316 !important;
+                            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
+                        }
+
+                        /* Table header */
+                        .prep-dark-mode thead tr {
+                            background-color: #111111 !important;
+                        }
+                        .prep-dark-mode th {
+                            color: #8e8e93 !important;
+                        }
+
+                        /* Shadows */
+                        .prep-dark-mode .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+
+                        /* Checkboxes */
+                        .prep-dark-mode input[type="checkbox"] {
+                            accent-color: #f97316;
+                        }
+
+                        /* Scrollbar for dark mode */
+                        .prep-dark-mode ::-webkit-scrollbar-track { background: #000000; }
+                        .prep-dark-mode ::-webkit-scrollbar-thumb { background: #38383a; border-radius: 4px; }
+                        .prep-dark-mode ::-webkit-scrollbar-thumb:hover { background: #48484a; }
+
+                        /* Keep orange buttons vibrant */
+                        .prep-dark-mode .bg-orange-500 { background-color: #f97316 !important; }
+                        .prep-dark-mode .text-orange-500 { color: #fb923c !important; }
+                        .prep-dark-mode .text-orange-600 { color: #f97316 !important; }
+                        .prep-dark-mode .bg-orange-500.text-white { color: #ffffff !important; }
+
+                        /* Orange 50 border-b tabs */
+                        .prep-dark-mode .border-orange-500 { border-color: #f97316 !important; }
+                        .prep-dark-mode .hover\\:border-gray-300:hover { border-color: #48484a !important; }
+                        .prep-dark-mode .border-transparent { border-color: transparent !important; }
+                        .prep-dark-mode .hover\\:text-gray-700:hover { color: #d1d1d6 !important; }
+
+                        /* Rounded full toggle buttons */
+                        .prep-dark-mode .bg-orange-50.text-orange-500,
+                        .prep-dark-mode .text-orange-500.bg-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; }
+
+                        /* Progress ring & SVG */
+                        .prep-dark-mode svg path[stroke="#e5e7eb"],
+                        .prep-dark-mode svg circle[stroke="#e5e7eb"] { stroke: #2c2c2e; }
+
+                        /* Smooth transition on theme change */
+                        .prep-dark-mode * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
                     `}</style>
                     <div className="container mx-auto px-6 py-8">
                         {renderModeContent()}
