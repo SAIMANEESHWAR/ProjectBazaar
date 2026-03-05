@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
-import { dsaProblems, prepStats } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { dsaProblems as mockProblems, prepStats } from '../../data/preparationMockData';
 import type { DSAProblem } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -41,11 +42,24 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [search, setSearch] = useState('');
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
-  const [problems, setProblems] = useState<DSAProblem[]>(dsaProblems);
+  const [problems, setProblems] = useState<DSAProblem[]>(mockProblems);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', { limit: 500 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setProblems(resp.items);
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -86,17 +100,19 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
 
   useEffect(() => { setCurrentPage(1); }, [search, topicFilter, difficultyFilter, activeTab]);
 
-  const toggleSolved = (id: string) => {
+  const toggleSolved = useCallback((id: string) => {
     setProblems((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isSolved: !p.isSolved } : p))
     );
-  };
+    prepUserApi.toggleSolved('dsa_problems', id).catch(() => {});
+  }, []);
 
-  const toggleBookmark = (id: string) => {
+  const toggleBookmark = useCallback((id: string) => {
     setProblems((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isBookmarked: !p.isBookmarked } : p))
     );
-  };
+    prepUserApi.toggleBookmarked('dsa_problems', id).catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6">

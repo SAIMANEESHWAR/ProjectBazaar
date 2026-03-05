@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { roadmaps } from '../../data/preparationMockData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { roadmaps as mockRoadmaps } from '../../data/preparationMockData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepRoadmapsPageProps {
@@ -20,8 +21,24 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [localRoadmaps, setLocalRoadmaps] = useState<RoadmapWithLocalSteps[]>(() =>
-    roadmaps.map((r) => ({ ...r, steps: r.steps.map((s) => ({ ...s })) }))
+    mockRoadmaps.map((r) => ({ ...r, steps: r.steps.map((s) => ({ ...s })) }))
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContent('roadmaps', { limit: 100 });
+        if (!cancelled && resp.success && resp.items.length > 0) {
+          setLocalRoadmaps((resp.items as any[]).map((r: any) => ({
+            ...r,
+            steps: (r.steps || []).map((s: any) => ({ ...s })),
+          })));
+        }
+      } catch { /* keep mock data */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredRoadmaps = useMemo(() => {
     if (!search.trim()) return localRoadmaps;
@@ -29,7 +46,7 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
     return localRoadmaps.filter((r) => r.title.toLowerCase().includes(q));
   }, [localRoadmaps, search]);
 
-  const toggleStep = (roadmapId: string, stepIndex: number) => {
+  const toggleStep = useCallback((roadmapId: string, stepIndex: number) => {
     setLocalRoadmaps((prev) =>
       prev.map((r) =>
         r.id === roadmapId
@@ -42,7 +59,8 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
           : r
       )
     );
-  };
+    prepUserApi.toggleRoadmapStep(roadmapId, stepIndex).catch(() => {});
+  }, []);
 
   const toggleExpanded = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
