@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { roadmaps } from '../../data/preparationMockData';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepRoadmapsPageProps {
   toggleSidebar?: () => void;
@@ -15,6 +16,7 @@ interface RoadmapWithLocalSteps {
 }
 
 const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
+  const [viewMode, setViewMode] = useViewMode('grid');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [localRoadmaps, setLocalRoadmaps] = useState<RoadmapWithLocalSteps[]>(() =>
@@ -55,7 +57,7 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
         </p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex items-center gap-4">
         <input
           type="text"
           placeholder="Search by title..."
@@ -63,8 +65,10 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
         />
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
+      {viewMode === 'grid' && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {filteredRoadmaps.map((roadmap) => {
           const completed = roadmap.steps.filter((s) => s.completed).length;
@@ -151,8 +155,70 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
           );
         })}
       </div>
+      )}
 
-      {filteredRoadmaps.length === 0 && (
+      {viewMode === 'table' && (
+  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+            <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</th>
+            <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Category</th>
+            <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Free</th>
+            <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Progress</th>
+            <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Steps</th>
+            <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredRoadmaps.map((roadmap, idx) => {
+            const completed = roadmap.steps.filter((s) => s.completed).length;
+            const total = roadmap.steps.length;
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+            return (
+              <tr key={roadmap.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
+                <td className="px-5 py-4">
+                  <p className="text-sm font-semibold text-gray-900">{roadmap.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{roadmap.description}</p>
+                </td>
+                <td className="px-5 py-4"><span className="prep-topic-chip px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">{roadmap.category}</span></td>
+                <td className="px-5 py-4 text-center">
+                  {roadmap.isFree ? (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Free</span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Paid</span>
+                  )}
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-orange-500 rounded-full" style={{ width: `${progress}%` }} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{progress}%</span>
+                  </div>
+                </td>
+                <td className="px-5 py-4 text-center text-sm text-gray-600">{completed}/{total}</td>
+                <td className="px-5 py-4 text-center">
+                  <button onClick={() => toggleExpanded(roadmap.id)} className="px-3 py-1.5 text-xs font-medium text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
+                    {expandedId === roadmap.id ? 'Hide' : 'View'}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    {filteredRoadmaps.length === 0 && (
+      <div className="py-12 text-center text-gray-500">No roadmaps found.</div>
+    )}
+  </div>
+)}
+
+      {viewMode === 'grid' && filteredRoadmaps.length === 0 && (
         <div className="text-center py-12 text-gray-500">No roadmaps found.</div>
       )}
     </div>

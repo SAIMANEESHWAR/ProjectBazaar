@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { quizzes } from '../../data/preparationMockData';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepQuizzesPageProps {
   toggleSidebar?: () => void;
@@ -29,6 +30,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useViewMode('grid');
 
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter((q) => {
@@ -110,8 +112,10 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
             </option>
           ))}
         </select>
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
+      {viewMode === 'grid' && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredQuizzes.map((quiz) => (
           <div
@@ -141,6 +145,50 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           </div>
         ))}
       </div>
+      )}
+
+      {viewMode === 'table' && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Category</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Role</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Difficulty</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Questions</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Duration</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredQuizzes.map((quiz, idx) => (
+                  <tr key={quiz.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
+                    <td className="px-5 py-4">
+                      <p className="text-sm font-semibold text-gray-900">{quiz.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{quiz.description}</p>
+                    </td>
+                    <td className="px-5 py-4"><span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{quiz.category}</span></td>
+                    <td className="px-5 py-4"><span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700">{quiz.role}</span></td>
+                    <td className="px-5 py-4 text-center"><DifficultyBadge difficulty={quiz.difficulty} /></td>
+                    <td className="px-5 py-4 text-center text-sm text-gray-600">{quiz.questionCount}</td>
+                    <td className="px-5 py-4 text-center text-sm text-gray-600">{formatDuration(quiz.duration)}</td>
+                    <td className="px-5 py-4 text-center">
+                      <button className="px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-600 transition-colors">Start Quiz</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredQuizzes.length === 0 && (
+            <div className="py-12 text-center text-gray-500">No quizzes match your filters.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

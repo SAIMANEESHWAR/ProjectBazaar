@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { jobPortals } from '../../data/preparationMockData';
 import Pagination from '../Pagination';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepJobPortalsPageProps {
   toggleSidebar?: () => void;
@@ -9,6 +10,7 @@ interface PrepJobPortalsPageProps {
 type TabType = 'dashboard' | 'favorites' | 'applied';
 
 const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
+  const [viewMode, setViewMode] = useViewMode();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -118,8 +120,10 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
             </option>
           ))}
         </select>
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
+      {viewMode === 'table' && (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -216,6 +220,46 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
           <div className="px-6 py-12 text-center text-gray-500">No portals found.</div>
         )}
       </div>
+      )}
+
+      {viewMode === 'grid' && (
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedPortals.map((portal) => (
+              <div key={portal.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex gap-2">
+                    <span className="prep-topic-chip text-xs px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full">{portal.category}</span>
+                    <span className="prep-topic-chip text-xs px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full">{portal.region}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => toggleFavorite(portal.id)} className={`p-1.5 rounded-lg transition-all ${portal.isFavorite ? 'text-orange-500' : 'text-gray-400 hover:text-orange-500'}`}>
+                      <svg className="w-4 h-4" fill={portal.isFavorite ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                    </button>
+                    <button onClick={() => toggleApplied(portal.id)} className={`p-1.5 rounded-lg transition-all ${portal.isApplied ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`}>
+                      <svg className="w-4 h-4" fill={portal.isApplied ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <h4 className="font-semibold text-gray-900 text-sm">{portal.name}</h4>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{portal.description}</p>
+                <a href={portal.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-600 font-medium">
+                  Visit Portal
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              </div>
+            ))}
+          </div>
+          {filteredPortals.length > 0 && (
+            <div className="mt-4">
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={filteredPortals.length} onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }} />
+            </div>
+          )}
+          {filteredPortals.length === 0 && (
+            <div className="py-12 text-center text-gray-500">No portals found.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

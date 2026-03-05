@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { dsaProblems, prepStats } from '../../data/preparationMockData';
 import type { DSAProblem } from '../../data/preparationMockData';
 import PrepFilterDropdown from './PrepFilterDropdown';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepDSAProblemsPageProps {
   toggleSidebar?: () => void;
@@ -44,6 +45,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [viewMode, setViewMode] = useViewMode();
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -166,6 +168,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           onChange={setDifficultyFilter}
           options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
         />
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
         {(topicFilter !== 'all' || difficultyFilter !== 'all' || search.trim()) && (
           <button onClick={() => { setTopicFilter('all'); setDifficultyFilter('all'); setSearch(''); }}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
@@ -180,78 +183,121 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           <p className="text-gray-500 font-medium">No problems match your filters.</p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('title')}>
-                    <span className="inline-flex items-center">Problem <SortIcon active={sortKey === 'title'} dir={sortDir} /></span>
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('topic')}>
-                    <span className="inline-flex items-center">Topic <SortIcon active={sortKey === 'topic'} dir={sortDir} /></span>
-                  </th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
-                    <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
-                  </th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Companies</th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedProblems.map((problem, idx) => {
-                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
-                  return (
-                    <tr key={problem.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{problem.description}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Acceptance: {problem.acceptance}%</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{problem.topic}</span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <DifficultyBadge difficulty={problem.difficulty} />
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {problem.company.slice(0, 3).map((c) => (
-                            <span key={c} className="px-1.5 py-0.5 rounded text-xs bg-orange-50 text-orange-700">{c}</span>
-                          ))}
-                          {problem.company.length > 3 && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">+{problem.company.length - 3}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                          {problem.isSolved ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                          {problem.isBookmarked ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                          )}
-                        </button>
-                      </td>
+        <>
+          {viewMode === 'table' && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('title')}>
+                        <span className="inline-flex items-center">Problem <SortIcon active={sortKey === 'title'} dir={sortDir} /></span>
+                      </th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('topic')}>
+                        <span className="inline-flex items-center">Topic <SortIcon active={sortKey === 'topic'} dir={sortDir} /></span>
+                      </th>
+                      <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                        <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                      </th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Companies</th>
+                      <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
+                      <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody>
+                    {paginatedProblems.map((problem, idx) => {
+                      const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                      return (
+                        <tr key={problem.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
+                          <td className="px-5 py-4">
+                            <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{problem.description}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Acceptance: {problem.acceptance}%</p>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{problem.topic}</span>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <DifficultyBadge difficulty={problem.difficulty} />
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {problem.company.slice(0, 3).map((c) => (
+                                <span key={c} className="px-1.5 py-0.5 rounded text-xs bg-orange-50 text-orange-700">{c}</span>
+                              ))}
+                              {problem.company.length > 3 && (
+                                <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">+{problem.company.length - 3}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                              {problem.isSolved ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                              {problem.isBookmarked ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {viewMode === 'grid' && filteredProblems.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {paginatedProblems.map((problem) => (
+                <div key={problem.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                  <div className="flex items-start justify-between mb-3">
+                    <DifficultyBadge difficulty={problem.difficulty} />
+                    <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                      {problem.isBookmarked ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                      )}
+                    </button>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 text-sm">{problem.title}</h4>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{problem.description}</p>
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <span className="prep-topic-chip text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{problem.topic}</span>
+                    {problem.company.slice(0, 2).map((c) => (
+                      <span key={c} className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">{c}</span>
+                    ))}
+                    {problem.company.length > 2 && (
+                      <span className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">+{problem.company.length - 2}</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Acceptance: {problem.acceptance}%</span>
+                    <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                      {problem.isSolved ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Pagination */}

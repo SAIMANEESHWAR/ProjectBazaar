@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { coldDMTemplates } from '../../data/preparationMockData';
 import type { ColdDMTemplate } from '../../data/preparationMockData';
 import Pagination from '../Pagination';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepColdDMsPageProps {
   toggleSidebar?: () => void;
@@ -18,6 +19,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
+  const [viewMode, setViewMode] = useViewMode();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -118,8 +120,10 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
             </option>
           ))}
         </select>
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
+      {viewMode === 'table' && (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -200,6 +204,34 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
           </div>
         )}
       </div>
+      )}
+
+      {viewMode === 'grid' && (
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedTemplates.map((template) => (
+              <div key={template.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                <div className="flex items-start justify-between mb-2">
+                  <span className={`prep-topic-chip inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryBadgeClass(template.category)}`}>{template.category}</span>
+                  <button onClick={() => handleCopy(template)} className="px-3 py-1 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-600 transition-colors">
+                    {copiedId === template.id ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <h4 className="font-semibold text-gray-900 text-sm mt-2">{template.title}</h4>
+                <p className="text-xs text-gray-500 mt-1.5 line-clamp-3">{template.content}</p>
+              </div>
+            ))}
+          </div>
+          {filteredTemplates.length === 0 && (
+            <div className="py-16 text-center text-gray-500">No templates found matching your search.</div>
+          )}
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={filteredTemplates.length} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

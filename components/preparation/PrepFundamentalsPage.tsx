@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { oopsConcepts, languageConcepts, groupByCategory, type Concept } from '../../data/fundamentalsData';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 type FundSection = 'language' | 'oops';
 
@@ -16,6 +17,7 @@ export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: 
   const section = sectionProp;
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('all');
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
+  const [viewMode, setViewMode] = useViewMode('grid');
 
   const concepts = section === 'oops' ? oopsConcepts : languageConcepts;
 
@@ -121,10 +123,13 @@ export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: 
               : 'Core language fundamentals with practical examples and explanations.'}
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          Search
-        </button>
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            Search
+          </button>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Difficulty filter tabs */}
@@ -143,33 +148,68 @@ export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: 
           <p className="text-gray-500 font-medium">No concepts match this filter.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {groups.map(group => (
-            <div key={group.category}>
-              <h2 className="text-lg font-bold text-gray-900 mb-4">{group.category}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {group.concepts.map(concept => (
-                  <button
-                    key={concept.id}
-                    onClick={() => setSelectedConcept(concept)}
-                    className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-orange-400 hover:shadow-md transition-all duration-200 group"
-                  >
-                    <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{concept.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{concept.description}</p>
-                    <div className="flex items-center gap-2 mt-3">
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>
-                        {concept.difficulty.toLowerCase()} level
-                      </span>
-                      <span className="prep-topic-chip px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
-                        {concept.topic}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+        <>
+          {viewMode === 'table' && groups.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Category</th>
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Topic</th>
+                      <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Difficulty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((concept, idx) => (
+                      <tr key={concept.id} onClick={() => setSelectedConcept(concept)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors duration-150">
+                        <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
+                        <td className="px-5 py-4">
+                          <p className="text-sm font-semibold text-gray-900">{concept.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{concept.description}</p>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-gray-600">{concept.category}</td>
+                        <td className="px-5 py-4"><span className="prep-topic-chip px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">{concept.topic}</span></td>
+                        <td className="px-5 py-4 text-center"><span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>{concept.difficulty}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+          {viewMode === 'grid' && groups.length > 0 && (
+            <div className="space-y-8">
+              {groups.map(group => (
+                <div key={group.category}>
+                  <h2 className="text-lg font-bold text-gray-900 mb-4">{group.category}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {group.concepts.map(concept => (
+                      <button
+                        key={concept.id}
+                        onClick={() => setSelectedConcept(concept)}
+                        className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-orange-400 hover:shadow-md transition-all duration-200 group"
+                      >
+                        <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{concept.title}</h3>
+                        <p className="text-sm text-gray-500 mt-1">{concept.description}</p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>
+                            {concept.difficulty.toLowerCase()} level
+                          </span>
+                          <span className="prep-topic-chip px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                            {concept.topic}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

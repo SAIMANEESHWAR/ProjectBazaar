@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { hldQuestions, lldQuestions, hldSections, lldSections } from '../../data/systemDesignData';
 import PrepFilterDropdown from './PrepFilterDropdown';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 type DesignTab = 'hld' | 'lld';
 
@@ -37,6 +38,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [viewMode, setViewMode] = useViewMode();
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -173,6 +175,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
           onChange={setDifficultyFilter}
           options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
         />
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
         {(sectionFilter !== 'all' || difficultyFilter !== 'all' || search.trim()) && (
           <button onClick={() => { setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); }}
             className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
@@ -189,6 +192,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          {viewMode === 'table' ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -247,6 +251,40 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
               </tbody>
             </table>
           </div>
+          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+            {paginated.map((q) => {
+              const isSolved = solvedMap[q.id] ?? q.isSolved;
+              const isRevision = revisionMap[q.id] ?? q.isRevision;
+              return (
+                <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        {isSolved ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        )}
+                      </button>
+                      <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        {isRevision ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+                  <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">{q.section}</span>
+                </div>
+              );
+            })}
+          </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

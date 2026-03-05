@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { collections as initialCollections } from '../../data/preparationMockData';
 import type { Collection } from '../../data/preparationMockData';
+import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepCollectionsPageProps {
   toggleSidebar?: () => void;
@@ -18,6 +19,7 @@ const PRESET_COLORS = [
 ];
 
 const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar }) => {
+  const [viewMode, setViewMode] = useViewMode('grid');
   const [collections, setCollections] = useState<Collection[]>(initialCollections);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
@@ -113,6 +115,7 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
           <option value="date">Date created</option>
           <option value="name">Name</option>
         </select>
+        <PrepViewToggle view={viewMode} onChange={setViewMode} />
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-all duration-200 whitespace-nowrap"
@@ -210,7 +213,7 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
             Create collection
           </button>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAndSorted.map((collection) => (
             <div
@@ -229,6 +232,35 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-10">Color</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Items</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAndSorted.map((collection, idx) => (
+                  <tr key={collection.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
+                    <td className="px-5 py-4 text-center"><span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: collection.color }} /></td>
+                    <td className="px-5 py-4"><span className="text-sm font-semibold text-gray-900">{collection.name}</span></td>
+                    <td className="px-5 py-4 text-sm text-gray-500 max-w-xs truncate">{collection.description || 'No description'}</td>
+                    <td className="px-5 py-4 text-center text-sm text-gray-600">{collection.itemCount}</td>
+                    <td className="px-5 py-4 text-center text-sm text-gray-500">{formatDate(collection.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
