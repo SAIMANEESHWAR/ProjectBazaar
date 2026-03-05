@@ -1,12 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./globals.css";
+import { bootAnalytics, initSentry } from "./lib/analytics";
 
-Sentry.init({
-  dsn: "https://d2b4b7675ec75eaab29ac2303fea1604@o4510947769057280.ingest.us.sentry.io/4510947776462848",
-  sendDefaultPii: true
+bootAnalytics();
+
+window.addEventListener("storage", (e) => {
+  if (e.key === "cookieConsent" && e.newValue === "all") {
+    initSentry();
+  }
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
