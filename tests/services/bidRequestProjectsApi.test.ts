@@ -87,12 +87,11 @@ describe('Bid Request Projects API', () => {
       expect(projects).toHaveLength(0);
     });
 
-    it('should fallback to mock data when API fails', async () => {
+    it('should return empty array when API fails', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const { projects } = await getAllBidRequestProjects();
-      // Should return mock data
-      expect(Array.isArray(projects)).toBe(true);
+      expect(projects).toEqual([]);
     });
 
     it('should handle API returning error response', async () => {
@@ -104,8 +103,7 @@ describe('Bid Request Projects API', () => {
       });
 
       const { projects } = await getAllBidRequestProjects();
-      // Should return mock data on failure
-      expect(Array.isArray(projects)).toBe(true);
+      expect(projects).toEqual([]);
     });
   });
 

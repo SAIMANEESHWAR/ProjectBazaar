@@ -40,6 +40,8 @@ const POPULAR_SKILLS = [
   'Django', 'Flask', 'Spring Boot', 'Express', 'FastAPI',
 ];
 
+const PROJECTS_PER_PAGE = 10;
+
 interface BrowseProjectsContentProps {
   // No props needed for now
 }
@@ -62,6 +64,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
   });
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Project details & Bid modal state
   const [selectedProject, setSelectedProject] = useState<BrowseProject | null>(null);
@@ -381,6 +384,24 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     return filtered;
   }, [projects, searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory]);
 
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredAndSortedProjects.length / PROJECTS_PER_PAGE)),
+    [filteredAndSortedProjects.length]
+  );
+
+  const paginatedProjects = useMemo(
+    () => filteredAndSortedProjects.slice(
+      (currentPage - 1) * PROJECTS_PER_PAGE,
+      currentPage * PROJECTS_PER_PAGE
+    ),
+    [filteredAndSortedProjects, currentPage]
+  );
+
+  // Reset to page 1 when filters or sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, projectType, budgetRange, sortOption, selectedSkills, selectedCategory]);
+
   const clearFilters = () => {
     setProjectType('all');
     setBudgetRange([minBudget, maxBudget]);
@@ -388,6 +409,7 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
     setSortOption('latest');
     setSelectedSkills([]);
     setSelectedCategory('All Categories');
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = projectType !== 'all' ||
@@ -759,167 +781,209 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
         {/* Results */}
         <div className="flex-1">
           <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            Showing <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredAndSortedProjects.length}</span> project{filteredAndSortedProjects.length !== 1 ? 's' : ''}
+            {filteredAndSortedProjects.length > 0 ? (
+              <>
+                Showing{' '}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {(currentPage - 1) * PROJECTS_PER_PAGE + 1}–{Math.min(currentPage * PROJECTS_PER_PAGE, filteredAndSortedProjects.length)}
+                </span>
+                {' '}of{' '}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredAndSortedProjects.length}</span>
+                {' '}project{filteredAndSortedProjects.length !== 1 ? 's' : ''}
+              </>
+            ) : (
+              <>Showing <span className="font-semibold text-gray-900 dark:text-gray-100">0</span> projects</>
+            )}
           </div>
 
           {filteredAndSortedProjects.length > 0 ? (
+            <>
             <div className="space-y-4">
-              {filteredAndSortedProjects.map((project) => (
+              {paginatedProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
+                  className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    {/* Left Content */}
-                    <div className="flex-1">
-                      {/* Title & Average Bid */}
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer">
-                          {project.title}
-                        </h3>
-                        {/* Average Bid Badge */}
-                        {project.bidsCount > 0 && bidStatsCache.get(project.id) && (
-                          <div className="flex-shrink-0 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-1.5">
-                            <p className="text-xs text-green-600 dark:text-green-400 font-medium">Avg Bid</p>
-                            <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                              ₹{bidStatsCache.get(project.id)!.averageBid.toLocaleString()}
-                            </p>
-                          </div>
-                        )}
+                  {/* Top row: Title (left) | Bids & Time (right) */}
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex-1 min-w-0">
+                      {project.title}
+                    </h3>
+                    <div className="flex-shrink-0 text-right text-sm text-gray-500 dark:text-gray-400">
+                      <div>{project.bidsCount} {project.bidsCount === 1 ? 'bid' : 'bids'}</div>
+                      <div>{project.postedTimeAgo}</div>
+                    </div>
+                  </div>
+
+                  {/* Price row: icon + amount (orange) + type (grey) */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex-shrink-0 text-orange-500 dark:text-orange-400" aria-hidden>
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2 5 5h-5V4zm-2 10H9v-2h2v-2h2v2h2v2h-2v2h-2v-2z" />
+                      </svg>
+                    </span>
+                    <span className="text-lg font-medium text-orange-600 dark:text-orange-400">
+                      ₹{project.budget.min.toLocaleString()}
+                      {project.budget.max !== project.budget.min && ` - ₹${project.budget.max.toLocaleString()}`}
+                      {project.type === 'hourly' && '/hr'}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {project.type === 'fixed' ? 'Fixed Price' : 'Hourly'}
+                    </span>
+                  </div>
+
+                  {/* Description (truncated) */}
+                  <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-4 line-clamp-3">
+                    {truncateDescription(project.description)}
+                  </p>
+
+                  {/* Skills: pill badges, light grey */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {project.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Bottom row: Owner (left) | CTA (right) */}
+                  <div className="flex items-center justify-between gap-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-gray-200 dark:ring-gray-600 bg-gray-100 dark:bg-gray-700">
+                        {project.ownerProfilePicture ? (
+                          <img
+                            src={project.ownerProfilePicture}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <span
+                          className={`text-orange-600 dark:text-orange-400 font-semibold text-sm w-full h-full flex items-center justify-center ${project.ownerProfilePicture ? 'hidden' : ''}`}
+                          aria-hidden={!!project.ownerProfilePicture}
+                        >
+                          {(project.ownerName || project.ownerEmail || 'U').charAt(0).toUpperCase()}
+                        </span>
                       </div>
-
-                      {/* Description */}
-                      <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-                        {truncateDescription(project.description)}
-                      </p>
-
-                      {/* Skills */}
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {project.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Requirement Owner Info - show poster profile image */}
-                      <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-white dark:ring-gray-600 shadow-sm">
-                          {project.ownerProfilePicture ? (
-                            <img
-                              src={project.ownerProfilePicture}
-                              alt={project.ownerName || 'Posted by'}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                          ) : null}
-                          <span
-                            className={`text-orange-600 dark:text-orange-400 font-semibold text-sm w-full h-full flex items-center justify-center ${project.ownerProfilePicture ? 'hidden' : ''}`}
-                            aria-hidden={!!project.ownerProfilePicture}
-                          >
-                            {(project.ownerName || project.ownerEmail || 'U').charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Posted by</p>
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {project.ownerName || project.ownerEmail?.split('@')[0] || 'Anonymous'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Meta Info */}
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          <span>{project.bidsCount} {project.bidsCount === 1 ? 'bid' : 'bids'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>{project.postedTimeAgo}</span>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {project.ownerName || project.ownerEmail?.split('@')[0] || 'Anonymous'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Project Owner
+                        </p>
                       </div>
                     </div>
 
-                    {/* Right Content */}
-                    <div className="flex flex-col items-end gap-4 md:min-w-[200px]">
-                      {/* Budget */}
-                      <div className="text-right">
-                        {project.type === 'fixed' ? (
-                          <div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                              ₹{project.budget.min.toLocaleString()}
-                              {project.budget.max !== project.budget.min && ` - ₹${project.budget.max.toLocaleString()}`}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Fixed Price</div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                              ₹{project.budget.min}/hr
-                              {project.budget.max !== project.budget.min && ` - ₹${project.budget.max}/hr`}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Hourly</div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Own Project Badge */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {userId && project.ownerId === userId && (
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
                           Your Project
                         </span>
                       )}
-
-                      {/* Project Status Badge */}
                       {project.status && project.status !== 'open' && (
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold mb-2 inline-block ${project.status === 'in_progress'
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${project.status === 'in_progress'
                           ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                           : project.status === 'completed'
                             ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}>
-                          {project.status === 'in_progress' ? '🎯 Awarded' :
-                            project.status === 'completed' ? '✓ Completed' :
-                              project.status === 'cancelled' ? 'Cancelled' : project.status}
+                        }`}>
+                          {project.status === 'in_progress' ? 'Awarded' : project.status === 'completed' ? 'Completed' : project.status}
                         </span>
                       )}
-
-                      {/* CTA Button */}
                       <button
                         onClick={() => handleViewProjectDetails(project)}
-                        className={`w-full md:w-auto px-6 py-3 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap ${
+                        className={`px-5 py-2.5 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap inline-flex items-center gap-1.5 ${
                           userId && project.ownerId === userId
-                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                          : project.status && project.status !== 'open'
-                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                          : 'bg-orange-500 text-white hover:bg-orange-600'
-                          }`}
+                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                            : project.status && project.status !== 'open'
+                              ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                              : 'bg-orange-500 text-white hover:bg-orange-600'
+                        }`}
                       >
                         {userId && project.ownerId === userId
                           ? 'View Details'
                           : project.status && project.status !== 'open'
-                          ? 'View Details'
-                          : project.bidsCount === 0
-                            ? 'Be First to Bid'
-                            : 'Place Bid'}
+                            ? 'View Details'
+                            : project.bidsCount === 0
+                              ? 'Be First to Bid'
+                              : 'Place Bid'}
+                        <span aria-hidden>→</span>
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Page {currentPage} of {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:disabled:hover:bg-transparent transition-colors"
+                    aria-label="Previous page"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => {
+                        if (totalPages <= 7) return true;
+                        if (p === 1 || p === totalPages) return true;
+                        if (Math.abs(p - currentPage) <= 1) return true;
+                        return false;
+                      })
+                      .reduce<number[]>((acc, p) => {
+                        const last = acc[acc.length - 1];
+                        if (last !== undefined && p - last > 1) acc.push(-1);
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === -1 ? (
+                          <span key={`ellipsis-${i}`} className="px-2 text-gray-400 dark:text-gray-500">…</span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() => setCurrentPage(p)}
+                            className={`min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-medium transition-colors ${
+                              p === currentPage
+                                ? 'bg-orange-500 text-white'
+                                : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                            aria-label={`Page ${p}`}
+                            aria-current={p === currentPage ? 'page' : undefined}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:disabled:hover:bg-transparent transition-colors"
+                    aria-label="Next page"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           ) : (
             <div className="text-center py-16 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl">
               <div className="mx-auto mb-4 w-full max-w-[380px] h-[280px] flex items-center justify-center">

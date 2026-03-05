@@ -8,9 +8,6 @@ import type { BrowseProject } from '../types/browse';
 // API Endpoint for Bid Request Projects Lambda
 const BID_REQUEST_PROJECTS_API_ENDPOINT = 'https://ai0hb6211e.execute-api.ap-south-2.amazonaws.com/default/bid_request_projects_handle';
 
-// Mock data for development/fallback
-import mockProjectsData from '../mock/projects.json';
-
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -94,24 +91,6 @@ const mapToBrowseProject = (project: BidRequestProject): BrowseProject => ({
 });
 
 /**
- * Map mock project data to BrowseProject format
- */
-const mapMockToBrowseProject = (project: any): BrowseProject => ({
-  id: project.id,
-  title: project.title,
-  description: project.description,
-  type: project.type,
-  budget: project.budget,
-  skills: project.skills,
-  bidsCount: project.bidsCount,
-  postedAt: project.postedAt,
-  postedTimeAgo: getTimeAgo(project.postedAt),
-  ownerId: 'mock-buyer-1',
-  ownerEmail: 'buyer@example.com',
-  ownerName: 'Project Owner',
-});
-
-/**
  * Make API request to bid request projects endpoint
  */
 async function apiRequest<T>(action: string, body: Record<string, unknown> = {}): Promise<ApiResponse<T>> {
@@ -149,10 +128,8 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
  * Get all open bid request projects for freelancers to browse
  */
 export const getAllBidRequestProjects = async (): Promise<{ projects: BrowseProject[]; maxBudget?: number }> => {
-  // If API endpoint is not configured, use mock data
   if (!BID_REQUEST_PROJECTS_API_ENDPOINT) {
-    console.log('Using mock data for bid request projects (API not configured)');
-    return { projects: (mockProjectsData as any[]).map(mapMockToBrowseProject), maxBudget: 50000 };
+    return { projects: [] };
   }
 
   try {
@@ -165,12 +142,10 @@ export const getAllBidRequestProjects = async (): Promise<{ projects: BrowseProj
       };
     }
 
-    // Fallback to mock data
-    console.log('API call failed, using mock data');
-    return { projects: (mockProjectsData as any[]).map(mapMockToBrowseProject), maxBudget: 50000 };
+    return { projects: [] };
   } catch (error) {
     console.error('Error fetching bid request projects:', error);
-    return { projects: (mockProjectsData as any[]).map(mapMockToBrowseProject), maxBudget: 50000 };
+    return { projects: [] };
   }
 };
 
@@ -179,8 +154,7 @@ export const getAllBidRequestProjects = async (): Promise<{ projects: BrowseProj
  */
 export const getBidRequestProject = async (projectId: string): Promise<BrowseProject | null> => {
   if (!BID_REQUEST_PROJECTS_API_ENDPOINT) {
-    const mockProject = (mockProjectsData as any[]).find(p => p.id === projectId);
-    return mockProject ? mapMockToBrowseProject(mockProject) : null;
+    return null;
   }
 
   try {
