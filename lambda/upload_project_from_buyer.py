@@ -208,7 +208,7 @@ def lambda_handler(event, context):
         # Determine status and adminApprovalStatus based on is_draft
         if is_draft:
             project_status = "draft"
-            admin_approval_status = None  # Drafts don't need admin approval
+            admin_approval_status = "not_submitted"
         else:
             project_status = "pending"
             admin_approval_status = "pending"
@@ -238,6 +238,7 @@ def lambda_handler(event, context):
             "thumbnailUrl": body.get("thumbnailUrl") or (image_urls[0] if image_urls else None),
             "resources": resources if resources else None,
             "adminApprovalStatus": admin_approval_status,
+            "adminApproved": False,
             "status": project_status,
             "likesCount": 0,
             "purchasesCount": 0,

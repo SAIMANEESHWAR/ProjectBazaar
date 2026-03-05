@@ -336,12 +336,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     const isApproved =
                         approvalStatus === 'approved' ||
                         status === 'approved' ||
-                        (apiProject.adminApproved === true && (status === 'active' || status === 'live')) ||
-                        (approvalStatus !== 'rejected' && approvalStatus !== 'disabled' && apiProject.adminApproved !== false);
+                        status === 'active' ||
+                        status === 'live' ||
+                        (apiProject.adminApproved === true && (status === 'active' || status === 'live'));
 
+                    const isNotDraft = status !== 'draft';
                     const isNotPurchased = !purchasedProjectIds.includes(apiProject.projectId);
 
-                    return isApproved && isNotPurchased;
+                    return isApproved && isNotDraft && isNotPurchased;
                 });
 
                 const mappedProjects = filteredApiProjects.map(mapApiProjectToComponent);

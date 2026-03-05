@@ -140,7 +140,12 @@ const ProjectManagementPage: React.FC<ProjectManagementPageProps> = ({ onViewUse
             const data = await response.json();
             
             if (data.success && data.projects) {
-                const mappedProjects = data.projects.map((apiProject: ApiProject) => 
+                const nonDraftProjects = data.projects.filter(
+                    (apiProject: ApiProject) =>
+                        apiProject.status !== 'draft' &&
+                        apiProject.adminApprovalStatus !== 'not_submitted'
+                );
+                const mappedProjects = nonDraftProjects.map((apiProject: ApiProject) => 
                     mapApiProjectToComponent(apiProject)
                 );
                 setProjects(mappedProjects);
