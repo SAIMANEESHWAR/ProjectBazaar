@@ -48,9 +48,10 @@ CONTENT_TYPE_TABLE_MAP = {
     "fundamentals": TABLE_FUNDAMENTALS,
 }
 
+# CORS: allow browser requests from any origin (enable in API Gateway too if needed)
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With,Accept,Origin",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
     "Access-Control-Max-Age": "3600",
 }
@@ -552,8 +553,17 @@ def handle_get_stats(user_id: str) -> dict:
 def handle_get_dashboard(user_id: str) -> dict:
     """Full dashboard payload: stats + recent activity + content counts."""
     try:
-        stats = json.loads(handle_get_stats(user_id)["body"]).get("stats", {})
-        activities = json.loads(handle_get_activity(user_id, 10)["body"]).get("activities", [])
+        stats_body = handle_get_stats(user_id).get("body") or "{}"
+        try:
+            stats = json.loads(stats_body).get("stats", {})
+        except (json.JSONDecodeError, TypeError):
+            stats = {"userId": user_id, "solvedQuestions": 0, "solvedDSA": 0, "completedQuizzes": 0, "streak": 0, "longestStreak": 0}
+
+        act_body = handle_get_activity(user_id, 10).get("body") or "[]"
+        try:
+            activities = json.loads(act_body).get("activities", [])
+        except (json.JSONDecodeError, TypeError):
+            activities = []
 
         content_counts = {}
         for ct, tn in CONTENT_TYPE_TABLE_MAP.items():
@@ -567,6 +577,9 @@ def handle_get_dashboard(user_id: str) -> dict:
             "recentActivity": activities, "contentCounts": content_counts,
         })
     except Exception as e:
+        import traceback
+        print(f"[prep_user_handler] get_dashboard error: {e}")
+        traceback.print_exc()
         return api_response(500, {"success": False, "message": "Internal error", "error": str(e)})
 
 
@@ -807,12 +820,22 @@ def lambda_handler(event, context):
         or event.get("requestContext", {}).get("httpMethod", "")
     )
 
+    # CORS preflight: must return CORS headers and 2xx so browser sends actual request
     if http_method == "OPTIONS":
-        return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
+        return {
+            "statusCode": 200,
+            "headers": {
+                **CORS_HEADERS,
+                "Content-Type": "application/json",
+            },
+            "body": "",
+        }
 
     body = parse_body(event)
     qp = get_query_params(event)
     action = body.get("action") or qp.get("action", "")
+    user_id = body.get("userId", "") or qp.get("userId", "")
+    print(f"[prep_user_handler] {http_method} action={action!r} userId={user_id[:8] if user_id else '(empty)'}...")
 
     try:
         # ── READ CONTENT ──
@@ -930,5 +953,7 @@ def lambda_handler(event, context):
         })
 
     except Exception as e:
+        import traceback
         print(f"[prep_user_handler] Unhandled error: {e}")
+        traceback.print_exc()
         return api_response(500, {"success": False, "message": "Internal Server Error", "error": str(e)})

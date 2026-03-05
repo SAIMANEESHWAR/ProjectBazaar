@@ -80,7 +80,7 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
     const [cartAdded, setCartAdded] = useState(false);
     const [isHoveringImage, setIsHoveringImage] = useState(false);
     const [projectDetails, setProjectDetails] = useState<BackendProjectDetails | null>(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [, setLoadingDetails] = useState(false);
 
     // Manage local likes for immediate visual feedback
     const [localLikes, setLocalLikes] = useState(project.likes || 0);
