@@ -38,14 +38,11 @@ const MyBidsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" f
 
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Post Project Bid', view: 'post-project' as DashboardView, icon: PostProjectIcon },
-    { name: 'My Bids', view: 'my-bids' as DashboardView, icon: MyBidsIcon },
     { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
     { name: 'Mock Assessment', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
-
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },

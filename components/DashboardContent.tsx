@@ -599,10 +599,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 );
             case 'hackathons':
                 return <HackathonsPage toggleSidebar={toggleSidebar} />;
-            case 'post-project':
-                return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
-            case 'my-bids':
-                return <MyBidsPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
