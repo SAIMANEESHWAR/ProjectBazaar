@@ -31,6 +31,7 @@
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
     { "source": "/b8f4e2c1a9d74f6e8b3c5d7a1e9f0b2d.txt", "destination": "/b8f4e2c1a9d74f6e8b3c5d7a1e9f0b2d.txt" },
+    { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

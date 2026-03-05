@@ -655,6 +655,7 @@ const SellerDashboard: React.FC = () => {
         const hasPrice = formData.price.trim() !== '' && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) > 0;
         const hasCategory = formData.category.trim() !== '';
         const hasYoutubeUrl = formData.youtubeVideoUrl.trim() !== '';
+        const hasResourceLink = Object.values(resourceUrls).some((v) => (v || '').trim() !== '') || customResources.some((r) => (r.url || '').trim() !== '');
         const hasGithubUrl = formData.githubUrl.trim() !== '' && githubValidated;
         const hasValidImages = imageFiles.length >= MIN_IMAGES && imageFiles.length <= MAX_IMAGES;
 
@@ -664,11 +665,11 @@ const SellerDashboard: React.FC = () => {
             skills: hasTags,
             budget: hasPrice,
             category: hasCategory,
-            media: hasYoutubeUrl,
+            media: hasYoutubeUrl || hasResourceLink,
             github: hasGithubUrl,
             images: hasValidImages,
         };
-    }, [formData, tags, githubValidated, imageFiles.length]);
+    }, [formData, tags, githubValidated, imageFiles.length, resourceUrls, customResources]);
 
     const completionPercentage = useMemo(() => {
         const sections = Object.values(sectionStatus);
@@ -880,28 +881,16 @@ const SellerDashboard: React.FC = () => {
         setGithubValidationError(null);
 
         try {
-            const response = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
+            const apiUrl = `/api/verify-github?owner=${encodeURIComponent(parsed.owner)}&repo=${encodeURIComponent(parsed.repo)}`;
+            const response = await fetch(apiUrl, { method: 'GET' });
+            const data = await response.json().catch(() => ({ ok: false, error: 'Invalid response' })) as { ok?: boolean; error?: string; private?: boolean };
 
-            if (response.status === 200) {
-                const data = await response.json();
-                if (data.private === false) {
-                    setGithubValidated(true);
-                    setGithubValidationError(null);
-                } else {
-                    setGithubValidated(false);
-                    setGithubValidationError('This repository is private. Please upload a public GitHub repository URL.');
-                }
-            } else if (response.status === 404) {
-                setGithubValidated(false);
-                setGithubValidationError('Repository not found. Please upload a public GitHub repository URL.');
+            if (data.ok === true && data.private === false) {
+                setGithubValidated(true);
+                setGithubValidationError(null);
             } else {
                 setGithubValidated(false);
-                setGithubValidationError('Unable to verify repository. Please check the URL and try again.');
+                setGithubValidationError(data.error || 'Unable to verify repository. Please check the URL and try again.');
             }
         } catch (error) {
             console.error('GitHub validation error:', error);
@@ -1097,12 +1086,6 @@ const SellerDashboard: React.FC = () => {
 
         if (imageFiles.length < 2) {
             setSubmitError('Please upload at least 2 project images');
-            return;
-        }
-
-        // YouTube Demo Video URL is mandatory
-        if (!formData.youtubeVideoUrl.trim()) {
-            setSubmitError('Please enter a YouTube demo video URL');
             return;
         }
 
@@ -2209,9 +2192,8 @@ const SellerDashboard: React.FC = () => {
                                         <div>
                                             <InputField
                                                 id="youtubeVideoUrl"
-                                                label="YouTube Demo Video URL"
+                                                label="YouTube Demo Video URL (optional)"
                                                 placeholder="https://youtube.com/watch?v=..."
-                                                required
                                                 value={formData.youtubeVideoUrl}
                                                 onChange={handleInputChange}
                                             />

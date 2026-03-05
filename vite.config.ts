@@ -24,4 +24,12 @@ export default defineConfig(({ mode }) => ({
   esbuild: {
     drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://projectbazaar.in',
+        changeOrigin: true,
+      },
+    },
+  },
 }))
