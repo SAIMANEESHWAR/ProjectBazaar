@@ -136,12 +136,18 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
             <button
               key={company.id}
               onClick={() => { setSelectedCompanyId(company.id); setActiveSubTab('interview'); setSearchQuery(''); }}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
                 selectedCompanyId === company.id
                   ? 'text-orange-600 border-orange-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
               }`}
             >
+              <img
+                src={company.logo}
+                alt={company.name}
+                className="w-5 h-5 rounded-sm object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
               {company.name}
             </button>
           ))}

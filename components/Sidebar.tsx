@@ -65,22 +65,53 @@ const buyerNavItems = [
     { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
 ];
 
-const preparationNavItems = [
-    { name: 'Prep Hub', view: 'prep-hub' as DashboardView, icon: PrepHubIcon },
-    { name: 'Interview Questions', view: 'prep-interview-questions' as DashboardView, icon: InterviewQIcon },
-    { name: 'DSA Problems', view: 'prep-dsa' as DashboardView, icon: DSAIcon },
-    { name: 'Quizzes', view: 'prep-quizzes' as DashboardView, icon: QuizIcon },
-    { name: 'System Design', view: 'prep-system-design' as DashboardView, icon: SystemDesignIcon },
-    { name: 'Fundamentals', view: 'prep-fundamentals' as DashboardView, icon: FundamentalsIcon },
-    { name: 'Position Resources', view: 'prep-position-resources' as DashboardView, icon: PositionIcon },
-    { name: 'Mass Recruitment', view: 'prep-mass-recruitment' as DashboardView, icon: MassRecruitIcon },
-    { name: 'Cold DMs / Emails', view: 'prep-cold-dms' as DashboardView, icon: ColdDMIcon },
-    { name: 'Job Portals', view: 'prep-job-portals' as DashboardView, icon: JobPortalIcon },
-    { name: 'Handwritten Notes', view: 'prep-notes' as DashboardView, icon: NotesIcon },
-    { name: 'Roadmaps', view: 'prep-roadmaps' as DashboardView, icon: RoadmapIcon },
-    { name: 'Collections', view: 'prep-collections' as DashboardView, icon: CollectionsIcon },
-    { name: 'My Activity', view: 'prep-activity' as DashboardView, icon: ActivityIcon },
+interface PrepNavItem { name: string; view: DashboardView; icon: JSX.Element; }
+interface PrepNavGroup { label: string; items: PrepNavItem[]; }
+
+const prepNavGroups: PrepNavGroup[] = [
+    {
+        label: 'Library',
+        items: [
+            { name: 'All Interview Questions', view: 'prep-interview-questions' as DashboardView, icon: InterviewQIcon },
+            { name: 'Role Wise Resources', view: 'prep-position-resources' as DashboardView, icon: PositionIcon },
+            { name: 'Company Wise Resources', view: 'prep-mass-recruitment' as DashboardView, icon: MassRecruitIcon },
+            { name: 'DSA Questions', view: 'prep-dsa' as DashboardView, icon: DSAIcon },
+            { name: 'Aptitude Questions', view: 'prep-quizzes' as DashboardView, icon: QuizIcon },
+            { name: 'Handwritten Notes', view: 'prep-notes' as DashboardView, icon: NotesIcon },
+            { name: 'Quiz', view: 'prep-collections' as DashboardView, icon: CollectionsIcon },
+        ],
+    },
+    {
+        label: 'Fundamentals',
+        items: [
+            { name: 'Language', view: 'prep-fundamentals' as DashboardView, icon: FundamentalsIcon },
+            { name: 'OOPs Concepts', view: 'prep-fundamentals' as DashboardView, icon: FundamentalsIcon },
+        ],
+    },
+    {
+        label: 'System Design',
+        items: [
+            { name: 'High Level Design', view: 'prep-system-design' as DashboardView, icon: SystemDesignIcon },
+            { name: 'Low Level Design', view: 'prep-system-design' as DashboardView, icon: SystemDesignIcon },
+        ],
+    },
+    {
+        label: 'Research',
+        items: [
+            { name: 'Job Portals', view: 'prep-job-portals' as DashboardView, icon: JobPortalIcon },
+            { name: 'Roadmap', view: 'prep-roadmaps' as DashboardView, icon: RoadmapIcon },
+            { name: 'Cold DMs / Emails', view: 'prep-cold-dms' as DashboardView, icon: ColdDMIcon },
+        ],
+    },
+    {
+        label: 'Platform',
+        items: [
+            { name: 'My Activity', view: 'prep-activity' as DashboardView, icon: ActivityIcon },
+        ],
+    },
 ];
+
+const preparationNavItems = prepNavGroups.flatMap(g => g.items);
 
 const sellerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
@@ -122,6 +153,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const cartCount = dashboardMode === 'buyer' ? cart.cartCount : 0;
 
     const navItems = dashboardMode === 'preparation' ? preparationNavItems : dashboardMode === 'buyer' ? buyerNavItems : sellerNavItems;
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
+    const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
 
     useEffect(() => {
         if (prevModeRef.current !== dashboardMode) {
