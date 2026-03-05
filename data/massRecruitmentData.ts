@@ -141,7 +141,7 @@ function cloneQuestionsForCompany(prefix: string, questions: MRQuestion[]): MRQu
 
 export const companies: CompanyData[] = [
   {
-    id: 'hcl', name: 'HCL', logo: 'https://logo.clearbit.com/hcltech.com',
+    id: 'hcl', name: 'HCL', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hcltech.com',
     interviewQuestions: hclInterview,
     dsaQuestions: hclDSA,
     aptitudeQuestions: hclAptitude,
@@ -149,7 +149,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: hclCoreCS,
   },
   {
-    id: 'ibm', name: 'IBM', logo: 'https://logo.clearbit.com/ibm.com',
+    id: 'ibm', name: 'IBM', logo: 'https://www.google.com/s2/favicons?sz=64&domain=ibm.com',
     interviewQuestions: cloneQuestionsForCompany('ibm-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('ibm-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('ibm-apt', hclAptitude),
@@ -157,7 +157,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('ibm-cs', hclCoreCS),
   },
   {
-    id: 'cognizant', name: 'Cognizant', logo: 'https://logo.clearbit.com/cognizant.com',
+    id: 'cognizant', name: 'Cognizant', logo: 'https://www.google.com/s2/favicons?sz=64&domain=cognizant.com',
     interviewQuestions: cloneQuestionsForCompany('cog-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('cog-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('cog-apt', hclAptitude),
@@ -165,7 +165,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('cog-cs', hclCoreCS),
   },
   {
-    id: 'infosys', name: 'Infosys', logo: 'https://logo.clearbit.com/infosys.com',
+    id: 'infosys', name: 'Infosys', logo: 'https://www.google.com/s2/favicons?sz=64&domain=infosys.com',
     interviewQuestions: cloneQuestionsForCompany('inf-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('inf-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('inf-apt', hclAptitude),
@@ -173,7 +173,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('inf-cs', hclCoreCS),
   },
   {
-    id: 'tcs', name: 'TCS', logo: 'https://logo.clearbit.com/tcs.com',
+    id: 'tcs', name: 'TCS', logo: 'https://www.google.com/s2/favicons?sz=64&domain=tcs.com',
     interviewQuestions: cloneQuestionsForCompany('tcs-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('tcs-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('tcs-apt', hclAptitude),
@@ -181,7 +181,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('tcs-cs', hclCoreCS),
   },
   {
-    id: 'wipro', name: 'Wipro', logo: 'https://logo.clearbit.com/wipro.com',
+    id: 'wipro', name: 'Wipro', logo: 'https://www.google.com/s2/favicons?sz=64&domain=wipro.com',
     interviewQuestions: cloneQuestionsForCompany('wip-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('wip-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('wip-apt', hclAptitude),
@@ -189,7 +189,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('wip-cs', hclCoreCS),
   },
   {
-    id: 'techmahindra', name: 'Tech Mahindra', logo: 'https://logo.clearbit.com/techmahindra.com',
+    id: 'techmahindra', name: 'Tech Mahindra', logo: 'https://www.google.com/s2/favicons?sz=64&domain=techmahindra.com',
     interviewQuestions: cloneQuestionsForCompany('tm-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('tm-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('tm-apt', hclAptitude),
@@ -197,7 +197,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('tm-cs', hclCoreCS),
   },
   {
-    id: 'lt', name: 'L&T', logo: 'https://logo.clearbit.com/larsentoubro.com',
+    id: 'lt', name: 'L&T', logo: 'https://www.google.com/s2/favicons?sz=64&domain=larsentoubro.com',
     interviewQuestions: cloneQuestionsForCompany('lt-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('lt-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('lt-apt', hclAptitude),
@@ -205,7 +205,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('lt-cs', hclCoreCS),
   },
   {
-    id: 'capgemini', name: 'Capgemini', logo: 'https://logo.clearbit.com/capgemini.com',
+    id: 'capgemini', name: 'Capgemini', logo: 'https://www.google.com/s2/favicons?sz=64&domain=capgemini.com',
     interviewQuestions: cloneQuestionsForCompany('cap-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('cap-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('cap-apt', hclAptitude),
@@ -213,7 +213,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('cap-cs', hclCoreCS),
   },
   {
-    id: 'accenture', name: 'Accenture', logo: 'https://logo.clearbit.com/accenture.com',
+    id: 'accenture', name: 'Accenture', logo: 'https://www.google.com/s2/favicons?sz=64&domain=accenture.com',
     interviewQuestions: cloneQuestionsForCompany('acc-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('acc-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('acc-apt', hclAptitude),
@@ -221,7 +221,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('acc-cs', hclCoreCS),
   },
   {
-    id: 'mindtree', name: 'Mindtree', logo: 'https://logo.clearbit.com/mindtree.com',
+    id: 'mindtree', name: 'Mindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mindtree.com',
     interviewQuestions: cloneQuestionsForCompany('mt-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('mt-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('mt-apt', hclAptitude),
@@ -229,7 +229,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('mt-cs', hclCoreCS),
   },
   {
-    id: 'mphasis', name: 'Mphasis', logo: 'https://logo.clearbit.com/mphasis.com',
+    id: 'mphasis', name: 'Mphasis', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mphasis.com',
     interviewQuestions: cloneQuestionsForCompany('mph-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('mph-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('mph-apt', hclAptitude),
@@ -237,7 +237,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('mph-cs', hclCoreCS),
   },
   {
-    id: 'hexaware', name: 'Hexaware', logo: 'https://logo.clearbit.com/hexaware.com',
+    id: 'hexaware', name: 'Hexaware', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hexaware.com',
     interviewQuestions: cloneQuestionsForCompany('hex-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('hex-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('hex-apt', hclAptitude),
@@ -245,7 +245,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('hex-cs', hclCoreCS),
   },
   {
-    id: 'ltimindtree', name: 'LTIMindtree', logo: 'https://logo.clearbit.com/ltimindtree.com',
+    id: 'ltimindtree', name: 'LTIMindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=ltimindtree.com',
     interviewQuestions: cloneQuestionsForCompany('lti-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('lti-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('lti-apt', hclAptitude),
@@ -253,7 +253,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('lti-cs', hclCoreCS),
   },
   {
-    id: 'zoho', name: 'Zoho', logo: 'https://logo.clearbit.com/zoho.com',
+    id: 'zoho', name: 'Zoho', logo: 'https://www.google.com/s2/favicons?sz=64&domain=zoho.com',
     interviewQuestions: cloneQuestionsForCompany('zoho-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('zoho-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('zoho-apt', hclAptitude),
@@ -261,7 +261,7 @@ export const companies: CompanyData[] = [
     coreCSQuestions: cloneQuestionsForCompany('zoho-cs', hclCoreCS),
   },
   {
-    id: 'persistent', name: 'Persistent Systems', logo: 'https://logo.clearbit.com/persistent.com',
+    id: 'persistent', name: 'Persistent Systems', logo: 'https://www.google.com/s2/favicons?sz=64&domain=persistent.com',
     interviewQuestions: cloneQuestionsForCompany('per-iq', hclInterview),
     dsaQuestions: cloneQuestionsForCompany('per-dsa', hclDSA),
     aptitudeQuestions: cloneQuestionsForCompany('per-apt', hclAptitude),

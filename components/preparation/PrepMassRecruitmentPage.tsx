@@ -142,12 +142,18 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
                   : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <img
-                src={company.logo}
-                alt={company.name}
-                className="w-5 h-5 rounded-sm object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
+              <span className="w-5 h-5 rounded-sm flex-shrink-0 inline-flex items-center justify-center overflow-hidden bg-gray-100">
+                <img
+                  src={company.logo}
+                  alt=""
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const el = e.target as HTMLImageElement;
+                    el.style.display = 'none';
+                    if (el.parentElement) el.parentElement.innerHTML = `<span class="text-[10px] font-bold text-gray-500">${company.name.charAt(0)}</span>`;
+                  }}
+                />
+              </span>
               {company.name}
             </button>
           ))}

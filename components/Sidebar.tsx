@@ -289,52 +289,106 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </div>
                     </div>
                 )}
-                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto`}>
-                    {navItems.map((item, index) => (
-                        <button
-                            key={item.name}
-                            onClick={() => {
-                                setActiveView(item.view);
-                                if (window.innerWidth < 1024) {
-                                    onClose();
-                                }
-                                if (isCollapsed && !isHovered) {
-                                    onCollapseToggle();
-                                }
-                            }}
-                            className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
-                                activeView === item.view
-                                    ? isDark
-                                        ? 'bg-white text-black'
-                                        : 'bg-orange-500 text-white'
-                                    : isDark
-                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                        : 'text-gray-600 hover:bg-orange-50'
-                                } ${isTransitioning ? 'nav-item-animate' : ''}`}
-                            style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
-                        >
-                            <div className="flex-shrink-0 relative">
-                                {item.icon}
-                                {item.view === 'cart' && cartCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                        {cartCount > 9 ? '9+' : cartCount}
+                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto custom-scrollbar`}>
+                    {dashboardMode === 'preparation' && isExpanded ? (
+                        <div className="space-y-1">
+                            {prepNavGroups.map((group) => {
+                                const isGroupExpanded = expandedGroups[group.label] ?? true;
+                                const hasActiveItem = group.items.some(i => i.view === activeView);
+                                return (
+                                    <div key={group.label}>
+                                        <button
+                                            onClick={() => toggleGroup(group.label)}
+                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                                hasActiveItem
+                                                    ? isDark ? 'text-white' : 'text-gray-900'
+                                                    : isDark ? 'text-[#8e8e93] hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <span>{group.label}</span>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                className={`h-4 w-4 transition-transform duration-200 ${isGroupExpanded ? 'rotate-90' : ''}`}
+                                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                            >
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                        {isGroupExpanded && (
+                                            <div className="mt-0.5 ml-2 space-y-0.5">
+                                                {group.items.map((item) => (
+                                                    <button
+                                                        key={item.name}
+                                                        onClick={() => {
+                                                            setActiveView(item.view);
+                                                            if (window.innerWidth < 1024) onClose();
+                                                        }}
+                                                        className={`w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                                                            activeView === item.view
+                                                                ? isDark
+                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                    : 'bg-orange-500 text-white font-medium'
+                                                                : isDark
+                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                        }`}
+                                                    >
+                                                        <div className="flex-shrink-0">{item.icon}</div>
+                                                        <span className="whitespace-nowrap truncate">{item.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        navItems.map((item, index) => (
+                            <button
+                                key={item.name}
+                                onClick={() => {
+                                    setActiveView(item.view);
+                                    if (window.innerWidth < 1024) {
+                                        onClose();
+                                    }
+                                    if (isCollapsed && !isHovered) {
+                                        onCollapseToggle();
+                                    }
+                                }}
+                                className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
+                                    activeView === item.view
+                                        ? isDark
+                                            ? 'bg-white text-black'
+                                            : 'bg-orange-500 text-white'
+                                        : isDark
+                                            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                            : 'text-gray-600 hover:bg-orange-50'
+                                    } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                            >
+                                <div className="flex-shrink-0 relative">
+                                    {item.icon}
+                                    {item.view === 'cart' && cartCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                            {cartCount > 9 ? '9+' : cartCount}
+                                        </span>
+                                    )}
+                                </div>
+                                {isExpanded && (
+                                    <span className="ml-3 whitespace-nowrap">
+                                        {item.name}
                                     </span>
                                 )}
-                            </div>
-                            {isExpanded && (
-                                <span className="ml-3 whitespace-nowrap">
-                                    {item.name}
-                                </span>
-                            )}
-                            {/* Tooltip for collapsed state */}
-                            {!isExpanded && (
-                                <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
-                                    {item.name}
-                                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                                </div>
-                            )}
-                        </button>
-                    ))}
+                                {!isExpanded && (
+                                    <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                        {item.name}
+                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                                    </div>
+                                )}
+                            </button>
+                        ))
+                    )}
                 </nav>
                 <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 ${isDark ? 'border-t border-[#1c1c1e]' : 'border-t border-gray-200'}`}>
                     {isExpanded ? (
