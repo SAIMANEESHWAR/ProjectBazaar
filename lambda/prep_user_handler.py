@@ -278,12 +278,14 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
         current_value = existing.get(field, False) if existing else False
         new_value = not current_value
 
-        update_expr = "SET #field = :val, updatedAt = :now, contentType = :ct, itemId = :iid"
-        expr_names = {"#field": field}
+        # Use ExpressionAttributeNames for all attribute names to avoid DynamoDB reserved words (e.g. type, id)
+        update_expr = "SET #field = :val, #ua = :now, #ct = :ct, #iid = :iid"
+        expr_names = {"#field": field, "#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId"}
         expr_values = {":val": new_value, ":now": now, ":ct": content_type, ":iid": item_id}
 
         if field == "isSolved" and new_value:
-            update_expr += ", solvedAt = :now"
+            update_expr += ", #sa = :now"
+            expr_names["#sa"] = "solvedAt"
 
         table.update_item(
             Key={"userId": user_id, "itemKey": item_key},
@@ -318,11 +320,12 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
                 continue
             item_key = _progress_key(ct, iid)
 
-            update_expr = "SET #field = :val, updatedAt = :now, contentType = :ct, itemId = :iid"
-            expr_names = {"#field": field}
+            update_expr = "SET #field = :val, #ua = :now, #ct = :ct, #iid = :iid"
+            expr_names = {"#field": field, "#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId"}
             expr_values = {":val": bool(value), ":now": now, ":ct": ct, ":iid": iid}
             if field == "isSolved" and value:
-                update_expr += ", solvedAt = :now"
+                update_expr += ", #sa = :now"
+                expr_names["#sa"] = "solvedAt"
 
             table.update_item(
                 Key={"userId": user_id, "itemKey": item_key},
@@ -730,7 +733,8 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
 
         table.update_item(
             Key={"userId": user_id, "itemKey": item_key},
-            UpdateExpression="SET completed = :v, updatedAt = :now, contentType = :ct, itemId = :rid, stepIndex = :si",
+            UpdateExpression="SET completed = :v, #ua = :now, #ct = :ct, #iid = :rid, #si = :si",
+            ExpressionAttributeNames={"#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId", "#si": "stepIndex"},
             ExpressionAttributeValues={
                 ":v": new_val, ":now": now, ":ct": "roadmaps", ":rid": roadmap_id, ":si": step_index,
             },
