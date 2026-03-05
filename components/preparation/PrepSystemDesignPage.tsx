@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { hldQuestions, lldQuestions, hldSections, lldSections, type SDQuestion } from '../../data/systemDesignData';
+import { hldQuestions, lldQuestions, hldSections, lldSections } from '../../data/systemDesignData';
 import PrepFilterDropdown from './PrepFilterDropdown';
 
 type DesignTab = 'hld' | 'lld';
