@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { interviewQuestions, dsaProblems, quizzes, coldDMTemplates, massRecruitmentCompanies, jobPortals, handwrittenNotes, roadmaps, positionResources, prepStats } from '../../data/preparationMockData';
+import { hldQuestions, lldQuestions } from '../../data/systemDesignData';
+import { oopsConcepts, languageConcepts } from '../../data/fundamentalsData';
 
-type PrepTab = 'overview' | 'interview-questions' | 'dsa' | 'quizzes' | 'cold-dms' | 'job-portals' | 'notes' | 'roadmaps' | 'mass-recruitment' | 'positions';
+type PrepTab = 'overview' | 'interview-questions' | 'dsa' | 'quizzes' | 'cold-dms' | 'job-portals' | 'notes' | 'roadmaps' | 'mass-recruitment' | 'positions' | 'hld' | 'lld' | 'oops' | 'language';
 
 const tabs: { id: PrepTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'interview-questions', label: 'Interview Qs' },
     { id: 'dsa', label: 'DSA' },
+    { id: 'hld', label: 'HLD' },
+    { id: 'lld', label: 'LLD' },
+    { id: 'oops', label: 'OOPs' },
+    { id: 'language', label: 'Language' },
     { id: 'quizzes', label: 'Quizzes' },
     { id: 'cold-dms', label: 'Cold DMs' },
     { id: 'job-portals', label: 'Job Portals' },
@@ -22,6 +28,10 @@ const PrepContentManagementPage: React.FC = () => {
     const overviewStats = [
         { label: 'Interview Questions', value: prepStats.totalQuestions, color: 'bg-blue-500' },
         { label: 'DSA Problems', value: prepStats.totalDSA, color: 'bg-green-500' },
+        { label: 'HLD Questions', value: hldQuestions.length, color: 'bg-cyan-500' },
+        { label: 'LLD Questions', value: lldQuestions.length, color: 'bg-sky-500' },
+        { label: 'OOPs Concepts', value: oopsConcepts.length, color: 'bg-violet-500' },
+        { label: 'Language Concepts', value: languageConcepts.length, color: 'bg-fuchsia-500' },
         { label: 'Quizzes', value: prepStats.totalQuizzes, color: 'bg-purple-500' },
         { label: 'Cold DM Templates', value: prepStats.totalColdDMs, color: 'bg-orange-500' },
         { label: 'Job Portals', value: prepStats.totalJobPortals, color: 'bg-pink-500' },
@@ -346,6 +356,190 @@ const PrepContentManagementPage: React.FC = () => {
                                         <td className="px-6 py-4 text-sm text-gray-500">{company.interviewQuestions}</td>
                                         <td className="px-6 py-4 text-sm text-gray-500">{company.dsaProblems}</td>
                                         <td className="px-6 py-4 text-sm text-gray-500">{company.aptitudeQuestions}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                                <button className="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'hld' && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">High Level Design Questions ({hldQuestions.length})</h3>
+                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Question</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {hldQuestions.map((q, i) => (
+                                    <tr key={q.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-medium text-gray-900">{q.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : q.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{q.difficulty}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.isSolved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{q.isSolved ? 'Published' : 'Draft'}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                                <button className="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'lld' && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Low Level Design Questions ({lldQuestions.length})</h3>
+                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Question</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {lldQuestions.map((q, i) => (
+                                    <tr key={q.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-medium text-gray-900">{q.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : q.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{q.difficulty}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.isSolved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{q.isSolved ? 'Published' : 'Draft'}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                                <button className="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'oops' && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">OOPs Concepts ({oopsConcepts.length})</h3>
+                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Concept</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {oopsConcepts.map((c, i) => (
+                                    <tr key={c.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-medium text-gray-900">{c.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${c.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : c.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{c.difficulty}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                                <button className="text-red-600 hover:text-red-800 text-sm">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'language' && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Language Fundamentals ({languageConcepts.length})</h3>
+                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Concept</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {languageConcepts.map((c, i) => (
+                                    <tr key={c.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-medium text-gray-900">{c.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${c.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : c.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{c.difficulty}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2">
                                                 <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
