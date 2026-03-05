@@ -1,9 +1,10 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode, Suspense, lazy } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
 import { DashboardProvider } from './context/DashboardContext';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
 import CookieConsent from './components/CookieConsent';
+import SkipNav from './components/SkipNav';
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -252,10 +253,22 @@ function updatePageMeta(page: Page) {
 const AppContent: React.FC = () => {
   const { page } = useNavigation();
   const { isLoggedIn, userRole } = useAuth();
+  const mainRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     updatePageMeta(page);
+
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Move focus to main content region on route change for screen readers
+    requestAnimationFrame(() => {
+      mainRef.current?.focus({ preventScroll: true });
+    });
   }, [page]);
 
   const renderPage = () => {
@@ -334,9 +347,19 @@ const AppContent: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <Suspense fallback={<PageLoader />}>
-        {renderPage()}
-      </Suspense>
+      <SkipNav />
+      <div
+        ref={mainRef}
+        id="main-content"
+        tabIndex={-1}
+        className="outline-none"
+        role="main"
+        aria-live="polite"
+      >
+        <Suspense fallback={<PageLoader />}>
+          {renderPage()}
+        </Suspense>
+      </div>
     </ErrorBoundary>
   );
 };

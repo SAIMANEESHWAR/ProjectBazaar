@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { reportProject, ReportProjectRequest } from '../services/buyerApi';
+import { useAccessibleModal } from '../hooks/useAccessibleModal';
 
 interface ReportProjectModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const ReportProjectModal: React.FC<ReportProjectModalProps> = ({
   isPurchased = false,
   onSuccess,
 }) => {
+  const modalRef = useAccessibleModal(isOpen, onClose);
   const [reason, setReason] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [attachments, setAttachments] = useState<string[]>(['']);
@@ -154,7 +156,7 @@ const ReportProjectModal: React.FC<ReportProjectModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div ref={modalRef} className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Report project">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"

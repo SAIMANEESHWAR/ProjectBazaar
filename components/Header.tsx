@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigation, useAuth, useTheme } from '../App';
 import { Sun, Moon } from 'lucide-react';
 import { CTAArrowIcon } from './CTAArrowIcon';
@@ -10,6 +10,17 @@ const Header: React.FC = () => {
   const { navigateTo } = useNavigation();
   const { isLoggedIn, logout } = useAuth();
   const { theme, toggleTheme, isLanding } = useTheme();
+
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isOpen) setIsOpen(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, handleEscape]);
 
   // Navbar stays white in both light and dark mode
   const navBg = 'rgba(255,255,255,0.97)';
@@ -62,7 +73,10 @@ const Header: React.FC = () => {
   );
 
   return (
-    <header className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[960px] px-4 pt-6 pointer-events-none">
+    <header
+      className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[960px] px-4 pt-6 pointer-events-none"
+      role="banner"
+    >
       <div
         className="pointer-events-auto flex items-center justify-between w-full h-[68px] px-4 rounded-[12px] backdrop-blur-[12px] transition-all duration-350"
         style={{
@@ -86,12 +100,13 @@ const Header: React.FC = () => {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6 px-4 font-sans">
+        <nav className="hidden md:flex items-center gap-6 px-4 font-sans" aria-label="Main navigation">
           {navLinks.map((link) => (
             <button
               key={link.name}
               onClick={link.onClick}
               className={linkClass}
+              type="button"
             >
               {link.name}
             </button>
@@ -145,8 +160,11 @@ const Header: React.FC = () => {
           )}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg focus:outline-none text-black"
-            aria-label="Toggle menu"
+            className="p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a00] focus:ring-offset-2 text-black"
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isOpen}
+            aria-controls="mobile-nav"
+            type="button"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -162,8 +180,13 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu - white in both themes to match navbar */}
       {isOpen && (
-        <div className="md:hidden mt-3 rounded-[12px] p-6 shadow-xl backdrop-blur-[12px] border bg-white border-black/5">
-          <nav className="flex flex-col items-center gap-4 font-sans">
+        <div
+          id="mobile-nav"
+          className="md:hidden mt-3 rounded-[12px] p-6 shadow-xl backdrop-blur-[12px] border bg-white border-black/5"
+          role="dialog"
+          aria-label="Mobile navigation"
+        >
+          <nav className="flex flex-col items-center gap-4 font-sans" aria-label="Mobile navigation">
             {navLinks.map((link) => (
               <button
                 key={link.name}

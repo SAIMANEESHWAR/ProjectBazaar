@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { BrowseProject } from '../types/browse';
 import type { BidFormData } from '../types/bids';
 import { useAuth } from '../App';
+import { useAccessibleModal } from '../hooks/useAccessibleModal';
 
 interface PlaceBidModalProps {
   project: BrowseProject;
@@ -12,6 +13,7 @@ interface PlaceBidModalProps {
 
 const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmit }) => {
   const { userId } = useAuth();
+  const modalRef = useAccessibleModal(true, onClose);
   const [bidAmount, setBidAmount] = useState<number>(project.budget.min);
   const [currency, setCurrency] = useState<string>(project.budget.currency || 'INR');
   const [deliveryTime, setDeliveryTime] = useState<number>(7);
@@ -89,8 +91,12 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
 
   const modalContent = (
     <div 
+      ref={modalRef}
       className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4"
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Place a bid on this project"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();

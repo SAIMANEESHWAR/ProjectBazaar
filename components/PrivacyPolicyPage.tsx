@@ -4,6 +4,7 @@ import { useNavigation } from '../App';
 const SITE_NAME = 'Project Bazaar';
 const SITE_URL = 'https://projectbazaar.in';
 const SUPPORT_EMAIL = 'support@projectbazaar.com';
+const GRIEVANCE_EMAIL = 'grievance@projectbazaar.com';
 const EFFECTIVE_DATE = 'March 5, 2026';
 
 const PrivacyPolicyPage: React.FC = () => {
@@ -264,68 +265,132 @@ const PrivacyPolicyPage: React.FC = () => {
             </ul>
           </section>
 
-          {/* 8. Your Rights */}
+          {/* 8. Your Rights Under DPDPA (India) */}
           <section>
-            <h2 className="text-xl font-semibold mb-3">8. Your Rights</h2>
-            <p>Depending on your location, you may have the following rights regarding your personal data:</p>
-            <ul className="list-disc pl-6 space-y-1 mt-2">
-              <li><strong>Access:</strong> Request a copy of the personal data we hold about you</li>
-              <li><strong>Correction:</strong> Request correction of inaccurate or incomplete personal data</li>
-              <li><strong>Deletion:</strong> Request deletion of your personal data (subject to legal retention requirements)</li>
-              <li><strong>Portability:</strong> Request your data in a machine-readable format</li>
-              <li><strong>Objection:</strong> Object to certain processing of your personal data</li>
-              <li><strong>Withdraw Consent:</strong> Withdraw your consent at any time where processing is based on consent</li>
+            <h2 className="text-xl font-semibold mb-3">8. Your Rights as a Data Principal (DPDPA, India)</h2>
+            <p>
+              Under the Digital Personal Data Protection Act, 2023 (DPDPA), {SITE_NAME} acts as a <strong>Data Fiduciary</strong> and
+              you, the user, are a <strong>Data Principal</strong>. As a Data Principal, you have the following rights:
+            </p>
+            <ul className="list-disc pl-6 space-y-2 mt-3">
+              <li><strong>Right to Access:</strong> You may request a summary of your personal data being processed and the processing activities undertaken</li>
+              <li><strong>Right to Correction and Erasure:</strong> You may request correction of inaccurate or misleading data, completion of incomplete data, updating of outdated data, and erasure of data no longer necessary for the purpose it was collected</li>
+              <li><strong>Right to Data Deletion:</strong> You may request complete deletion of your account and all associated personal data. Upon such request, we will delete your data within 30 days, except where retention is required by law. To delete your account, email{' '}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#ff7a00] hover:underline">{SUPPORT_EMAIL}</a> with the subject "Account Deletion Request"</li>
+              <li><strong>Right to Withdraw Consent:</strong> You may withdraw your consent for data processing at any time. To withdraw consent, email{' '}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#ff7a00] hover:underline">{SUPPORT_EMAIL}</a> or adjust your cookie preferences via the banner at the bottom of our site. Withdrawal of consent does not affect the lawfulness of processing done prior to withdrawal</li>
+              <li><strong>Right to Nominate:</strong> You may nominate another individual to exercise your rights on your behalf in the event of your death or incapacity</li>
+              <li><strong>Right to Grievance Redressal:</strong> You may lodge a complaint with our Grievance Officer (details in Section 14 below) or with the Data Protection Board of India</li>
             </ul>
             <p className="mt-3">
-              To exercise any of these rights, please contact us at{' '}
+              To exercise any of these rights, contact us at{' '}
               <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#ff7a00] hover:underline">{SUPPORT_EMAIL}</a>.
-              We will respond to your request within 30 days.
+              We will acknowledge your request within 48 hours and fulfill it within 30 days.
             </p>
           </section>
 
-          {/* 9. Children's Privacy */}
+          {/* 9. Consent */}
           <section>
-            <h2 className="text-xl font-semibold mb-3">9. Children's Privacy</h2>
+            <h2 className="text-xl font-semibold mb-3">9. Consent and Lawful Basis</h2>
+            <p>We process your personal data based on the following lawful grounds under DPDPA:</p>
+            <ul className="list-disc pl-6 space-y-1 mt-2">
+              <li><strong>Consent:</strong> You provide explicit consent when creating an account, uploading content, making purchases, or enabling optional features like analytics cookies</li>
+              <li><strong>Legitimate Uses:</strong> Certain processing is necessary for the performance of the Service (e.g., processing payments, delivering purchased projects, facilitating communications between users)</li>
+              <li><strong>Legal Obligation:</strong> We may process data to comply with applicable Indian laws and regulations</li>
+            </ul>
+            <p className="mt-3">
+              You may withdraw consent at any time by contacting us or using the cookie preferences. Note that withdrawing
+              consent for essential processing may result in inability to use certain features of the Service.
+            </p>
+          </section>
+
+          {/* 10. Data Breach Notification */}
+          <section>
+            <h2 className="text-xl font-semibold mb-3">10. Data Breach Notification</h2>
             <p>
-              Our Service is not intended for individuals under the age of 16. We do not knowingly collect
-              personal information from children under 16. If you are a parent or guardian and believe your child
+              In the event of a personal data breach that is likely to cause harm to Data Principals,
+              {SITE_NAME} will:
+            </p>
+            <ul className="list-disc pl-6 space-y-1 mt-2">
+              <li>Notify the <strong>Data Protection Board of India</strong> within <strong>72 hours</strong> of becoming aware of the breach</li>
+              <li>Notify affected <strong>Data Principals (users)</strong> without unreasonable delay via email and prominent notice on the Service</li>
+              <li>Provide details of the nature of the breach, data affected, and remedial measures taken</li>
+              <li>Take immediate steps to contain the breach and mitigate harm</li>
+            </ul>
+          </section>
+
+          {/* 11. Children's Privacy */}
+          <section>
+            <h2 className="text-xl font-semibold mb-3">11. Children's Privacy</h2>
+            <p>
+              Our Service is not intended for individuals under the age of 18. We do not knowingly collect
+              personal information from children. Under DPDPA, processing of a child's personal data requires
+              verifiable consent from a parent or lawful guardian. If you are a parent or guardian and believe your child
               has provided us with personal data, please contact us at{' '}
               <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#ff7a00] hover:underline">{SUPPORT_EMAIL}</a>,
-              and we will take steps to delete such information.
+              and we will take steps to delete such information within 72 hours.
             </p>
           </section>
 
-          {/* 10. International Data Transfers */}
+          {/* 12. International Data Transfers */}
           <section>
-            <h2 className="text-xl font-semibold mb-3">10. International Data Transfers</h2>
+            <h2 className="text-xl font-semibold mb-3">12. International Data Transfers</h2>
             <p>
-              Your data may be transferred to and processed in countries other than your country of residence, including
-              India (where our primary servers are located) and the United States (where some of our third-party service
-              providers operate). We ensure that appropriate safeguards are in place to protect your data in accordance
-              with applicable data protection laws.
+              Your data is primarily stored in India (AWS ap-south-2, Hyderabad). Some data may be transferred to and
+              processed in other countries through our third-party service providers (e.g., Sentry in the US, Vercel CDN globally).
+              We ensure that appropriate safeguards are in place in accordance with DPDPA and do not transfer data to
+              countries restricted by the Central Government of India.
             </p>
           </section>
 
-          {/* 11. Changes to This Policy */}
+          {/* 13. Changes to This Policy */}
           <section>
-            <h2 className="text-xl font-semibold mb-3">11. Changes to This Privacy Policy</h2>
+            <h2 className="text-xl font-semibold mb-3">13. Changes to This Privacy Policy</h2>
             <p>
               We may update this Privacy Policy from time to time. We will notify you of any material changes by posting
-              the new Privacy Policy on this page and updating the "Effective Date" at the top. We encourage you to review
-              this Privacy Policy periodically. Continued use of the Service after changes constitutes acceptance of the
-              updated policy.
+              the new Privacy Policy on this page, updating the "Effective Date" at the top, and sending an email
+              notification to registered users. We encourage you to review this Privacy Policy periodically.
+              Continued use of the Service after changes constitutes acceptance of the updated policy.
             </p>
           </section>
 
-          {/* 12. Contact Us */}
+          {/* 14. Grievance Officer */}
           <section>
-            <h2 className="text-xl font-semibold mb-3">12. Contact Us</h2>
+            <h2 className="text-xl font-semibold mb-3">14. Grievance Officer</h2>
+            <p>
+              In accordance with the Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000,
+              the following Grievance Officer has been appointed to address your concerns regarding data processing:
+            </p>
+            <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="font-semibold text-gray-900">Grievance Officer</p>
+              <p className="text-gray-700 mt-1">{SITE_NAME}</p>
+              <p className="text-gray-700">
+                Email:{' '}
+                <a href={`mailto:${GRIEVANCE_EMAIL}`} className="text-[#ff7a00] hover:underline">{GRIEVANCE_EMAIL}</a>
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Response time: We will acknowledge your grievance within <strong>48 hours</strong> and resolve it
+                within <strong>30 days</strong> from the date of receipt.
+              </p>
+            </div>
+            <p className="mt-3">
+              If you are not satisfied with our response, you may escalate your complaint to the
+              <strong> Data Protection Board of India</strong> as constituted under the DPDPA, 2023.
+            </p>
+          </section>
+
+          {/* 15. Contact Us */}
+          <section>
+            <h2 className="text-xl font-semibold mb-3">15. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy or our data practices, please contact us:
             </p>
             <ul className="list-none pl-0 mt-3 space-y-1">
-              <li><strong>Email:</strong>{' '}
+              <li><strong>General Inquiries:</strong>{' '}
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[#ff7a00] hover:underline">{SUPPORT_EMAIL}</a>
+              </li>
+              <li><strong>Privacy &amp; Grievances:</strong>{' '}
+                <a href={`mailto:${GRIEVANCE_EMAIL}`} className="text-[#ff7a00] hover:underline">{GRIEVANCE_EMAIL}</a>
               </li>
               <li><strong>Website:</strong>{' '}
                 <a href={SITE_URL} className="text-[#ff7a00] hover:underline">{SITE_URL}</a>

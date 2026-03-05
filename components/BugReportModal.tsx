@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useAccessibleModal } from '../hooks/useAccessibleModal';
 
 interface BugReportModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const BugReportModal: React.FC<BugReportModalProps> = ({
   userEmail = '',
   onSubmit,
 }) => {
+  const bugModalRef = useAccessibleModal(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pageUrl, setPageUrl] = useState('');
@@ -160,7 +162,7 @@ const BugReportModal: React.FC<BugReportModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div ref={bugModalRef} className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Report a bug">
       {/* Gradient Backdrop */}
       <div
         className="fixed inset-0 bg-gradient-to-br from-purple-100/80 via-pink-50/80 to-blue-100/80 backdrop-blur-sm"
