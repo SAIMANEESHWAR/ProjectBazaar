@@ -14,11 +14,11 @@ import { cachedFetch, invalidateCache } from '../lib/apiCache';
 // ── Endpoints ──────────────────────────────────────────────
 const PREP_ADMIN_ENDPOINT =
   import.meta.env.VITE_PREP_ADMIN_ENDPOINT ??
-  'https://YOUR_ADMIN_API_ID.execute-api.ap-south-2.amazonaws.com/default/prep_admin_handler';
+  'https://rsesb93sz6.execute-api.ap-south-2.amazonaws.com/default/prep_admin_handler';
 
 const PREP_USER_ENDPOINT =
   import.meta.env.VITE_PREP_USER_ENDPOINT ??
-  'https://YOUR_USER_API_ID.execute-api.ap-south-2.amazonaws.com/default/prep_user_handler';
+  'https://h5bib353ti.execute-api.ap-south-2.amazonaws.com/default/prep_user_handler';
 
 const USE_API = true;
 const CACHE_TTL = 90_000; // 90 s
