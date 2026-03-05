@@ -900,13 +900,16 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                       )}
                       <button
                         onClick={() => handleViewProjectDetails(project)}
-                        className={`px-5 py-2.5 font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap inline-flex items-center gap-1.5 ${
+                        className="group px-5 py-2.5 font-semibold rounded-xl transition-all duration-200 whitespace-nowrap inline-flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 bg-orange-500 text-white hover:bg-orange-600 hover:shadow-md border border-orange-500"
+                        aria-label={
                           userId && project.ownerId === userId
-                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                            ? 'View project details'
                             : project.status && project.status !== 'open'
-                              ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                              : 'bg-orange-500 text-white hover:bg-orange-600'
-                        }`}
+                              ? 'View project details'
+                              : project.bidsCount === 0
+                                ? 'Be first to bid on this project'
+                                : 'Place bid on this project'
+                        }
                       >
                         {userId && project.ownerId === userId
                           ? 'View Details'
@@ -915,7 +918,9 @@ export const BrowseProjectsContent: React.FC<BrowseProjectsContentProps> = () =>
                             : project.bidsCount === 0
                               ? 'Be First to Bid'
                               : 'Place Bid'}
-                        <span aria-hidden>→</span>
+                        <svg className="w-4 h-4 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
                       </button>
                     </div>
                   </div>
