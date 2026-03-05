@@ -20,6 +20,7 @@ interface ExtendedProject extends BuyerProject {
     discount?: number;
     promoCode?: string;
     demoVideoUrl?: string;
+    youtubeVideoUrl?: string;
     features?: string[];
     supportInfo?: string;
     images?: string[];
@@ -117,6 +118,9 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
     }, [images.length, isHoveringImage, isPreviewOpen]);
 
     const features = project.features;
+    
+    // Get video URL - try demoVideoUrl first, then youtubeVideoUrl
+    const videoUrl = project.demoVideoUrl || project.youtubeVideoUrl;
 
     return (
         <div className="max-w-6xl mx-auto pb-12">
@@ -414,19 +418,28 @@ const ProjectDetailsPage: React.FC<ProjectDetailsPageProps> = ({ project, onBack
                             </div>
 
                             {/* Demo Video */}
-                            {project.demoVideoUrl && (
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-900 mb-3">Demo Video</h2>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-3">Demo Video</h2>
+                                {videoUrl ? (
                                     <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-video shadow-lg">
                                         <iframe
-                                            src={project.demoVideoUrl.replace('watch?v=', 'embed/').split('&')[0]}
+                                            src={videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') 
+                                                ? videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/').split('&')[0]
+                                                : videoUrl}
                                             className="w-full h-full"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                             allowFullScreen
                                         ></iframe>
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-12 text-center">
+                                        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <p className="text-gray-500 text-lg font-medium">No video available</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

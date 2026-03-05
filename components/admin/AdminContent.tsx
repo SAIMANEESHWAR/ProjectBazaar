@@ -147,29 +147,9 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
     };
 
     const handleViewProjectDetails = (project: AdminProject) => {
-        // Extend project with additional details if needed
-        const extendedProject: AdminProject = {
-            ...project,
-            likes: project.likes || Math.floor(Math.random() * 500) + 50,
-            purchases: project.purchases || Math.floor(Math.random() * 200) + 10,
-            demoVideoUrl: project.demoVideoUrl || undefined,
-            features: project.features || [
-                'Real-time collaboration',
-                'Live code editing',
-                'Integrated chat system',
-                'Drawing/paint board',
-                'Multiple user support',
-                'Code sharing capabilities'
-            ],
-            images: project.images && project.images.length > 0
-                ? project.images
-                : [project.imageUrl],
-            githubUrl: project.githubUrl || `https://github.com/${project.sellerName.toLowerCase().replace(' ', '-')}/${project.title.toLowerCase().replace(' ', '-')}`,
-            liveDemoUrl: project.liveDemoUrl || `https://${project.title.toLowerCase().replace(' ', '-')}.demo.com`,
-            documentationUrl: project.documentationUrl || `https://docs.${project.title.toLowerCase().replace(' ', '-')}.com`,
-            supportInfo: project.supportInfo || 'For any questions or support regarding this project, please contact the seller directly through their profile or email.',
-        };
-        setSelectedProject(extendedProject);
+        // Pass project as-is - AdminProjectDetailsPage will fetch full details from API
+        // No mock/static data should be added here
+        setSelectedProject(project);
         setActiveView('admin-project-details');
     };
 
