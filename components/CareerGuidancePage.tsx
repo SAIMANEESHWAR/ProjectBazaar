@@ -2265,7 +2265,6 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         // Calculate analytics
         const totalWeeks = courseDetails.weeksDetails?.length || 0;
         const avgScore = courseDetails.finalScore || 0;
-        const totalTopics = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.mainTopics?.length || 0), 0) || 0;
         const totalQuestions = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0) || 0;
         
         // Calculate correct/incorrect answers
