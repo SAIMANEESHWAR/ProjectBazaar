@@ -148,7 +148,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
                     </td>
                     <td className="py-4 px-6">
                       <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryBadgeClass(
+                        className={`prep-topic-chip inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryBadgeClass(
                           template.category
                         )}`}
                       >

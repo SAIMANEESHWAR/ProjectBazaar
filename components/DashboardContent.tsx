@@ -885,6 +885,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         .prep-dark-mode .hover\\:shadow-md:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
                         .prep-dark-mode .hover\\:bg-gray-100:hover { background-color: #2c2c2e !important; }
 
+                        /* Topic chips */
+                        .prep-dark-mode .prep-topic-chip {
+                            background-color: #2c2c2e !important;
+                            color: #a1a1a6 !important;
+                            border: 1px solid #38383a;
+                        }
+
                         /* Badge difficulty colors on dark */
                         .prep-dark-mode .bg-green-100 { background-color: rgba(34, 197, 94, 0.12) !important; }
                         .prep-dark-mode .text-green-700 { color: #4ade80 !important; }
@@ -894,6 +901,22 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         .prep-dark-mode .text-yellow-700 { color: #fbbf24 !important; }
                         .prep-dark-mode .bg-red-100 { background-color: rgba(239, 68, 68, 0.12) !important; }
                         .prep-dark-mode .text-red-700 { color: #f87171 !important; }
+
+                        /* Additional badge colors */
+                        .prep-dark-mode .bg-blue-100 { background-color: rgba(59, 130, 246, 0.12) !important; }
+                        .prep-dark-mode .text-blue-700 { color: #60a5fa !important; }
+                        .prep-dark-mode .bg-purple-100 { background-color: rgba(168, 85, 247, 0.12) !important; }
+                        .prep-dark-mode .text-purple-700 { color: #c084fc !important; }
+                        .prep-dark-mode .bg-amber-100 { background-color: rgba(245, 158, 11, 0.12) !important; }
+                        .prep-dark-mode .text-amber-700 { color: #fbbf24 !important; }
+                        .prep-dark-mode .bg-cyan-100 { background-color: rgba(6, 182, 212, 0.12) !important; }
+                        .prep-dark-mode .text-cyan-700 { color: #22d3ee !important; }
+                        .prep-dark-mode .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.12) !important; }
+                        .prep-dark-mode .text-indigo-700 { color: #818cf8 !important; }
+                        .prep-dark-mode .bg-pink-100 { background-color: rgba(236, 72, 153, 0.12) !important; }
+                        .prep-dark-mode .text-pink-700 { color: #f472b6 !important; }
+                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .text-orange-700 { color: #fb923c !important; }
 
                         /* Inputs & selects */
                         .prep-dark-mode input,

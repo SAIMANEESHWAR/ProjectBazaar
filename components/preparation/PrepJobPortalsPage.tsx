@@ -149,12 +149,12 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
                     {portal.description}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                    <span className="prep-topic-chip px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
                       {portal.category}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                    <span className="prep-topic-chip px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
                       {portal.region}
                     </span>
                   </td>

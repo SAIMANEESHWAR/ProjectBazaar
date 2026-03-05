@@ -120,7 +120,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           >
             <div className="flex items-start gap-2 flex-wrap mb-3">
               <DifficultyBadge difficulty={quiz.difficulty} />
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+              <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                 {quiz.category}
               </span>
               <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700">

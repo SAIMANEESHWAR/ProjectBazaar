@@ -85,7 +85,7 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
                       Free
                     </span>
                   )}
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                  <span className="prep-topic-chip px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
                     {roadmap.category}
                   </span>
                 </div>

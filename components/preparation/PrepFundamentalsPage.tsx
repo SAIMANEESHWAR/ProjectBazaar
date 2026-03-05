@@ -47,7 +47,7 @@ export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: 
               <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${diffBadge(selectedConcept.difficulty)}`}>
                 {selectedConcept.difficulty.toLowerCase()} level
               </span>
-              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+              <span className="prep-topic-chip px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
                 {selectedConcept.topic}
               </span>
             </div>
@@ -160,7 +160,7 @@ export default function PrepFundamentalsPage({ section: sectionProp = 'oops' }: 
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>
                         {concept.difficulty.toLowerCase()} level
                       </span>
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                      <span className="prep-topic-chip px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
                         {concept.topic}
                       </span>
                     </div>

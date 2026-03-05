@@ -203,7 +203,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold text-gray-900">{problem.title}</h3>
                   <DifficultyBadge difficulty={problem.difficulty} />
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                  <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                     {problem.topic}
                   </span>
                 </div>
