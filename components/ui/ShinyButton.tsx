@@ -25,8 +25,23 @@ const animationProps = {
   },
 };
 
+const MOTION_BUTTON_CONFLICT_PROPS = [
+  "onDrag",
+  "onDragStart",
+  "onDragEnd",
+  "onDragConstraints",
+  "onDirectionLock",
+  "onDragTransition",
+  "onAnimationStart",
+  "onAnimationEnd",
+  "onAnimationIteration",
+] as const;
+
 export interface ShinyButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
+  extends Omit<
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
+    "className" | (typeof MOTION_BUTTON_CONFLICT_PROPS)[number]
+  > {
   children: React.ReactNode;
   className?: string;
 }
