@@ -41,9 +41,48 @@ const ActionBtns: React.FC<{ name: string; onEdit: () => void; onDelete: () => v
     </div>
 );
 
+const DiffBadge: React.FC<{ d: string }> = ({ d }) => (
+    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${d === 'Easy' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : d === 'Medium' ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-red-50 text-red-700 ring-1 ring-red-200'}`}>{d}</span>
+);
+
+const StatusDot: React.FC<{ solved: boolean }> = ({ solved }) => (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${solved ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <span className={`w-2 h-2 rounded-full ${solved ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+        {solved ? 'Published' : 'Draft'}
+    </span>
+);
+
+const ViewToggle: React.FC<{ view: 'table' | 'grid'; onChange: (v: 'table' | 'grid') => void }> = ({ view, onChange }) => (
+    <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+        <button onClick={() => onChange('table')} className={`p-1.5 transition-all ${view === 'table' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`} title="Table view">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+        </button>
+        <button onClick={() => onChange('grid')} className={`p-1.5 transition-all ${view === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`} title="Grid view">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" /></svg>
+        </button>
+    </div>
+);
+
+const SectionHeader: React.FC<{ title: string; count: number; btnLabel: string; view: 'table' | 'grid'; onViewChange: (v: 'table' | 'grid') => void }> = ({ title, count, btnLabel, view, onViewChange }) => (
+    <div className="p-5 border-b border-gray-200 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-gray-900">{title} <span className="text-sm font-normal text-gray-400">({count})</span></h3>
+        <div className="flex items-center gap-3">
+            <ViewToggle view={view} onChange={onViewChange} />
+            <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm">{btnLabel}</button>
+        </div>
+    </div>
+);
+
+const CardShell: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+    <div className={`group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all duration-200 ${className}`}>
+        {children}
+    </div>
+);
+
 const PrepContentManagementPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<PrepTab>('overview');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+    const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
     const [iqData, setIqData] = useState(interviewQuestions);
     const [dsaData, setDsaData] = useState(dsaProblems);
@@ -91,6 +130,8 @@ const PrepContentManagementPage: React.FC = () => {
         { label: 'Position Resources', value: posData.length, color: 'bg-yellow-500' },
     ];
 
+    const isGrid = viewMode === 'grid';
+
     return (
         <div className="space-y-6 relative">
             <style>{`@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }`}</style>
@@ -113,9 +154,7 @@ const PrepContentManagementPage: React.FC = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                            activeTab === tab.id
-                                ? 'bg-orange-500 text-white'
-                                : 'text-gray-600 hover:bg-orange-50'
+                            activeTab === tab.id ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-orange-50'
                         }`}
                     >
                         {tab.label}
@@ -123,11 +162,12 @@ const PrepContentManagementPage: React.FC = () => {
                 ))}
             </div>
 
+            {/* ─── Overview ─── */}
             {activeTab === 'overview' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {overviewStats.map((stat) => (
-                            <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                            <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-3 h-3 rounded-full ${stat.color}`} />
                                     <span className="text-sm text-gray-500">{stat.label}</span>
@@ -143,7 +183,7 @@ const PrepContentManagementPage: React.FC = () => {
                                 <div key={stat.label} className="flex items-center gap-4">
                                     <span className="text-sm text-gray-600 w-48">{stat.label}</span>
                                     <div className="flex-1 bg-gray-100 rounded-full h-2">
-                                        <div className={`${stat.color} h-2 rounded-full`} style={{ width: `${Math.min(100, (stat.value / 10))}%` }} />
+                                        <div className={`${stat.color} h-2 rounded-full transition-all`} style={{ width: `${Math.min(100, (stat.value / 10))}%` }} />
                                     </div>
                                     <span className="text-sm font-semibold text-gray-900 w-12 text-right">{stat.value}</span>
                                 </div>
@@ -153,471 +193,725 @@ const PrepContentManagementPage: React.FC = () => {
                 </div>
             )}
 
+            {/* ─── Interview Questions ─── */}
             {activeTab === 'interview-questions' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Interview Questions ({iqData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Question</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {iqData.map((q, i) => (
-                                    <tr key={q.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">{q.question}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : q.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                                {q.difficulty}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{q.category}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={q.question} onEdit={() => triggerEdit(q.question)} onDelete={() => confirmDelete(q.question, q.id, setIqData)} />
-                                        </td>
+                    <SectionHeader title="Interview Questions" count={iqData.length} btnLabel="Add Question" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {iqData.map((q) => (
+                                <CardShell key={q.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <DiffBadge d={q.difficulty} />
+                                        <ActionBtns name={q.question} onEdit={() => triggerEdit(q.question)} onDelete={() => confirmDelete(q.question, q.id, setIqData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">{q.question}</h4>
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">{q.category}</span>
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {iqData.map((q, i) => (
+                                        <tr key={q.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">{q.question}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={q.difficulty} /></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{q.category}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={q.question} onEdit={() => triggerEdit(q.question)} onDelete={() => confirmDelete(q.question, q.id, setIqData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── DSA Problems ─── */}
             {activeTab === 'dsa' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">DSA Problems ({dsaData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Problem</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Companies</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {dsaData.map((p, i) => (
-                                    <tr key={p.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{p.title}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${p.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : p.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                                {p.difficulty}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{p.topic}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex gap-1 flex-wrap">
-                                                {p.company.slice(0, 2).map((c) => (
-                                                    <span key={c} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">{c}</span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={p.title} onEdit={() => triggerEdit(p.title)} onDelete={() => confirmDelete(p.title, p.id, setDsaData)} />
-                                        </td>
+                    <SectionHeader title="DSA Problems" count={dsaData.length} btnLabel="Add Problem" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {dsaData.map((p) => (
+                                <CardShell key={p.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <DiffBadge d={p.difficulty} />
+                                        <ActionBtns name={p.title} onEdit={() => triggerEdit(p.title)} onDelete={() => confirmDelete(p.title, p.id, setDsaData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{p.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description}</p>
+                                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">{p.topic}</span>
+                                        {p.company.slice(0, 2).map((c) => (
+                                            <span key={c} className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">{c}</span>
+                                        ))}
+                                        {p.company.length > 2 && <span className="text-xs text-gray-400">+{p.company.length - 2}</span>}
+                                    </div>
+                                    <div className="mt-3 text-xs text-gray-400">Acceptance: {p.acceptance}%</div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Companies</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {dsaData.map((p, i) => (
+                                        <tr key={p.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{p.title}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={p.difficulty} /></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{p.topic}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {p.company.slice(0, 2).map((c) => (
+                                                        <span key={c} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">{c}</span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4"><ActionBtns name={p.title} onEdit={() => triggerEdit(p.title)} onDelete={() => confirmDelete(p.title, p.id, setDsaData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Quizzes ─── */}
             {activeTab === 'quizzes' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Quizzes ({quizData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Quiz</button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-                        {quizData.map((quiz) => (
-                            <div key={quiz.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-900">{quiz.title}</h4>
-                                        <p className="text-sm text-gray-500 mt-1">{quiz.questionCount} questions · {quiz.duration} min</p>
+                    <SectionHeader title="Quizzes" count={quizData.length} btnLabel="Add Quiz" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {quizData.map((quiz) => (
+                                <CardShell key={quiz.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <DiffBadge d={quiz.difficulty} />
+                                        <ActionBtns name={quiz.title} onEdit={() => triggerEdit(quiz.title)} onDelete={() => confirmDelete(quiz.title, quiz.id, setQuizData)} />
                                     </div>
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${quiz.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : quiz.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                        {quiz.difficulty}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2 mt-3">
-                                    <ActionBtns name={quiz.title} onEdit={() => triggerEdit(quiz.title)} onDelete={() => confirmDelete(quiz.title, quiz.id, setQuizData)} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{quiz.title}</h4>
+                                    <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
+                                        <span className="flex items-center gap-1"><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{quiz.questionCount} questions</span>
+                                        <span className="flex items-center gap-1"><svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{quiz.duration} min</span>
+                                    </div>
+                                    <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full ring-1 ring-purple-100">{quiz.category}</span>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {quizData.map((quiz, i) => (
+                                        <tr key={quiz.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{quiz.title}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{quiz.category}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{quiz.questionCount}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{quiz.duration} min</td>
+                                            <td className="px-6 py-4"><DiffBadge d={quiz.difficulty} /></td>
+                                            <td className="px-6 py-4"><ActionBtns name={quiz.title} onEdit={() => triggerEdit(quiz.title)} onDelete={() => confirmDelete(quiz.title, quiz.id, setQuizData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Cold DMs ─── */}
             {activeTab === 'cold-dms' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Cold DM Templates ({dmData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Template</button>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                        {dmData.map((dm, i) => (
-                            <div key={dm.id} className="p-4 hover:bg-gray-50">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm text-gray-400">{i + 1}</span>
-                                        <div>
-                                            <h4 className="font-medium text-gray-900">{dm.title}</h4>
-                                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{dm.category}</span>
-                                        </div>
+                    <SectionHeader title="Cold DM Templates" count={dmData.length} btnLabel="Add Template" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {dmData.map((dm) => (
+                                <CardShell key={dm.id}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <span className="text-xs px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">{dm.category}</span>
+                                        <ActionBtns name={dm.title} onEdit={() => triggerEdit(dm.title)} onDelete={() => confirmDelete(dm.title, dm.id, setDmData)} />
                                     </div>
-                                    <ActionBtns name={dm.title} onEdit={() => triggerEdit(dm.title)} onDelete={() => confirmDelete(dm.title, dm.id, setDmData)} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{dm.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1.5 line-clamp-3">{dm.content}</p>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {dmData.map((dm, i) => (
+                                        <tr key={dm.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{dm.title}</td>
+                                            <td className="px-6 py-4"><span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{dm.category}</span></td>
+                                            <td className="px-6 py-4"><ActionBtns name={dm.title} onEdit={() => triggerEdit(dm.title)} onDelete={() => confirmDelete(dm.title, dm.id, setDmData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Job Portals ─── */}
             {activeTab === 'job-portals' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Job Portals ({jpData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Portal</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {jpData.map((portal) => (
-                                    <tr key={portal.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{portal.name}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{portal.category}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{portal.region}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={portal.name} onEdit={() => triggerEdit(portal.name)} onDelete={() => confirmDelete(portal.name, portal.id, setJpData)} />
-                                        </td>
+                    <SectionHeader title="Job Portals" count={jpData.length} btnLabel="Add Portal" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {jpData.map((portal) => (
+                                <CardShell key={portal.id}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex gap-2">
+                                            <span className="text-xs px-2.5 py-0.5 bg-teal-50 text-teal-600 rounded-full ring-1 ring-teal-100">{portal.category}</span>
+                                            <span className="text-xs px-2.5 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">{portal.region}</span>
+                                        </div>
+                                        <ActionBtns name={portal.name} onEdit={() => triggerEdit(portal.name)} onDelete={() => confirmDelete(portal.name, portal.id, setJpData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{portal.name}</h4>
+                                    <p className="text-xs text-gray-500 mt-1">{portal.description}</p>
+                                    {portal.url && <a href={portal.url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline mt-2 inline-block truncate max-w-full">{portal.url}</a>}
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {jpData.map((portal) => (
+                                        <tr key={portal.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{portal.name}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{portal.category}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{portal.region}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={portal.name} onEdit={() => triggerEdit(portal.name)} onDelete={() => confirmDelete(portal.name, portal.id, setJpData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Notes ─── */}
             {activeTab === 'notes' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Handwritten Notes ({noteData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Upload Note</button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                        {noteData.map((note) => (
-                            <div key={note.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                <h4 className="font-semibold text-gray-900">{note.title}</h4>
-                                <p className="text-sm text-gray-500 mt-1">{note.description}</p>
-                                <div className="flex items-center justify-between mt-3">
-                                    <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">{note.topic}</span>
-                                    <span className="text-xs text-gray-400">{note.pageCount} pages</span>
-                                </div>
-                                <div className="flex gap-2 mt-3">
-                                    <ActionBtns name={note.title} onEdit={() => triggerEdit(note.title)} onDelete={() => confirmDelete(note.title, note.id, setNoteData)} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    <SectionHeader title="Handwritten Notes" count={noteData.length} btnLabel="Upload Note" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {noteData.map((note) => (
+                                <CardShell key={note.id}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <span className="text-xs px-2.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">{note.topic}</span>
+                                        <ActionBtns name={note.title} onEdit={() => triggerEdit(note.title)} onDelete={() => confirmDelete(note.title, note.id, setNoteData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{note.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{note.description}</p>
+                                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
+                                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        {note.pageCount} pages
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {noteData.map((note, i) => (
+                                        <tr key={note.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{note.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{note.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4"><span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">{note.topic}</span></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{note.pageCount}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={note.title} onEdit={() => triggerEdit(note.title)} onDelete={() => confirmDelete(note.title, note.id, setNoteData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Roadmaps ─── */}
             {activeTab === 'roadmaps' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Roadmaps ({rmData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Roadmap</button>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                        {rmData.map((rm) => (
-                            <div key={rm.id} className="p-4 hover:bg-gray-50">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h4 className="font-medium text-gray-900">{rm.title}</h4>
-                                        <p className="text-sm text-gray-500 mt-0.5">{rm.description}</p>
-                                        <div className="flex gap-2 mt-2">
-                                            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{rm.category}</span>
-                                            {rm.isFree && <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Free</span>}
-                                            <span className="text-xs text-gray-400">{rm.steps.length} steps</span>
+                    <SectionHeader title="Roadmaps" count={rmData.length} btnLabel="Add Roadmap" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {rmData.map((rm) => (
+                                <CardShell key={rm.id}>
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex gap-2">
+                                            <span className="text-xs px-2.5 py-0.5 bg-gray-50 text-gray-600 rounded-full ring-1 ring-gray-200">{rm.category}</span>
+                                            {rm.isFree && <span className="text-xs px-2.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-full ring-1 ring-emerald-100">Free</span>}
                                         </div>
+                                        <ActionBtns name={rm.title} onEdit={() => triggerEdit(rm.title)} onDelete={() => confirmDelete(rm.title, rm.id, setRmData)} />
                                     </div>
-                                    <ActionBtns name={rm.title} onEdit={() => triggerEdit(rm.title)} onDelete={() => confirmDelete(rm.title, rm.id, setRmData)} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{rm.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{rm.description}</p>
+                                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-400">
+                                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                        {rm.steps.length} steps
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Steps</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Free</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {rmData.map((rm, i) => (
+                                        <tr key={rm.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{rm.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{rm.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{rm.category}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{rm.steps.length}</td>
+                                            <td className="px-6 py-4">{rm.isFree ? <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Free</span> : <span className="text-xs text-gray-400">Paid</span>}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={rm.title} onEdit={() => triggerEdit(rm.title)} onDelete={() => confirmDelete(rm.title, rm.id, setRmData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Mass Recruitment ─── */}
             {activeTab === 'mass-recruitment' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Mass Recruitment Companies ({mrData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Company</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interview Qs</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DSA</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aptitude</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {mrData.map((company) => (
-                                    <tr key={company.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{company.name}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{company.interviewQuestions}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{company.dsaProblems}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{company.aptitudeQuestions}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={company.name} onEdit={() => triggerEdit(company.name)} onDelete={() => confirmDelete(company.name, company.id, setMrData)} />
-                                        </td>
+                    <SectionHeader title="Mass Recruitment Companies" count={mrData.length} btnLabel="Add Company" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {mrData.map((company) => (
+                                <CardShell key={company.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden ring-1 ring-gray-200">
+                                                <img src={company.logo} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-sm font-bold text-gray-400">${company.name.charAt(0)}</span>`; }} />
+                                            </div>
+                                            <h4 className="font-semibold text-gray-900 text-sm">{company.name}</h4>
+                                        </div>
+                                        <ActionBtns name={company.name} onEdit={() => triggerEdit(company.name)} onDelete={() => confirmDelete(company.name, company.id, setMrData)} />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 mt-2">
+                                        <div className="bg-blue-50 rounded-lg p-2.5 text-center ring-1 ring-blue-100">
+                                            <p className="text-lg font-bold text-blue-700">{company.interviewQuestions}</p>
+                                            <p className="text-[10px] text-blue-500 mt-0.5">Interview</p>
+                                        </div>
+                                        <div className="bg-emerald-50 rounded-lg p-2.5 text-center ring-1 ring-emerald-100">
+                                            <p className="text-lg font-bold text-emerald-700">{company.dsaProblems}</p>
+                                            <p className="text-[10px] text-emerald-500 mt-0.5">DSA</p>
+                                        </div>
+                                        <div className="bg-amber-50 rounded-lg p-2.5 text-center ring-1 ring-amber-100">
+                                            <p className="text-lg font-bold text-amber-700">{company.aptitudeQuestions}</p>
+                                            <p className="text-[10px] text-amber-500 mt-0.5">Aptitude</p>
+                                        </div>
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interview Qs</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DSA</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aptitude</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {mrData.map((company) => (
+                                        <tr key={company.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{company.name}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{company.interviewQuestions}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{company.dsaProblems}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{company.aptitudeQuestions}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={company.name} onEdit={() => triggerEdit(company.name)} onDelete={() => confirmDelete(company.name, company.id, setMrData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── HLD ─── */}
             {activeTab === 'hld' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">High Level Design Questions ({hldData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Question</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {hldData.map((q, i) => (
-                                    <tr key={q.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-gray-900">{q.title}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : q.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{q.difficulty}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.isSolved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{q.isSolved ? 'Published' : 'Draft'}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setHldData)} />
-                                        </td>
+                    <SectionHeader title="High Level Design Questions" count={hldData.length} btnLabel="Add Question" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {hldData.map((q) => (
+                                <CardShell key={q.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <DiffBadge d={q.difficulty} />
+                                            <StatusDot solved={q.isSolved} />
+                                        </div>
+                                        <ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setHldData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+                                    <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">{q.section}</span>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {hldData.map((q, i) => (
+                                        <tr key={q.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{q.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={q.difficulty} /></td>
+                                            <td className="px-6 py-4"><StatusDot solved={q.isSolved} /></td>
+                                            <td className="px-6 py-4"><ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setHldData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── LLD ─── */}
             {activeTab === 'lld' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Low Level Design Questions ({lldData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Question</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {lldData.map((q, i) => (
-                                    <tr key={q.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-gray-900">{q.title}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : q.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{q.difficulty}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${q.isSolved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{q.isSolved ? 'Published' : 'Draft'}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setLldData)} />
-                                        </td>
+                    <SectionHeader title="Low Level Design Questions" count={lldData.length} btnLabel="Add Question" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {lldData.map((q) => (
+                                <CardShell key={q.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <DiffBadge d={q.difficulty} />
+                                            <StatusDot solved={q.isSolved} />
+                                        </div>
+                                        <ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setLldData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+                                    <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-sky-50 text-sky-600 rounded-full ring-1 ring-sky-100">{q.section}</span>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {lldData.map((q, i) => (
+                                        <tr key={q.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{q.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={q.difficulty} /></td>
+                                            <td className="px-6 py-4"><StatusDot solved={q.isSolved} /></td>
+                                            <td className="px-6 py-4"><ActionBtns name={q.title} onEdit={() => triggerEdit(q.title)} onDelete={() => confirmDelete(q.title, q.id, setLldData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── OOPs ─── */}
             {activeTab === 'oops' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">OOPs Concepts ({oopsData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Concept</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {oopsData.map((c, i) => (
-                                    <tr key={c.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-gray-900">{c.title}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${c.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : c.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{c.difficulty}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setOopsData)} />
-                                        </td>
+                    <SectionHeader title="OOPs Concepts" count={oopsData.length} btnLabel="Add Concept" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {oopsData.map((c) => (
+                                <CardShell key={c.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <DiffBadge d={c.difficulty} />
+                                        <ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setOopsData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{c.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{c.description}</p>
+                                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs px-2 py-0.5 bg-violet-50 text-violet-600 rounded-full ring-1 ring-violet-100">{c.category}</span>
+                                        <span className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">{c.language}</span>
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {oopsData.map((c, i) => (
+                                        <tr key={c.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{c.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={c.difficulty} /></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setOopsData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Language ─── */}
             {activeTab === 'language' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Language Fundamentals ({langData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Concept</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {langData.map((c, i) => (
-                                    <tr key={c.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{i + 1}</td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-gray-900">{c.title}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${c.difficulty === 'Easy' ? 'bg-green-100 text-green-700' : c.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{c.difficulty}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setLangData)} />
-                                        </td>
+                    <SectionHeader title="Language Fundamentals" count={langData.length} btnLabel="Add Concept" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {langData.map((c) => (
+                                <CardShell key={c.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <DiffBadge d={c.difficulty} />
+                                        <ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setLangData)} />
+                                    </div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">{c.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{c.description}</p>
+                                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs px-2 py-0.5 bg-fuchsia-50 text-fuchsia-600 rounded-full ring-1 ring-fuchsia-100">{c.category}</span>
+                                        <span className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">{c.language}</span>
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {langData.map((c, i) => (
+                                        <tr key={c.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-gray-900">{c.title}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{c.description}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{c.category}</td>
+                                            <td className="px-6 py-4"><DiffBadge d={c.difficulty} /></td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{c.language}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={c.title} onEdit={() => triggerEdit(c.title)} onDelete={() => confirmDelete(c.title, c.id, setLangData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* ─── Positions ─── */}
             {activeTab === 'positions' && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Position Resources ({posData.length})</h3>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">Add Position</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interview Qs</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DSA</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aptitude</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SQL</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Core CS</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {posData.map((pos) => (
-                                    <tr key={pos.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{pos.role}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{pos.interviewQuestions}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{pos.dsaQuestions}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{pos.aptitudeQuestions}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{pos.sqlQuestions}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{pos.coreCSQuestions}</td>
-                                        <td className="px-6 py-4">
-                                            <ActionBtns name={pos.role} onEdit={() => triggerEdit(pos.role)} onDelete={() => confirmDelete(pos.role, pos.id, setPosData)} />
-                                        </td>
+                    <SectionHeader title="Position Resources" count={posData.length} btnLabel="Add Position" view={viewMode} onViewChange={setViewMode} />
+                    {isGrid ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+                            {posData.map((pos) => (
+                                <CardShell key={pos.id}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <h4 className="font-semibold text-gray-900 text-sm">{pos.role}</h4>
+                                        <ActionBtns name={pos.role} onEdit={() => triggerEdit(pos.role)} onDelete={() => confirmDelete(pos.role, pos.id, setPosData)} />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="bg-blue-50 rounded-lg p-2 text-center ring-1 ring-blue-100">
+                                            <p className="text-base font-bold text-blue-700">{pos.interviewQuestions}</p>
+                                            <p className="text-[10px] text-blue-500">Interview</p>
+                                        </div>
+                                        <div className="bg-emerald-50 rounded-lg p-2 text-center ring-1 ring-emerald-100">
+                                            <p className="text-base font-bold text-emerald-700">{pos.dsaQuestions}</p>
+                                            <p className="text-[10px] text-emerald-500">DSA</p>
+                                        </div>
+                                        <div className="bg-amber-50 rounded-lg p-2 text-center ring-1 ring-amber-100">
+                                            <p className="text-base font-bold text-amber-700">{pos.aptitudeQuestions}</p>
+                                            <p className="text-[10px] text-amber-500">Aptitude</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <div className="bg-purple-50 rounded-lg p-2 text-center ring-1 ring-purple-100">
+                                            <p className="text-base font-bold text-purple-700">{pos.sqlQuestions}</p>
+                                            <p className="text-[10px] text-purple-500">SQL</p>
+                                        </div>
+                                        <div className="bg-pink-50 rounded-lg p-2 text-center ring-1 ring-pink-100">
+                                            <p className="text-base font-bold text-pink-700">{pos.coreCSQuestions}</p>
+                                            <p className="text-[10px] text-pink-500">Core CS</p>
+                                        </div>
+                                    </div>
+                                </CardShell>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interview Qs</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DSA</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aptitude</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SQL</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Core CS</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {posData.map((pos) => (
+                                        <tr key={pos.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{pos.role}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{pos.interviewQuestions}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{pos.dsaQuestions}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{pos.aptitudeQuestions}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{pos.sqlQuestions}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{pos.coreCSQuestions}</td>
+                                            <td className="px-6 py-4"><ActionBtns name={pos.role} onEdit={() => triggerEdit(pos.role)} onDelete={() => confirmDelete(pos.role, pos.id, setPosData)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
