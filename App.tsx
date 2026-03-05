@@ -29,10 +29,13 @@ import BuildPortfolioPage from './components/BuildPortfolioPage';
 import { ResumeBuilderPage } from './components/resume-builder';
 import MockAssessmentPage from './components/MockAssessmentPage';
 import CodingInterviewQuestionsPage from './components/CodingInterviewQuestionsPage';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import TermsAndConditionsPage from './components/TermsAndConditionsPage';
+import CookieConsent from './components/CookieConsent';
 import { SocketProvider } from './context/SocketContext';
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'privacy' | 'terms' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -174,13 +177,79 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
   );
 };
 
+const PAGE_TITLES: Record<Page, string> = {
+  home: 'Project Bazaar — Marketplace for Projects, Ideas & Freelance Collaborations',
+  auth: 'Sign In — Project Bazaar',
+  dashboard: 'Dashboard — Project Bazaar',
+  seller: 'Seller Dashboard — Project Bazaar',
+  admin: 'Admin — Project Bazaar',
+  faq: 'FAQ — Project Bazaar',
+  browseProjects: 'Browse Projects — Project Bazaar',
+  freelancerProfile: 'Freelancer Profile — Project Bazaar',
+  buildPortfolio: 'Build Portfolio — Project Bazaar',
+  buildResume: 'Resume Builder — Project Bazaar',
+  mockAssessment: 'Mock Assessments — Project Bazaar',
+  mockLeaderboard: 'Leaderboard — Mock Assessments — Project Bazaar',
+  mockAchievements: 'Achievements — Mock Assessments — Project Bazaar',
+  mockDailyChallenge: 'Daily Challenge — Mock Assessments — Project Bazaar',
+  mockHistory: 'Test History — Mock Assessments — Project Bazaar',
+  codingQuestions: 'Coding Interview Questions — Project Bazaar',
+  privacy: 'Privacy Policy — Project Bazaar',
+  terms: 'Terms & Conditions — Project Bazaar',
+  notFound: 'Page Not Found — Project Bazaar',
+};
+
+const PAGE_META_DESCRIPTIONS: Record<string, string> = {
+  home: 'Discover, buy, and sell projects on Project Bazaar. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
+  faq: 'Frequently asked questions about Project Bazaar — your marketplace for projects, freelancing, and career development.',
+  browseProjects: 'Browse and discover projects for sale on Project Bazaar. Find the perfect project to buy or get inspired for your next build.',
+  mockAssessment: 'Practice with mock assessments and coding challenges on Project Bazaar. Prepare for technical interviews and track your progress.',
+  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on Project Bazaar.',
+  privacy: 'Learn how Project Bazaar collects, uses, and protects your personal data. Read our full privacy policy.',
+  terms: 'Read the terms and conditions for using Project Bazaar, including marketplace rules, intellectual property, and payment terms.',
+};
+
+function updatePageMeta(page: Page) {
+  document.title = PAGE_TITLES[page] || PAGE_TITLES.home;
+
+  const descEl = document.querySelector('meta[name="description"]');
+  const desc = PAGE_META_DESCRIPTIONS[page];
+  if (descEl && desc) {
+    descEl.setAttribute('content', desc);
+  }
+
+  const ogTitleEl = document.querySelector('meta[property="og:title"]');
+  if (ogTitleEl) ogTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+
+  const ogDescEl = document.querySelector('meta[property="og:description"]');
+  if (ogDescEl && desc) ogDescEl.setAttribute('content', desc);
+
+  const twitterTitleEl = document.querySelector('meta[name="twitter:title"]');
+  if (twitterTitleEl) twitterTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+
+  const twitterDescEl = document.querySelector('meta[name="twitter:description"]');
+  if (twitterDescEl && desc) twitterDescEl.setAttribute('content', desc);
+
+  const canonicalEl = document.querySelector('link[rel="canonical"]');
+  if (canonicalEl) {
+    const base = 'https://projectbazaar.in';
+    const pageToPath: Record<string, string> = {
+      home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
+      mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
+      privacy: '/privacy', terms: '/terms',
+    };
+    const path = pageToPath[page] || '/';
+    canonicalEl.setAttribute('href', `${base}${path}`);
+  }
+}
+
 const AppContent: React.FC = () => {
   const { page } = useNavigation();
   const { isLoggedIn, userRole } = useAuth();
 
-  // Scroll to top when navigating to a new page (sidebar / route change)
   useEffect(() => {
     window.scrollTo(0, 0);
+    updatePageMeta(page);
   }, [page]);
 
   switch (page) {
@@ -223,6 +292,10 @@ const AppContent: React.FC = () => {
       return <MockAssessmentPage initialView="history" />;
     case 'codingQuestions':
       return <CodingInterviewQuestionsPage />;
+    case 'privacy':
+      return <PrivacyPolicyPage />;
+    case 'terms':
+      return <TermsAndConditionsPage />;
     case 'notFound':
       return <NotFound />;
     case 'home':
@@ -294,6 +367,10 @@ const App: React.FC = () => {
         '/mock-assessment/history': 'mockHistory',
         '/coding-questions': 'codingQuestions',
         '/coding-interview-questions': 'codingQuestions',
+        '/privacy': 'privacy',
+        '/privacy-policy': 'privacy',
+        '/terms': 'terms',
+        '/terms-and-conditions': 'terms',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -312,6 +389,8 @@ const App: React.FC = () => {
         'mockDailyChallenge': 'mockDailyChallenge',
         'mockHistory': 'mockHistory',
         'codingQuestions': 'codingQuestions',
+        'privacy': 'privacy',
+        'terms': 'terms',
         'notFound': 'notFound',
       };
 
@@ -433,6 +512,8 @@ const App: React.FC = () => {
       'mockDailyChallenge': '/mock-assessment/daily-challenge',
       'mockHistory': '/mock-assessment/history',
       'codingQuestions': '/coding-questions',
+      'privacy': '/privacy',
+      'terms': '/terms',
       'notFound': '/404'
     };
 
@@ -488,6 +569,7 @@ const App: React.FC = () => {
               <SocketProvider>
                 <NavigationContext.Provider value={{ page, navigateTo }}>
                   <AppContent />
+                  <CookieConsent />
                 </NavigationContext.Provider>
               </SocketProvider>
             </AuthContext.Provider>

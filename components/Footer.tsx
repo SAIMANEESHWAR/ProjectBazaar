@@ -73,12 +73,12 @@ const Footer: React.FC = () => {
 
           <div className="hidden lg:block" />
 
-          {/* Others */}
+          {/* Legal */}
           <div className="flex flex-col gap-8">
-            <h4 className="text-lg md:text-xl font-bold">Others</h4>
+            <h4 className="text-lg md:text-xl font-bold">Legal</h4>
             <ul className="flex flex-col gap-4 text-base text-[#666]">
-              <li><a href="/terms" className="hover:text-[#ff7a00] transition-colors">Terms of Service</a></li>
-              <li><a href="/privacy" className="hover:text-[#ff7a00] transition-colors">Privacy Policy</a></li>
+              <li><button onClick={() => navigateTo('terms')} className="hover:text-[#ff7a00] transition-colors text-left">Terms of Service</button></li>
+              <li><button onClick={() => navigateTo('privacy')} className="hover:text-[#ff7a00] transition-colors text-left">Privacy Policy</button></li>
             </ul>
             <div className="mt-4">
               <p className="text-sm text-[#666]">Support: support@projectbazaar.com</p>

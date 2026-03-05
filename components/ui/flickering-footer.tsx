@@ -3,6 +3,7 @@ import { CTAArrowIcon } from "../CTAArrowIcon";
 import * as Color from "color-bits";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import { useNavigation } from "../../App";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -356,12 +357,12 @@ export const siteConfig = {
       ],
     },
     {
-      title: "Resources",
+      title: "Legal",
       links: [
-        { id: 9, title: "FAQs", url: "#" },
-        { id: 10, title: "Careers", url: "#" },
-        { id: 11, title: "Newsletters", url: "#" },
-        { id: 12, title: "More", url: "#" },
+        { id: 9, title: "Privacy Policy", url: "/privacy" },
+        { id: 10, title: "Terms of Service", url: "/terms" },
+        { id: 11, title: "FAQs", url: "/faq" },
+        { id: 12, title: "Cookie Settings", url: "#cookie-settings" },
       ],
     },
   ],
@@ -377,6 +378,7 @@ function scrollToId(id: string) {
 
 export const FlickeringFooter: React.FC = () => {
   const tablet = useMediaQuery("(max-width: 1024px)");
+  const { navigateTo } = useNavigation();
 
   return (
     <footer id="footer" className="w-full pb-0 bg-gray-100 dark:bg-[#0a0a0a] transition-colors duration-300">
@@ -403,8 +405,17 @@ export const FlickeringFooter: React.FC = () => {
                     <a
                       href={link.url}
                       onClick={(e) => {
-                        if (link.url.startsWith("#")) {
-                          e.preventDefault();
+                        e.preventDefault();
+                        if (link.url === '#cookie-settings') {
+                          localStorage.removeItem('cookieConsent');
+                          window.location.reload();
+                        } else if (link.url === '/privacy') {
+                          navigateTo('privacy');
+                        } else if (link.url === '/terms') {
+                          navigateTo('terms');
+                        } else if (link.url === '/faq') {
+                          navigateTo('faq');
+                        } else if (link.url.startsWith("#")) {
                           scrollToId(link.url);
                         }
                       }}

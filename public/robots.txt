@@ -1,0 +1,35 @@
+# robots.txt for Project Bazaar
+# https://projectbazaar.in
+
+User-agent: *
+Allow: /
+Allow: /faq
+Allow: /browse-projects
+Allow: /mock-assessment
+Allow: /coding-questions
+Allow: /privacy
+Allow: /terms
+Allow: /sitemap.xml
+
+# Disallow authenticated/private areas
+Disallow: /dashboard
+Disallow: /seller
+Disallow: /admin
+Disallow: /auth
+Disallow: /login
+Disallow: /build-portfolio
+Disallow: /build-resume
+Disallow: /resume-builder
+Disallow: /freelancer
+Disallow: /404
+
+# Disallow API and asset paths
+Disallow: /api/
+Disallow: /static/
+Disallow: /assets/
+
+# Sitemaps
+Sitemap: https://projectbazaar.in/sitemap.xml
+
+# Crawl-delay (optional, respected by some bots)
+Crawl-delay: 1
