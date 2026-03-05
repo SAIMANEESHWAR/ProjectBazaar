@@ -2362,11 +2362,11 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         onClick={() => {
                             // Ensure roadmapData exists before navigating back
                             if (!roadmapData && completedCourseDetails) {
-                                // Reconstruct roadmapData from completedCourseDetails if needed
+                                // Reconstruct roadmapData from completedCourseDetails - only include completed weeks
                                 const reconstructedRoadmap: RoadmapData = {
                                     careerGoal: completedCourseDetails.categoryName || '',
-                                    totalWeeks: completedCourseDetails.duration || completedCourseDetails.weeksDetails?.length || 0,
-                                    weeks: completedCourseDetails.weeksDetails?.map((w: any) => ({
+                                    totalWeeks: completedWeeks.length, // Use only completed weeks count
+                                    weeks: completedWeeks.map((w: any) => ({
                                         weekNumber: w.weekNumber,
                                         mainTopics: w.mainTopics || [],
                                         subtopics: w.subtopics || [],
@@ -2379,7 +2379,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         quizCompleted: w.quizCompleted || false,
                                         quizScore: w.quizScore,
                                         completedAt: w.completedAt
-                                    })) || [],
+                                    })),
                                     createdAt: completedCourseDetails.createdAt || new Date().toISOString()
                                 };
                                 setRoadmapData(reconstructedRoadmap);
@@ -2468,11 +2468,11 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                 onClick={() => {
                                     // Ensure roadmapData exists before navigating back
                                     if (!roadmapData && completedCourseDetails) {
-                                        // Reconstruct roadmapData from completedCourseDetails if needed
+                                        // Reconstruct roadmapData from completedCourseDetails - only include completed weeks
                                         const reconstructedRoadmap: RoadmapData = {
                                             careerGoal: completedCourseDetails.categoryName || '',
-                                            totalWeeks: completedCourseDetails.duration || completedCourseDetails.weeksDetails?.length || 0,
-                                            weeks: completedCourseDetails.weeksDetails?.map((w: any) => ({
+                                            totalWeeks: completedWeeks.length, // Use only completed weeks count
+                                            weeks: completedWeeks.map((w: any) => ({
                                                 weekNumber: w.weekNumber,
                                                 mainTopics: w.mainTopics || [],
                                                 subtopics: w.subtopics || [],
@@ -2485,7 +2485,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                                 quizCompleted: w.quizCompleted || false,
                                                 quizScore: w.quizScore,
                                                 completedAt: w.completedAt
-                                            })) || [],
+                                            })),
                                             createdAt: completedCourseDetails.createdAt || new Date().toISOString()
                                         };
                                         setRoadmapData(reconstructedRoadmap);
@@ -2678,6 +2678,47 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
                         {/* Right Side - Topic Analysis and Performance Stats */}
                         <div className="space-y-6">
+                            {/* Completed Weeks Card */}
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Completed Weeks</h3>
+                                </div>
+                                <div className="space-y-2">
+                                    {completedWeeks.length > 0 ? (
+                                        <>
+                                            <div className="text-sm text-gray-600 mb-3">
+                                                You have completed <strong>{completedWeeks.length}</strong> {completedWeeks.length === 1 ? 'week' : 'weeks'}:
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {completedWeeks.map((week: any) => (
+                                                    <div
+                                                        key={week.weekNumber}
+                                                        className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"
+                                                    >
+                                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        <span className="text-sm font-semibold text-green-900">Week {week.weekNumber}</span>
+                                                        {week.quizScore !== undefined && (
+                                                            <span className="text-xs text-green-700">({week.quizScore}%)</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-sm text-gray-500 text-center py-4">
+                                            No completed weeks
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Topic Analysis Card */}
                             <div className="bg-white rounded-2xl shadow-xl p-6">
                                 <div className="flex items-center gap-3 mb-4">

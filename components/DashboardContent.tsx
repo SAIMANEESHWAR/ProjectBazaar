@@ -75,6 +75,7 @@ interface ApiProject {
     documentationUrl?: string;
     youtubeVideoUrl?: string;
     viewsCount?: number;
+    features?: string[]; // Features array from backend
 }
 
 // @ts-ignore - Mock data kept for potential future use
@@ -300,6 +301,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             hasExecutionVideo: !!apiProject.youtubeVideoUrl,
             demoVideoUrl: apiProject.youtubeVideoUrl,
             images: apiProject.images,
+            features: apiProject.features || [], // Map features from API
             likesCount: apiProject.likesCount || 0,
             purchasesCount: apiProject.purchasesCount || 0,
             sellerEmail: apiProject.sellerEmail || '',

@@ -14,6 +14,7 @@ export interface BuyerProject {
   hasExecutionVideo?: boolean;
   demoVideoUrl?: string;
   images?: string[];
+  features?: string[]; // Features array from backend
   likesCount?: number;
   purchasesCount?: number;
   sellerEmail?: string;
