@@ -27,8 +27,9 @@ TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
 
-# User-specific tables (partition key attribute name; value = userId)
-PK_USER = "id"
+# User-specific tables: partition key attribute name (value = userId).
+# Use "userId" if your DynamoDB tables have PK named "userId"; use "id" if PK is named "id".
+PK_USER = "userId"
 
 TABLE_COLLECTIONS = "PrepCollections"
 TABLE_COLLECTION_ITEMS = "PrepCollectionItems"
