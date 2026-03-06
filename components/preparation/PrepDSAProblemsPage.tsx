@@ -47,6 +47,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,8 +236,11 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                   <tbody>
                     {paginatedProblems.map((problem, idx) => {
                       const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                      const isExpanded = expandedId === problem.id;
+                      const solutionLink = (problem as any).solutionLink as string | undefined;
                       return (
-                        <tr key={problem.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                        <>
+                        <tr key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
                           <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
                           <td className="px-5 py-4">
                             <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
@@ -260,7 +264,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                             </div>
                           </td>
                           <td className="px-5 py-4 text-center">
-                            <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                            <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                               {problem.isSolved ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                               ) : (
@@ -269,7 +273,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                             </button>
                           </td>
                           <td className="px-5 py-4 text-center">
-                            <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                            <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                               {problem.isBookmarked ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                               ) : (
@@ -278,6 +282,26 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                             </button>
                           </td>
                         </tr>
+                        {isExpanded && (
+                          <tr key={`${problem.id}-solution`} className="bg-orange-50/50 border-b border-gray-100">
+                            <td colSpan={7} className="px-5 py-4">
+                              <div className="pl-4 border-l-3 border-orange-400">
+                                <p className="text-sm font-semibold text-gray-900 mb-2">Solution</p>
+                                <p className="text-sm text-gray-700 leading-relaxed mb-2">{problem.description}</p>
+                                {solutionLink ? (
+                                  <a href={solutionLink} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 font-medium">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    View Full Solution
+                                  </a>
+                                ) : (
+                                  <p className="text-sm text-gray-400 italic">No solution link available yet.</p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </>
                       );
                     })}
                   </tbody>
@@ -287,11 +311,14 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           )}
           {viewMode === 'grid' && filteredProblems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {paginatedProblems.map((problem) => (
-                <div key={problem.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+              {paginatedProblems.map((problem) => {
+                const isExpanded = expandedId === problem.id;
+                const solutionLink = (problem as any).solutionLink as string | undefined;
+                return (
+                <div key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
                   <div className="flex items-start justify-between mb-3">
                     <DifficultyBadge difficulty={problem.difficulty} />
-                    <button onClick={() => toggleBookmark(problem.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                    <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                       {problem.isBookmarked ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                       ) : (
@@ -312,7 +339,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs text-gray-400">Acceptance: {problem.acceptance}%</span>
-                    <button onClick={() => toggleSolved(problem.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                    <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                       {problem.isSolved ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                       ) : (
@@ -320,8 +347,23 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                       )}
                     </button>
                   </div>
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-xs font-semibold text-gray-900 mb-1">Solution</p>
+                      {solutionLink ? (
+                        <a href={solutionLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          View Full Solution
+                        </a>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">No solution link available yet.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>

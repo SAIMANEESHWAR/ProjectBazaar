@@ -1,11 +1,41 @@
-import { useState, useMemo, useEffect } from 'react';
-import { companies, mrSubTabConfig, type MRSubTabKey, type MRQuestion } from '../../data/massRecruitmentData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { mrSubTabConfig, type MRSubTabKey } from '../../data/massRecruitmentData';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 interface PrepMassRecruitmentPageProps {
   toggleSidebar?: () => void;
 }
+
+interface MRQuestionFromAPI {
+  id: string;
+  question: string;
+  category?: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  companyId: string;
+  companyName: string;
+  subType: string;
+  isSolved?: boolean;
+  isBookmarked?: boolean;
+}
+
+const companyMeta = [
+  { id: 'hcl', name: 'HCL', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hcltech.com' },
+  { id: 'infosys', name: 'Infosys', logo: 'https://www.google.com/s2/favicons?sz=64&domain=infosys.com' },
+  { id: 'tcs', name: 'TCS', logo: 'https://www.google.com/s2/favicons?sz=64&domain=tcs.com' },
+  { id: 'wipro', name: 'Wipro', logo: 'https://www.google.com/s2/favicons?sz=64&domain=wipro.com' },
+  { id: 'techmahindra', name: 'Tech Mahindra', logo: 'https://www.google.com/s2/favicons?sz=64&domain=techmahindra.com' },
+  { id: 'lt', name: 'L&T', logo: 'https://www.google.com/s2/favicons?sz=64&domain=larsentoubro.com' },
+  { id: 'capgemini', name: 'Capgemini', logo: 'https://www.google.com/s2/favicons?sz=64&domain=capgemini.com' },
+  { id: 'accenture', name: 'Accenture', logo: 'https://www.google.com/s2/favicons?sz=64&domain=accenture.com' },
+  { id: 'mindtree', name: 'Mindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mindtree.com' },
+  { id: 'mphasis', name: 'Mphasis', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mphasis.com' },
+  { id: 'hexaware', name: 'Hexaware', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hexaware.com' },
+  { id: 'ltimindtree', name: 'LTIMindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=ltimindtree.com' },
+  { id: 'zoho', name: 'Zoho', logo: 'https://www.google.com/s2/favicons?sz=64&domain=zoho.com' },
+  { id: 'persistent', name: 'Persistent Systems', logo: 'https://www.google.com/s2/favicons?sz=64&domain=persistent.com' },
+];
 
 const ITEMS_PER_PAGE = 15;
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
@@ -21,32 +51,11 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
 );
 
 const subTabIcons: Record<MRSubTabKey, JSX.Element> = {
-  interview: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-    </svg>
-  ),
-  dsa: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-    </svg>
-  ),
-  aptitude: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-    </svg>
-  ),
-  sql: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-    </svg>
-  ),
-  corecs: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  ),
+  interview: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>),
+  dsa: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>),
+  aptitude: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>),
+  sql: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>),
+  corecs: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>),
 };
 
 const difficultyClass = (d: string) => {
@@ -56,10 +65,10 @@ const difficultyClass = (d: string) => {
 };
 
 const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
-  const [selectedCompanyId, setSelectedCompanyId] = useState(companies[0].id);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(companyMeta[0].id);
   const [activeSubTab, setActiveSubTab] = useState<MRSubTabKey>('interview');
-  const [solvedMap, setSolvedMap] = useState<Record<string, boolean>>({});
-  const [revisionMap, setRevisionMap] = useState<Record<string, boolean>>({});
+  const [allQuestions, setAllQuestions] = useState<MRQuestionFromAPI[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,23 +77,31 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContentWithProgress<MRQuestionFromAPI>('mass_recruitment', {
+          companyId: selectedCompanyId,
+          subType: activeSubTab,
+          limit: 500,
+        });
+        if (!cancelled && resp.success) {
+          setAllQuestions(resp.items || []);
+        }
+      } catch { /* API only */ }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCompanyId, activeSubTab]);
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const selectedCompany = useMemo(() => companies.find((c) => c.id === selectedCompanyId) ?? companies[0], [selectedCompanyId]);
-
-  const allQuestions: MRQuestion[] = useMemo(() => {
-    switch (activeSubTab) {
-      case 'interview': return selectedCompany.interviewQuestions;
-      case 'dsa': return selectedCompany.dsaQuestions;
-      case 'aptitude': return selectedCompany.aptitudeQuestions;
-      case 'sql': return selectedCompany.sqlQuestions;
-      case 'corecs': return selectedCompany.coreCSQuestions;
-      default: return [];
-    }
-  }, [selectedCompany, activeSubTab]);
+  const selectedCompany = useMemo(() => companyMeta.find((c) => c.id === selectedCompanyId) ?? companyMeta[0], [selectedCompanyId]);
 
   const questions = useMemo(() => {
     const filtered = allQuestions.filter((item) => {
@@ -119,8 +136,15 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
   const sectionTitle = subTab.titleTemplate.replace('{company}', selectedCompany.name);
   const sectionSubtitle = subTab.subtitleTemplate.replace('{company}', selectedCompany.name);
 
-  const toggleSolved = (id: string) => setSolvedMap((prev) => ({ ...prev, [id]: !prev[id] }));
-  const toggleRevision = (id: string) => setRevisionMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleSolved = useCallback((id: string) => {
+    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
+    prepUserApi.toggleSolved('mass_recruitment', id).catch(() => {});
+  }, []);
+
+  const toggleRevision = useCallback((id: string) => {
+    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
+    prepUserApi.toggleBookmarked('mass_recruitment', id).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -141,18 +165,11 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
         </button>
       </div>
 
-      {/* Search bar (collapsible) */}
       {searchOpen && (
         <div className="mb-4">
           <div className="relative">
-            <input
-              type="text"
-              placeholder="Search questions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-            />
+            <input type="text" placeholder="Search questions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm" />
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -163,27 +180,11 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       {/* Company Tabs */}
       <div className="mb-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
-          {companies.map((company) => (
-            <button
-              key={company.id}
-              onClick={() => { setSelectedCompanyId(company.id); setActiveSubTab('interview'); setSearchQuery(''); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
-                selectedCompanyId === company.id
-                  ? 'text-orange-600 border-orange-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
+          {companyMeta.map((company) => (
+            <button key={company.id} onClick={() => { setSelectedCompanyId(company.id); setActiveSubTab('interview'); setSearchQuery(''); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${selectedCompanyId === company.id ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               <span className="w-5 h-5 rounded-sm flex-shrink-0 inline-flex items-center justify-center overflow-hidden bg-gray-100">
-                <img
-                  src={company.logo}
-                  alt=""
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    const el = e.target as HTMLImageElement;
-                    el.style.display = 'none';
-                    if (el.parentElement) el.parentElement.innerHTML = `<span class="text-[10px] font-bold text-gray-500">${company.name.charAt(0)}</span>`;
-                  }}
-                />
+                <img src={company.logo} alt="" className="w-full h-full object-contain" onError={(e) => { const el = e.target as HTMLImageElement; el.style.display = 'none'; if (el.parentElement) el.parentElement.innerHTML = `<span class="text-[10px] font-bold text-gray-500">${company.name.charAt(0)}</span>`; }} />
               </span>
               {company.name}
             </button>
@@ -191,19 +192,12 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
         </div>
       </div>
 
-      {/* Sub Tabs with icons */}
+      {/* Sub Tabs */}
       <div className="mb-6 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
           {mrSubTabConfig.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveSubTab(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${
-                activeSubTab === tab.key
-                  ? 'text-orange-600 border-orange-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
+            <button key={tab.key} onClick={() => setActiveSubTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${activeSubTab === tab.key ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               {subTabIcons[tab.key]}
               {tab.label}
             </button>
@@ -221,19 +215,14 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
           <div className="flex items-center gap-3">
             <PrepViewToggle view={viewMode} onChange={setViewMode} />
             <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               My progress
             </button>
           </div>
         </div>
         <div className="flex items-center gap-3 mt-4">
-          <PrepFilterDropdown
-            value={difficultyFilter}
-            onChange={setDifficultyFilter}
-            options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
-          />
+          <PrepFilterDropdown value={difficultyFilter} onChange={setDifficultyFilter}
+            options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]} />
           {(difficultyFilter !== 'all' || searchQuery.trim()) && (
             <button onClick={() => { setDifficultyFilter('all'); setSearchQuery(''); }}
               className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
@@ -244,18 +233,23 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
         </div>
       </div>
 
-      {/* Questions Table */}
-      {questions.length === 0 ? (
+      {/* Loading */}
+      {loading && (
+        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-gray-500">Loading questions...</p>
+        </div>
+      )}
+
+      {!loading && questions.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <div className="text-gray-400 mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </div>
           <p className="text-gray-500 font-medium">No questions available for this category yet.</p>
           <p className="text-gray-400 text-sm mt-1">Check back soon for updates.</p>
         </div>
-      ) : (
+      ) : !loading && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           {viewMode === 'table' && (
           <div className="overflow-x-auto">
@@ -280,59 +274,27 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
               </thead>
               <tbody>
                 {paginatedQuestions.map((q, idx) => {
-                  const isSolved = solvedMap[q.id] ?? q.isSolved;
-                  const isRevision = revisionMap[q.id] ?? q.isRevision;
+                  const isSolved = q.isSolved ?? false;
+                  const isRevision = q.isBookmarked ?? false;
                   const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
-
                   return (
-                    <tr
-                      key={q.id}
-                      className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150"
-                    >
+                    <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
                       <td className="px-5 py-3.5 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-900">{q.question}</td>
-                      {showCategory && (
-                        <td className="px-5 py-3.5 text-sm text-gray-500">{q.category || '—'}</td>
-                      )}
+                      {showCategory && (<td className="px-5 py-3.5 text-sm text-gray-500">{q.category || '—'}</td>)}
                       <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>
-                          {q.difficulty}
-                        </span>
+                        <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                       </td>
                       <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => toggleSolved(q.id)}
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${
-                            isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'
-                          }`}
-                        >
-                          {isSolved ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          )}
+                        <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
                         </button>
                       </td>
                       <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => toggleRevision(q.id)}
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${
-                            isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'
-                          }`}
-                        >
-                          {isRevision ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                            </svg>
-                          )}
+                        <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
                         </button>
                       </td>
                     </tr>
@@ -343,42 +305,33 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
           </div>
           )}
           {viewMode === 'grid' && questions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
             {paginatedQuestions.map((q) => {
-              const isSolved = solvedMap[q.id] ?? q.isSolved;
-              const isRevision = revisionMap[q.id] ?? q.isRevision;
+              const isSolved = q.isSolved ?? false;
+              const isRevision = q.isBookmarked ?? false;
               return (
                 <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
                   <div className="flex items-start justify-between mb-3">
                     <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                     <div className="flex gap-1">
                       <button onClick={() => toggleSolved(q.id)} className={`p-1 rounded-full transition-all ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                        {isSolved ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        )}
+                        {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                        ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
                       </button>
                       <button onClick={() => toggleRevision(q.id)} className={`p-1 rounded-full transition-all ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                        {isRevision ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                        )}
+                        {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                        ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
                       </button>
                     </div>
                   </div>
                   <h4 className="font-semibold text-gray-900 text-sm leading-snug">{q.question}</h4>
-                  {q.category && (
-                    <span className="mt-2 inline-block text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{q.category}</span>
-                  )}
+                  {q.category && (<span className="mt-2 inline-block text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{q.category}</span>)}
                 </div>
               );
             })}
           </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 border-t border-gray-200">
               <p className="text-sm text-gray-500">
@@ -387,67 +340,24 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
                 <span className="font-semibold text-gray-900">{questions.length}</span> questions
               </p>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                  </svg>
+                <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
                 </button>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
+                <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  if (totalPages <= 7 || page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          page === currentPage
-                            ? 'bg-orange-500 text-white shadow-sm'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  }
-                  if (
-                    (page === 2 && currentPage > 3) ||
-                    (page === totalPages - 1 && currentPage < totalPages - 2)
-                  ) {
+                  if (totalPages <= 7 || page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    return <button key={page} onClick={() => setCurrentPage(page)} className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all duration-200 ${page === currentPage ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>{page}</button>;
+                  if ((page === 2 && currentPage > 3) || (page === totalPages - 1 && currentPage < totalPages - 2))
                     return <span key={page} className="px-1 text-gray-400 text-sm select-none">...</span>;
-                  }
                   return null;
                 })}
-
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
+                <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
+                <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                 </button>
               </div>
             </div>
@@ -455,11 +365,7 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
         </div>
       )}
 
-      {/* Scrollbar hide utility */}
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+      <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; } .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
     </div>
   );
 };

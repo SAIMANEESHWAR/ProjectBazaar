@@ -127,24 +127,19 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
 
     table = get_table(table_name)
 
-    difficulty = query_params.get("difficulty")
-    category = query_params.get("category")
-    topic = query_params.get("topic")
-    role = query_params.get("role")
     search = query_params.get("search", "").lower()
     page = int(query_params.get("page", 1))
     limit = int(query_params.get("limit", 50))
 
+    FILTERABLE_ATTRS = ["difficulty", "category", "topic", "role", "section",
+                        "companyId", "roleId", "subType", "designType"]
+
     try:
         filter_expressions = []
-        if difficulty and difficulty != "all":
-            filter_expressions.append(Attr("difficulty").eq(difficulty))
-        if category and category != "all":
-            filter_expressions.append(Attr("category").eq(category))
-        if topic and topic != "all":
-            filter_expressions.append(Attr("topic").eq(topic))
-        if role and role != "all":
-            filter_expressions.append(Attr("role").eq(role))
+        for attr in FILTERABLE_ATTRS:
+            val = query_params.get(attr)
+            if val and val != "all":
+                filter_expressions.append(Attr(attr).eq(val))
 
         scan_kwargs = {}
         if filter_expressions:

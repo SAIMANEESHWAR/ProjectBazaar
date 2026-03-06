@@ -1,11 +1,14 @@
 /**
- * Upload seed preparation content (interview questions + DSA problems) to prep admin API.
+ * Upload seed preparation content to prep admin API.
  * Run: npx tsx scripts/uploadPrepSeed.ts
  * Or: npm run seed:prep
  *
- * Set VITE_PREP_ADMIN_ENDPOINT or uses default.
+ * Uploads: interview questions, DSA problems, system design, mass recruitment, position resources
  */
 import { interviewQuestionsSeed, dsaProblemsSeed } from '../data/seedPrepCompetitive';
+import { hldQuestions, lldQuestions } from '../data/systemDesignData';
+import { companies } from '../data/massRecruitmentData';
+import { roles } from '../data/positionResourcesData';
 
 const PREP_ADMIN_ENDPOINT =
   process.env.VITE_PREP_ADMIN_ENDPOINT ??
@@ -34,30 +37,118 @@ async function uploadInBatches(contentType: string, items: Record<string, unknow
     const ok = await putContent(contentType, batch);
     if (ok) {
       uploaded += batch.length;
-      console.log(`${label}: ${uploaded}/${items.length}`);
+      console.log(`  ${label}: ${uploaded}/${items.length}`);
     } else {
-      console.error(`${label}: batch failed at offset ${i}`);
+      console.error(`  ${label}: batch failed at offset ${i}`);
       break;
     }
   }
   return uploaded;
 }
 
+function flattenSystemDesign(): Record<string, unknown>[] {
+  const items: Record<string, unknown>[] = [];
+  for (const q of hldQuestions) {
+    items.push({ ...q, designType: 'hld', isSolved: undefined, isRevision: undefined });
+  }
+  for (const q of lldQuestions) {
+    items.push({ ...q, designType: 'lld', isSolved: undefined, isRevision: undefined });
+  }
+  return items;
+}
+
+function flattenMassRecruitment(): Record<string, unknown>[] {
+  const subTypes = ['interview', 'dsa', 'aptitude', 'sql', 'corecs'] as const;
+  const fieldMap: Record<string, string> = {
+    interview: 'interviewQuestions',
+    dsa: 'dsaQuestions',
+    aptitude: 'aptitudeQuestions',
+    sql: 'sqlQuestions',
+    corecs: 'coreCSQuestions',
+  };
+  const items: Record<string, unknown>[] = [];
+  for (const company of companies) {
+    for (const st of subTypes) {
+      const questions = (company as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
+      if (!questions) continue;
+      for (const q of questions) {
+        items.push({
+          ...(q as object),
+          companyId: company.id,
+          companyName: company.name,
+          subType: st,
+          isSolved: undefined,
+          isRevision: undefined,
+        });
+      }
+    }
+  }
+  return items;
+}
+
+function flattenPositionResources(): Record<string, unknown>[] {
+  const subTypes = ['interview', 'dsa', 'aptitude', 'sql', 'corecs'] as const;
+  const fieldMap: Record<string, string> = {
+    interview: 'interviewQuestions',
+    dsa: 'dsaQuestions',
+    aptitude: 'aptitudeQuestions',
+    sql: 'sqlQuestions',
+    corecs: 'coreCSQuestions',
+  };
+  const items: Record<string, unknown>[] = [];
+  for (const role of roles) {
+    for (const st of subTypes) {
+      const questions = (role as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
+      if (!questions) continue;
+      for (const q of questions) {
+        items.push({
+          ...(q as object),
+          roleId: role.id,
+          roleLabel: role.label,
+          subType: st,
+          isSolved: undefined,
+          isRevision: undefined,
+        });
+      }
+    }
+  }
+  return items;
+}
+
 async function main() {
   console.log('Prep Admin endpoint:', PREP_ADMIN_ENDPOINT);
-  console.log('Uploading interview questions...');
-  const iqTotal = await uploadInBatches(
+  const results: Record<string, number> = {};
+
+  console.log('\n[1/5] Interview Questions...');
+  results.interview_questions = await uploadInBatches(
     'interview_questions',
     interviewQuestionsSeed as Record<string, unknown>[],
-    'Interview questions'
+    'Interview questions',
   );
-  console.log('Uploading DSA problems...');
-  const dsaTotal = await uploadInBatches(
+
+  console.log('\n[2/5] DSA Problems...');
+  results.dsa_problems = await uploadInBatches(
     'dsa_problems',
     dsaProblemsSeed as Record<string, unknown>[],
-    'DSA problems'
+    'DSA problems',
   );
-  console.log('Done. Interview questions:', iqTotal, '| DSA problems:', dsaTotal);
+
+  console.log('\n[3/5] System Design...');
+  const sdItems = flattenSystemDesign();
+  results.system_design = await uploadInBatches('system_design', sdItems, 'System Design');
+
+  console.log('\n[4/5] Mass Recruitment...');
+  const mrItems = flattenMassRecruitment();
+  results.mass_recruitment = await uploadInBatches('mass_recruitment', mrItems, 'Mass Recruitment');
+
+  console.log('\n[5/5] Position Resources...');
+  const prItems = flattenPositionResources();
+  results.position_resources = await uploadInBatches('position_resources', prItems, 'Position Resources');
+
+  console.log('\n=== Upload Complete ===');
+  for (const [k, v] of Object.entries(results)) {
+    console.log(`  ${k}: ${v} items`);
+  }
 }
 
 main().catch((e) => {

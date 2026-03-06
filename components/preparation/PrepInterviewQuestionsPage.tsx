@@ -46,6 +46,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,10 +241,16 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
               </tr>
             </thead>
             <tbody>
-              {paginatedQuestions.map((q, idx) => (
+              {paginatedQuestions.map((q, idx) => {
+                const isExpanded = expandedId === q.id;
+                const answer = (q as any).answer as string | undefined;
+                const hints = (q as any).hints as string[] | undefined;
+                return (
+                <>
                 <tr
                   key={q.id}
-                  className="border-b border-gray-200 hover:bg-gray-50 transition-all duration-200"
+                  onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                  className="border-b border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer"
                 >
                   <td className="py-3 px-4 text-sm text-gray-600">
                     {(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}
@@ -257,7 +264,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                   <td className="py-3 px-4 text-sm text-gray-600">{q.category}</td>
                   <td className="py-3 px-4">
                     <button
-                      onClick={() => toggleSolved(q.id)}
+                      onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }}
                       className="flex items-center gap-2"
                     >
                       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${q.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
@@ -272,7 +279,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                   </td>
                   <td className="py-3 px-4">
                     <button
-                      onClick={() => toggleBookmark(q.id)}
+                      onClick={(e) => { e.stopPropagation(); toggleBookmark(q.id); }}
                       className="p-1 rounded hover:bg-gray-100 transition-all duration-200"
                     >
                       <svg
@@ -286,7 +293,33 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                     </button>
                   </td>
                 </tr>
-              ))}
+                {isExpanded && (
+                  <tr key={`${q.id}-answer`} className="bg-orange-50/50 border-b border-gray-200">
+                    <td colSpan={6} className="py-4 px-4">
+                      <div className="pl-4 border-l-3 border-orange-400">
+                        {answer ? (
+                          <>
+                            <p className="text-sm font-semibold text-gray-900 mb-2">Answer</p>
+                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{answer}</p>
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">No answer available yet.</p>
+                        )}
+                        {hints && hints.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-semibold text-gray-900 mb-1">Hints</p>
+                            <ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">
+                              {hints.map((h, i) => <li key={i}>{h}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -294,12 +327,16 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         {viewMode === 'grid' && (
         <div className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {paginatedQuestions.map((q) => (
-              <div key={q.id} className="group border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all duration-200">
+            {paginatedQuestions.map((q) => {
+              const isExpanded = expandedId === q.id;
+              const answer = (q as any).answer as string | undefined;
+              const hints = (q as any).hints as string[] | undefined;
+              return (
+              <div key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="group border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
                 <div className="flex items-start justify-between">
                   <DifficultyBadge difficulty={q.difficulty} />
                   <button
-                    onClick={() => toggleBookmark(q.id)}
+                    onClick={(e) => { e.stopPropagation(); toggleBookmark(q.id); }}
                     className="p-1 rounded hover:bg-gray-100 transition-all duration-200"
                   >
                     <svg
@@ -316,7 +353,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                 <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">{q.category}</span>
                 <div className="mt-3 flex items-center gap-2">
                   <button
-                    onClick={() => toggleSolved(q.id)}
+                    onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }}
                     className="flex items-center gap-2"
                   >
                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${q.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
@@ -329,8 +366,29 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                     <span className="text-xs">{q.isSolved ? 'Solved' : 'Mark solved'}</span>
                   </button>
                 </div>
+                {isExpanded && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    {answer ? (
+                      <>
+                        <p className="text-xs font-semibold text-gray-900 mb-1">Answer</p>
+                        <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{answer}</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">No answer available yet.</p>
+                    )}
+                    {hints && hints.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-gray-900 mb-0.5">Hints</p>
+                        <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                          {hints.map((h, i) => <li key={i}>{h}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         )}
