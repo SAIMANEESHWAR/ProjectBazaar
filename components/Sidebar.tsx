@@ -174,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                 setUserProfileImage(user.profilePictureUrl || null);
                 setUserFullName(user.fullName || user.name || '');
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }, [userId]);
 
     // When collapsed and hovered, show expanded version
@@ -185,11 +185,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     return (
         <>
             <div
-                className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-500 ease-in-out ${
-                    isDark
-                        ? 'bg-black border-r border-[#1c1c1e] shadow-[0_0_15px_rgba(0,0,0,0.5)]'
-                        : 'bg-white border-r border-gray-200 shadow-sm'
-                } ${isOpen ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-500 ease-in-out ${isDark
+                    ? 'bg-black border-r border-[#1c1c1e] shadow-[0_0_15px_rgba(0,0,0,0.5)]'
+                    : 'bg-white border-r border-gray-200 shadow-sm'
+                    } ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     } ${sidebarWidth} ${isCollapsed && isHovered ? 'shadow-xl z-[60]' : ''}`}
                 onMouseEnter={() => {
                     if (isCollapsed && isOpen) {
@@ -223,24 +222,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                             onClick={() => {
                                 setDashboardMode(dashboardMode === 'preparation' ? 'buyer' : 'preparation');
                             }}
-                            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                                dashboardMode === 'preparation'
-                                    ? isDark
-                                        ? 'bg-white text-black shadow-lg shadow-white/10'
-                                        : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200'
-                                    : isDark
-                                        ? 'bg-[#1c1c1e] text-white hover:bg-[#2c2c2e] border border-[#38383a]'
-                                        : 'bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200'
-                            }`}
+                            className={`relative overflow-hidden w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${dashboardMode === 'preparation'
+                                ? isDark
+                                    ? 'bg-white text-black shadow-lg shadow-white/10'
+                                    : 'bg-black text-white shadow-lg shadow-black/20 ring-1 ring-white/10'
+                                : isDark
+                                    ? 'bg-[#1c1c1e] text-white hover:bg-[#2c2c2e] border border-[#38383a]'
+                                    : 'bg-black text-white hover:bg-gray-900 shadow-md'
+                                }`}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 relative z-10">
+                                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                                <path d="M5 3v4" />
+                                <path d="M7 5H3" />
+                                <path d="M21 17v4" />
+                                <path d="M23 19h-4" />
                             </svg>
-                            {dashboardMode === 'preparation' ? 'Exit Prep Mode' : 'Preparation Mode'}
+                            <span className="relative z-10">{dashboardMode === 'preparation' ? 'Exit Prep Mode' : 'Preparation Mode'}</span>
+                            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] animate-[shine_2s_infinite]" />
                         </button>
                     </div>
                 )}
                 <style>{`
+                    @keyframes shine {
+                        0% { transform: translateX(-100%) skewX(-20deg); }
+                        100% { transform: translateX(200%) skewX(-20deg); }
+                    }
                     @keyframes navSlideIn {
                         from { opacity: 0; transform: translateX(-12px); }
                         to { opacity: 1; transform: translateX(0); }
@@ -251,22 +258,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                 `}</style>
                 {dashboardMode === 'preparation' && isExpanded && (
                     <div className="px-4 pb-2">
-                        <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-300 ${
-                            isDark
-                                ? 'bg-[#1c1c1e] border border-[#2c2c2e]'
-                                : 'bg-orange-50 border border-orange-100'
-                        }`}>
+                        <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-300 ${isDark
+                            ? 'bg-[#1c1c1e] border border-[#2c2c2e]'
+                            : 'bg-orange-50 border border-orange-100'
+                            }`}>
                             <div className="flex items-center gap-2">
                                 <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-white' : 'bg-orange-500'}`} />
                                 <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-white' : 'text-orange-600'}`}>Prep Mode</span>
                             </div>
                             <button
                                 onClick={togglePrepDarkMode}
-                                className={`p-1.5 rounded-lg transition-all duration-300 ${
-                                    isDark
-                                        ? 'text-yellow-300 hover:bg-[#2c2c2e]'
-                                        : 'text-gray-500 hover:bg-orange-100'
-                                }`}
+                                className={`p-1.5 rounded-lg transition-all duration-300 ${isDark
+                                    ? 'text-yellow-300 hover:bg-[#2c2c2e]'
+                                    : 'text-gray-500 hover:bg-orange-100'
+                                    }`}
                                 title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
                             >
                                 {isDark ? (
@@ -300,11 +305,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     <div key={group.label}>
                                         <button
                                             onClick={() => toggleGroup(group.label)}
-                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                                hasActiveItem
-                                                    ? isDark ? 'text-white' : 'text-gray-900'
-                                                    : isDark ? 'text-[#8e8e93] hover:text-white' : 'text-gray-700 hover:text-gray-900'
-                                            }`}
+                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${hasActiveItem
+                                                ? isDark ? 'text-white' : 'text-gray-900'
+                                                : isDark ? 'text-[#8e8e93] hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                                                }`}
                                         >
                                             <span>{group.label}</span>
                                             <svg
@@ -324,15 +328,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                             setActiveView(item.view);
                                                             if (window.innerWidth < 1024) onClose();
                                                         }}
-                                                        className={`w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-                                                            activeView === item.view
-                                                                ? isDark
-                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                    : 'bg-orange-500 text-white font-medium'
-                                                                : isDark
-                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                                                    : 'text-gray-600 hover:bg-orange-50'
-                                                        }`}
+                                                        className={`w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${activeView === item.view
+                                                            ? isDark
+                                                                ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                : 'bg-orange-500 text-white font-medium'
+                                                            : isDark
+                                                                ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                : 'text-gray-600 hover:bg-orange-50'
+                                                            }`}
                                                     >
                                                         <div className="flex-shrink-0">{item.icon}</div>
                                                         <span className="whitespace-nowrap truncate">{item.name}</span>
@@ -357,14 +360,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                         onCollapseToggle();
                                     }
                                 }}
-                                className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
-                                    activeView === item.view
-                                        ? isDark
-                                            ? 'bg-white text-black'
-                                            : 'bg-orange-500 text-white'
-                                        : isDark
-                                            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                            : 'text-gray-600 hover:bg-orange-50'
+                                className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
+                                    ? isDark
+                                        ? 'bg-white text-black'
+                                        : 'bg-orange-500 text-white'
+                                    : isDark
+                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                        : 'text-gray-600 hover:bg-orange-50'
                                     } ${isTransitioning ? 'nav-item-animate' : ''}`}
                                 style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
                             >
@@ -467,7 +469,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
         </>
     );
 };
