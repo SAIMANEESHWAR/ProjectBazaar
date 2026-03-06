@@ -269,7 +269,7 @@ export const prepUserApi = {
 
   async listContentWithProgress<T = Record<string, unknown>>(
     contentType: ContentType,
-    filters: Record<string, string | number> = {},
+    filters: Record<string, string | number | boolean> = {},
   ): Promise<PaginatedResponse<T>> {
     const userId = getUserId();
     if (!USE_API || !userId) return { success: false, items: [], total: 0, page: 1, totalPages: 1, limit: 50 };

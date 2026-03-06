@@ -42,64 +42,70 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [contentStats, setContentStats] = useState<{ total: number; easy: number; medium: number; hard: number }>({ total: 0, easy: 0, medium: 0, hard: 0 });
+  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Server-side pagination: fetch only the current page with filters
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
-        const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', { limit: 500 });
+        const filters: Record<string, string | number | boolean> = {
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+        };
+        if (difficultyFilter !== 'all') filters.difficulty = difficultyFilter;
+        if (roleFilter !== 'all') filters.role = roleFilter;
+        if (search.trim()) filters.search = search.trim();
+        if (activeTab === 'Solved') filters.solvedOnly = true;
+
+        const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', filters);
         if (!cancelled && resp.success) {
           const items = (resp.items || []) as InterviewQuestion[];
           setQuestions(items);
+          setTotalCount(resp.total ?? 0);
+          setTotalPages(resp.totalPages ?? 1);
           setContentStats({
-            total: items.length,
+            total: resp.total ?? 0,
             easy: items.filter((q) => q.difficulty === 'Easy').length,
             medium: items.filter((q) => q.difficulty === 'Medium').length,
             hard: items.filter((q) => q.difficulty === 'Hard').length,
           });
         }
       } catch { /* API only */ }
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentPage, difficultyFilter, roleFilter, search, activeTab]);
+
+  // Reset to page 1 when filters or tab change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [difficultyFilter, roleFilter, search, activeTab]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const filteredQuestions = useMemo(() => {
-    const filtered = questions.filter((q) => {
-      const matchesSearch = q.question.toLowerCase().includes(search.toLowerCase());
-      const matchesDifficulty = difficultyFilter === 'all' || q.difficulty === difficultyFilter;
-      const matchesRole = roleFilter === 'all' || q.role === roleFilter;
-      const matchesTab =
-        activeTab === 'All questions' ||
-        (activeTab === 'Solved' && q.isSolved) ||
-        (activeTab === 'Revision' && q.isSolved) ||
-        activeTab === 'Folders';
-      return matchesSearch && matchesDifficulty && matchesRole && matchesTab;
-    });
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a, b) => {
+  // Server returns current page; only sort client-side on this page
+  const displayedQuestions = useMemo(() => {
+    if (!sortKey) return questions;
+    return [...questions].sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'question') cmp = a.question.localeCompare(b.question);
       else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
       else if (sortKey === 'category') cmp = a.category.localeCompare(b.category);
       return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [questions, search, difficultyFilter, roleFilter, activeTab, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(filteredQuestions.length / ITEMS_PER_PAGE);
-  const paginatedQuestions = filteredQuestions.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  }, [questions, sortKey, sortDir]);
 
   const roles = useMemo(() => [...new Set(questions.map((q) => q.role))], [questions]);
 
@@ -241,7 +247,11 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
               </tr>
             </thead>
             <tbody>
-              {paginatedQuestions.map((q, idx) => {
+              {loading ? (
+                <tr><td colSpan={5} className="py-12 text-center text-gray-500">Loading…</td></tr>
+              ) : displayedQuestions.length === 0 ? (
+                <tr><td colSpan={5} className="py-12 text-center text-gray-500">No questions match your filters.</td></tr>
+              ) : displayedQuestions.map((q, idx) => {
                 const isExpanded = expandedId === q.id;
                 const answer = (q as any).answer as string | undefined;
                 const hints = (q as any).hints as string[] | undefined;
@@ -327,7 +337,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         {viewMode === 'grid' && (
         <div className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {paginatedQuestions.map((q) => {
+            {displayedQuestions.map((q) => {
               const isExpanded = expandedId === q.id;
               const answer = (q as any).answer as string | undefined;
               const hints = (q as any).hints as string[] | undefined;
@@ -396,9 +406,11 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         {totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 border-t border-gray-200">
             <p className="text-sm text-gray-500">
-              Showing <span className="font-semibold text-gray-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
-              <span className="font-semibold text-gray-900">{Math.min(currentPage * ITEMS_PER_PAGE, filteredQuestions.length)}</span> of{' '}
-              <span className="font-semibold text-gray-900">{filteredQuestions.length}</span> questions
+              Showing{' '}
+              <span className="font-semibold text-gray-900">
+                {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
+              </span>{' '}
+              of <span className="font-semibold text-gray-900">{totalCount}</span> questions
             </p>
             <div className="flex items-center gap-1.5">
               <button

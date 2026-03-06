@@ -196,8 +196,18 @@ def handle_get_content(content_type: str, item_id: str) -> dict:
 
 
 def handle_list_content_with_progress(user_id: str, content_type: str, query_params: dict) -> dict:
-    """List content merged with the user's per-item progress (solved, bookmarked, etc.)."""
-    content_resp = handle_list_content(content_type, query_params)
+    """List content merged with the user's per-item progress; returns only the requested page (paginated)."""
+    solved_only = query_params.get("solvedOnly") in (True, "true", "1")
+    page = int(query_params.get("page", 1))
+    limit = int(query_params.get("limit", 50))
+
+    if solved_only:
+        params_all = {k: v for k, v in query_params.items() if k != "solvedOnly"}
+        params_all["page"] = 1
+        params_all["limit"] = 2000
+        content_resp = handle_list_content(content_type, params_all)
+    else:
+        content_resp = handle_list_content(content_type, query_params)
     content_body = json.loads(content_resp["body"])
     if not content_body.get("success"):
         return content_resp
@@ -224,6 +234,16 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
             "isApplied": p.get("isApplied", False),
         })
 
+    if solved_only:
+        merged = [m for m in merged if m.get("isSolved")]
+        total = len(merged)
+        total_pages = max(1, math.ceil(total / limit))
+        start = (page - 1) * limit
+        merged = merged[start : start + limit]
+        return api_response(200, {
+            "success": True, "items": merged,
+            "total": total, "page": page, "totalPages": total_pages, "limit": limit,
+        })
     return api_response(200, {
         "success": True, "items": merged,
         "total": content_body.get("total", 0),

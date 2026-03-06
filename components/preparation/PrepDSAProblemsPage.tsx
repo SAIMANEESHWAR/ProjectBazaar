@@ -42,22 +42,40 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [problems, setProblems] = useState<DSAProblem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [apiTotalPages, setApiTotalPages] = useState(1);
   const [stats, setStats] = useState<{ totalDSA: number; dsaEasy: number; dsaMedium: number; dsaHard: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Server-side pagination: fetch only the current page with filters
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
+        const filters: Record<string, string | number | boolean> = {
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+        };
+        if (topicFilter !== 'all') filters.topic = topicFilter;
+        if (difficultyFilter !== 'all') filters.difficulty = difficultyFilter;
+        if (search.trim()) filters.search = search.trim();
+        if (activeTab === 'Solved') filters.solvedOnly = true;
+
         const [resp, dashboard] = await Promise.all([
-          prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', { limit: 500 }),
+          prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', filters),
           prepUserApi.getDashboard(),
         ]);
-        if (!cancelled && resp.success && resp.items.length > 0) setProblems(resp.items);
+        if (!cancelled && resp.success) {
+          setProblems(resp.items ?? []);
+          setTotalCount(resp.total ?? 0);
+          setApiTotalPages(resp.totalPages ?? 1);
+        }
         if (!cancelled && dashboard?.contentCounts) {
           const cc = dashboard.contentCounts;
           const total = (cc.dsa_problems as number) ?? 0;
@@ -69,48 +87,29 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           });
         }
       } catch { /* API only */ }
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentPage, topicFilter, difficultyFilter, search, activeTab]);
+
+  useEffect(() => { setCurrentPage(1); }, [search, topicFilter, difficultyFilter, activeTab]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const filteredProblems = useMemo(() => {
-    const filtered = problems.filter((p) => {
-      const matchesSearch =
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase());
-      const matchesTopic = topicFilter === 'all' || p.topic === topicFilter;
-      const matchesDifficulty = difficultyFilter === 'all' || p.difficulty === difficultyFilter;
-      const matchesTab =
-        activeTab === 'All problems' ||
-        (activeTab === 'Solved' && p.isSolved) ||
-        (activeTab === 'Revision' && p.isSolved) ||
-        activeTab === 'Real World Scenarios' ||
-        activeTab === 'Problem Sets' ||
-        activeTab === 'Folders';
-      return matchesSearch && matchesTopic && matchesDifficulty && matchesTab;
-    });
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a, b) => {
+  // Server returns current page; only sort client-side on this page
+  const displayedProblems = useMemo(() => {
+    if (!sortKey) return problems;
+    return [...problems].sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'title') cmp = a.title.localeCompare(b.title);
       else if (sortKey === 'topic') cmp = a.topic.localeCompare(b.topic);
       else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
       return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [problems, search, topicFilter, difficultyFilter, activeTab, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(filteredProblems.length / ITEMS_PER_PAGE);
-  const paginatedProblems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredProblems.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredProblems, currentPage]);
-
-  useEffect(() => { setCurrentPage(1); }, [search, topicFilter, difficultyFilter, activeTab]);
+  }, [problems, sortKey, sortDir]);
 
   const toggleSolved = useCallback((id: string) => {
     setProblems((prev) =>
@@ -206,7 +205,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
         )}
       </div>
 
-      {filteredProblems.length === 0 ? (
+      {!loading && problems.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <p className="text-gray-500 font-medium">No problems match your filters.</p>
         </div>
@@ -234,7 +233,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedProblems.map((problem, idx) => {
+                    {displayedProblems.map((problem, idx) => {
                       const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
                       const isExpanded = expandedId === problem.id;
                       const solutionLink = (problem as any).solutionLink as string | undefined;
@@ -309,9 +308,9 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
               </div>
             </div>
           )}
-          {viewMode === 'grid' && filteredProblems.length > 0 && (
+          {viewMode === 'grid' && displayedProblems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {paginatedProblems.map((problem) => {
+              {displayedProblems.map((problem) => {
                 const isExpanded = expandedId === problem.id;
                 const solutionLink = (problem as any).solutionLink as string | undefined;
                 return (
@@ -370,12 +369,14 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {apiTotalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-5 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Showing <span className="font-semibold text-gray-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
-            <span className="font-semibold text-gray-900">{Math.min(currentPage * ITEMS_PER_PAGE, filteredProblems.length)}</span> of{' '}
-            <span className="font-semibold text-gray-900">{filteredProblems.length}</span> problems
+            Showing{' '}
+            <span className="font-semibold text-gray-900">
+              {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
+            </span>{' '}
+            of <span className="font-semibold text-gray-900">{totalCount}</span> problems
           </p>
           <div className="flex items-center gap-1.5">
             <button
@@ -392,27 +393,27 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              if (totalPages <= 7 || page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
+            {Array.from({ length: apiTotalPages }, (_, i) => i + 1).map((page) => {
+              if (apiTotalPages <= 7 || page === 1 || page === apiTotalPages || Math.abs(page - currentPage) <= 1) {
                 return (
                   <button key={page} onClick={() => setCurrentPage(page)} className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all duration-200 ${page === currentPage ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>{page}</button>
                 );
               }
-              if ((page === 2 && currentPage > 3) || (page === totalPages - 1 && currentPage < totalPages - 2)) {
+              if ((page === 2 && currentPage > 3) || (page === apiTotalPages - 1 && currentPage < apiTotalPages - 2)) {
                 return <span key={page} className="px-1 text-gray-400 text-sm select-none">...</span>;
               }
               return null;
             })}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(apiTotalPages, p + 1))}
+              disabled={currentPage === apiTotalPages}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
             <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
+onClick={() => setCurrentPage(apiTotalPages)}
+                disabled={currentPage === apiTotalPages}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
