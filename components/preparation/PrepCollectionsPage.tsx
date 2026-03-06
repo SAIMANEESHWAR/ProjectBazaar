@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { collections as mockCollections } from '../../data/preparationMockData';
 import type { Collection } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
@@ -21,7 +20,7 @@ const PRESET_COLORS = [
 
 const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar }) => {
   const [viewMode, setViewMode] = useViewMode('grid');
-  const [collections, setCollections] = useState<Collection[]>(mockCollections);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('date');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -34,7 +33,7 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
     (async () => {
       try {
         const apiCols = await prepUserApi.listCollections();
-        if (!cancelled && apiCols.length > 0) {
+        if (!cancelled) {
           setCollections(apiCols.map((c) => ({
             id: c.collectionId,
             name: c.name,
@@ -44,7 +43,9 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
             color: c.color,
           })));
         }
-      } catch { /* keep mock data */ }
+      } catch {
+        setCollections([]);
+      }
     })();
     return () => { cancelled = true; };
   }, []);

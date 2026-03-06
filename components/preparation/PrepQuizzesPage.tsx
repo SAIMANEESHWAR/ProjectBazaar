@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { quizzes as mockQuizzes } from '../../data/preparationMockData';
+import type { Quiz } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
@@ -32,7 +32,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useViewMode('grid');
-  const [quizzes, setQuizzes] = useState(mockQuizzes);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +40,9 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
       try {
         const resp = await prepUserApi.listContent('quizzes', { limit: 200 });
         if (!cancelled && resp.success && resp.items.length > 0) {
-          setQuizzes(resp.items as any);
+          setQuizzes((resp.items || []) as unknown as Quiz[]);
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);

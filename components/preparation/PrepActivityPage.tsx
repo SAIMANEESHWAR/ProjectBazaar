@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { prepStats as mockStats, recentActivity as mockActivity } from '../../data/preparationMockData';
 import { prepUserApi, type PrepStats, type PrepActivity } from '../../services/preparationApi';
 
 interface PrepActivityPageProps {
@@ -39,32 +38,42 @@ const activityIcons: Record<string, string> = {
 
 const PrepActivityPage = (_props: PrepActivityPageProps) => {
   const [stats, setStats] = useState<PrepStats | null>(null);
-  const [activities, setActivities] = useState<(PrepActivity | typeof mockActivity[0])[]>(mockActivity);
+  const [activities, setActivities] = useState<PrepActivity[]>([]);
+  const [totals, setTotals] = useState({ questions: 0, dsa: 0, quizzes: 0 });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [s, a] = await Promise.all([
+        const [s, a, dashboard] = await Promise.all([
           prepUserApi.getStats(),
           prepUserApi.getActivity(20),
+          prepUserApi.getDashboard(),
         ]);
         if (!cancelled) {
           if (s) setStats(s);
           if (a.length > 0) setActivities(a);
+          if (dashboard?.contentCounts) {
+            const cc = dashboard.contentCounts as Record<string, number>;
+            setTotals({
+              questions: cc.interview_questions ?? 0,
+              dsa: cc.dsa_problems ?? 0,
+              quizzes: cc.quizzes ?? 0,
+            });
+          }
         }
-      } catch { /* keep mock data */ }
+      } catch { /* API only */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  const totalQuestions = mockStats.totalQuestions;
-  const totalDSA = mockStats.totalDSA;
-  const totalQuizzes = mockStats.totalQuizzes;
-  const solvedQuestions = stats?.solvedQuestions ?? mockStats.solvedQuestions;
-  const solvedDSA = stats?.solvedDSA ?? mockStats.solvedDSA;
-  const completedQuizzes = stats?.completedQuizzes ?? mockStats.completedQuizzes;
-  const streak = stats?.streak ?? mockStats.streak;
+  const totalQuestions = totals.questions;
+  const totalDSA = totals.dsa;
+  const totalQuizzes = totals.quizzes;
+  const solvedQuestions = stats?.solvedQuestions ?? 0;
+  const solvedDSA = stats?.solvedDSA ?? 0;
+  const completedQuizzes = stats?.completedQuizzes ?? 0;
+  const streak = stats?.streak ?? 0;
 
   const interviewProgress = totalQuestions > 0 ? (solvedQuestions / totalQuestions) * 100 : 0;
   const dsaProgress = totalDSA > 0 ? (solvedDSA / totalDSA) * 100 : 0;

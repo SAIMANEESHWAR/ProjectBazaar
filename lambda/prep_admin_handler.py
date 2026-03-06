@@ -104,7 +104,7 @@ def generate_id(prefix: str = "") -> str:
 
 def normalize_interview_question(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("iq"),
+        "id": str(raw.get("id") or generate_id("iq")),
         "question": str(raw.get("question", "")).strip(),
         "difficulty": raw.get("difficulty", "Medium"),
         "category": str(raw.get("category", "")).strip(),
@@ -119,7 +119,7 @@ def normalize_interview_question(raw: dict, now: str) -> dict:
 
 def normalize_dsa_problem(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("dsa"),
+        "id": str(raw.get("id") or generate_id("dsa")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "difficulty": raw.get("difficulty", "Medium"),
@@ -136,7 +136,7 @@ def normalize_dsa_problem(raw: dict, now: str) -> dict:
 
 def normalize_quiz(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("quiz"),
+        "id": str(raw.get("id") or generate_id("quiz")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "questionCount": int(raw.get("questionCount", 0)),
@@ -153,7 +153,7 @@ def normalize_quiz(raw: dict, now: str) -> dict:
 
 def normalize_cold_dm(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("dm"),
+        "id": str(raw.get("id") or generate_id("dm")),
         "title": str(raw.get("title", "")).strip(),
         "content": str(raw.get("content", "")).strip(),
         "category": str(raw.get("category", "")).strip(),
@@ -164,7 +164,7 @@ def normalize_cold_dm(raw: dict, now: str) -> dict:
 
 def normalize_mass_recruitment(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("mr"),
+        "id": str(raw.get("id") or generate_id("mr")),
         "name": str(raw.get("name", "")).strip(),
         "logo": str(raw.get("logo", "")).strip(),
         "interviewQuestions": int(raw.get("interviewQuestions", 0)),
@@ -179,7 +179,7 @@ def normalize_mass_recruitment(raw: dict, now: str) -> dict:
 
 def normalize_job_portal(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("jp"),
+        "id": str(raw.get("id") or generate_id("jp")),
         "name": str(raw.get("name", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "url": str(raw.get("url", "")).strip(),
@@ -192,7 +192,7 @@ def normalize_job_portal(raw: dict, now: str) -> dict:
 
 def normalize_handwritten_note(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("note"),
+        "id": str(raw.get("id") or generate_id("note")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "topic": str(raw.get("topic", "")).strip(),
@@ -215,7 +215,7 @@ def normalize_roadmap(raw: dict, now: str) -> dict:
                 "resources": [str(r).strip() for r in s.get("resources", []) if r],
             })
     return {
-        "id": raw.get("id") or generate_id("rm"),
+        "id": str(raw.get("id") or generate_id("rm")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "category": str(raw.get("category", "")).strip(),
@@ -229,7 +229,7 @@ def normalize_roadmap(raw: dict, now: str) -> dict:
 
 def normalize_position_resource(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("pr"),
+        "id": str(raw.get("id") or generate_id("pr")),
         "role": str(raw.get("role", "")).strip(),
         "interviewQuestions": int(raw.get("interviewQuestions", 0)),
         "dsaQuestions": int(raw.get("dsaQuestions", 0)),
@@ -244,7 +244,7 @@ def normalize_position_resource(raw: dict, now: str) -> dict:
 
 def normalize_system_design(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("sd"),
+        "id": str(raw.get("id") or generate_id("sd")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "type": raw.get("type", "HLD"),
@@ -259,7 +259,7 @@ def normalize_system_design(raw: dict, now: str) -> dict:
 
 def normalize_fundamental(raw: dict, now: str) -> dict:
     return {
-        "id": raw.get("id") or generate_id("fund"),
+        "id": str(raw.get("id") or generate_id("fund")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "category": raw.get("category", "Language"),
@@ -361,8 +361,12 @@ def handle_get_content(content_type: str, item_id: str) -> dict:
         return api_response(400, {"success": False, "message": f"Unknown content type: {content_type}"})
 
     table = get_table(table_name)
+    # DynamoDB key type must match schema: content tables use partition key "id" (String)
+    key_id = str(item_id) if item_id is not None else ""
+    if not key_id:
+        return api_response(400, {"success": False, "message": "Missing item id"})
     try:
-        result = table.get_item(Key={"id": item_id})
+        result = table.get_item(Key={"id": key_id})
         item = result.get("Item")
         if not item:
             return api_response(404, {"success": False, "message": "Item not found"})
@@ -430,8 +434,11 @@ def handle_delete_content(content_type: str, item_id: str) -> dict:
         return api_response(400, {"success": False, "message": f"Unknown content type: {content_type}"})
 
     table = get_table(table_name)
+    key_id = str(item_id) if item_id is not None else ""
+    if not key_id:
+        return api_response(400, {"success": False, "message": "Missing item id"})
     try:
-        table.delete_item(Key={"id": item_id})
+        table.delete_item(Key={"id": key_id})
         return api_response(200, {"success": True, "message": "Deleted", "id": item_id})
     except ClientError as e:
         return api_response(500, {"success": False, "message": "Database error", "error": str(e)})

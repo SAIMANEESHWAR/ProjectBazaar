@@ -1,9 +1,20 @@
-import { useState, useMemo, useEffect } from 'react';
-import { hldQuestions, lldQuestions, hldSections, lldSections } from '../../data/systemDesignData';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 
 type DesignTab = 'hld' | 'lld';
+
+interface SDQuestion {
+  id: string;
+  title: string;
+  description: string;
+  section: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  designType: string;
+  isSolved?: boolean;
+  isBookmarked?: boolean;
+}
 
 export interface PrepSystemDesignPageProps { toggleSidebar?: () => void; designTab?: DesignTab; }
 type FilterTab = 'all' | 'solved' | 'revision';
@@ -33,27 +44,46 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
-  const [solvedMap, setSolvedMap] = useState<Record<string, boolean>>({});
-  const [revisionMap, setRevisionMap] = useState<Record<string, boolean>>({});
+  const [allQuestions, setAllQuestions] = useState<SDQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const resp = await prepUserApi.listContentWithProgress<SDQuestion>('system_design', {
+          designType: designTab,
+          limit: 500,
+        });
+        if (!cancelled && resp.success) {
+          setAllQuestions(resp.items || []);
+        }
+      } catch { /* API only */ }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [designTab]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const allQuestions = designTab === 'hld' ? hldQuestions : lldQuestions;
-  const sections = designTab === 'hld' ? hldSections : lldSections;
   const label = designTab === 'hld' ? 'High Level Design' : 'Low Level Design';
   const shortLabel = designTab === 'hld' ? 'HLD' : 'LLD';
 
+  const sections = useMemo(() => [...new Set(allQuestions.map(q => q.section))], [allQuestions]);
+
   const questions = useMemo(() => {
     const filtered = allQuestions.filter((q) => {
-      const isSolved = solvedMap[q.id] ?? q.isSolved;
-      const isRevision = revisionMap[q.id] ?? q.isRevision;
+      const isSolved = q.isSolved ?? false;
+      const isRevision = q.isBookmarked ?? false;
       if (filterTab === 'solved' && !isSolved) return false;
       if (filterTab === 'revision' && !isRevision) return false;
       if (sectionFilter !== 'all' && q.section !== sectionFilter) return false;
@@ -72,7 +102,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
       else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
       return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [allQuestions, filterTab, sectionFilter, difficultyFilter, search, solvedMap, revisionMap, sortKey, sortDir]);
+  }, [allQuestions, filterTab, sectionFilter, difficultyFilter, search, sortKey, sortDir]);
 
   const totalPages = Math.ceil(questions.length / ITEMS_PER_PAGE);
   const paginated = useMemo(() => {
@@ -81,20 +111,27 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   }, [questions, currentPage]);
 
   useEffect(() => { setCurrentPage(1); }, [designTab, filterTab, sectionFilter, difficultyFilter, search]);
-  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); setCurrentPage(1); }, [designTab]);
+  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); setCurrentPage(1); setExpandedId(null); }, [designTab]);
 
   const stats = useMemo(() => {
     const total = allQuestions.length;
     const easy = allQuestions.filter(q => q.difficulty === 'Easy').length;
     const medium = allQuestions.filter(q => q.difficulty === 'Medium').length;
     const hard = allQuestions.filter(q => q.difficulty === 'Hard').length;
-    const solved = allQuestions.filter(q => solvedMap[q.id] ?? q.isSolved).length;
+    const solved = allQuestions.filter(q => q.isSolved).length;
     const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
     return { total, easy, medium, hard, solved, pct };
-  }, [allQuestions, solvedMap]);
+  }, [allQuestions]);
 
-  const toggleSolved = (id: string) => setSolvedMap(prev => ({ ...prev, [id]: !prev[id] }));
-  const toggleRevision = (id: string) => setRevisionMap(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleSolved = useCallback((id: string) => {
+    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
+    prepUserApi.toggleSolved('system_design', id).catch(() => {});
+  }, []);
+
+  const toggleRevision = useCallback((id: string) => {
+    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
+    prepUserApi.toggleBookmarked('system_design', id).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -140,21 +177,21 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
             <p className="text-sm text-gray-500">Easy Questions</p>
             <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
           </div>
-          <p className="text-3xl font-bold text-gray-900">0<span className="text-base font-normal text-gray-400">/ {stats.easy}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Easy' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.easy}</span></p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-gray-500">Medium Questions</p>
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
           </div>
-          <p className="text-3xl font-bold text-gray-900">0<span className="text-base font-normal text-gray-400">/ {stats.medium}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Medium' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.medium}</span></p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-gray-500">Hard Questions</p>
             <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
           </div>
-          <p className="text-3xl font-bold text-gray-900">0<span className="text-base font-normal text-gray-400">/ {stats.hard}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Hard' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.hard}</span></p>
         </div>
       </div>
 
@@ -185,12 +222,20 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
         )}
       </div>
 
+      {/* Loading */}
+      {loading && (
+        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-gray-500">Loading questions...</p>
+        </div>
+      )}
+
       {/* Table */}
-      {questions.length === 0 ? (
+      {!loading && questions.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <p className="text-gray-500 font-medium">No questions match your filters.</p>
         </div>
-      ) : (
+      ) : !loading && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           {viewMode === 'table' ? (
           <div className="overflow-x-auto">
@@ -213,11 +258,13 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
               </thead>
               <tbody>
                 {paginated.map((q, idx) => {
-                  const isSolved = solvedMap[q.id] ?? q.isSolved;
-                  const isRevision = revisionMap[q.id] ?? q.isRevision;
+                  const isSolved = q.isSolved ?? false;
+                  const isRevision = q.isBookmarked ?? false;
                   const gi = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                  const isExpanded = expandedId === q.id;
                   return (
-                    <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                    <>
+                    <tr key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
                       <td className="px-5 py-4 text-sm text-gray-400 font-medium">{gi + 1}</td>
                       <td className="px-5 py-4">
                         <p className="text-sm font-semibold text-gray-900">{q.title}</p>
@@ -228,7 +275,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                         <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                           {isSolved ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                           ) : (
@@ -237,7 +284,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                         </button>
                       </td>
                       <td className="px-5 py-4 text-center">
-                        <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); toggleRevision(q.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                           {isRevision ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                           ) : (
@@ -246,6 +293,17 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                         </button>
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr key={`${q.id}-detail`} className="bg-orange-50/50">
+                        <td colSpan={6} className="px-5 py-4">
+                          <div className="text-sm text-gray-700 leading-relaxed">
+                            <p className="font-semibold text-gray-900 mb-2">Description</p>
+                            <p>{q.description}</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   );
                 })}
               </tbody>
@@ -254,21 +312,22 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
             {paginated.map((q) => {
-              const isSolved = solvedMap[q.id] ?? q.isSolved;
-              const isRevision = revisionMap[q.id] ?? q.isRevision;
+              const isSolved = q.isSolved ?? false;
+              const isRevision = q.isBookmarked ?? false;
+              const isExpanded = expandedId === q.id;
               return (
-                <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                <div key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
                   <div className="flex items-center justify-between mb-3">
                     <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                         {isSolved ? (
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         )}
                       </button>
-                      <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); toggleRevision(q.id); }} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                         {isRevision ? (
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                         ) : (
@@ -280,6 +339,12 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                   <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
                   <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
                   <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">{q.section}</span>
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600 leading-relaxed">
+                      <p className="font-semibold text-gray-900 mb-1">Description</p>
+                      <p>{q.description}</p>
+                    </div>
+                  )}
                 </div>
               );
             })}

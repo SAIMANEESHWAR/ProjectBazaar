@@ -5,8 +5,7 @@
  *   ADMIN – content CRUD (interview questions, DSA, quizzes, etc.)
  *   USER  – progress, collections, activity, quizzes, streaks
  *
- * The frontend reads content via the USER endpoint and falls back
- * to mock data when the API is unavailable.
+ * The frontend reads content via the USER endpoint only (no mock fallback).
  */
 
 import { cachedFetch, invalidateCache } from '../lib/apiCache';
