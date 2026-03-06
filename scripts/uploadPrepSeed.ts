@@ -69,7 +69,7 @@ function flattenMassRecruitment(): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
   for (const company of companies) {
     for (const st of subTypes) {
-      const questions = (company as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
+      const questions = (company as unknown as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
       if (!questions) continue;
       for (const q of questions) {
         items.push({
@@ -98,7 +98,7 @@ function flattenPositionResources(): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
   for (const role of roles) {
     for (const st of subTypes) {
-      const questions = (role as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
+      const questions = (role as unknown as Record<string, unknown>)[fieldMap[st]] as Record<string, unknown>[];
       if (!questions) continue;
       for (const q of questions) {
         items.push({
