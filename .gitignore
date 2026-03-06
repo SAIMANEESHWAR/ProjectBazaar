@@ -25,3 +25,8 @@ Thumbs.db
 
 # Vite
 .vite/
+.claude/
+.github/
+.agent/
+.crush/
+.codex/

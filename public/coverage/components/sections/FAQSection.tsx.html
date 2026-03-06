@@ -1,0 +1,472 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for components/sections/FAQSection.tsx</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">components/sections</a> FAQSection.tsx</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/110</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/110</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import React, { useState, useRef } from 'react';</span></span></span>
+<span class="cstat-no" title="statement not covered" >import { motion, AnimatePresence, useInView } from 'motion/react';</span>
+<span class="cstat-no" title="statement not covered" >import { Plus } from 'lucide-react';</span>
+<span class="cstat-no" title="statement not covered" >import { useNavigation } from '../../App';</span>
+<span class="cstat-no" title="statement not covered" >import { CTAArrowIcon } from '../CTAArrowIcon';</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >const faqData = [</span>
+<span class="cstat-no" title="statement not covered" >  {</span>
+<span class="cstat-no" title="statement not covered" >    question: 'How do I sell my project?',</span>
+<span class="cstat-no" title="statement not covered" >    answer: 'Sign up, create a listing with title, description, price, and category. Buyers can purchase directly. You get paid when the order is completed and both sides confirm.',</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >  {</span>
+<span class="cstat-no" title="statement not covered" >    question: 'Is it free to join?',</span>
+<span class="cstat-no" title="statement not covered" >    answer: 'Yes. Creating an account and listing projects is free. We take a small fee only when a sale or hire happens, so we grow when you grow.',</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >  {</span>
+<span class="cstat-no" title="statement not covered" >    question: 'How do payments work?',</span>
+<span class="cstat-no" title="statement not covered" >    answer: 'Payments are held securely until delivery. Once the buyer confirms they received what they paid for, funds are released to you. Disputes are handled by our support team.',</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >  {</span>
+<span class="cstat-no" title="statement not covered" >    question: 'Can I hire freelancers too?',</span>
+<span class="cstat-no" title="statement not covered" >    answer: 'Absolutely. You can post a project and receive bids from freelancers, or browse freelancer profiles and invite them to work on your project.',</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >  {</span>
+<span class="cstat-no" title="statement not covered" >    question: 'What if I need help?',</span>
+<span class="cstat-no" title="statement not covered" >    answer: 'We have a help center, FAQs, and support email. Reach out anytime—we’re here to help you succeed on the platform.',</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
+<span class="cstat-no" title="statement not covered" >];</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >const FAQSection: React.FC = () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  const [openIndex, setOpenIndex] = useState&lt;number | null&gt;(0);</span>
+<span class="cstat-no" title="statement not covered" >  const ref = useRef&lt;HTMLDivElement&gt;(null);</span>
+<span class="cstat-no" title="statement not covered" >  const inView = useInView(ref, { once: true, margin: '-80px' });</span>
+<span class="cstat-no" title="statement not covered" >  const { navigateTo } = useNavigation();</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+<span class="cstat-no" title="statement not covered" >    &lt;section</span>
+<span class="cstat-no" title="statement not covered" >      id="faqs"</span>
+<span class="cstat-no" title="statement not covered" >      ref={ref}</span>
+<span class="cstat-no" title="statement not covered" >      className="bg-gray-100 dark:bg-[#0a0a0a] text-gray-900 dark:text-white py-24 md:py-32 px-5 relative overflow-hidden transition-colors duration-300"</span>
+    &gt;
+<span class="cstat-no" title="statement not covered" >      &lt;div className="absolute inset-0 pointer-events-none opacity-100 dark:opacity-0 transition-opacity duration-300" style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px)', backgroundSize: '40px 40px' }} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >      &lt;div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-100 transition-opacity duration-300" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >      &lt;div className="max-w-[800px] mx-auto flex flex-col items-center relative z-10"&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;motion.div</span>
+<span class="cstat-no" title="statement not covered" >          initial={{ opacity: 0, y: 30 }}</span>
+<span class="cstat-no" title="statement not covered" >          animate={inView ? { opacity: 1, y: 0 } : {}}</span>
+<span class="cstat-no" title="statement not covered" >          transition={{ duration: 0.65 }}</span>
+<span class="cstat-no" title="statement not covered" >          className="mb-12 text-center"</span>
+        &gt;
+<span class="cstat-no" title="statement not covered" >          &lt;p className="text-gray-500 dark:text-[#a1a1a1] uppercase tracking-[0.2em] text-sm font-semibold mb-4"&gt;FAQ&lt;/p&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight text-gray-900 dark:text-white"&gt;</span>
+<span class="cstat-no" title="statement not covered" >            Got Questions? &lt;span className="text-[#ff7a00]"&gt;We&amp;apos;ve got answers.&lt;/span&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;/h2&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;/motion.div&gt;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        &lt;div className="w-full space-y-2"&gt;</span>
+<span class="cstat-no" title="statement not covered" >          {faqData.map((item, index) =&gt; (</span>
+<span class="cstat-no" title="statement not covered" >            &lt;motion.div</span>
+<span class="cstat-no" title="statement not covered" >              key={index}</span>
+<span class="cstat-no" title="statement not covered" >              initial={{ opacity: 0, y: 20 }}</span>
+<span class="cstat-no" title="statement not covered" >              animate={inView ? { opacity: 1, y: 0 } : {}}</span>
+<span class="cstat-no" title="statement not covered" >              transition={{ duration: 0.5, delay: 0.1 + index * 0.08 }}</span>
+<span class="cstat-no" title="statement not covered" >              className="border border-gray-200 dark:border-[#262626] rounded-xl overflow-hidden bg-white dark:bg-[#141414] transition-colors duration-300"</span>
+            &gt;
+<span class="cstat-no" title="statement not covered" >              &lt;button</span>
+<span class="cstat-no" title="statement not covered" >                type="button"</span>
+<span class="cstat-no" title="statement not covered" >                className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors focus:outline-none"</span>
+<span class="cstat-no" title="statement not covered" >                onClick={() =&gt; setOpenIndex(openIndex === index ? null : index)}</span>
+              &gt;
+<span class="cstat-no" title="statement not covered" >                &lt;span className="text-lg md:text-xl font-medium text-gray-900 dark:text-white"&gt;{item.question}&lt;/span&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;motion.div</span>
+<span class="cstat-no" title="statement not covered" >                  animate={{ rotate: openIndex === index ? 45 : 0 }}</span>
+<span class="cstat-no" title="statement not covered" >                  transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}</span>
+<span class="cstat-no" title="statement not covered" >                  className="flex-shrink-0 ml-4 w-8 h-8 rounded-full bg-gray-200 dark:bg-[#262626] flex items-center justify-center"</span>
+                &gt;
+<span class="cstat-no" title="statement not covered" >                  &lt;Plus className="w-4 h-4 text-gray-600 dark:text-[#a1a1a1]" /&gt;</span>
+<span class="cstat-no" title="statement not covered" >                &lt;/motion.div&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;/button&gt;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >              &lt;AnimatePresence initial={false}&gt;</span>
+<span class="cstat-no" title="statement not covered" >                {openIndex === index &amp;&amp; (</span>
+<span class="cstat-no" title="statement not covered" >                  &lt;motion.div</span>
+<span class="cstat-no" title="statement not covered" >                    key="content"</span>
+<span class="cstat-no" title="statement not covered" >                    initial={{ height: 0, opacity: 0 }}</span>
+<span class="cstat-no" title="statement not covered" >                    animate={{ height: 'auto', opacity: 1 }}</span>
+<span class="cstat-no" title="statement not covered" >                    exit={{ height: 0, opacity: 0 }}</span>
+<span class="cstat-no" title="statement not covered" >                    transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}</span>
+<span class="cstat-no" title="statement not covered" >                    className="overflow-hidden"</span>
+                  &gt;
+<span class="cstat-no" title="statement not covered" >                    &lt;div className="px-6 pb-6"&gt;</span>
+<span class="cstat-no" title="statement not covered" >                      &lt;p className="text-gray-600 dark:text-[#a1a1a1] leading-relaxed text-base md:text-lg"&gt;{item.answer}&lt;/p&gt;</span>
+<span class="cstat-no" title="statement not covered" >                    &lt;/div&gt;</span>
+<span class="cstat-no" title="statement not covered" >                  &lt;/motion.div&gt;</span>
+                )}
+<span class="cstat-no" title="statement not covered" >              &lt;/AnimatePresence&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;/motion.div&gt;</span>
+<span class="cstat-no" title="statement not covered" >          ))}</span>
+<span class="cstat-no" title="statement not covered" >        &lt;/div&gt;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        &lt;motion.div</span>
+<span class="cstat-no" title="statement not covered" >          initial={{ opacity: 0, y: 30 }}</span>
+<span class="cstat-no" title="statement not covered" >          animate={inView ? { opacity: 1, y: 0 } : {}}</span>
+<span class="cstat-no" title="statement not covered" >          transition={{ duration: 0.65, delay: 0.5 }}</span>
+<span class="cstat-no" title="statement not covered" >          className="mt-16 text-center"</span>
+        &gt;
+<span class="cstat-no" title="statement not covered" >          &lt;h3 className="text-xl md:text-2xl font-semibold mb-6 text-gray-900 dark:text-white max-w-[400px] mx-auto"&gt;</span>
+            Still got questions? We&amp;apos;re here to help.
+<span class="cstat-no" title="statement not covered" >          &lt;/h3&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;motion.button</span>
+<span class="cstat-no" title="statement not covered" >            onClick={() =&gt; navigateTo('faq')}</span>
+<span class="cstat-no" title="statement not covered" >            whileHover={{ scale: 1.04 }}</span>
+<span class="cstat-no" title="statement not covered" >            whileTap={{ scale: 0.97 }}</span>
+<span class="cstat-no" title="statement not covered" >            className="group inline-flex items-center gap-2 bg-gradient-to-r from-[#ff7a00] to-[#ff9533] px-8 py-4 rounded-full text-white font-bold text-lg"</span>
+<span class="cstat-no" title="statement not covered" >          &gt;</span>
+            Visit Help Center
+<span class="cstat-no" title="statement not covered" >            &lt;span className="bg-white rounded-full p-1 ml-1 group-hover:translate-x-1 transition-transform inline-flex"&gt;</span>
+<span class="cstat-no" title="statement not covered" >              &lt;CTAArrowIcon className="w-4 h-4 object-contain" /&gt;</span>
+<span class="cstat-no" title="statement not covered" >            &lt;/span&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;/motion.button&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;/motion.div&gt;</span>
+<span class="cstat-no" title="statement not covered" >      &lt;/div&gt;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >      &lt;div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gray-300 dark:via-[#262626] to-transparent" /&gt;</span>
+<span class="cstat-no" title="statement not covered" >    &lt;/section&gt;</span>
+  );
+<span class="cstat-no" title="statement not covered" >};</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >export default FAQSection;</span>
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-03-05T20:13:19.140Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

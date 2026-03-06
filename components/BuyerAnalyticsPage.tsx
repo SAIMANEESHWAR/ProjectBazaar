@@ -3,7 +3,9 @@ import { useAuth } from "../App";
 import {
   cachedFetchUserData,
   cachedFetchAllProjects,
+  cachedFetchProjectDetails,
   Purchase,
+  ProjectDetails,
 } from "../services/buyerApi";
 import SkeletonDashboard from "./ui/skeleton-dashboard";
 import {
@@ -17,6 +19,12 @@ import {
   CalendarDays,
   LayoutDashboard,
   Clock,
+  Search,
+  Eye,
+  ThumbsUp,
+  Activity,
+  Flame,
+  Hash,
 } from "lucide-react";
 
 interface ApiProject {
@@ -90,12 +98,26 @@ const ChartBar: React.FC<ChartBarProps> = ({ label, value, maxValue }) => {
   );
 };
 
+// Heatmap intensity class based on count relative to max
+const heatmapColor = (count: number, max: number): string => {
+  if (count === 0) return "bg-gray-100";
+  const ratio = count / max;
+  if (ratio <= 0.25) return "bg-orange-100";
+  if (ratio <= 0.5) return "bg-orange-300";
+  if (ratio <= 0.75) return "bg-orange-500";
+  return "bg-orange-600";
+};
+
 const BuyerAnalyticsPage: React.FC = () => {
   const { userId } = useAuth();
   const [userData, setUserData] = useState<any>(null);
   const [projects, setProjects] = useState<Map<string, ApiProject>>(new Map());
+  const [projectDetails, setProjectDetails] = useState<
+    Map<string, ProjectDetails>
+  >(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load core data
   useEffect(() => {
     const loadData = async () => {
       if (!userId) {
@@ -125,22 +147,42 @@ const BuyerAnalyticsPage: React.FC = () => {
     loadData();
   }, [userId]);
 
+  // Load full project details for SEO/interest analytics (non-blocking)
+  useEffect(() => {
+    const loadDetails = async () => {
+      if (!userData?.purchases?.length) return;
+      try {
+        const uniqueIds: string[] = [
+          ...new Set(
+            userData.purchases.map((p: Purchase) => p.projectId)
+          ),
+        ].slice(0, 20) as string[];
+
+        const results = await Promise.allSettled(
+          uniqueIds.map((id) => cachedFetchProjectDetails(id))
+        );
+        const detailMap = new Map<string, ProjectDetails>();
+        results.forEach((result, index) => {
+          if (result.status === "fulfilled" && result.value) {
+            detailMap.set(uniqueIds[index], result.value);
+          }
+        });
+        setProjectDetails(detailMap);
+      } catch (err) {
+        console.error("Error loading project details:", err);
+      }
+    };
+    loadDetails();
+  }, [userData]);
+
+  // ── Core memos ──────────────────────────────────────────────────────────────
+
   const monthlySpendData = useMemo(() => {
     if (!userData?.purchases) return [];
     const monthMap = new Map<string, number>();
     const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     const currentDate = new Date();
     const last6Months: string[] = [];
@@ -148,7 +190,7 @@ const BuyerAnalyticsPage: React.FC = () => {
       const date = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth() - i,
-        1,
+        1
       );
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       last6Months.push(monthKey);
@@ -159,7 +201,7 @@ const BuyerAnalyticsPage: React.FC = () => {
       const monthKey = `${purchaseDate.getFullYear()}-${String(purchaseDate.getMonth() + 1).padStart(2, "0")}`;
       monthMap.set(
         monthKey,
-        (monthMap.get(monthKey) || 0) + purchase.priceAtPurchase,
+        (monthMap.get(monthKey) || 0) + purchase.priceAtPurchase
       );
     });
     return last6Months.map((monthKey) => {
@@ -173,7 +215,7 @@ const BuyerAnalyticsPage: React.FC = () => {
 
   const maxSpend = useMemo(
     () => Math.max(...monthlySpendData.map((d) => d.amount), 1),
-    [monthlySpendData],
+    [monthlySpendData]
   );
 
   const categorySpendData = useMemo(() => {
@@ -185,7 +227,7 @@ const BuyerAnalyticsPage: React.FC = () => {
       const category = project?.category || "Other";
       categoryMap.set(
         category,
-        (categoryMap.get(category) || 0) + purchase.priceAtPurchase,
+        (categoryMap.get(category) || 0) + purchase.priceAtPurchase
       );
       totalSpent += purchase.priceAtPurchase;
     });
@@ -227,7 +269,7 @@ const BuyerAnalyticsPage: React.FC = () => {
     return [...userData.purchases]
       .sort(
         (a: Purchase, b: Purchase) =>
-          new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime(),
+          new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime()
       )
       .slice(0, 5)
       .map((purchase: Purchase) => {
@@ -250,17 +292,102 @@ const BuyerAnalyticsPage: React.FC = () => {
   const favoriteCategory = useMemo(
     () =>
       categorySpendData.length > 0 ? categorySpendData[0].category : "N/A",
-    [categorySpendData],
+    [categorySpendData]
   );
 
   const avgProjectCost = useMemo(() => {
     if (!userData?.purchases?.length) return 0;
     const total = userData.purchases.reduce(
       (sum: number, p: Purchase) => sum + p.priceAtPurchase,
-      0,
+      0
     );
     return total / userData.purchases.length;
   }, [userData]);
+
+  // ── SEO memos ───────────────────────────────────────────────────────────────
+
+  // Aggregate tags from all fetched project details
+  const tagFrequencyData = useMemo(() => {
+    const tagMap = new Map<string, number>();
+    projectDetails.forEach((detail) => {
+      (detail.tags || []).forEach((tag: string) => {
+        const normalised = tag.toLowerCase().trim();
+        if (normalised) tagMap.set(normalised, (tagMap.get(normalised) || 0) + 1);
+      });
+    });
+    return Array.from(tagMap.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [projectDetails]);
+
+  const maxTagCount = useMemo(
+    () => Math.max(...tagFrequencyData.map((t) => t.count), 1),
+    [tagFrequencyData]
+  );
+
+  // Engagement metrics across owned projects
+  const engagementMetrics = useMemo(() => {
+    if (projectDetails.size === 0)
+      return { avgViews: 0, avgLikes: 0, avgPurchases: 0 };
+    let totalViews = 0, totalLikes = 0, totalPurchases = 0;
+    projectDetails.forEach((d) => {
+      totalViews += d.viewsCount || 0;
+      totalLikes += d.likesCount || 0;
+      totalPurchases += d.purchasesCount || 0;
+    });
+    const n = projectDetails.size;
+    return {
+      avgViews: Math.round(totalViews / n),
+      avgLikes: Math.round(totalLikes / n),
+      avgPurchases: Math.round(totalPurchases / n),
+    };
+  }, [projectDetails]);
+
+  // ── Geo / heatmap memo ───────────────────────────────────────────────────────
+
+  const activityHeatmap = useMemo(() => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const slots = ["Night\n12–6am", "Morning\n6–12pm", "Afternoon\n12–6pm", "Evening\n6–12am"];
+    // rows = time slots, cols = days
+    const grid: number[][] = Array.from({ length: 4 }, () => Array(7).fill(0));
+
+    userData?.purchases?.forEach((purchase: Purchase) => {
+      const date = new Date(purchase.purchasedAt);
+      const dayIndex = (date.getDay() + 6) % 7; // Mon=0 … Sun=6
+      const hour = date.getHours();
+      const slotIndex = hour < 6 ? 0 : hour < 12 ? 1 : hour < 18 ? 2 : 3;
+      grid[slotIndex][dayIndex]++;
+    });
+
+    const maxVal = Math.max(...grid.flat(), 1);
+    return { grid, days, slots, maxVal };
+  }, [userData]);
+
+  const totalHeatmapPurchases = useMemo(
+    () => activityHeatmap.grid.flat().reduce((a, b) => a + b, 0),
+    [activityHeatmap]
+  );
+
+  const peakDayLabel = useMemo(() => {
+    if (totalHeatmapPurchases === 0) return "—";
+    const daySums = activityHeatmap.days.map((day, i) => ({
+      day,
+      total: activityHeatmap.grid.reduce((sum, row) => sum + row[i], 0),
+    }));
+    return daySums.sort((a, b) => b.total - a.total)[0].day;
+  }, [activityHeatmap, totalHeatmapPurchases]);
+
+  const peakSlotLabel = useMemo(() => {
+    if (totalHeatmapPurchases === 0) return "—";
+    const slotSums = activityHeatmap.slots.map((slot, i) => ({
+      slot: slot.split("\n")[0],
+      total: activityHeatmap.grid[i].reduce((a, b) => a + b, 0),
+    }));
+    return slotSums.sort((a, b) => b.total - a.total)[0].slot;
+  }, [activityHeatmap, totalHeatmapPurchases]);
+
+  // ────────────────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -272,6 +399,7 @@ const BuyerAnalyticsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 mt-8">
+
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -280,7 +408,7 @@ const BuyerAnalyticsPage: React.FC = () => {
             Analytics
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Track your spending and purchase activity
+            Track your spending, interests, and purchase activity
           </p>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-shrink-0">
@@ -289,7 +417,7 @@ const BuyerAnalyticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stat Cards */}
+      {/* ── Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Total Spent"
@@ -321,7 +449,7 @@ const BuyerAnalyticsPage: React.FC = () => {
         />
       </div>
 
-      {/* Charts */}
+      {/* ── Charts row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly Spend Bar Chart */}
         <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -375,7 +503,6 @@ const BuyerAnalyticsPage: React.FC = () => {
           </div>
           {categorySpendData.length > 0 ? (
             <div className="flex flex-col items-center gap-5">
-              {/* Donut */}
               <div className="relative w-36 h-36">
                 <div
                   className="absolute inset-0 rounded-full"
@@ -390,7 +517,6 @@ const BuyerAnalyticsPage: React.FC = () => {
                   </p>
                 </div>
               </div>
-              {/* Legend */}
               <ul className="w-full space-y-2.5">
                 {categorySpendData.map((item) => (
                   <li key={item.category} className="flex items-center gap-2.5">
@@ -418,7 +544,7 @@ const BuyerAnalyticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Purchases */}
+      {/* ── Recent Purchases ── */}
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
@@ -438,11 +564,9 @@ const BuyerAnalyticsPage: React.FC = () => {
                 key={`${item.title}-${index}`}
                 className="py-3.5 flex items-center gap-4 hover:bg-gray-50 px-2 rounded-xl transition-colors"
               >
-                {/* Initials avatar */}
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm select-none">
                   {item.initials}
                 </div>
-                {/* Title + meta */}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-800 truncate text-sm">
                     {item.title}
@@ -458,7 +582,6 @@ const BuyerAnalyticsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                {/* Price */}
                 <p className="font-bold text-gray-900 text-base flex-shrink-0">
                   ₹{item.price.toFixed(2)}
                 </p>
@@ -477,6 +600,260 @@ const BuyerAnalyticsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* ── SEO: Interest & Keyword Analytics ── */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Tag Frequency — keyword interests */}
+        <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+                <Hash className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                  Top Keyword Interests
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Technologies across your purchased projects
+                </p>
+              </div>
+            </div>
+            <span className="text-xs bg-orange-50 text-orange-500 font-semibold px-2.5 py-1 rounded-full border border-orange-100">
+              SEO
+            </span>
+          </div>
+
+          {tagFrequencyData.length > 0 ? (
+            <div className="space-y-3">
+              {tagFrequencyData.map((item, i) => (
+                <div key={item.tag} className="flex items-center gap-3">
+                  {/* rank */}
+                  <span className="w-5 text-[11px] font-bold text-gray-300 text-right flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  {/* tag name */}
+                  <span className="w-28 text-sm font-medium text-gray-700 truncate flex-shrink-0 capitalize">
+                    {item.tag}
+                  </span>
+                  {/* bar */}
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(item.count / maxTagCount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  {/* count badge */}
+                  <span className="w-8 text-xs font-semibold text-gray-500 text-right flex-shrink-0">
+                    ×{item.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-300">
+              <Search className="h-12 w-12 mb-3" />
+              <p className="text-sm text-gray-400 font-medium">
+                No keyword data yet
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Tags from your purchased projects will appear here
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Content Engagement Score */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+                <Flame className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                  Content Quality
+                </h3>
+                <p className="text-xs text-gray-400">Avg. across owned projects</p>
+              </div>
+            </div>
+            <span className="text-xs bg-orange-50 text-orange-500 font-semibold px-2.5 py-1 rounded-full border border-orange-100">
+              SEO
+            </span>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center gap-5">
+            {/* Avg Views */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+                <Eye className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Avg Views
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {engagementMetrics.avgViews.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Avg Likes */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center flex-shrink-0">
+                <ThumbsUp className="h-5 w-5 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Avg Likes
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {engagementMetrics.avgLikes.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Avg Purchases (social proof) */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center flex-shrink-0">
+                <ShoppingBag className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Avg Sales
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {engagementMetrics.avgPurchases.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* ── GEO: Purchase Activity Heatmap ── */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+              <Activity className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 leading-tight">
+                Purchase Activity Heatmap
+              </h3>
+              <p className="text-xs text-gray-400">
+                When you buy — by day and time of day
+              </p>
+            </div>
+          </div>
+          <span className="text-xs bg-orange-50 text-orange-500 font-semibold px-2.5 py-1 rounded-full border border-orange-100">
+            GEO
+          </span>
+        </div>
+
+        {totalHeatmapPurchases > 0 ? (
+          <div className="space-y-6">
+            {/* Summary chips */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-4 py-2">
+                <CalendarDays className="h-4 w-4 text-orange-500" />
+                <span className="text-xs text-gray-600 font-medium">
+                  Peak day: <span className="text-orange-600 font-bold">{peakDayLabel}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-4 py-2">
+                <Clock className="h-4 w-4 text-orange-500" />
+                <span className="text-xs text-gray-600 font-medium">
+                  Peak time: <span className="text-orange-600 font-bold">{peakSlotLabel}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-4 py-2">
+                <ShoppingBag className="h-4 w-4 text-orange-500" />
+                <span className="text-xs text-gray-600 font-medium">
+                  Total: <span className="text-orange-600 font-bold">{totalHeatmapPurchases} purchases</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Heatmap grid */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[480px]">
+                {/* Day headers */}
+                <div className="grid grid-cols-8 gap-1.5 mb-1.5">
+                  <div /> {/* empty corner */}
+                  {activityHeatmap.days.map((day) => (
+                    <div
+                      key={day}
+                      className="text-center text-[11px] font-semibold text-gray-400 pb-0.5"
+                    >
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                {activityHeatmap.grid.map((row, rowIdx) => (
+                  <div
+                    key={rowIdx}
+                    className="grid grid-cols-8 gap-1.5 mb-1.5"
+                  >
+                    {/* Time label */}
+                    <div className="flex items-center justify-end pr-2">
+                      <span className="text-[10px] font-medium text-gray-400 text-right leading-tight whitespace-pre-line">
+                        {activityHeatmap.slots[rowIdx]}
+                      </span>
+                    </div>
+                    {/* Cells */}
+                    {row.map((count, colIdx) => (
+                      <div
+                        key={colIdx}
+                        title={`${activityHeatmap.days[colIdx]} ${activityHeatmap.slots[rowIdx].split("\n")[0]}: ${count} purchase${count !== 1 ? "s" : ""}`}
+                        className={`h-9 rounded-lg ${heatmapColor(count, activityHeatmap.maxVal)} transition-colors cursor-default flex items-center justify-center`}
+                      >
+                        {count > 0 && (
+                          <span className="text-[10px] font-bold text-white drop-shadow-sm">
+                            {count}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs text-gray-400 font-medium">Less</span>
+              {["bg-gray-100", "bg-orange-100", "bg-orange-300", "bg-orange-500", "bg-orange-600"].map(
+                (cls) => (
+                  <div key={cls} className={`w-5 h-5 rounded-md ${cls}`} />
+                )
+              )}
+              <span className="text-xs text-gray-400 font-medium">More</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-14 text-gray-300">
+            <Activity className="h-12 w-12 mb-3" />
+            <p className="text-sm text-gray-400 font-medium">
+              No activity data yet
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Your purchase patterns will be visualised here
+            </p>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
