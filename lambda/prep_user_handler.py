@@ -30,10 +30,8 @@ TABLE_FUNDAMENTALS = "PrepFundamentals"
 # User-specific tables: partition key attribute name (value = userId).
 PK_USER = "userId"
 
-# PrepUserProgress table: partition key "id" (value = userId), sort key "sk" (value = itemKey)
-PROGRESS_PK = "id"
-PROGRESS_SK = "sk"
-
+# PrepUserProgress table: single partition key "id" (String), no sort key.
+# We use id = "userId#itemKey" so each (user, item) has a unique key.
 TABLE_COLLECTIONS = "PrepCollections"
 TABLE_COLLECTION_ITEMS = "PrepCollectionItems"
 TABLE_USER_PROGRESS = "PrepUserProgress"
@@ -119,6 +117,11 @@ def generate_id(prefix: str = "") -> str:
 
 def _progress_key(content_type: str, item_id: str) -> str:
     return f"{content_type}#{item_id}"
+
+
+def _progress_item_id(user_id: str, item_key: str) -> str:
+    """PrepUserProgress has only PK 'id'. Use composite id = userId#itemKey."""
+    return f"{user_id}#{item_key}"
 
 
 # ======================================================================
@@ -264,24 +267,26 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
 # ======================================================================
 
 def handle_get_user_progress(user_id: str, content_type: Optional[str] = None) -> dict:
-    """Get all progress records for a user, optionally filtered by content type prefix."""
+    """Get all progress records for a user. Table has single PK 'id' = userId#itemKey."""
     table = get_table(TABLE_USER_PROGRESS)
     try:
         uid = str(user_id) if user_id is not None else ""
-        kce = Key(PROGRESS_PK).eq(uid)
-        if content_type:
-            kce = kce & Key(PROGRESS_SK).begins_with(f"{content_type}#")
+        prefix = f"{uid}#"
 
-        result = table.query(KeyConditionExpression=kce)
+        result = table.scan(FilterExpression=Attr("id").begins_with(prefix))
         items = result.get("Items", [])
         while "LastEvaluatedKey" in result:
-            result = table.query(KeyConditionExpression=kce, ExclusiveStartKey=result["LastEvaluatedKey"])
+            result = table.scan(FilterExpression=Attr("id").begins_with(prefix), ExclusiveStartKey=result["LastEvaluatedKey"])
             items.extend(result.get("Items", []))
+
+        if content_type:
+            items = [i for i in items if (i.get("id") or "").startswith(f"{prefix}{content_type}#")]
 
         progress_map = {}
         for item in items:
-            sk_val = item.get(PROGRESS_SK) or item.get("itemKey", "")
-            progress_map[str(sk_val)] = {
+            full_id = item.get("id", "")
+            item_key = full_id[len(prefix):] if full_id.startswith(prefix) else (full_id.split("#", 1)[1] if "#" in full_id else full_id)
+            progress_map[item_key] = {
                 "isSolved": item.get("isSolved", False),
                 "isBookmarked": item.get("isBookmarked", False),
                 "isFavorite": item.get("isFavorite", False),
@@ -310,9 +315,9 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
     item_key = _progress_key(content_type, item_id_str)
     now = now_iso()
     uid = str(user_id) if user_id is not None else ""
+    progress_key = {"id": _progress_item_id(uid, item_key)}
 
     try:
-        progress_key = {PROGRESS_PK: uid, PROGRESS_SK: item_key}
         existing = table.get_item(Key=progress_key).get("Item")
         current_value = existing.get(field, False) if existing else False
         new_value = not current_value
@@ -374,7 +379,7 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
 
             uid = str(user_id) if user_id is not None else ""
             table.update_item(
-                Key={PROGRESS_PK: uid, PROGRESS_SK: item_key},
+                Key={"id": _progress_item_id(uid, item_key)},
                 UpdateExpression=update_expr,
                 ExpressionAttributeNames=expr_names,
                 ExpressionAttributeValues=expr_values,
@@ -774,9 +779,9 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
     item_key = f"roadmap_step#{roadmap_id}#{step_index}"
     now = now_iso()
     uid = str(user_id) if user_id is not None else ""
+    progress_key = {"id": _progress_item_id(uid, item_key)}
 
     try:
-        progress_key = {PROGRESS_PK: uid, PROGRESS_SK: item_key}
         existing = table.get_item(Key=progress_key).get("Item")
         new_val = not (existing.get("completed", False) if existing else False)
 
@@ -795,13 +800,15 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
 
 def handle_get_roadmap_progress(user_id: str, roadmap_id: str) -> dict:
     table = get_table(TABLE_USER_PROGRESS)
-    prefix = f"roadmap_step#{roadmap_id}#"
     uid = str(user_id) if user_id is not None else ""
+    id_prefix = f"{uid}#roadmap_step#{roadmap_id}#"
 
     try:
-        items = table.query(
-            KeyConditionExpression=Key(PROGRESS_PK).eq(uid) & Key(PROGRESS_SK).begins_with(prefix),
-        ).get("Items", [])
+        result = table.scan(FilterExpression=Attr("id").begins_with(id_prefix))
+        items = result.get("Items", [])
+        while "LastEvaluatedKey" in result:
+            result = table.scan(FilterExpression=Attr("id").begins_with(id_prefix), ExclusiveStartKey=result["LastEvaluatedKey"])
+            items.extend(result.get("Items", []))
 
         steps = {}
         for item in items:
