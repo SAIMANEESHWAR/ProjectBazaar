@@ -28,8 +28,11 @@ TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
 
 # User-specific tables: partition key attribute name (value = userId).
-# Use "userId" if your DynamoDB tables have PK named "userId"; use "id" if PK is named "id".
 PK_USER = "userId"
+
+# PrepUserProgress table: partition key "id" (value = userId), sort key "sk" (value = itemKey)
+PROGRESS_PK = "id"
+PROGRESS_SK = "sk"
 
 TABLE_COLLECTIONS = "PrepCollections"
 TABLE_COLLECTION_ITEMS = "PrepCollectionItems"
@@ -264,9 +267,10 @@ def handle_get_user_progress(user_id: str, content_type: Optional[str] = None) -
     """Get all progress records for a user, optionally filtered by content type prefix."""
     table = get_table(TABLE_USER_PROGRESS)
     try:
-        kce = Key(PK_USER).eq(user_id)
+        uid = str(user_id) if user_id is not None else ""
+        kce = Key(PROGRESS_PK).eq(uid)
         if content_type:
-            kce = kce & Key("itemKey").begins_with(f"{content_type}#")
+            kce = kce & Key(PROGRESS_SK).begins_with(f"{content_type}#")
 
         result = table.query(KeyConditionExpression=kce)
         items = result.get("Items", [])
@@ -276,7 +280,8 @@ def handle_get_user_progress(user_id: str, content_type: Optional[str] = None) -
 
         progress_map = {}
         for item in items:
-            progress_map[item["itemKey"]] = {
+            sk_val = item.get(PROGRESS_SK) or item.get("itemKey", "")
+            progress_map[str(sk_val)] = {
                 "isSolved": item.get("isSolved", False),
                 "isBookmarked": item.get("isBookmarked", False),
                 "isFavorite": item.get("isFavorite", False),
@@ -304,9 +309,11 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
     table = get_table(TABLE_USER_PROGRESS)
     item_key = _progress_key(content_type, item_id_str)
     now = now_iso()
+    uid = str(user_id) if user_id is not None else ""
 
     try:
-        existing = table.get_item(Key={PK_USER: user_id, "itemKey": item_key}).get("Item")
+        progress_key = {PROGRESS_PK: uid, PROGRESS_SK: item_key}
+        existing = table.get_item(Key=progress_key).get("Item")
         current_value = existing.get(field, False) if existing else False
         new_value = not current_value
 
@@ -320,7 +327,7 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
             expr_names["#sa"] = "solvedAt"
 
         table.update_item(
-            Key={PK_USER: user_id, "itemKey": item_key},
+            Key=progress_key,
             UpdateExpression=update_expr,
             ExpressionAttributeNames=expr_names,
             ExpressionAttributeValues=expr_values,
@@ -365,8 +372,9 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
                 update_expr += ", #sa = :now"
                 expr_names["#sa"] = "solvedAt"
 
+            uid = str(user_id) if user_id is not None else ""
             table.update_item(
-                Key={PK_USER: user_id, "itemKey": item_key},
+                Key={PROGRESS_PK: uid, PROGRESS_SK: item_key},
                 UpdateExpression=update_expr,
                 ExpressionAttributeNames=expr_names,
                 ExpressionAttributeValues=expr_values,
@@ -765,13 +773,15 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
     table = get_table(TABLE_USER_PROGRESS)
     item_key = f"roadmap_step#{roadmap_id}#{step_index}"
     now = now_iso()
+    uid = str(user_id) if user_id is not None else ""
 
     try:
-        existing = table.get_item(Key={PK_USER: user_id, "itemKey": item_key}).get("Item")
+        progress_key = {PROGRESS_PK: uid, PROGRESS_SK: item_key}
+        existing = table.get_item(Key=progress_key).get("Item")
         new_val = not (existing.get("completed", False) if existing else False)
 
         table.update_item(
-            Key={PK_USER: user_id, "itemKey": item_key},
+            Key=progress_key,
             UpdateExpression="SET completed = :v, #ua = :now, #ct = :ct, #iid = :rid, #si = :si",
             ExpressionAttributeNames={"#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId", "#si": "stepIndex"},
             ExpressionAttributeValues={
@@ -786,10 +796,11 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
 def handle_get_roadmap_progress(user_id: str, roadmap_id: str) -> dict:
     table = get_table(TABLE_USER_PROGRESS)
     prefix = f"roadmap_step#{roadmap_id}#"
+    uid = str(user_id) if user_id is not None else ""
 
     try:
         items = table.query(
-            KeyConditionExpression=Key(PK_USER).eq(user_id) & Key("itemKey").begins_with(prefix),
+            KeyConditionExpression=Key(PROGRESS_PK).eq(uid) & Key(PROGRESS_SK).begins_with(prefix),
         ).get("Items", [])
 
         steps = {}
