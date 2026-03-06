@@ -27,7 +27,9 @@ TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
 
-# User-specific tables
+# User-specific tables (partition key attribute name; value = userId)
+PK_USER = "id"
+
 TABLE_COLLECTIONS = "PrepCollections"
 TABLE_COLLECTION_ITEMS = "PrepCollectionItems"
 TABLE_USER_PROGRESS = "PrepUserProgress"
@@ -261,7 +263,7 @@ def handle_get_user_progress(user_id: str, content_type: Optional[str] = None) -
     """Get all progress records for a user, optionally filtered by content type prefix."""
     table = get_table(TABLE_USER_PROGRESS)
     try:
-        kce = Key("userId").eq(user_id)
+        kce = Key(PK_USER).eq(user_id)
         if content_type:
             kce = kce & Key("itemKey").begins_with(f"{content_type}#")
 
@@ -303,7 +305,7 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
     now = now_iso()
 
     try:
-        existing = table.get_item(Key={"userId": user_id, "itemKey": item_key}).get("Item")
+        existing = table.get_item(Key={PK_USER: user_id, "itemKey": item_key}).get("Item")
         current_value = existing.get(field, False) if existing else False
         new_value = not current_value
 
@@ -317,7 +319,7 @@ def handle_toggle_progress(user_id: str, content_type: str, item_id: str, field:
             expr_names["#sa"] = "solvedAt"
 
         table.update_item(
-            Key={"userId": user_id, "itemKey": item_key},
+            Key={PK_USER: user_id, "itemKey": item_key},
             UpdateExpression=update_expr,
             ExpressionAttributeNames=expr_names,
             ExpressionAttributeValues=expr_values,
@@ -363,7 +365,7 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
                 expr_names["#sa"] = "solvedAt"
 
             table.update_item(
-                Key={"userId": user_id, "itemKey": item_key},
+                Key={PK_USER: user_id, "itemKey": item_key},
                 UpdateExpression=update_expr,
                 ExpressionAttributeNames=expr_names,
                 ExpressionAttributeValues=expr_values,
@@ -382,7 +384,7 @@ def handle_batch_toggle_progress(user_id: str, updates: list) -> dict:
 def handle_list_collections(user_id: str) -> dict:
     table = get_table(TABLE_COLLECTIONS)
     try:
-        result = table.query(KeyConditionExpression=Key("userId").eq(user_id))
+        result = table.query(KeyConditionExpression=Key(PK_USER).eq(user_id))
         collections = sorted(result.get("Items", []), key=lambda x: x.get("createdAt", ""), reverse=True)
         return api_response(200, {"success": True, "collections": collections, "count": len(collections)})
     except ClientError as e:
@@ -395,6 +397,7 @@ def handle_create_collection(user_id: str, data: dict) -> dict:
     cid = generate_id("col")
 
     collection = {
+        PK_USER: user_id,
         "userId": user_id,
         "collectionId": cid,
         "name": str(data.get("name", "")).strip(),
@@ -436,7 +439,7 @@ def handle_update_collection(user_id: str, collection_id: str, data: dict) -> di
 
     try:
         kwargs: dict = {
-            "Key": {"userId": user_id, "collectionId": collection_id},
+            "Key": {PK_USER: user_id, "collectionId": collection_id},
             "UpdateExpression": "SET " + ", ".join(parts),
             "ExpressionAttributeValues": vals,
         }
@@ -458,7 +461,7 @@ def handle_delete_collection(user_id: str, collection_id: str) -> dict:
             for item in items_result.get("Items", []):
                 batch.delete_item(Key={"collectionId": collection_id, "itemKey": item["itemKey"]})
 
-        col_table.delete_item(Key={"userId": user_id, "collectionId": collection_id})
+        col_table.delete_item(Key={PK_USER: user_id, "collectionId": collection_id})
         return api_response(200, {"success": True, "message": "Collection deleted"})
     except ClientError as e:
         return api_response(500, {"success": False, "message": "Database error", "error": str(e)})
@@ -476,7 +479,7 @@ def handle_add_to_collection(user_id: str, collection_id: str, content_type: str
             "contentType": content_type, "itemId": item_id, "addedAt": now,
         })
         col_table.update_item(
-            Key={"userId": user_id, "collectionId": collection_id},
+            Key={PK_USER: user_id, "collectionId": collection_id},
             UpdateExpression="SET itemCount = if_not_exists(itemCount, :zero) + :inc, updatedAt = :now",
             ExpressionAttributeValues={":inc": 1, ":zero": 0, ":now": now},
         )
@@ -494,7 +497,7 @@ def handle_remove_from_collection(user_id: str, collection_id: str, content_type
     try:
         items_table.delete_item(Key={"collectionId": collection_id, "itemKey": item_key})
         col_table.update_item(
-            Key={"userId": user_id, "collectionId": collection_id},
+            Key={PK_USER: user_id, "collectionId": collection_id},
             UpdateExpression="SET itemCount = if_not_exists(itemCount, :one) - :dec, updatedAt = :now",
             ExpressionAttributeValues={":dec": 1, ":one": 1, ":now": now},
         )
@@ -520,7 +523,7 @@ def handle_get_collection_items(collection_id: str) -> dict:
 def _log_activity(user_id: str, action: str, content_type: str, item_id: str, metadata: dict = None):
     try:
         get_table(TABLE_USER_ACTIVITY).put_item(Item={
-            "userId": user_id, "timestamp": now_iso(),
+            PK_USER: user_id, "timestamp": now_iso(),
             "action": action, "contentType": content_type,
             "itemId": item_id, "metadata": metadata or {},
         })
@@ -539,7 +542,7 @@ def _update_stat_counter(user_id: str, content_type: str, delta: int):
         return
     try:
         get_table(TABLE_USER_STATS).update_item(
-            Key={"userId": user_id},
+            Key={PK_USER: user_id},
             UpdateExpression="SET #c = if_not_exists(#c, :zero) + :d, updatedAt = :now",
             ExpressionAttributeNames={"#c": counter},
             ExpressionAttributeValues={":d": delta, ":zero": 0, ":now": now_iso()},
@@ -564,7 +567,7 @@ def handle_get_activity(user_id: str, limit: int = 20) -> dict:
     table = get_table(TABLE_USER_ACTIVITY)
     try:
         result = table.query(
-            KeyConditionExpression=Key("userId").eq(user_id),
+            KeyConditionExpression=Key(PK_USER).eq(user_id),
             ScanIndexForward=False, Limit=limit,
         )
         items = result.get("Items", [])
@@ -575,7 +578,7 @@ def handle_get_activity(user_id: str, limit: int = 20) -> dict:
 
 def handle_get_stats(user_id: str) -> dict:
     try:
-        result = get_table(TABLE_USER_STATS).get_item(Key={"userId": user_id})
+        result = get_table(TABLE_USER_STATS).get_item(Key={PK_USER: user_id})
         stats = result.get("Item", {})
         defaults = {
             "userId": user_id, "solvedQuestions": 0, "solvedDSA": 0,
@@ -631,7 +634,7 @@ def handle_update_streak(user_id: str) -> dict:
     yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
 
     try:
-        stats = table.get_item(Key={"userId": user_id}).get("Item", {})
+        stats = table.get_item(Key={PK_USER: user_id}).get("Item", {})
         last_active = stats.get("lastActiveDate", "")
         cur = int(stats.get("streak", 0))
         longest = int(stats.get("longestStreak", 0))
@@ -643,7 +646,7 @@ def handle_update_streak(user_id: str) -> dict:
         new_longest = max(longest, new_streak)
 
         table.update_item(
-            Key={"userId": user_id},
+            Key={PK_USER: user_id},
             UpdateExpression="SET streak = :s, longestStreak = :l, lastActiveDate = :d, updatedAt = :now",
             ExpressionAttributeValues={":s": new_streak, ":l": new_longest, ":d": today, ":now": now_iso()},
         )
@@ -692,7 +695,7 @@ def handle_submit_quiz(user_id: str, data: dict) -> dict:
 
         rid = generate_id("qr")
         results_table.put_item(Item={
-            "userId": user_id, "resultId": rid, "quizId": quiz_id,
+            PK_USER: user_id, "resultId": rid, "quizId": quiz_id,
             "quizTitle": quiz.get("title", ""), "score": to_decimal(score),
             "correctCount": correct, "totalQuestions": total, "passed": passed,
             "timeTaken": time_taken, "detailedResults": detailed, "submittedAt": now,
@@ -717,7 +720,7 @@ def handle_submit_quiz(user_id: str, data: dict) -> dict:
 def handle_get_quiz_history(user_id: str, quiz_id: Optional[str] = None) -> dict:
     table = get_table(TABLE_QUIZ_RESULTS)
     try:
-        items = table.query(KeyConditionExpression=Key("userId").eq(user_id)).get("Items", [])
+        items = table.query(KeyConditionExpression=Key(PK_USER).eq(user_id)).get("Items", [])
         if quiz_id:
             items = [i for i in items if i.get("quizId") == quiz_id]
         items.sort(key=lambda x: x.get("submittedAt", ""), reverse=True)
@@ -763,11 +766,11 @@ def handle_update_roadmap_step(user_id: str, data: dict) -> dict:
     now = now_iso()
 
     try:
-        existing = table.get_item(Key={"userId": user_id, "itemKey": item_key}).get("Item")
+        existing = table.get_item(Key={PK_USER: user_id, "itemKey": item_key}).get("Item")
         new_val = not (existing.get("completed", False) if existing else False)
 
         table.update_item(
-            Key={"userId": user_id, "itemKey": item_key},
+            Key={PK_USER: user_id, "itemKey": item_key},
             UpdateExpression="SET completed = :v, #ua = :now, #ct = :ct, #iid = :rid, #si = :si",
             ExpressionAttributeNames={"#ua": "updatedAt", "#ct": "contentType", "#iid": "itemId", "#si": "stepIndex"},
             ExpressionAttributeValues={
@@ -785,7 +788,7 @@ def handle_get_roadmap_progress(user_id: str, roadmap_id: str) -> dict:
 
     try:
         items = table.query(
-            KeyConditionExpression=Key("userId").eq(user_id) & Key("itemKey").begins_with(prefix),
+            KeyConditionExpression=Key(PK_USER).eq(user_id) & Key("itemKey").begins_with(prefix),
         ).get("Items", [])
 
         steps = {}
