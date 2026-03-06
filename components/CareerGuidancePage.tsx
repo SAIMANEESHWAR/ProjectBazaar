@@ -1676,6 +1676,10 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         }
 
         const allWeeksCompleted = roadmapData.weeks.every(w => w.isCompleted && w.quizCompleted);
+        
+        // Separate completed and incomplete weeks
+        const completedWeeks = roadmapData.weeks.filter(w => w.isCompleted && w.quizCompleted);
+        const incompleteWeeks = roadmapData.weeks.filter(w => !(w.isCompleted && w.quizCompleted));
 
         return (
             <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
@@ -1727,11 +1731,57 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-bold text-orange-600">
-                                    {roadmapData.weeks.filter(w => w.isCompleted).length}/{roadmapData.totalWeeks}
+                                    {completedWeeks.length}/{roadmapData.totalWeeks}
                                 </div>
                                 <div className="text-sm text-gray-600">Weeks Completed</div>
                             </div>
                         </div>
+
+                        {/* Completed Weeks Section - Display at Top */}
+                        {completedWeeks.length > 0 && (
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg border-2 border-green-200 p-6 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Completed Weeks</h3>
+                                            <p className="text-sm text-gray-600">You've successfully completed {completedWeeks.length} {completedWeeks.length === 1 ? 'week' : 'weeks'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-2xl font-bold text-green-600">{completedWeeks.length}</div>
+                                        <div className="text-xs text-gray-600">Completed</div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    {completedWeeks
+                                        .sort((a, b) => a.weekNumber - b.weekNumber)
+                                        .map((week) => (
+                                        <button
+                                            key={week.weekNumber}
+                                            onClick={() => fetchCompletedWeekDetails(week.weekNumber)}
+                                            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-green-300 rounded-xl hover:bg-green-50 hover:border-green-400 hover:shadow-md transition-all group"
+                                        >
+                                            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-semibold text-gray-900 group-hover:text-green-700">Week {week.weekNumber}</div>
+                                                {week.quizScore !== undefined && (
+                                                    <div className="text-xs text-green-600 font-medium">{week.quizScore}% Score</div>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Completed Week Details Modal - Premium Design */}
                         {selectedCompletedWeek && (
@@ -1892,23 +1942,34 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             </div>
                         )}
 
-                        <div className="grid gap-4">
-                            {roadmapData.weeks.map((week, idx) => (
-                                <div
-                                    key={idx}
-                                    onClick={() => {
-                                        // Only allow clicking on completed weeks to view details
-                                        if (week.isCompleted && week.quizCompleted) {
-                                            fetchCompletedWeekDetails(week.weekNumber);
-                                        }
-                                    }}
-                                    className={`border-2 rounded-xl p-6 transition-all ${week.isCompleted && week.quizCompleted
-                                        ? 'border-green-500 bg-green-50 cursor-pointer hover:shadow-lg hover:scale-[1.01]'
-                                        : week.isCompleted
-                                            ? 'border-orange-500 bg-orange-50'
-                                            : 'border-gray-200 bg-white'
-                                        }`}
-                                >
+                        {/* Roadmap Content */}
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+                            {/* All Weeks Section */}
+                            {incompleteWeeks.length > 0 && (
+                                <>
+                                    <div className="mb-4">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-4">Remaining Weeks</h3>
+                                    </div>
+                                    <div className="grid gap-4">
+                                        {/* Show only incomplete weeks in the main list (completed weeks shown at top) */}
+                                        {incompleteWeeks
+                                            .sort((a, b) => a.weekNumber - b.weekNumber)
+                                            .map((week) => (
+                                        <div
+                                            key={week.weekNumber}
+                                            onClick={() => {
+                                                // Only allow clicking on completed weeks to view details
+                                                if (week.isCompleted && week.quizCompleted) {
+                                                    fetchCompletedWeekDetails(week.weekNumber);
+                                                }
+                                            }}
+                                            className={`border-2 rounded-xl p-6 transition-all ${week.isCompleted && week.quizCompleted
+                                                ? 'border-green-500 bg-green-50 cursor-pointer hover:shadow-lg hover:scale-[1.01]'
+                                                : week.isCompleted
+                                                    ? 'border-orange-500 bg-orange-50'
+                                                    : 'border-gray-200 bg-white'
+                                                }`}
+                                        >
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${week.isCompleted && week.quizCompleted
@@ -1951,8 +2012,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
                                                     if (hasQuiz) {
                                                         // Mark as reading completed, will need to take quiz
-                                                        const updatedWeeks = roadmapData.weeks.map((w, i) =>
-                                                            i === idx ? { ...w, isCompleted: true } : w
+                                                        const updatedWeeks = roadmapData.weeks.map((w) =>
+                                                            w.weekNumber === week.weekNumber ? { ...w, isCompleted: true } : w
                                                         );
                                                         setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
                                                     } else {
@@ -2067,7 +2128,17 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {incompleteWeeks.length === 0 && completedWeeks.length > 0 && (
+                                    <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+                                        <div className="text-6xl mb-4">🎉</div>
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-2">All Weeks Completed!</h3>
+                                        <p className="text-gray-600 mb-6">You've successfully completed all weeks in this roadmap.</p>
+                                    </div>
+                                )}
                         </div>
 
                         {allWeeksCompleted && (
