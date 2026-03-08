@@ -51,11 +51,33 @@ function flattenSystemDesign(): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
   for (const q of hldQuestions) {
     const { isSolved, isRevision, ...rest } = q;
-    items.push({ ...rest, designType: 'hld', content: q.content ?? '', diagramUrl: q.diagramUrl ?? '', section: q.section, topics: q.topics ?? [] });
+    let content = q.content ?? '';
+    if (q.diagramData) {
+      content += `\n\n__DIAGRAM_DATA_START__${JSON.stringify(q.diagramData)}__DIAGRAM_DATA_END__`;
+    }
+    items.push({
+      ...rest,
+      designType: 'hld',
+      content,
+      diagramUrl: q.diagramUrl ?? '',
+      section: q.section,
+      topics: q.topics ?? []
+    });
   }
   for (const q of lldQuestions) {
     const { isSolved, isRevision, ...rest } = q;
-    items.push({ ...rest, designType: 'lld', content: q.content ?? '', diagramUrl: q.diagramUrl ?? '', section: q.section, topics: q.topics ?? [] });
+    let content = q.content ?? '';
+    if (q.diagramData) {
+      content += `\n\n__DIAGRAM_DATA_START__${JSON.stringify(q.diagramData)}__DIAGRAM_DATA_END__`;
+    }
+    items.push({
+      ...rest,
+      designType: 'lld',
+      content,
+      diagramUrl: q.diagramUrl ?? '',
+      section: q.section,
+      topics: q.topics ?? []
+    });
   }
   return items;
 }

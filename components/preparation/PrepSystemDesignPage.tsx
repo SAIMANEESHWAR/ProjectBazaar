@@ -4,6 +4,7 @@ import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import SDDiagramRenderer, { DiagramData } from './SDDiagramRenderer';
 
 type DesignTab = 'hld' | 'lld';
 
@@ -18,6 +19,7 @@ interface SDQuestion {
   isBookmarked?: boolean;
   content?: string;
   diagramUrl?: string;
+  diagramData?: DiagramData; // Added
   topics?: string[];
 }
 
@@ -302,25 +304,84 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                                   <p className="font-semibold text-gray-900 dark:text-white mb-1">Description</p>
                                   <p className="text-gray-600 dark:text-gray-300">{q.description}</p>
                                 </div>
-                                {q.content && (
-                                  <div>
-                                    <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
-                                    <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">{q.content}</p>
-                                  </div>
-                                )}
-                                {q.diagramUrl && (
-                                  <div>
-                                    <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
-                                    {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
-                                      <img src={q.diagramUrl} alt="Architecture diagram" className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm max-h-80 object-contain" />
-                                    ) : (
-                                      <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
-                                    )}
-                                  </div>
-                                )}
+                                {(() => {
+                                  const rawContent = q.content ?? '';
+                                  const regex = /__DIAGRAM_DATA_START__([\s\S]*?)__DIAGRAM_DATA_END__/;
+                                  const match = rawContent.match(regex);
+
+                                  let displayContent = rawContent;
+                                  let embeddedData: DiagramData | null = null;
+
+                                  if (match) {
+                                    displayContent = rawContent.replace(regex, '').trim();
+                                    try {
+                                      embeddedData = JSON.parse(match[1]);
+                                    } catch (e) {
+                                      console.error('Failed to parse embedded diagram data', e);
+                                    }
+                                  }
+
+                                  const finalDiagramData = q.diagramData || embeddedData;
+
+                                  return (
+                                    <>
+                                      {displayContent && (
+                                        <div>
+                                          <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
+                                          {(() => {
+                                            const text = displayContent.startsWith('Solution:')
+                                              ? displayContent.substring(9).trim()
+                                              : displayContent;
+
+                                            // Check if it's pointwise (starts with (1) or contains (2))
+                                            const pointRegex = /\(\d+\)/;
+                                            if (pointRegex.test(text)) {
+                                              const points = text.split(/\s*(?=\(\d+\))/).filter(p => p.trim());
+                                              return (
+                                                <ul className="list-none space-y-1.5 mt-1">
+                                                  {points.map((point, idx) => (
+                                                    <li key={idx} className="flex gap-2 text-gray-600 dark:text-gray-300 text-sm">
+                                                      <span className="shrink-0 text-orange-500 font-bold">•</span>
+                                                      <span>{point.replace(/^\(\d+\)\s*/, '')}</span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              );
+                                            }
+
+                                            return (
+                                              <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
+                                                {text}
+                                              </p>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
+                                      {finalDiagramData ? (
+                                        <div className="mt-4">
+                                          <p className="font-semibold text-gray-900 dark:text-white mb-3">System Architecture Diagram</p>
+                                          <SDDiagramRenderer data={finalDiagramData} />
+                                        </div>
+                                      ) : q.diagramUrl ? (
+                                        <div className="mt-4">
+                                          <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
+                                          {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
+                                            <img src={q.diagramUrl} alt="Architecture diagram" className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm max-h-80 object-contain" />
+                                          ) : (
+                                            <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
+                                          )}
+                                        </div>
+                                      ) : null}
+                                    </>
+                                  );
+                                })()}
                                 {q.topics && q.topics.length > 0 && (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {q.topics.map(t => <span key={t} className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200 rounded-full">{t}</span>)}
+                                    {q.topics.map(t => (
+                                      <span key={t} className="px-2.5 py-0.5 text-[10px] font-bold bg-gray-800 dark:bg-gray-700 text-white rounded-full shadow-sm border border-gray-700 dark:border-gray-600 transition-transform hover:scale-105">
+                                        {t}
+                                      </span>
+                                    ))}
                                   </div>
                                 )}
                               </div>
@@ -369,24 +430,84 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                           <p className="font-semibold text-gray-900 dark:text-white mb-1">Description</p>
                           <p className="text-gray-600 dark:text-gray-300">{q.description}</p>
                         </div>
-                        {q.content && (
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
-                            <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">{q.content}</p>
-                          </div>
-                        )}
-                        {q.diagramUrl && (
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
-                            {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
-                              <img src={q.diagramUrl} alt="Diagram" className="max-w-full rounded border border-gray-200 dark:border-gray-600 max-h-48 object-contain" />
-                            ) : (
-                              <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const rawContent = q.content ?? '';
+                          const regex = /__DIAGRAM_DATA_START__([\s\S]*?)__DIAGRAM_DATA_END__/;
+                          const match = rawContent.match(regex);
+
+                          let displayContent = rawContent;
+                          let embeddedData: DiagramData | null = null;
+
+                          if (match) {
+                            displayContent = rawContent.replace(regex, '').trim();
+                            try {
+                              embeddedData = JSON.parse(match[1]);
+                            } catch (e) {
+                              console.error('Failed to parse embedded diagram data', e);
+                            }
+                          }
+
+                          const finalDiagramData = q.diagramData || embeddedData;
+
+                          return (
+                            <>
+                              {displayContent && (
+                                <div>
+                                  <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
+                                  {(() => {
+                                    const text = displayContent.startsWith('Solution:')
+                                      ? displayContent.substring(9).trim()
+                                      : displayContent;
+
+                                    const pointRegex = /\(\d+\)/;
+                                    if (pointRegex.test(text)) {
+                                      const points = text.split(/\s*(?=\(\d+\))/).filter(p => p.trim());
+                                      return (
+                                        <ul className="list-none space-y-1 mt-1">
+                                          {points.map((point, idx) => (
+                                            <li key={idx} className="flex gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">
+                                              <span className="shrink-0 text-orange-500 font-bold">•</span>
+                                              <span>{point.replace(/^\(\d+\)\s*/, '')}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      );
+                                    }
+
+                                    return (
+                                      <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
+                                        {text}
+                                      </p>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                              {finalDiagramData ? (
+                                <div className="mt-3">
+                                  <p className="font-semibold text-gray-900 dark:text-white mb-2">Architecture</p>
+                                  <SDDiagramRenderer data={finalDiagramData} />
+                                </div>
+                              ) : q.diagramUrl ? (
+                                <div className="mt-3">
+                                  <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
+                                  {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
+                                    <img src={q.diagramUrl} alt="Diagram" className="max-w-full rounded border border-gray-200 dark:border-gray-600 max-h-48 object-contain" />
+                                  ) : (
+                                    <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
+                                  )}
+                                </div>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                         {q.topics && q.topics.length > 0 && (
-                          <div className="flex flex-wrap gap-1">{q.topics.map(t => <span key={t} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200 rounded-full">{t}</span>)}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {q.topics.map(t => (
+                              <span key={t} className="px-2.5 py-0.5 text-[10px] font-bold bg-gray-800 dark:bg-gray-700 text-white rounded-full shadow-sm border border-gray-700 dark:border-gray-600 transition-transform hover:scale-105">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
