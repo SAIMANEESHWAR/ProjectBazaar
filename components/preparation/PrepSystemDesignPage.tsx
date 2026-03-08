@@ -4,7 +4,8 @@ import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
-import SDDiagramRenderer, { DiagramData } from './SDDiagramRenderer';
+import SDDiagramRenderer from './SDDiagramRenderer';
+import { DiagramData } from '../../data/systemDesignData';
 
 type DesignTab = 'hld' | 'lld';
 

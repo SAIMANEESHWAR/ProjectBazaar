@@ -2,37 +2,7 @@ import * as LucideIcons from 'lucide-react';
 import { motion } from 'framer-motion';
 import Lottie from 'lottie-react';
 import { useEffect, useState } from 'react';
-
-export interface DiagramNode {
-    id: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    label: string;
-    fill: string;
-    icon?: string; // Lucide icon name
-    lottieUrl?: string; // Lottie JSON URL for animation
-}
-
-export interface DiagramEdge {
-    from: string;
-    to: string;
-    label: string;
-    dashed: boolean;
-}
-
-export interface DiagramLegend {
-    color: string;
-    label: string;
-}
-
-export interface DiagramData {
-    nodes: DiagramNode[];
-    edges: DiagramEdge[];
-    legend: DiagramLegend[];
-    subtitle?: string;
-}
+import { DiagramData } from '../../data/systemDesignData';
 
 interface SDDiagramRendererProps {
     data: DiagramData;

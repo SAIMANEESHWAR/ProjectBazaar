@@ -8,6 +8,8 @@ export interface DiagramNode {
   h: number;
   label: string;
   fill: string;
+  icon?: string;
+  lottieUrl?: string;
 }
 
 export interface DiagramEdge {
@@ -20,6 +22,7 @@ export interface DiagramEdge {
 export interface DiagramLegend {
   color: string;
   label: string;
+  icon?: string;
 }
 
 export interface DiagramData {
