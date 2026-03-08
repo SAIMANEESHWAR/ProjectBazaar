@@ -45,7 +45,7 @@ const DiffBadge: React.FC<{ d: string }> = ({ d }) => (
     <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${d === 'Easy' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : d === 'Medium' ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' : 'bg-red-50 text-red-700 ring-1 ring-red-200'}`}>{d}</span>
 );
 
-const StatusDot: React.FC<{ solved: boolean }> = ({ solved }) => (
+const StatusDot: React.FC<{ solved?: boolean }> = ({ solved = false }) => (
     <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${solved ? 'text-emerald-600' : 'text-gray-400'}`}>
         <span className={`w-2 h-2 rounded-full ${solved ? 'bg-emerald-500' : 'bg-gray-300'}`} />
         {solved ? 'Published' : 'Draft'}
@@ -153,9 +153,8 @@ const PrepContentManagementPage: React.FC = () => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                            activeTab === tab.id ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-orange-50'
-                        }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === tab.id ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-orange-50'
+                            }`}
                     >
                         {tab.label}
                     </button>
