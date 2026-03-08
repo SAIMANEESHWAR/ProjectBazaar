@@ -228,15 +228,15 @@ def normalize_roadmap(raw: dict, now: str) -> dict:
 
 
 def normalize_position_resource(raw: dict, now: str) -> dict:
+    """Per-question item: id, question, category?, difficulty, roleId, roleLabel, subType."""
     return {
         "id": str(raw.get("id") or generate_id("pr")),
-        "role": str(raw.get("role", "")).strip(),
-        "interviewQuestions": int(raw.get("interviewQuestions", 0)),
-        "dsaQuestions": int(raw.get("dsaQuestions", 0)),
-        "aptitudeQuestions": int(raw.get("aptitudeQuestions", 0)),
-        "sqlQuestions": int(raw.get("sqlQuestions", 0)),
-        "coreCSQuestions": int(raw.get("coreCSQuestions", 0)),
-        "description": str(raw.get("description", "")).strip(),
+        "question": str(raw.get("question", "")).strip(),
+        "category": str(raw.get("category", "")).strip(),
+        "difficulty": str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium",
+        "roleId": str(raw.get("roleId", "")).strip(),
+        "roleLabel": str(raw.get("roleLabel", "")).strip(),
+        "subType": str(raw.get("subType", "")).strip(),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
