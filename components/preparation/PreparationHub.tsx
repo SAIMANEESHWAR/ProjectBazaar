@@ -23,7 +23,7 @@ interface PreparationHubProps {
   onNavigate: (view: string) => void;
 }
 
-const iconClass = 'w-6 h-6 text-gray-600 dark:text-gray-400';
+// Icon styling removed locally in favor of direct classes
 
 function buildFeatureCards(counts: Record<string, number>, collectionsCount: number) {
   return [
@@ -138,9 +138,12 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 p-8 text-white">
-        <div className="absolute inset-0 opacity-10">
-          <svg className="h-full w-full" viewBox="0 0 400 200" fill="none"><circle cx="350" cy="50" r="120" fill="white" /><circle cx="50" cy="180" r="80" fill="white" /></svg>
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-600 via-orange-500 to-amber-600 p-8 text-white shadow-[0_8px_32px_rgba(249,115,22,0.25)] border border-white/10">
+        <div className="absolute inset-0 opacity-20">
+          <svg className="h-full w-full" viewBox="0 0 400 200" fill="none">
+            <circle cx="350" cy="50" r="120" fill="white" className="blur-3xl animate-pulse" />
+            <circle cx="50" cy="180" r="80" fill="white" className="blur-2xl" />
+          </svg>
         </div>
         <div className="relative z-10">
           <div className="flex items-center justify-between">
@@ -193,9 +196,9 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((stat) => (
-          <div key={stat.label} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex items-center gap-4 transition-all duration-200 hover:shadow-md">
-            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300">
-              <stat.Icon className="w-5 h-5" />
+          <div key={stat.label} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:border-orange-500/20">
+            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 shadow-sm border border-gray-200/50 dark:border-gray-600/50 group-hover:scale-110 transition-transform duration-300">
+              <stat.Icon className="w-6 h-6 group-hover:text-orange-500 transition-colors" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stat.value.toLocaleString()}</p>
@@ -215,10 +218,11 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
           {featureCards.map((card) => (
             <div
               key={card.id}
-              className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 text-left transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
+              className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-orange-500/30 overflow-hidden"
             >
-              <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                <card.Icon className={iconClass} />
+              <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-orange-500/15 transition-colors" />
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-all duration-300 shadow-sm border border-gray-200/50 dark:border-gray-600/50 mb-4">
+                <card.Icon className="w-6 h-6" />
               </div>
               <h3 className="mt-4 font-semibold text-gray-900 dark:text-gray-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{card.title}</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">{card.description}</p>
@@ -226,9 +230,9 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">{card.count} items</span>
                 <ShinyButton
                   onClick={() => onNavigate(card.view)}
-                  className="!px-4 !py-1.5 !text-xs [--primary:theme(colors.orange.500)]"
+                  className="!px-5 !py-2 !text-xs !font-bold [--primary:theme(colors.orange.500)] shadow-orange-500/20 hover:shadow-orange-500/40"
                 >
-                  Start
+                  START
                 </ShinyButton>
               </div>
             </div>

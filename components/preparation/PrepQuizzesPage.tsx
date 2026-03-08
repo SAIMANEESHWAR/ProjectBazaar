@@ -13,12 +13,12 @@ const TABS = ['Dashboard', 'History', 'Bookmarked'] as const;
 
 function DifficultyBadge({ difficulty }: { difficulty: 'Easy' | 'Medium' | 'Hard' }) {
   const styles = {
-    Easy: 'bg-green-100 text-green-700',
-    Medium: 'bg-yellow-100 text-yellow-700',
-    Hard: 'bg-red-100 text-red-700',
+    Easy: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    Medium: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    Hard: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[difficulty]}`}>
+    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[difficulty]}`}>
       {difficulty}
     </span>
   );
@@ -166,8 +166,9 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           {filteredQuizzes.map((quiz) => (
             <div
               key={quiz.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-200 flex flex-col"
+              className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6 hover:shadow-[0_0_20px_rgba(249,115,22,0.15)] hover:border-orange-500/30 transition-all duration-300 flex flex-col relative overflow-hidden"
             >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 blur-3xl rounded-full -mr-12 -mt-12 group-hover:bg-orange-500/10 transition-colors" />
               <div className="flex items-start gap-2 flex-wrap mb-3">
                 <DifficultyBadge difficulty={quiz.difficulty} />
                 <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
@@ -185,10 +186,11 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
               </div>
               <button
                 disabled
-                className="w-full py-2.5 px-4 rounded-xl bg-orange-500/80 text-white font-medium cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(249,115,22,0.2)] hover:shadow-[0_4px_15px_rgba(249,115,22,0.3)] opacity-90 backdrop-blur-sm relative overflow-hidden group/btn"
               >
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
                 <Lock className="w-4 h-4" />
-                Coming Soon
+                <span className="tracking-wide">Coming Soon</span>
               </button>
             </div>
           ))}
@@ -225,9 +227,12 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{quiz.questionCount}</td>
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{formatDuration(quiz.duration)}</td>
                     <td className="px-5 py-4 text-center">
-                      <button disabled className="px-3 py-1.5 rounded-lg bg-orange-500/80 text-white text-xs font-medium cursor-not-allowed flex items-center justify-center gap-1.5 mx-auto">
-                        <Lock className="w-3 h-3" />
-                        Coming Soon
+                      <button
+                        disabled
+                        className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5 mx-auto shadow-sm opacity-90 hover:opacity-100 transition-all duration-300 border border-white/10"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span className="uppercase tracking-wider">Coming Soon</span>
                       </button>
                     </td>
                   </tr>
