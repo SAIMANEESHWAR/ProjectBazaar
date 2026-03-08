@@ -132,7 +132,10 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
           <option value="all">All roles</option>
-          {roles.map((role) => (
+          <option value="Students">Students</option>
+          <option value="Freshers">Freshers</option>
+          <option value="Professionals">Professionals</option>
+          {roles.filter(r => !['Students', 'Freshers', 'Professionals'].includes(r)).map((role) => (
             <option key={role} value={role}>
               {role}
             </option>

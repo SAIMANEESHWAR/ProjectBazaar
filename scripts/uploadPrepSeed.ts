@@ -6,6 +6,7 @@
  * Uploads: interview questions, DSA problems, system design, mass recruitment, position resources
  */
 import { interviewQuestionsSeed, dsaProblemsSeed } from '../data/seedPrepCompetitive';
+import { fullAptitudeSeed } from '../data/seedAptitude';
 import { hldQuestions, lldQuestions } from '../data/systemDesignData';
 import { companies } from '../data/massRecruitmentData';
 import { roles } from '../data/positionResourcesData';
@@ -143,9 +144,12 @@ async function main() {
   const mrItems = flattenMassRecruitment();
   results.mass_recruitment = await uploadInBatches('mass_recruitment', mrItems, 'Mass Recruitment');
 
-  console.log('\n[5/5] Position Resources...');
+  console.log('\n[5/6] Position Resources...');
   const prItems = flattenPositionResources();
   results.position_resources = await uploadInBatches('position_resources', prItems, 'Position Resources');
+
+  console.log('\n[6/6] Aptitude Quizzes...');
+  results.quizzes = await uploadInBatches('quizzes', (fullAptitudeSeed as unknown) as Record<string, unknown>[], 'Quizzes');
 
   console.log('\n=== Upload Complete ===');
   for (const [k, v] of Object.entries(results)) {
