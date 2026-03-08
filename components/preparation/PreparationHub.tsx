@@ -152,8 +152,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className={`p-2 border border-white/20 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-white' : 'text-orange-100 hover:text-white'
-                  }`}
+                className={`p-2 border border-white/20 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-white' : 'text-orange-100 hover:text-white'}`}
                 aria-label="Refresh dashboard"
               >
                 <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -197,7 +196,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((stat) => (
           <div key={stat.label} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:border-orange-500/20">
-            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 shadow-sm border border-gray-200/50 dark:border-gray-600/50 group-hover:scale-110 transition-transform duration-300">
+            <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:scale-110 transition-transform duration-300">
               <stat.Icon className="w-6 h-6 group-hover:text-orange-500 transition-colors" />
             </div>
             <div>
@@ -221,7 +220,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
               className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-orange-500/30 overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-orange-500/15 transition-colors" />
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-all duration-300 shadow-sm border border-gray-200/50 dark:border-gray-600/50 mb-4">
+              <div className="w-12 h-12 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-all duration-300 mb-4">
                 <card.Icon className="w-6 h-6" />
               </div>
               <h3 className="mt-4 font-semibold text-gray-900 dark:text-gray-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{card.title}</h3>
@@ -260,7 +259,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
 
               return (
                 <li key={key} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
                     {activityIcons[actType] || activityIcons.question}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -274,7 +273,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
           </ul>
         </section>
 
-        {/* Progress */}
+        {/* Progress Overview */}
         <section className="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-6">Progress Overview</h2>
           <div className="flex flex-col items-center gap-5">
