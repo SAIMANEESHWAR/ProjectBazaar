@@ -168,7 +168,18 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
             searchable = ["question", "title", "name", "description", "content", "role"]
             items = [i for i in items if any(search in str(i.get(f, "")).lower() for f in searchable)]
 
-        items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        sort_by = query_params.get("sortBy") or "createdAt"
+        sort_order = (query_params.get("sortOrder") or "desc").lower()
+        reverse = sort_order == "desc"
+        if sort_by == "title":
+            items.sort(key=lambda x: (x.get("title") or "").lower(), reverse=reverse)
+        elif sort_by == "section":
+            items.sort(key=lambda x: (x.get("section") or "").lower(), reverse=reverse)
+        elif sort_by == "difficulty":
+            diff_order = {"Easy": 0, "Medium": 1, "Hard": 2}
+            items.sort(key=lambda x: diff_order.get(x.get("difficulty"), 0), reverse=reverse)
+        else:
+            items.sort(key=lambda x: x.get("createdAt", ""), reverse=reverse)
 
         total = len(items)
         total_pages = max(1, math.ceil(total / limit))
@@ -207,11 +218,13 @@ def handle_get_content(content_type: str, item_id: str) -> dict:
 def handle_list_content_with_progress(user_id: str, content_type: str, query_params: dict) -> dict:
     """List content merged with the user's per-item progress; returns only the requested page (paginated)."""
     solved_only = query_params.get("solvedOnly") in (True, "true", "1")
+    favorite_only = query_params.get("favoriteOnly") in (True, "true", "1")
+    applied_only = query_params.get("appliedOnly") in (True, "true", "1")
     page = int(query_params.get("page", 1))
     limit = int(query_params.get("limit", 50))
 
-    if solved_only:
-        params_all = {k: v for k, v in query_params.items() if k != "solvedOnly"}
+    if solved_only or favorite_only or applied_only:
+        params_all = {k: v for k, v in query_params.items() if k not in ("solvedOnly", "favoriteOnly", "appliedOnly")}
         params_all["page"] = 1
         params_all["limit"] = 2000
         content_resp = handle_list_content(content_type, params_all)
@@ -243,8 +256,14 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
             "isApplied": p.get("isApplied", False),
         })
 
-    if solved_only:
-        merged = [m for m in merged if m.get("isSolved")]
+    if solved_only or favorite_only or applied_only:
+        if solved_only:
+            merged = [m for m in merged if m.get("isSolved")]
+        if favorite_only:
+            merged = [m for m in merged if m.get("isFavorite")]
+        if applied_only:
+            merged = [m for m in merged if m.get("isApplied")]
+            
         total = len(merged)
         total_pages = max(1, math.ceil(total / limit))
         start = (page - 1) * limit

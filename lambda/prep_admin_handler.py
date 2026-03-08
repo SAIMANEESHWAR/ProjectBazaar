@@ -181,6 +181,7 @@ def normalize_job_portal(raw: dict, now: str) -> dict:
     return {
         "id": str(raw.get("id") or generate_id("jp")),
         "name": str(raw.get("name", "")).strip(),
+        "logo": str(raw.get("logo", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "url": str(raw.get("url", "")).strip(),
         "category": str(raw.get("category", "")).strip(),
@@ -243,12 +244,18 @@ def normalize_position_resource(raw: dict, now: str) -> dict:
 
 
 def normalize_system_design(raw: dict, now: str) -> dict:
+    dt = raw.get("designType") or raw.get("type") or "HLD"
+    design_type = str(dt).strip().lower() if isinstance(dt, str) else "hld"
+    if design_type not in ("hld", "lld"):
+        design_type = "hld"
     return {
         "id": str(raw.get("id") or generate_id("sd")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
-        "type": raw.get("type", "HLD"),
-        "difficulty": raw.get("difficulty", "Medium"),
+        "type": design_type.upper(),
+        "designType": design_type,
+        "section": str(raw.get("section", "")).strip() or "System Design",
+        "difficulty": str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium",
         "topics": [str(t).strip() for t in raw.get("topics", []) if t],
         "content": str(raw.get("content", "")).strip(),
         "diagramUrl": str(raw.get("diagramUrl", "")).strip(),

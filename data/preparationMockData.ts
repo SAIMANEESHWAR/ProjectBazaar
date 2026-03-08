@@ -63,6 +63,7 @@ export interface MassRecruitmentCompany {
 export interface JobPortal {
   id: string;
   name: string;
+  logo: string;
   description: string;
   url: string;
   category: string;
@@ -162,18 +163,55 @@ export const quizzes: Quiz[] = [
 ];
 
 export const coldDMTemplates: ColdDMTemplate[] = [
-  { id: 'dm-1', title: 'Achievement Highlight', content: 'Hi [Recruiter Name], I recently achieved [specific accomplishment] in my role at [Company], which resulted in [quantifiable outcome]. I\'m now looking for new challenges where I can apply these skills. Would love to connect!', category: 'Skill Showcase', isCopied: false },
-  { id: 'dm-2', title: 'Alumni Network Connection', content: 'Hi [Recruiter Name], I noticed we\'re both [University] alumni! I\'m currently exploring opportunities in [field] and would love to connect with fellow graduates. Your career path at [Company] is particularly inspiring.', category: 'Networking', isCopied: false },
-  { id: 'dm-3', title: 'Application Follow-up', content: 'Hi [Recruiter Name], I\'ve submitted my application for [Role]. Just following up to express my enthusiasm for the position and share a bit more about why I\'d be a great fit.', category: 'Follow-up', isCopied: false },
-  { id: 'dm-4', title: 'Asking for Feedback', content: 'Hello [Recruiter Name], If possible, could you share feedback on my application or resume to improve my chances? I truly value your expertise and would appreciate any guidance.', category: 'Feedback', isCopied: false },
-  { id: 'dm-5', title: 'Coffee Chat Request', content: 'Hello, would you be open to a quick call or coffee chat? I\'d love to learn more about the team culture and possible opportunities at [Company]. I promise to keep it brief!', category: 'Networking', isCopied: false },
-  { id: 'dm-6', title: 'Bootcamp Graduate Intro', content: 'Hi [Recruiter Name], I recently completed [bootcamp/program] in [field] and I\'m excited to start my career. What drew me to [Company] is [specific reason]. I\'d love to discuss how my fresh perspective could add value.', category: 'Introduction', isCopied: false },
-  { id: 'dm-7', title: 'Career Path Question', content: 'Hello, what\'s the usual career trajectory for someone joining as [Role] at [Company]? I\'m very interested in long-term growth and would love to understand the possibilities.', category: 'Research', isCopied: false },
-  { id: 'dm-8', title: 'Certification Completion', content: 'Hi [Recruiter Name], I just completed my [Certification Name] and I\'m excited to apply these new skills. [Company]\'s reputation for [specific area] makes it an ideal place to grow.', category: 'Skill Showcase', isCopied: false },
-  { id: 'dm-9', title: 'Referral Request', content: 'Hi [Name], I noticed you work at [Company] and I\'m very interested in the [Role] position. Would you be comfortable referring me? I\'ve attached my resume for your review.', category: 'Referral', isCopied: false },
-  { id: 'dm-10', title: 'Open Source Contributor', content: 'Hi [Name], I\'ve been contributing to [Project] and noticed [Company] uses it extensively. I\'d love to bring my deep knowledge of the codebase to your team. Can we chat?', category: 'Skill Showcase', isCopied: false },
-  { id: 'dm-11', title: 'Event Follow-up', content: 'Hi [Name], great meeting you at [Event]! I really enjoyed our conversation about [Topic]. I\'d love to continue the discussion and explore how I might contribute to [Company].', category: 'Networking', isCopied: false },
-  { id: 'dm-12', title: 'Project Showcase', content: 'Hi [Recruiter Name], I recently built [Project] that [description of impact]. It uses [technologies] and has [metrics]. I\'d love to bring this kind of initiative to [Company].', category: 'Skill Showcase', isCopied: false },
+  // BTech Freshers
+  { id: 'dm-1', title: 'BTech Fresher - Formal Introduction', content: 'Dear [Name],\n\nI hope this email finds you well.\n\nI am currently in my final year of the BTech program at [University]. Over the past [duration], I have developed a strong proficiency in [Tech Stack] through various academic and independent projects.\n\nI have been closely following [Company]\'s recent advancements in [specific area], and I am very interested in the fresh graduate opportunities within your engineering team. I would appreciate the chance to discuss how my academic background and technical skills align with your current objectives.\n\nThank you for your time and consideration.', category: 'BTech Freshers', isCopied: false },
+  { id: 'dm-2', title: 'Campus to Corporate Alignment', content: 'Dear [Recruiter Name],\n\nI hope you are having a productive week.\n\nI am reaching out to express my strong interest in the [Role] position at [Company], as I approach my graduation with a BTech degree in [Month/Year]. My final year capstone project, which focused on [Topic], mirrors the innovative work your team is currently executing.\n\nI have attached my resume for your review. I would welcome the opportunity to connect briefly and learn more about your expectations for early-career engineers at [Company].\n\nBest regards,\n[Your Name]', category: 'BTech Freshers', isCopied: false },
+  { id: 'dm-3', title: 'Junior Developer Portfolio Share', content: 'Dear [Name],\n\nI am writing to express my enthusiasm for the Junior Developer roles at [Company].\n\nAs a recent BTech graduate, I have built a solid foundation in [Skill 1] and [Skill 2]. I am particularly drawn to [Company] because of your commitment to [Company Value/Recent Project].\n\nI have compiled my recent technical projects and open-source contributions in my portfolio [Link]. I would be grateful if you could take a moment to review it when convenient. I am eager to bring my dedication and technical aptitude to your team.\n\nSincerely,\n[Your Name]', category: 'BTech Freshers', isCopied: false },
+
+  // Internships
+  { id: 'dm-4', title: 'Strategic Internship Pitch', content: 'Dear [Name],\n\nI am writing to express my interest in pursuing a summer internship with the [Department/Team] at [Company].\n\nI have closely followed your team\'s work on [Project], and I am highly impressed by [specific detail]. As a student specializing in [Field], I have cultivated hands-on experience with [Skill/Tool]. I am confident that my background will allow me to contribute meaningfully to your upcoming initiatives.\n\nAre you currently considering candidates for summer internship roles? I would appreciate the opportunity to share my resume.\n\nBest regards,\n[Your Name]', category: 'Internships', isCopied: false },
+  { id: 'dm-5', title: 'Pre-final Year Proactive Inquiry', content: 'Dear [Recruiter Name],\n\nI hope this message finds you well.\n\nI am a pre-final year student deeply invested in [Domain]. Your recent engineering blog post regarding [Topic] resonated strongly with me and highlighted the caliber of work at [Company].\n\nI am proactively seeking internship opportunities for the upcoming term and would value the chance to discuss how my skill set in [Skill] might align with your team\'s needs. \n\nThank you for your time.\n\nSincerely,\n[Your Name]', category: 'Internships', isCopied: false },
+  { id: 'dm-6', title: 'Off-campus Value Proposition', content: 'Dear [Name],\n\nI am writing to inquire about potential off-campus internship opportunities within your team at [Company].\n\nThrough my academic coursework and independent projects, I have developed a strong competency in [Field]. For instance, I recently engineered a [Project type] that achieved [specific result/metric]. \n\nI am eager to apply this proactive, problem-solving mindset to the [Department] at [Company]. I have attached my resume and would be delighted to schedule a brief call to discuss potential synergies.\n\nBest,\n[Your Name]', category: 'Internships', isCopied: false },
+
+  // Referral
+  { id: 'dm-7', title: 'Alumni Network Referral', content: 'Dear [Name],\n\nI hope you are doing well.\n\nAs a fellow alumnus of [University], I have been admiring your career progression at [Company]. I am currently preparing to apply for the [Role] position and was hoping to connect.\n\nIf you have a few moments, I would greatly appreciate your insights on the team culture. Furthermore, if you feel my background in [Skill] is a strong fit, I would be very grateful if you might consider submitting a referral on my behalf.\n\nThank you for considering this request.\n\nBest regards,\n[Your Name]', category: 'Referral', isCopied: false },
+  { id: 'dm-8', title: 'Performance-Based Referral Request', content: 'Dear [Name],\n\nI hope this email finds you well.\n\nI have been closely following your impactful work regarding [Project/Topic]. I am reaching out because I intend to apply for the [Role] opening at [Company], and I believe my recent success in driving [Metric/Result] at [Current Company] aligns well with this position.\n\nI have attached my resume for your perusal. Should you find my profile compelling, would you be open to providing a referral? I would be happy to provide any additional context you might need.\n\nSincerely,\n[Your Name]', category: 'Referral', isCopied: false },
+  { id: 'dm-9', title: 'Professional Acquaintance Outreach', content: 'Dear [Name],\n\nIt has been quite some time since we last connected regarding [Past Interaction]. I hope you have been thriving at [Company].\n\nI recently noticed the opening for the [Role] on your team. Over the past year, I have deepened my expertise in [Skill] and successfully managed [Project]. Given our past interactions and my current trajectory, I plan to submit my application this week.\n\nWould you be open to supporting my application with a referral? I value your endorsement highly.\n\nBest,\n[Your Name]', category: 'Referral', isCopied: false },
+
+  // Networking
+  { id: 'dm-10', title: 'Informational Interview Request', content: 'Dear [Name],\n\nI recently read your publication on [Topic] and was thoroughly impressed by your perspective on [specific point].\n\nI am currently a [Your Role] actively exploring opportunities in the [Field] sector. I admire the trajectory of your career at [Company] and would be incredibly grateful for the opportunity to have a brief, 15-minute informational interview to hear your insights on the industry.\n\nAre you available for a brief virtual coffee next week?\n\nThank you for your time,\n[Your Name]', category: 'Networking', isCopied: false },
+  { id: 'dm-11', title: 'Strategic Industry Connection', content: 'Dear [Name],\n\nI hope this message finds you well.\n\nAs a professional working in [Your Industry], I closely monitor the leaders driving innovation in [Field]. [Company]\'s recent strategic move regarding [Topic] is highly commendable.\n\nI am seeking to broaden my professional network with forward-thinking individuals in this space. I would appreciate the opportunity to connect and stay updated on your work.\n\nBest regards,\n[Your Name]', category: 'Networking', isCopied: false },
+  { id: 'dm-12', title: 'Post-Event Professional Follow-up', content: 'Dear [Name],\n\nIt was a pleasure meeting you at the recent [Event Name]. Our discussion regarding the challenges in [Topic] was highly insightful.\n\nI am keen to stay in touch as we both navigate the evolving landscape of [Field]. I look forward to following your continued success at [Company] and hope we can cross paths again in the near future.\n\nSincerely,\n[Your Name]', category: 'Networking', isCopied: false },
+
+  // Professionals
+  { id: 'dm-13', title: 'Senior Contributor Transition', content: 'Dear [Recruiter Name],\n\nI hope this email finds you well.\n\nI am an experienced [Role] with [X] years of tenure in the [Industry] sector, currently at [Current Company]. Over my career, I have specialized in [Key Skill] and consistently delivered [Key Metric/Impact].\n\nI am currently evaluating new opportunities where I can leverage this expertise to drive strategic value, and [Company]\'s vision aligns perfectly with my ambitions. I would welcome the opportunity to connect and discuss potential synergies.\n\nBest regards,\n[Your Name]', category: 'Professionals', isCopied: false },
+  { id: 'dm-14', title: 'Leadership Opportunity Exploration', content: 'Dear [Name],\n\nI am reaching out regarding potential leadership opportunities within the [Department] at [Company].\n\nIn my current capacity as [Role], I have successfully scaled teams and spearheaded initiatives that resulted in [Quantifiable Result]. I am highly impressed by [Company]\'s recent market expansion and am seeking a role where I can contribute to this accelerated growth.\n\nI have attached my executive summary for your review. Are you open to a brief introductory conversation?\n\nSincerely,\n[Your Name]', category: 'Professionals', isCopied: false },
+  { id: 'dm-15', title: 'Niche Domain Expert Proposition', content: 'Dear [Name],\n\nI hope you are having a productive week.\n\nWith over [X] years of specialized experience in [Niche Tech/Domain], I have architected solutions that resolved [Complex Problem]. I note that [Company] is currently focusing heavily on [Related Area].\n\nI am interested in roles that demand deep domain expertise and would appreciate the opportunity to discuss how my highly specialized background could serve as an asset to your team.\n\nBest regards,\n[Your Name]', category: 'Professionals', isCopied: false },
+
+  // Startups
+  { id: 'dm-16', title: 'Founder Pitch - Scaling Operations', content: 'Dear [Founder Name],\n\nCongratulations on the successful close of your recent funding round. \n\nI am a [Role] with a proven track record of operating effectively in zero-to-one environments. I specialize in building scalable [Systems/Processes] that support hyper-growth, as demonstrated during my tenure at [Previous Startup].\n\nI am deeply passionate about your mission at [Startup] and would welcome the opportunity to discuss how I might contribute to accelerating your immediate roadmap.\n\nBest,\n[Your Name]', category: 'Startups', isCopied: false },
+  { id: 'dm-17', title: 'Founding Team Inquiry', content: 'Dear [Name],\n\nI have been following [Startup]\'s progress, and your approach to solving [Problem] is exceptionally innovative.\n\nI am a seasoned [Role] who thrives in ambiguous, fast-paced environments. I noticed you are expanding your core engineering team and I am highly interested in bringing my expertise in [Skill] to your foundation.\n\nAre you available for a brief discussion this week regarding your technical challenges?\n\nSincerely,\n[Your Name]', category: 'Startups', isCopied: false },
+  { id: 'dm-18', title: 'Startup Value Add Proposition', content: 'Dear [Name],\n\nI am writing to express my enthusiasm for the product you are building at [Startup].\n\nAs a [Role] accustomed to wearing multiple hats, I excel at bridging the gap between [Function A] and [Function B] to drive product velocity. I am eager to apply this cross-functional expertise to help scale your operations.\n\nI would be grateful for the opportunity to share my resume and discuss your upcoming hiring needs.\n\nBest regards,\n[Your Name]', category: 'Startups', isCopied: false },
+
+  // Freelance
+  { id: 'dm-19', title: 'B2B Freelance Consultation', content: 'Dear [Name],\n\nI have been observing [Company]\'s recent expansion into [Domain].\n\nI operate as an independent [Role] consultant, and I recently partnered with [Client] to optimize their [Process/Metric], resulting in a [X]% improvement within [Timeframe]. \n\nI believe there is significant potential to drive similar results for your team. Would you be open to a 10-minute discovery call next week to explore potential contract collaborations?\n\nBest,\n[Your Name]', category: 'Freelance', isCopied: false },
+  { id: 'dm-20', title: 'Contract Bandwidth Support', content: 'Dear [Name],\n\nI hope this email finds you well.\n\nI specialize in providing robust, on-demand freelance [Service] for enterprise-level platforms. If your engineering or design teams anticipate needing specialized expertise or temporary bandwidth for upcoming quarterly initiatives, I would love to connect.\n\nI have attached a brief overview of my recent contract deliverables for your reference.\n\nSincerely,\n[Your Name]', category: 'Freelance', isCopied: false },
+  { id: 'dm-21', title: 'Targeted Portfolio Submission', content: 'Dear [Name],\n\nI am an independent [Role] with a strong affinity for [Company]\'s brand aesthetic and technical execution.\n\nI recently delivered a [Project Type] that bears striking similarities to your upcoming [Target Initiative]. I have detailed a case study of this engagement in my portfolio: [Link].\n\nI am currently onboarding new clients for Q3 and would appreciate the opportunity to discuss how we might collaborate.\n\nBest regards,\n[Your Name]', category: 'Freelance', isCopied: false },
+
+  // Skill Showcase
+  { id: 'dm-22', title: 'Open Source Contribution Leverage', content: 'Dear [Name],\n\nI am reaching out regarding the open roles on your engineering team.\n\nI am a consistent contributor to [Open Source Project], which I understand serves as a core technology in [Company]\'s stack. My deep familiarity with its architecture and recent commits regarding [Feature] position me to add immediate value to your infrastructure.\n\nI would welcome an opportunity to discuss my technical background in greater detail.\n\nSincerely,\n[Your Name]', category: 'Skill Showcase', isCopied: false },
+  { id: 'dm-23', title: 'Data-Backed Side Project Reality', content: 'Dear [Recruiter Name],\n\nI am writing to express my interest in the [Role] position.\n\nTo demonstrate my proficiency in [Tech Stack], I recently independently engineered a solution for [Problem], which scaled to [X] active users in its first month while maintaining high performance. \n\nI am eager to bring this same level of initiative, architectural focus, and problem-solving capability to the enterprise challenges at [Company]. My resume is attached for your review.\n\nBest,\n[Your Name]', category: 'Skill Showcase', isCopied: false },
+  { id: 'dm-24', title: 'Competitive Hackathon Success', content: 'Dear [Name],\n\nI hope this message finds you well.\n\nRecently, my team was awarded first place at [Hackathon] for developing a scalable solution addressing [Problem]. This required rapid iteration, robust architecture in [Tech Stack], and flawless cross-functional execution.\n\nAs a highly capable [Role], I am looking to apply this rigorous, solutions-oriented mindset to the engineering organization at [Company]. I would welcome a brief conversation.\n\nBest regards,\n[Your Name]', category: 'Skill Showcase', isCopied: false },
+
+  // Follow-up
+  { id: 'dm-25', title: 'Formal Post-Interview Gratitude', content: 'Dear [Name],\n\nThank you sincerely for taking the time to speak with me yesterday regarding the [Role] position.\n\nOur conversation regarding your team\'s approach to [Specific Project discussed] reinforced my strong interest in joining [Company]. I am highly confident that my background in [Skill] will allow me to contribute immediately and effectively to those goals.\n\nI look forward to discussing the next steps in the process.\n\nSincerely,\n[Your Name]', category: 'Follow-up', isCopied: false },
+  { id: 'dm-26', title: 'Application Status Update Check', content: 'Dear [Recruiter Name],\n\nI hope you are having a productive week.\n\nI am writing to respectfully follow up on the application I submitted two weeks ago for the [Role] position. I remain highly enthusiastic about the prospect of joining [Company].\n\nAdditionally, I wanted to share a recent case study I completed [Link] that directly reflects the core competencies outlined in your job description. \n\nThank you for your time and continued consideration.\n\nBest regards,\n[Your Name]', category: 'Follow-up', isCopied: false },
+  { id: 'dm-27', title: 'Professional Rejection Follow-up', content: 'Dear [Name],\n\nThank you for updating me regarding the [Role] position. \n\nWhile I am naturally disappointed not to be advancing, I greatly appreciated the opportunity to learn more about [Company] and the innovative work your team is doing.\n\nI remain very interested in your organization and would be honored to stay connected for future opportunities where my skills might be a better alignment.\n\nWishing you and the team continued success.\n\nBest,\n[Your Name]', category: 'Follow-up', isCopied: false },
+
+  // Feedback
+  { id: 'dm-28', title: 'Executive Resume Review Request', content: 'Dear [Name],\n\nI have profound respect for the leadership you bring to the [Field] industry.\n\nAs an emerging [Role], I am actively refining my professional narrative to ensure it resonates with top-tier organizations. Given your executive perspective, I would be incredibly grateful if you might spare a few minutes to provide candid feedback on the structure and impact of my resume.\n\nI understand your time is valuable, and I appreciate your consideration.\n\nSincerely,\n[Your Name]', category: 'Feedback', isCopied: false },
+  { id: 'dm-29', title: 'Design/Technical Portfolio Critique', content: 'Dear [Name],\n\nI have long admired your distinct technical and creative direction at [Company].\n\nI have recently overhauled my [Role] portfolio to better reflect enterprise-level standards. I am seeking perspectives from industry leaders, and an critique from you would be invaluable to my development.\n\nWould you be open to providing a brief review of my work? [Link]\n\nThank you for your time,\n[Your Name]', category: 'Feedback', isCopied: false },
+  { id: 'dm-30', title: 'Post-Interview Constructive Feedback', content: 'Dear [Name],\n\nThank you once again for your time during my recent interview process for the [Role].\n\nAs a professional committed to continuous improvement, I am eager to understand areas where I can strengthen my candidacy. If company policy allows, would you be willing to share any specific, constructive feedback regarding my technical assessment or general presentation?\n\nI would deeply appreciate your guidance.\n\nBest regards,\n[Your Name]', category: 'Feedback', isCopied: false },
 ];
 
 export const collections: Collection[] = [];
@@ -194,18 +232,28 @@ export const massRecruitmentCompanies: MassRecruitmentCompany[] = [
 ];
 
 export const jobPortals: JobPortal[] = [
-  { id: 'jp-1', name: 'Naukri', description: "India's leading job portal founded in 1997, offering extensive job listings across various industries.", url: 'https://naukri.com', category: 'General', region: 'India', isFavorite: false, isApplied: false },
-  { id: 'jp-2', name: 'Indeed', description: "World's largest job board aggregating listings from company websites and job boards globally.", url: 'https://indeed.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-3', name: 'LinkedIn', description: 'Professional networking platform that transformed into a powerful job search engine.', url: 'https://linkedin.com/jobs', category: 'Networking', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-4', name: 'Glassdoor', description: 'Combines job searching with employee reviews and salary insights for informed decisions.', url: 'https://glassdoor.com', category: 'Research', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-5', name: 'AngelList', description: 'The go-to platform for startup jobs. Find roles at early-stage to growth-stage startups.', url: 'https://wellfound.com', category: 'Startups', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-6', name: 'Internshala', description: 'Leading platform for internships and fresher jobs in India with skill-based learning.', url: 'https://internshala.com', category: 'Internships', region: 'India', isFavorite: false, isApplied: false },
-  { id: 'jp-7', name: 'Unstop', description: 'Platform for competitions, hackathons, and job opportunities for students and freshers.', url: 'https://unstop.com', category: 'Competitions', region: 'India', isFavorite: false, isApplied: false },
-  { id: 'jp-8', name: 'Hired', description: 'Job marketplace that matches tech talent with companies. Companies apply to you.', url: 'https://hired.com', category: 'Tech', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-9', name: 'Monster', description: 'One of the pioneering job boards established in 1994, connecting millions of job seekers.', url: 'https://monster.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-10', name: 'ZipRecruiter', description: 'Modern job board that distributes listings to hundreds of job sites simultaneously.', url: 'https://ziprecruiter.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
-  { id: 'jp-11', name: 'Foundit', description: 'Rebranded Monster India, offering comprehensive job search solutions across industries.', url: 'https://foundit.in', category: 'General', region: 'India', isFavorite: false, isApplied: false },
-  { id: 'jp-12', name: 'TimesJobs', description: 'Backed by the Times Group, catering to diverse industries and career levels.', url: 'https://timesjobs.com', category: 'General', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-1', name: 'Naukri', logo: 'https://www.google.com/s2/favicons?domain=naukri.com&sz=128', description: "India's leading job portal founded in 1997, offering extensive job listings across various industries.", url: 'https://naukri.com', category: 'General', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-2', name: 'Indeed', logo: 'https://www.google.com/s2/favicons?domain=indeed.com&sz=128', description: "World's largest job board aggregating listings from company websites and job boards globally.", url: 'https://indeed.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-3', name: 'LinkedIn', logo: 'https://www.google.com/s2/favicons?domain=linkedin.com&sz=128', description: 'Professional networking platform that transformed into a powerful job search engine.', url: 'https://linkedin.com/jobs', category: 'Networking', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-4', name: 'Glassdoor', logo: 'https://www.google.com/s2/favicons?domain=glassdoor.com&sz=128', description: 'Combines job searching with employee reviews and salary insights for informed decisions.', url: 'https://glassdoor.com', category: 'Research', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-5', name: 'AngelList', logo: 'https://www.google.com/s2/favicons?domain=wellfound.com&sz=128', description: 'The go-to platform for startup jobs. Find roles at early-stage to growth-stage startups.', url: 'https://wellfound.com', category: 'Startups', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-6', name: 'Internshala', logo: 'https://www.google.com/s2/favicons?domain=internshala.com&sz=128', description: 'Leading platform for internships and fresher jobs in India with skill-based learning.', url: 'https://internshala.com', category: 'Internships', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-7', name: 'Unstop', logo: 'https://www.google.com/s2/favicons?domain=unstop.com&sz=128', description: 'Platform for competitions, hackathons, and job opportunities for students and freshers.', url: 'https://unstop.com', category: 'Competitions', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-8', name: 'Hired', logo: 'https://www.google.com/s2/favicons?domain=hired.com&sz=128', description: 'Job marketplace that matches tech talent with companies. Companies apply to you.', url: 'https://hired.com', category: 'Tech', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-9', name: 'Monster', logo: 'https://www.google.com/s2/favicons?domain=monster.com&sz=128', description: 'One of the pioneering job boards established in 1994, connecting millions of job seekers.', url: 'https://monster.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-10', name: 'ZipRecruiter', logo: 'https://www.google.com/s2/favicons?domain=ziprecruiter.com&sz=128', description: 'Modern job board that distributes listings to hundreds of job sites simultaneously.', url: 'https://ziprecruiter.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-11', name: 'Foundit', logo: 'https://www.google.com/s2/favicons?domain=foundit.in&sz=128', description: 'Rebranded Monster India, offering comprehensive job search solutions across industries.', url: 'https://foundit.in', category: 'General', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-12', name: 'TimesJobs', logo: 'https://www.google.com/s2/favicons?domain=timesjobs.com&sz=128', description: 'Backed by the Times Group, catering to diverse industries and career levels.', url: 'https://timesjobs.com', category: 'General', region: 'India', isFavorite: false, isApplied: false },
+  { id: 'jp-13', name: 'YC Work at a Startup', logo: 'https://www.google.com/s2/favicons?domain=workatastartup.com&sz=128', description: 'Apply to top Y Combinator startups directly. Get hired by fast-growing companies.', url: 'https://www.workatastartup.com', category: 'Startups', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-14', name: 'Dice', logo: 'https://www.google.com/s2/favicons?domain=dice.com&sz=128', description: 'Leading database for technology professionals, connecting tech talent with employers.', url: 'https://www.dice.com', category: 'Tech', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-15', name: 'Remote OK', logo: 'https://www.google.com/s2/favicons?domain=remoteok.com&sz=128', description: 'The #1 remote job board to find remote jobs and work from anywhere.', url: 'https://remoteok.com', category: 'Remote', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-16', name: 'SimplyHired', logo: 'https://www.google.com/s2/favicons?domain=simplyhired.com&sz=128', description: 'Aggregates job listings from thousands of websites and job boards globally.', url: 'https://www.simplyhired.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-17', name: 'FlexJobs', logo: 'https://www.google.com/s2/favicons?domain=flexjobs.com&sz=128', description: 'Find the best remote, part-time, freelance, and flexible jobs available.', url: 'https://www.flexjobs.com', category: 'Remote', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-18', name: 'Snagajob', logo: 'https://www.google.com/s2/favicons?domain=snagajob.com&sz=128', description: 'The #1 platform for hourly work, connecting job seekers with local opportunities.', url: 'https://www.snagajob.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-19', name: 'Ladders', logo: 'https://www.google.com/s2/favicons?domain=theladders.com&sz=128', description: 'Focused on high-paying jobs ($100K+) for experienced professionals.', url: 'https://www.theladders.com', category: 'Tech', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-20', name: 'CareerBuilder', logo: 'https://www.google.com/s2/favicons?domain=careerbuilder.com&sz=128', description: 'One of the largest online job sites offering AI-driven talent acquisition solutions.', url: 'https://www.careerbuilder.com', category: 'General', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-21', name: 'Upwork', logo: 'https://www.google.com/s2/favicons?domain=upwork.com&sz=128', description: 'The worlds largest work marketplace. Connecting businesses with independent talent.', url: 'https://www.upwork.com', category: 'Freelance', region: 'Global', isFavorite: false, isApplied: false },
+  { id: 'jp-22', name: 'Fiverr', logo: 'https://www.google.com/s2/favicons?domain=fiverr.com&sz=128', description: 'Find the perfect freelance services for your business on the premier freelance marketplace.', url: 'https://www.fiverr.com', category: 'Freelance', region: 'Global', isFavorite: false, isApplied: false },
 ];
 
 export const handwrittenNotes: HandwrittenNote[] = [
@@ -222,40 +270,48 @@ export const handwrittenNotes: HandwrittenNote[] = [
 ];
 
 export const roadmaps: Roadmap[] = [
-  { id: 'rm-1', title: 'Freshers Roadmap', description: 'A step-by-step guide for fresh graduates to build skills, projects, and confidence.', category: 'Freshers', isFree: true, steps: [
-    { title: 'Learn a Programming Language', completed: false },
-    { title: 'Master Data Structures & Algorithms', completed: false },
-    { title: 'Build 2-3 Projects', completed: false },
-    { title: 'Learn Git & Version Control', completed: false },
-    { title: 'Practice Interview Questions', completed: false },
-    { title: 'Build Your Resume', completed: false },
-    { title: 'Apply to Companies', completed: false },
-  ]},
-  { id: 'rm-2', title: 'Backend Developer Roadmap', description: 'A complete roadmap covering programming fundamentals, database mastery, API design, frameworks, and deployment.', category: 'Backend Development', isFree: false, steps: [
-    { title: 'Master a Backend Language (Node.js/Python/Java)', completed: false },
-    { title: 'Learn SQL & NoSQL Databases', completed: false },
-    { title: 'Build RESTful APIs', completed: false },
-    { title: 'Learn Authentication & Authorization', completed: false },
-    { title: 'Master Docker & Deployment', completed: false },
-    { title: 'Learn System Design Basics', completed: false },
-    { title: 'Build Production Projects', completed: false },
-  ]},
-  { id: 'rm-3', title: 'Data Science Career Roadmap', description: 'A step-by-step guide from beginner to advanced for aspiring data scientists.', category: 'Data Science', isFree: false, steps: [
-    { title: 'Learn Python & Statistics', completed: false },
-    { title: 'Master Pandas, NumPy, Matplotlib', completed: false },
-    { title: 'Learn Machine Learning Algorithms', completed: false },
-    { title: 'Practice on Kaggle Competitions', completed: false },
-    { title: 'Learn Deep Learning & NLP', completed: false },
-    { title: 'Build End-to-End Projects', completed: false },
-  ]},
-  { id: 'rm-4', title: 'Frontend Developer Roadmap', description: 'From HTML/CSS basics to React mastery - everything you need to become a frontend expert.', category: 'Frontend Development', isFree: true, steps: [
-    { title: 'Master HTML5 & CSS3', completed: false },
-    { title: 'Learn JavaScript Fundamentals', completed: false },
-    { title: 'Learn React.js', completed: false },
-    { title: 'Master State Management', completed: false },
-    { title: 'Learn Testing (Jest, RTL)', completed: false },
-    { title: 'Build Portfolio Projects', completed: false },
-  ]},
+  {
+    id: 'rm-1', title: 'Freshers Roadmap', description: 'A step-by-step guide for fresh graduates to build skills, projects, and confidence.', category: 'Freshers', isFree: true, steps: [
+      { title: 'Learn a Programming Language', completed: false },
+      { title: 'Master Data Structures & Algorithms', completed: false },
+      { title: 'Build 2-3 Projects', completed: false },
+      { title: 'Learn Git & Version Control', completed: false },
+      { title: 'Practice Interview Questions', completed: false },
+      { title: 'Build Your Resume', completed: false },
+      { title: 'Apply to Companies', completed: false },
+    ]
+  },
+  {
+    id: 'rm-2', title: 'Backend Developer Roadmap', description: 'A complete roadmap covering programming fundamentals, database mastery, API design, frameworks, and deployment.', category: 'Backend Development', isFree: false, steps: [
+      { title: 'Master a Backend Language (Node.js/Python/Java)', completed: false },
+      { title: 'Learn SQL & NoSQL Databases', completed: false },
+      { title: 'Build RESTful APIs', completed: false },
+      { title: 'Learn Authentication & Authorization', completed: false },
+      { title: 'Master Docker & Deployment', completed: false },
+      { title: 'Learn System Design Basics', completed: false },
+      { title: 'Build Production Projects', completed: false },
+    ]
+  },
+  {
+    id: 'rm-3', title: 'Data Science Career Roadmap', description: 'A step-by-step guide from beginner to advanced for aspiring data scientists.', category: 'Data Science', isFree: false, steps: [
+      { title: 'Learn Python & Statistics', completed: false },
+      { title: 'Master Pandas, NumPy, Matplotlib', completed: false },
+      { title: 'Learn Machine Learning Algorithms', completed: false },
+      { title: 'Practice on Kaggle Competitions', completed: false },
+      { title: 'Learn Deep Learning & NLP', completed: false },
+      { title: 'Build End-to-End Projects', completed: false },
+    ]
+  },
+  {
+    id: 'rm-4', title: 'Frontend Developer Roadmap', description: 'From HTML/CSS basics to React mastery - everything you need to become a frontend expert.', category: 'Frontend Development', isFree: true, steps: [
+      { title: 'Master HTML5 & CSS3', completed: false },
+      { title: 'Learn JavaScript Fundamentals', completed: false },
+      { title: 'Learn React.js', completed: false },
+      { title: 'Master State Management', completed: false },
+      { title: 'Learn Testing (Jest, RTL)', completed: false },
+      { title: 'Build Portfolio Projects', completed: false },
+    ]
+  },
 ];
 
 export const positionResources: PositionResource[] = [

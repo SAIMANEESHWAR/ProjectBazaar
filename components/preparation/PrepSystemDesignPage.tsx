@@ -14,16 +14,22 @@ interface SDQuestion {
   designType: string;
   isSolved?: boolean;
   isBookmarked?: boolean;
+  content?: string;
+  diagramUrl?: string;
+  topics?: string[];
 }
 
 export interface PrepSystemDesignPageProps { toggleSidebar?: () => void; designTab?: DesignTab; }
 type FilterTab = 'all' | 'solved' | 'revision';
 const ITEMS_PER_PAGE = 15;
 
+const HLD_SECTIONS = ['System Design', 'Distributed Systems'];
+const LLD_SECTIONS = ['Object-Oriented Design', 'System Design', 'Game Design', 'Data Structures', 'Design Patterns'];
+
 const difficultyClass = (d: string) => {
-  if (d === 'Easy') return 'bg-green-100 text-green-700';
-  if (d === 'Medium') return 'bg-yellow-100 text-yellow-700';
-  return 'bg-red-100 text-red-700';
+  if (d === 'Easy') return 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300';
+  if (d === 'Medium') return 'bg-yellow-100 text-yellow-700 dark:bg-amber-900/50 dark:text-amber-300';
+  return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300';
 };
 
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
@@ -44,7 +50,9 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
-  const [allQuestions, setAllQuestions] = useState<SDQuestion[]>([]);
+  const [questions, setQuestions] = useState<SDQuestion[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
@@ -52,23 +60,40 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   const [viewMode, setViewMode] = useViewMode();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const sections = designTab === 'hld' ? HLD_SECTIONS : LLD_SECTIONS;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     (async () => {
       try {
-        const resp = await prepUserApi.listContentWithProgress<SDQuestion>('system_design', {
+        const filters: Record<string, string | number | boolean> = {
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
           designType: designTab,
-          limit: 500,
-        });
+        };
+        if (sectionFilter !== 'all') filters.section = sectionFilter;
+        if (difficultyFilter !== 'all') filters.difficulty = difficultyFilter;
+        if (search.trim()) filters.search = search.trim();
+        if (filterTab === 'solved') filters.solvedOnly = true;
+        if (sortKey) {
+          filters.sortBy = sortKey;
+          filters.sortOrder = sortDir;
+        }
+        const resp = await prepUserApi.listContentWithProgress<SDQuestion>('system_design', filters);
         if (!cancelled && resp.success) {
-          setAllQuestions(resp.items || []);
+          setQuestions(resp.items || []);
+          setTotalCount(resp.total ?? 0);
+          setTotalPages(resp.totalPages ?? 1);
         }
       } catch { /* API only */ }
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [designTab]);
+  }, [designTab, currentPage, sectionFilter, difficultyFilter, search, filterTab, sortKey, sortDir]);
+
+  useEffect(() => { setCurrentPage(1); }, [designTab, filterTab, sectionFilter, difficultyFilter, search]);
+  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); setCurrentPage(1); setExpandedId(null); }, [designTab]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -78,58 +103,15 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
   const label = designTab === 'hld' ? 'High Level Design' : 'Low Level Design';
   const shortLabel = designTab === 'hld' ? 'HLD' : 'LLD';
 
-  const sections = useMemo(() => [...new Set(allQuestions.map(q => q.section))], [allQuestions]);
-
-  const questions = useMemo(() => {
-    const filtered = allQuestions.filter((q) => {
-      const isSolved = q.isSolved ?? false;
-      const isRevision = q.isBookmarked ?? false;
-      if (filterTab === 'solved' && !isSolved) return false;
-      if (filterTab === 'revision' && !isRevision) return false;
-      if (sectionFilter !== 'all' && q.section !== sectionFilter) return false;
-      if (difficultyFilter !== 'all' && q.difficulty !== difficultyFilter) return false;
-      if (search.trim()) {
-        const s = search.toLowerCase();
-        return q.title.toLowerCase().includes(s) || q.description.toLowerCase().includes(s);
-      }
-      return true;
-    });
-    if (!sortKey) return filtered;
-    return [...filtered].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === 'title') cmp = a.title.localeCompare(b.title);
-      else if (sortKey === 'section') cmp = a.section.localeCompare(b.section);
-      else if (sortKey === 'difficulty') cmp = diffOrder[a.difficulty] - diffOrder[b.difficulty];
-      return sortDir === 'desc' ? -cmp : cmp;
-    });
-  }, [allQuestions, filterTab, sectionFilter, difficultyFilter, search, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(questions.length / ITEMS_PER_PAGE);
-  const paginated = useMemo(() => {
-    const s = (currentPage - 1) * ITEMS_PER_PAGE;
-    return questions.slice(s, s + ITEMS_PER_PAGE);
-  }, [questions, currentPage]);
-
-  useEffect(() => { setCurrentPage(1); }, [designTab, filterTab, sectionFilter, difficultyFilter, search]);
-  useEffect(() => { setFilterTab('all'); setSectionFilter('all'); setDifficultyFilter('all'); setSearch(''); setCurrentPage(1); setExpandedId(null); }, [designTab]);
-
-  const stats = useMemo(() => {
-    const total = allQuestions.length;
-    const easy = allQuestions.filter(q => q.difficulty === 'Easy').length;
-    const medium = allQuestions.filter(q => q.difficulty === 'Medium').length;
-    const hard = allQuestions.filter(q => q.difficulty === 'Hard').length;
-    const solved = allQuestions.filter(q => q.isSolved).length;
-    const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
-    return { total, easy, medium, hard, solved, pct };
-  }, [allQuestions]);
+  const solvedOnPage = questions.filter(q => q.isSolved).length;
 
   const toggleSolved = useCallback((id: string) => {
-    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
     prepUserApi.toggleSolved('system_design', id).catch(() => {});
   }, []);
 
   const toggleRevision = useCallback((id: string) => {
-    setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
     prepUserApi.toggleBookmarked('system_design', id).catch(() => {});
   }, []);
 
@@ -167,31 +149,28 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500">Total Progress</p>
-            <span className="text-xs font-semibold text-orange-500">{stats.pct}%</span>
+            <p className="text-sm text-gray-500">Total Questions</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.solved}<span className="text-base font-normal text-gray-400">/ {stats.total}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{totalCount}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500">Easy Questions</p>
+            <p className="text-sm text-gray-500">Current Page</p>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{currentPage}<span className="text-base font-normal text-gray-400"> / {totalPages}</span></p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-gray-500">Solved on this page</p>
             <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
           </div>
-          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Easy' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.easy}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{solvedOnPage}<span className="text-base font-normal text-gray-400"> / {questions.length}</span></p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500">Medium Questions</p>
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+            <p className="text-sm text-gray-500">Page size</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Medium' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.medium}</span></p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500">Hard Questions</p>
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{allQuestions.filter(q => q.difficulty === 'Hard' && q.isSolved).length}<span className="text-base font-normal text-gray-400">/ {stats.hard}</span></p>
+          <p className="text-3xl font-bold text-gray-900">{ITEMS_PER_PAGE}</p>
         </div>
       </div>
 
@@ -206,6 +185,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
           value={sectionFilter}
           onChange={setSectionFilter}
           options={[{ value: 'all', label: 'All Sections' }, ...sections.map(s => ({ value: s, label: s }))]}
+          key={designTab}
         />
         <PrepFilterDropdown
           value={difficultyFilter}
@@ -236,41 +216,41 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
           <p className="text-gray-500 font-medium">No questions match your filters.</p>
         </div>
       ) : !loading && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm overflow-hidden">
           {viewMode === 'table' ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('title')}>
+                <tr className="border-b border-gray-200 dark:border-gray-600">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-12">#</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors" onClick={() => handleSort('title')}>
                     <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'title'} dir={sortDir} /></span>
                   </th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-44 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('section')}>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-44 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors" onClick={() => handleSort('section')}>
                     <span className="inline-flex items-center">Section <SortIcon active={sortKey === 'section'} dir={sortDir} /></span>
                   </th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors" onClick={() => handleSort('difficulty')}>
                     <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
                   </th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Solved</th>
+                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Revision</th>
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((q, idx) => {
+                {questions.map((q, idx) => {
                   const isSolved = q.isSolved ?? false;
                   const isRevision = q.isBookmarked ?? false;
-                  const gi = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                  const gi = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
                   const isExpanded = expandedId === q.id;
                   return (
                     <>
-                    <tr key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
-                      <td className="px-5 py-4 text-sm text-gray-400 font-medium">{gi + 1}</td>
+                    <tr key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 cursor-pointer">
+                      <td className="px-5 py-4 text-sm text-gray-400 dark:text-gray-500 font-medium">{gi + 1}</td>
                       <td className="px-5 py-4">
-                        <p className="text-sm font-semibold text-gray-900">{q.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{q.description}</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{q.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{q.description}</p>
                       </td>
-                      <td className="px-5 py-4 text-sm text-gray-500">{q.section}</td>
+                      <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{q.section}</td>
                       <td className="px-5 py-4 text-center">
                         <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                       </td>
@@ -294,11 +274,34 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr key={`${q.id}-detail`} className="bg-orange-50/50">
+                      <tr key={`${q.id}-detail`} className="bg-orange-50/50 dark:bg-gray-800/80">
                         <td colSpan={6} className="px-5 py-4">
-                          <div className="text-sm text-gray-700 leading-relaxed">
-                            <p className="font-semibold text-gray-900 mb-2">Description</p>
-                            <p>{q.description}</p>
+                          <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-4">
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-white mb-1">Description</p>
+                              <p className="text-gray-600 dark:text-gray-300">{q.description}</p>
+                            </div>
+                            {q.content && (
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
+                                <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">{q.content}</p>
+                              </div>
+                            )}
+                            {q.diagramUrl && (
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
+                                {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
+                                  <img src={q.diagramUrl} alt="Architecture diagram" className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm max-h-80 object-contain" />
+                                ) : (
+                                  <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
+                                )}
+                              </div>
+                            )}
+                            {q.topics && q.topics.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {q.topics.map(t => <span key={t} className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200 rounded-full">{t}</span>)}
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -311,12 +314,12 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
           </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-            {paginated.map((q) => {
+            {questions.map((q) => {
               const isSolved = q.isSolved ?? false;
               const isRevision = q.isBookmarked ?? false;
               const isExpanded = expandedId === q.id;
               return (
-                <div key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
+                <div key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="group border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 cursor-pointer">
                   <div className="flex items-center justify-between mb-3">
                     <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                     <div className="flex items-center gap-1">
@@ -336,13 +339,34 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                       </button>
                     </div>
                   </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
-                  <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">{q.section}</span>
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{q.title}</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{q.description}</p>
+                  <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-300 rounded-full ring-1 ring-cyan-100 dark:ring-cyan-800">{q.section}</span>
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600 leading-relaxed">
-                      <p className="font-semibold text-gray-900 mb-1">Description</p>
-                      <p>{q.description}</p>
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 leading-relaxed space-y-3">
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white mb-1">Description</p>
+                        <p className="text-gray-600 dark:text-gray-300">{q.description}</p>
+                      </div>
+                      {q.content && (
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white mb-1">Solution</p>
+                          <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">{q.content}</p>
+                        </div>
+                      )}
+                      {q.diagramUrl && (
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white mb-1">Diagram</p>
+                          {/\.(jpg|jpeg|png|gif|webp)$/i.test(q.diagramUrl) ? (
+                            <img src={q.diagramUrl} alt="Diagram" className="max-w-full rounded border border-gray-200 dark:border-gray-600 max-h-48 object-contain" />
+                          ) : (
+                            <a href={q.diagramUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">View diagram ↗</a>
+                          )}
+                        </div>
+                      )}
+                      {q.topics && q.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1">{q.topics.map(t => <span key={t} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200 rounded-full">{t}</span>)}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -356,8 +380,8 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 border-t border-gray-200">
               <p className="text-sm text-gray-500">
                 Showing <span className="font-semibold text-gray-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
-                <span className="font-semibold text-gray-900">{Math.min(currentPage * ITEMS_PER_PAGE, questions.length)}</span> of{' '}
-                <span className="font-semibold text-gray-900">{questions.length}</span> questions
+                <span className="font-semibold text-gray-900">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> of{' '}
+                <span className="font-semibold text-gray-900">{totalCount}</span> questions
               </p>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">

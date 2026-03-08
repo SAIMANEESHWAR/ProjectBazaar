@@ -49,10 +49,12 @@ async function uploadInBatches(contentType: string, items: Record<string, unknow
 function flattenSystemDesign(): Record<string, unknown>[] {
   const items: Record<string, unknown>[] = [];
   for (const q of hldQuestions) {
-    items.push({ ...q, designType: 'hld', isSolved: undefined, isRevision: undefined });
+    const { isSolved, isRevision, ...rest } = q;
+    items.push({ ...rest, designType: 'hld', content: q.content ?? '', diagramUrl: q.diagramUrl ?? '', section: q.section, topics: q.topics ?? [] });
   }
   for (const q of lldQuestions) {
-    items.push({ ...q, designType: 'lld', isSolved: undefined, isRevision: undefined });
+    const { isSolved, isRevision, ...rest } = q;
+    items.push({ ...rest, designType: 'lld', content: q.content ?? '', diagramUrl: q.diagramUrl ?? '', section: q.section, topics: q.topics ?? [] });
   }
   return items;
 }
