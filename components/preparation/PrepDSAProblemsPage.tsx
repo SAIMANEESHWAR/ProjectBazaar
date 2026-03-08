@@ -169,8 +169,8 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
-                ? 'bg-orange-500 text-white'
-                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+              ? 'bg-orange-500 text-white'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
               }`}
           >
             {tab}
@@ -310,11 +310,11 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr key={`${problem.id}-solution`} className="bg-orange-50/50 border-b border-gray-100">
+                            <tr key={`${problem.id}-solution`} className="bg-black/80 dark:bg-black/80 border-b border-gray-100 dark:border-gray-800">
                               <td colSpan={7} className="px-5 py-4">
                                 <div className="pl-4 border-l-3 border-orange-400">
-                                  <p className="text-sm font-semibold text-gray-900 mb-2">Solution</p>
-                                  <p className="text-sm text-gray-700 leading-relaxed mb-2">{problem.description}</p>
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Solution</p>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-2">{problem.description}</p>
                                   {solutionLink ? (
                                     <a href={solutionLink} target="_blank" rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 font-medium">

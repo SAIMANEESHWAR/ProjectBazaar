@@ -295,7 +295,7 @@ export default function PrepSystemDesignPage({ designTab: designTabProp = 'hld' 
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr key={`${q.id}-detail`} className="bg-orange-50/50 dark:bg-gray-800/80">
+                          <tr key={`${q.id}-detail`} className="bg-black/80 dark:bg-black/80">
                             <td colSpan={6} className="px-5 py-4">
                               <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-4">
                                 <div>

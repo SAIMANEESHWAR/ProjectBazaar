@@ -187,8 +187,8 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
               setCurrentPage(1);
             }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
-                ? 'bg-orange-500 text-white'
-                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+              ? 'bg-orange-500 text-white'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
               }`}
           >
             {tab}
@@ -332,21 +332,21 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${q.id}-answer`} className="bg-orange-50/50 border-b border-gray-200">
+                        <tr key={`${q.id}-answer`} className="bg-black/80 dark:bg-black/80 border-b border-gray-200 dark:border-gray-800">
                           <td colSpan={6} className="py-4 px-4">
                             <div className="pl-4 border-l-3 border-orange-400">
                               {answer ? (
                                 <>
-                                  <p className="text-sm font-semibold text-gray-900 mb-2">Answer</p>
-                                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{answer}</p>
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Answer</p>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{answer}</p>
                                 </>
                               ) : (
                                 <p className="text-sm text-gray-400 italic">No answer available yet.</p>
                               )}
                               {hints && hints.length > 0 && (
                                 <div className="mt-3">
-                                  <p className="text-sm font-semibold text-gray-900 mb-1">Hints</p>
-                                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-0.5">
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Hints</p>
+                                  <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-0.5">
                                     {hints.map((h, i) => <li key={i}>{h}</li>)}
                                   </ul>
                                 </div>
