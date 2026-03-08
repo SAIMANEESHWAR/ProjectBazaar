@@ -3,6 +3,8 @@ import type { DSAProblem } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepDSAProblemsPageProps {
   toggleSidebar?: () => void;
@@ -51,46 +53,56 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Server-side pagination: fetch only the current page with filters
-  useEffect(() => {
-    let cancelled = false;
+  const fetchProblems = useCallback(async (cancelled = { current: false }) => {
     setLoading(true);
-    (async () => {
-      try {
-        const filters: Record<string, string | number | boolean> = {
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-        };
-        if (topicFilter !== 'all') filters.topic = topicFilter;
-        if (difficultyFilter !== 'all') filters.difficulty = difficultyFilter;
-        if (search.trim()) filters.search = search.trim();
-        if (activeTab === 'Solved') filters.solvedOnly = true;
+    try {
+      const filters: Record<string, string | number | boolean> = {
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      };
+      if (topicFilter !== 'all') filters.topic = topicFilter;
+      if (difficultyFilter !== 'all') filters.difficulty = difficultyFilter;
+      if (search.trim()) filters.search = search.trim();
+      if (activeTab === 'Solved') filters.solvedOnly = true;
 
-        const [resp, dashboard] = await Promise.all([
-          prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', filters),
-          prepUserApi.getDashboard(),
-        ]);
-        if (!cancelled && resp.success) {
-          setProblems(resp.items ?? []);
-          setTotalCount(resp.total ?? 0);
-          setApiTotalPages(resp.totalPages ?? 1);
-        }
-        if (!cancelled && dashboard?.contentCounts) {
-          const cc = dashboard.contentCounts;
-          const total = (cc.dsa_problems as number) ?? 0;
-          setStats({
-            totalDSA: total,
-            dsaEasy: Math.floor(total * 0.35),
-            dsaMedium: Math.floor(total * 0.5),
-            dsaHard: Math.floor(total * 0.15),
-          });
-        }
-      } catch { /* API only */ }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
+      const [resp, dashboard] = await Promise.all([
+        prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', filters),
+        prepUserApi.getDashboard(),
+      ]);
+      if (!cancelled.current && resp.success) {
+        setProblems(resp.items ?? []);
+        setTotalCount(resp.total ?? 0);
+        setApiTotalPages(resp.totalPages ?? 1);
+      }
+      if (!cancelled.current && dashboard?.contentCounts) {
+        const cc = dashboard.contentCounts;
+        const total = (cc.dsa_problems as number) ?? 0;
+        setStats({
+          totalDSA: total,
+          dsaEasy: Math.floor(total * 0.35),
+          dsaMedium: Math.floor(total * 0.5),
+          dsaHard: Math.floor(total * 0.15),
+        });
+      }
+    } catch { /* API only */ }
+    if (!cancelled.current) setLoading(false);
   }, [currentPage, topicFilter, difficultyFilter, search, activeTab]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchProblems(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchProblems]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:dsa_problems');
+    await fetchProblems();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   useEffect(() => { setCurrentPage(1); }, [search, topicFilter, difficultyFilter, activeTab]);
 
@@ -115,14 +127,14 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
     setProblems((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isSolved: !p.isSolved } : p))
     );
-    prepUserApi.toggleSolved('dsa_problems', id).catch(() => {});
+    prepUserApi.toggleSolved('dsa_problems', id).catch(() => { });
   }, []);
 
   const toggleBookmark = useCallback((id: string) => {
     setProblems((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isBookmarked: !p.isBookmarked } : p))
     );
-    prepUserApi.toggleBookmarked('dsa_problems', id).catch(() => {});
+    prepUserApi.toggleBookmarked('dsa_problems', id).catch(() => { });
   }, []);
 
   return (
@@ -156,11 +168,10 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeTab === tab
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
                 ? 'bg-orange-500 text-white'
                 : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-            }`}
+              }`}
           >
             {tab}
           </button>
@@ -195,7 +206,24 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           onChange={setDifficultyFilter}
           options={[{ value: 'all', label: 'All Difficulties' }, { value: 'Easy', label: 'Easy' }, { value: 'Medium', label: 'Medium' }, { value: 'Hard', label: 'Hard' }]}
         />
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh problems"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh problems
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
         {(topicFilter !== 'all' || difficultyFilter !== 'all' || search.trim()) && (
           <button onClick={() => { setTopicFilter('all'); setDifficultyFilter('all'); setSearch(''); }}
             className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
@@ -239,67 +267,67 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                       const solutionLink = (problem as any).solutionLink as string | undefined;
                       return (
                         <>
-                        <tr key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
-                          <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
-                          <td className="px-5 py-4">
-                            <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{problem.description}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Acceptance: {problem.acceptance}%</p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{problem.topic}</span>
-                          </td>
-                          <td className="px-5 py-4 text-center">
-                            <DifficultyBadge difficulty={problem.difficulty} />
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {problem.company.slice(0, 3).map((c) => (
-                                <span key={c} className="px-1.5 py-0.5 rounded text-xs bg-orange-50 text-orange-700">{c}</span>
-                              ))}
-                              {problem.company.length > 3 && (
-                                <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">+{problem.company.length - 3}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 text-center">
-                            <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                              {problem.isSolved ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                              ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                              )}
-                            </button>
-                          </td>
-                          <td className="px-5 py-4 text-center">
-                            <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                              {problem.isBookmarked ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                              ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                              )}
-                            </button>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr key={`${problem.id}-solution`} className="bg-orange-50/50 border-b border-gray-100">
-                            <td colSpan={7} className="px-5 py-4">
-                              <div className="pl-4 border-l-3 border-orange-400">
-                                <p className="text-sm font-semibold text-gray-900 mb-2">Solution</p>
-                                <p className="text-sm text-gray-700 leading-relaxed mb-2">{problem.description}</p>
-                                {solutionLink ? (
-                                  <a href={solutionLink} target="_blank" rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 font-medium">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                    View Full Solution
-                                  </a>
-                                ) : (
-                                  <p className="text-sm text-gray-400 italic">No solution link available yet.</p>
+                          <tr key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
+                            <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
+                            <td className="px-5 py-4">
+                              <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{problem.description}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">Acceptance: {problem.acceptance}%</p>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{problem.topic}</span>
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              <DifficultyBadge difficulty={problem.difficulty} />
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {problem.company.slice(0, 3).map((c) => (
+                                  <span key={c} className="px-1.5 py-0.5 rounded text-xs bg-orange-50 text-orange-700">{c}</span>
+                                ))}
+                                {problem.company.length > 3 && (
+                                  <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">+{problem.company.length - 3}</span>
                                 )}
                               </div>
                             </td>
+                            <td className="px-5 py-4 text-center">
+                              <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                                {problem.isSolved ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                ) : (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                )}
+                              </button>
+                            </td>
+                            <td className="px-5 py-4 text-center">
+                              <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                                {problem.isBookmarked ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                                ) : (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                                )}
+                              </button>
+                            </td>
                           </tr>
-                        )}
+                          {isExpanded && (
+                            <tr key={`${problem.id}-solution`} className="bg-orange-50/50 border-b border-gray-100">
+                              <td colSpan={7} className="px-5 py-4">
+                                <div className="pl-4 border-l-3 border-orange-400">
+                                  <p className="text-sm font-semibold text-gray-900 mb-2">Solution</p>
+                                  <p className="text-sm text-gray-700 leading-relaxed mb-2">{problem.description}</p>
+                                  {solutionLink ? (
+                                    <a href={solutionLink} target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 font-medium">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                      View Full Solution
+                                    </a>
+                                  ) : (
+                                    <p className="text-sm text-gray-400 italic">No solution link available yet.</p>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </>
                       );
                     })}
@@ -314,53 +342,53 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                 const isExpanded = expandedId === problem.id;
                 const solutionLink = (problem as any).solutionLink as string | undefined;
                 return (
-                <div key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
-                  <div className="flex items-start justify-between mb-3">
-                    <DifficultyBadge difficulty={problem.difficulty} />
-                    <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                      {problem.isBookmarked ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                      )}
-                    </button>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">{problem.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{problem.description}</p>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="prep-topic-chip text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{problem.topic}</span>
-                    {problem.company.slice(0, 2).map((c) => (
-                      <span key={c} className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">{c}</span>
-                    ))}
-                    {problem.company.length > 2 && (
-                      <span className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">+{problem.company.length - 2}</span>
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Acceptance: {problem.acceptance}%</span>
-                    <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                      {problem.isSolved ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      )}
-                    </button>
-                  </div>
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-900 mb-1">Solution</p>
-                      {solutionLink ? (
-                        <a href={solutionLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                          View Full Solution
-                        </a>
-                      ) : (
-                        <p className="text-xs text-gray-400 italic">No solution link available yet.</p>
+                  <div key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
+                    <div className="flex items-start justify-between mb-3">
+                      <DifficultyBadge difficulty={problem.difficulty} />
+                      <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        {problem.isBookmarked ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                        )}
+                      </button>
+                    </div>
+                    <h4 className="font-semibold text-gray-900 text-sm">{problem.title}</h4>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{problem.description}</p>
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      <span className="prep-topic-chip text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{problem.topic}</span>
+                      {problem.company.slice(0, 2).map((c) => (
+                        <span key={c} className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">{c}</span>
+                      ))}
+                      {problem.company.length > 2 && (
+                        <span className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-700 rounded">+{problem.company.length - 2}</span>
                       )}
                     </div>
-                  )}
-                </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-xs text-gray-400">Acceptance: {problem.acceptance}%</span>
+                      <button onClick={(e) => { e.stopPropagation(); toggleSolved(problem.id); }} className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 ${problem.isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        {problem.isSolved ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        )}
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs font-semibold text-gray-900 mb-1">Solution</p>
+                        {solutionLink ? (
+                          <a href={solutionLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            View Full Solution
+                          </a>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">No solution link available yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -412,8 +440,8 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
             <button
-onClick={() => setCurrentPage(apiTotalPages)}
-                disabled={currentPage === apiTotalPages}
+              onClick={() => setCurrentPage(apiTotalPages)}
+              disabled={currentPage === apiTotalPages}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>

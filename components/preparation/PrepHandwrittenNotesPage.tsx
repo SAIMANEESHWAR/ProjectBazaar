@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { HandwrittenNote } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepHandwrittenNotesPageProps {
   toggleSidebar?: () => void;
@@ -23,19 +25,29 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useViewMode('grid');
   const [notes, setNotes] = useState<HandwrittenNote[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchNotes = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const resp = await prepUserApi.listContent('handwritten_notes', { limit: 200 });
+      if (!cancelled.current && resp.success && resp.items.length > 0) {
+        setNotes((resp.items || []) as unknown as HandwrittenNote[]);
+      }
+    } catch { /* API only */ }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await prepUserApi.listContent('handwritten_notes', { limit: 200 });
-        if (!cancelled && resp.success && resp.items.length > 0) {
-          setNotes((resp.items || []) as unknown as HandwrittenNote[]);
-        }
-      } catch { /* API only */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    const cancelled = { current: false };
+    fetchNotes(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchNotes]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:handwritten_notes');
+    await fetchNotes();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const filteredNotes = useMemo(() => {
     if (!search.trim()) return notes;
@@ -63,7 +75,24 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200"
         />
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh notes"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh notes
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {viewMode === 'grid' && (

@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { prepUserApi, type PrepStats, type PrepActivity } from '../../services/preparationApi';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepActivityPageProps {
   toggleSidebar?: () => void;
@@ -40,32 +42,44 @@ const PrepActivityPage = (_props: PrepActivityPageProps) => {
   const [stats, setStats] = useState<PrepStats | null>(null);
   const [activities, setActivities] = useState<PrepActivity[]>([]);
   const [totals, setTotals] = useState({ questions: 0, dsa: 0, quizzes: 0 });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchData = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const [s, a, dashboard] = await Promise.all([
+        prepUserApi.getStats(),
+        prepUserApi.getActivity(20),
+        prepUserApi.getDashboard(),
+      ]);
+      if (!cancelled.current) {
+        if (s) setStats(s);
+        if (a.length > 0) setActivities(a);
+        if (dashboard?.contentCounts) {
+          const cc = dashboard.contentCounts as Record<string, number>;
+          setTotals({
+            questions: cc.interview_questions ?? 0,
+            dsa: cc.dsa_problems ?? 0,
+            quizzes: cc.quizzes ?? 0,
+          });
+        }
+      }
+    } catch { /* API only */ }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [s, a, dashboard] = await Promise.all([
-          prepUserApi.getStats(),
-          prepUserApi.getActivity(20),
-          prepUserApi.getDashboard(),
-        ]);
-        if (!cancelled) {
-          if (s) setStats(s);
-          if (a.length > 0) setActivities(a);
-          if (dashboard?.contentCounts) {
-            const cc = dashboard.contentCounts as Record<string, number>;
-            setTotals({
-              questions: cc.interview_questions ?? 0,
-              dsa: cc.dsa_problems ?? 0,
-              quizzes: cc.quizzes ?? 0,
-            });
-          }
-        }
-      } catch { /* API only */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    const cancelled = { current: false };
+    fetchData(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:stats');
+    invalidateCache('prep:activity');
+    invalidateCache('prep:dashboard');
+    await fetchData();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const totalQuestions = totals.questions;
   const totalDSA = totals.dsa;
@@ -96,9 +110,27 @@ const PrepActivityPage = (_props: PrepActivityPageProps) => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Activity</h1>
-        <p className="text-gray-600 mt-1">Track your preparation progress</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Activity</h1>
+          <p className="text-gray-600 mt-1">Track your preparation progress</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh activity"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh activity
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

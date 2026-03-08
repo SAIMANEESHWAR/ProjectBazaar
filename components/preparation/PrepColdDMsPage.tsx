@@ -3,6 +3,8 @@ import type { ColdDMTemplate } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepColdDMsPageProps {
   toggleSidebar?: () => void;
@@ -27,6 +29,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [templates, setTemplates] = useState<ColdDMTemplate[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -74,6 +77,14 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
       setTemplates([]);
     }
   }, [currentPage, itemsPerPage, searchQuery, categoryFilter]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:cold_dm_templates');
+    await fetchTemplates();
+    // Smaller delay to ensure the spin is visible and feels "real"
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   useEffect(() => {
     fetchTemplates();
@@ -146,7 +157,24 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
             </option>
           ))}
         </select>
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh templates"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh templates
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {viewMode === 'table' && (

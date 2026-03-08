@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Collection } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepCollectionsPageProps {
   toggleSidebar?: () => void;
@@ -27,28 +29,38 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchCollections = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const apiCols = await prepUserApi.listCollections();
+      if (!cancelled.current) {
+        setCollections(apiCols.map((c) => ({
+          id: c.collectionId,
+          name: c.name,
+          description: c.description,
+          itemCount: c.itemCount,
+          createdAt: c.createdAt,
+          color: c.color,
+        })));
+      }
+    } catch {
+      setCollections([]);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const apiCols = await prepUserApi.listCollections();
-        if (!cancelled) {
-          setCollections(apiCols.map((c) => ({
-            id: c.collectionId,
-            name: c.name,
-            description: c.description,
-            itemCount: c.itemCount,
-            createdAt: c.createdAt,
-            color: c.color,
-          })));
-        }
-      } catch {
-        setCollections([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    const cancelled = { current: false };
+    fetchCollections(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchCollections]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:collections');
+    await fetchCollections();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const filteredAndSorted = useMemo(() => {
     let result = [...collections];
@@ -149,7 +161,24 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
           <option value="date">Date created</option>
           <option value="name">Name</option>
         </select>
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh collections"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh collections
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-all duration-200 whitespace-nowrap"
@@ -189,9 +218,8 @@ const PrepCollectionsPage: React.FC<PrepCollectionsPageProps> = ({ toggleSidebar
                   <button
                     key={color}
                     onClick={() => setNewColor(color)}
-                    className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
-                      newColor === color ? 'border-gray-900 scale-110' : 'border-gray-200 hover:border-gray-400'
-                    }`}
+                    className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${newColor === color ? 'border-gray-900 scale-110' : 'border-gray-200 hover:border-gray-400'
+                      }`}
                     style={{ backgroundColor: color }}
                     aria-label={`Select color ${color}`}
                   />

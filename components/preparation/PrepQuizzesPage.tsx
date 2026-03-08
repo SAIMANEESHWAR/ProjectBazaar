@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Quiz } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepQuizzesPageProps {
   toggleSidebar?: () => void;
@@ -33,19 +35,29 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useViewMode('grid');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchQuizzes = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const resp = await prepUserApi.listContent('quizzes', { limit: 200 });
+      if (!cancelled.current && resp.success && resp.items.length > 0) {
+        setQuizzes((resp.items || []) as unknown as Quiz[]);
+      }
+    } catch { /* API only */ }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await prepUserApi.listContent('quizzes', { limit: 200 });
-        if (!cancelled && resp.success && resp.items.length > 0) {
-          setQuizzes((resp.items || []) as unknown as Quiz[]);
-        }
-      } catch { /* API only */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    const cancelled = { current: false };
+    fetchQuizzes(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchQuizzes]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:quizzes');
+    await fetchQuizzes();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter((q) => {
@@ -76,11 +88,10 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeTab === tab
-                ? 'bg-orange-500 text-white'
-                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
+              ? 'bg-orange-500 text-white'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
           >
             {tab}
           </button>
@@ -127,39 +138,56 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
             </option>
           ))}
         </select>
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh quizzes"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh quizzes
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {viewMode === 'grid' && (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredQuizzes.map((quiz) => (
-          <div
-            key={quiz.id}
-            className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-200 flex flex-col"
-          >
-            <div className="flex items-start gap-2 flex-wrap mb-3">
-              <DifficultyBadge difficulty={quiz.difficulty} />
-              <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                {quiz.category}
-              </span>
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700">
-                {quiz.role}
-              </span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">{quiz.title}</h3>
-            <p className="text-sm text-gray-600 flex-1 line-clamp-2 mb-4">{quiz.description}</p>
-            <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-              <span>{quiz.questionCount} questions</span>
-              <span>{formatDuration(quiz.duration)}</span>
-            </div>
-            <button
-              className="w-full py-2.5 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-all duration-200"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredQuizzes.map((quiz) => (
+            <div
+              key={quiz.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-200 flex flex-col"
             >
-              Start Quiz
-            </button>
-          </div>
-        ))}
-      </div>
+              <div className="flex items-start gap-2 flex-wrap mb-3">
+                <DifficultyBadge difficulty={quiz.difficulty} />
+                <span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                  {quiz.category}
+                </span>
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700">
+                  {quiz.role}
+                </span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">{quiz.title}</h3>
+              <p className="text-sm text-gray-600 flex-1 line-clamp-2 mb-4">{quiz.description}</p>
+              <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                <span>{quiz.questionCount} questions</span>
+                <span>{formatDuration(quiz.duration)}</span>
+              </div>
+              <button
+                className="w-full py-2.5 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-all duration-200"
+              >
+                Start Quiz
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {viewMode === 'table' && (

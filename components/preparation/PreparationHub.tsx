@@ -12,9 +12,12 @@ import {
   PenLine,
   Map,
   FileStack,
+  RefreshCw,
 } from 'lucide-react';
 import { prepUserApi, type DashboardData, type PrepActivity } from '../../services/preparationApi';
 import { ShinyButton } from '../ui/ShinyButton';
+import { useCallback } from 'react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PreparationHubProps {
   onNavigate: (view: string) => void;
@@ -69,24 +72,41 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [collectionsCount, setCollectionsCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchDashboard = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const [data, cols] = await Promise.all([
+        prepUserApi.getDashboard(),
+        prepUserApi.listCollections(),
+      ]);
+      if (!cancelled.current) {
+        if (data) setDashboard(data);
+        setCollectionsCount(cols?.length ?? 0);
+      }
+    } catch { /* API only */ }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    const cancelled = { current: false };
     (async () => {
-      try {
-        const data = await prepUserApi.getDashboard();
-        if (!cancelled && data) setDashboard(data);
-        const cols = await prepUserApi.listCollections();
-        if (!cancelled) setCollectionsCount(cols?.length ?? 0);
+      setLoading(true);
+      await fetchDashboard(cancelled);
+      if (!cancelled.current) {
         await prepUserApi.updateStreak();
-      } catch {
-        /* use API-only; no fallback */
-      } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return () => { cancelled.current = true; };
+  }, [fetchDashboard]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:dashboard');
+    invalidateCache('prep:collections');
+    await fetchDashboard();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const stats = dashboard?.stats ?? {
     solvedQuestions: 0,
@@ -123,7 +143,23 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
           <svg className="h-full w-full" viewBox="0 0 400 200" fill="none"><circle cx="350" cy="50" r="120" fill="white" /><circle cx="50" cy="180" r="80" fill="white" /></svg>
         </div>
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold tracking-tight">Preparation Hub</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold tracking-tight">Preparation Hub</h1>
+            <div className="relative flex items-center group/refresh">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className={`p-2 border border-white/20 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-white' : 'text-orange-100 hover:text-white'
+                  }`}
+                aria-label="Refresh dashboard"
+              >
+                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-[10px] text-gray-900 bg-white rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 font-medium">
+                Refresh dashboard
+              </div>
+            </div>
+          </div>
           <p className="mt-2 text-orange-100 max-w-lg">Your one-stop career preparation platform. Practice interviews, solve DSA, master system design, and land your dream job.</p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <ShinyButton

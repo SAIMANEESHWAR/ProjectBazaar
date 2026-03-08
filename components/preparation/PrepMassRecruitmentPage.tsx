@@ -3,6 +3,8 @@ import { mrSubTabConfig, type MRSubTabKey } from '../../data/massRecruitmentData
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepMassRecruitmentPageProps {
   toggleSidebar?: () => void;
@@ -76,25 +78,35 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchQuestions = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
+    try {
+      const resp = await prepUserApi.listContentWithProgress<MRQuestionFromAPI>('mass_recruitment', {
+        companyId: selectedCompanyId,
+        subType: activeSubTab,
+        limit: 500,
+      });
+      if (!cancelled.current && resp.success) {
+        setAllQuestions(resp.items || []);
+      }
+    } catch { /* API only */ }
+    if (!cancelled.current) setLoading(false);
+  }, [selectedCompanyId, activeSubTab]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      try {
-        const resp = await prepUserApi.listContentWithProgress<MRQuestionFromAPI>('mass_recruitment', {
-          companyId: selectedCompanyId,
-          subType: activeSubTab,
-          limit: 500,
-        });
-        if (!cancelled && resp.success) {
-          setAllQuestions(resp.items || []);
-        }
-      } catch { /* API only */ }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [selectedCompanyId, activeSubTab]);
+    const cancelled = { current: false };
+    fetchQuestions(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchQuestions]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:mass_recruitment');
+    await fetchQuestions();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -138,12 +150,12 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
 
   const toggleSolved = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
-    prepUserApi.toggleSolved('mass_recruitment', id).catch(() => {});
+    prepUserApi.toggleSolved('mass_recruitment', id).catch(() => { });
   }, []);
 
   const toggleRevision = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
-    prepUserApi.toggleBookmarked('mass_recruitment', id).catch(() => {});
+    prepUserApi.toggleBookmarked('mass_recruitment', id).catch(() => { });
   }, []);
 
   return (
@@ -213,6 +225,20 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
             <p className="text-gray-500 text-sm mt-0.5">{sectionSubtitle}</p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="relative flex items-center group/refresh">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                aria-label="Refresh resources"
+              >
+                <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                Refresh resources
+              </div>
+            </div>
             <PrepViewToggle view={viewMode} onChange={setViewMode} />
             <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -252,84 +278,84 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       ) : !loading && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           {viewMode === 'table' && (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('question')}>
-                    <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'question'} dir={sortDir} /></span>
-                  </th>
-                  {showCategory && (
-                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('category')}>
-                      <span className="inline-flex items-center">Category <SortIcon active={sortKey === 'category'} dir={sortDir} /></span>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('question')}>
+                      <span className="inline-flex items-center">Question <SortIcon active={sortKey === 'question'} dir={sortDir} /></span>
                     </th>
-                  )}
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
-                    <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
-                  </th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
-                  <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedQuestions.map((q, idx) => {
-                  const isSolved = q.isSolved ?? false;
-                  const isRevision = q.isBookmarked ?? false;
-                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
-                  return (
-                    <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-5 py-3.5 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
-                      <td className="px-5 py-3.5 text-sm text-gray-900">{q.question}</td>
-                      {showCategory && (<td className="px-5 py-3.5 text-sm text-gray-500">{q.category || '—'}</td>)}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                          {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
-                        </button>
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                          {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    {showCategory && (
+                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-36 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('category')}>
+                        <span className="inline-flex items-center">Category <SortIcon active={sortKey === 'category'} dir={sortDir} /></span>
+                      </th>
+                    )}
+                    <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cursor-pointer select-none hover:text-gray-700 transition-colors" onClick={() => handleSort('difficulty')}>
+                      <span className="inline-flex items-center justify-center">Difficulty <SortIcon active={sortKey === 'difficulty'} dir={sortDir} /></span>
+                    </th>
+                    <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Solved</th>
+                    <th className="text-center px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Revision</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedQuestions.map((q, idx) => {
+                    const isSolved = q.isSolved ?? false;
+                    const isRevision = q.isBookmarked ?? false;
+                    const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                    return (
+                      <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-5 py-3.5 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
+                        <td className="px-5 py-3.5 text-sm text-gray-900">{q.question}</td>
+                        {showCategory && (<td className="px-5 py-3.5 text-sm text-gray-500">{q.category || '—'}</td>)}
+                        <td className="px-5 py-3.5 text-center">
+                          <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                            {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                            ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
+                          </button>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                            {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                            ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
           {viewMode === 'grid' && questions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-            {paginatedQuestions.map((q) => {
-              const isSolved = q.isSolved ?? false;
-              const isRevision = q.isBookmarked ?? false;
-              return (
-                <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
-                  <div className="flex items-start justify-between mb-3">
-                    <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
-                    <div className="flex gap-1">
-                      <button onClick={() => toggleSolved(q.id)} className={`p-1 rounded-full transition-all ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                        {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                        ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
-                      </button>
-                      <button onClick={() => toggleRevision(q.id)} className={`p-1 rounded-full transition-all ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
-                        {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                        ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
-                      </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+              {paginatedQuestions.map((q) => {
+                const isSolved = q.isSolved ?? false;
+                const isRevision = q.isBookmarked ?? false;
+                return (
+                  <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => toggleSolved(q.id)} className={`p-1 rounded-full transition-all ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
+                        </button>
+                        <button onClick={() => toggleRevision(q.id)} className={`p-1 rounded-full transition-all ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+                          ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
+                        </button>
+                      </div>
                     </div>
+                    <h4 className="font-semibold text-gray-900 text-sm leading-snug">{q.question}</h4>
+                    {q.category && (<span className="mt-2 inline-block text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{q.category}</span>)}
                   </div>
-                  <h4 className="font-semibold text-gray-900 text-sm leading-snug">{q.question}</h4>
-                  {q.category && (<span className="mt-2 inline-block text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{q.category}</span>)}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
           )}
 
           {totalPages > 1 && (

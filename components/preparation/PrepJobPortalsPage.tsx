@@ -3,6 +3,8 @@ import type { JobPortal } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import { RefreshCw } from 'lucide-react';
+import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepJobPortalsPageProps {
   toggleSidebar?: () => void;
@@ -19,6 +21,7 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [portals, setPortals] = useState<JobPortal[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -51,6 +54,13 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   useEffect(() => {
     fetchPortals();
   }, [fetchPortals]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    invalidateCache('prep:job_portals');
+    await fetchPortals();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Use static categories for the dropdown since pagination will otherwise break them
   const categories = ['General', 'Networking', 'Research', 'Startups', 'Internships', 'Competitions', 'Tech'];
@@ -127,7 +137,24 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
             </option>
           ))}
         </select>
-        <PrepViewToggle view={viewMode} onChange={setViewMode} />
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex items-center group/refresh">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              aria-label="Refresh portals"
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/refresh:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              Refresh portals
+            </div>
+          </div>
+          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {viewMode === 'table' && (
