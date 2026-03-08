@@ -223,7 +223,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
               <div className="w-12 h-12 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-all duration-300 mb-4">
                 <card.Icon className="w-6 h-6" />
               </div>
-              <h3 className="mt-4 font-semibold text-gray-900 dark:text-gray-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{card.title}</h3>
+              <h3 className="mt-4 font-semibold text-orange-500 dark:text-orange-400 transition-colors">{card.title}</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">{card.description}</p>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">{card.count} items</span>

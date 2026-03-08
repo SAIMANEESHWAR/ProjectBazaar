@@ -178,7 +178,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                   {quiz.role}
                 </span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">{quiz.title}</h3>
+              <h3 className="font-semibold text-orange-600 mb-2">{quiz.title}</h3>
               <p className="text-sm text-gray-600 flex-1 line-clamp-2 mb-4">{quiz.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                 <span>{quiz.questionCount} questions</span>
@@ -218,7 +218,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                   <tr key={quiz.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-gray-900">{quiz.title}</p>
+                      <p className="text-sm font-semibold text-orange-600">{quiz.title}</p>
                       <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{quiz.description}</p>
                     </td>
                     <td className="px-5 py-4"><span className="prep-topic-chip px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{quiz.category}</span></td>
