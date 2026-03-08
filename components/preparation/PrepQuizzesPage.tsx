@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Quiz } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Lock } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepQuizzesPageProps {
@@ -185,8 +185,9 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
               </div>
               <button
                 disabled
-                className="w-full py-2.5 px-4 rounded-xl bg-gray-200 text-gray-500 font-medium cursor-not-allowed transition-all duration-200"
+                className="w-full py-2.5 px-4 rounded-xl bg-orange-500/80 text-white font-medium cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
               >
+                <Lock className="w-4 h-4" />
                 Coming Soon
               </button>
             </div>
@@ -224,7 +225,10 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{quiz.questionCount}</td>
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{formatDuration(quiz.duration)}</td>
                     <td className="px-5 py-4 text-center">
-                      <button disabled className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-500 text-xs font-medium cursor-not-allowed">Coming Soon</button>
+                      <button disabled className="px-3 py-1.5 rounded-lg bg-orange-500/80 text-white text-xs font-medium cursor-not-allowed flex items-center justify-center gap-1.5 mx-auto">
+                        <Lock className="w-3 h-3" />
+                        Coming Soon
+                      </button>
                     </td>
                   </tr>
                 ))}
