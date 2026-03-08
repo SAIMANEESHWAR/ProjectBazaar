@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
@@ -33,8 +33,6 @@ const difficultyClass = (d: string) => {
   if (d === 'Medium') return 'bg-yellow-100 text-yellow-700 dark:bg-amber-900/50 dark:text-amber-300';
   return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300';
 };
-
-const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
 
 type SortKey = 'title' | 'section' | 'difficulty' | null;
 type SortDir = 'asc' | 'desc';
