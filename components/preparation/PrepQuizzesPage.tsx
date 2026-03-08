@@ -184,9 +184,10 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                 <span>{formatDuration(quiz.duration)}</span>
               </div>
               <button
-                className="w-full py-2.5 px-4 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-all duration-200"
+                disabled
+                className="w-full py-2.5 px-4 rounded-xl bg-gray-200 text-gray-500 font-medium cursor-not-allowed transition-all duration-200"
               >
-                Start Quiz
+                Coming Soon
               </button>
             </div>
           ))}
@@ -223,7 +224,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{quiz.questionCount}</td>
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{formatDuration(quiz.duration)}</td>
                     <td className="px-5 py-4 text-center">
-                      <button className="px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-600 transition-colors">Start Quiz</button>
+                      <button disabled className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-500 text-xs font-medium cursor-not-allowed">Coming Soon</button>
                     </td>
                   </tr>
                 ))}
