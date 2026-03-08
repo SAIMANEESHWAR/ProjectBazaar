@@ -210,7 +210,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
       {/* Feature cards */}
       <section id="quick-access">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Quick Access</h2>
+          <h2 className="text-xl font-bold text-orange-500 dark:text-orange-400">Quick Access</h2>
           <span className="text-sm text-gray-400 dark:text-gray-500">{featureCards.length} modules</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -244,7 +244,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
         {/* Recent Activity */}
         <section className="lg:col-span-3 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
+            <h2 className="text-lg font-bold text-orange-500">Recent Activity</h2>
             <button className="text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors">View all</button>
           </div>
           <ul className="divide-y divide-gray-100">
@@ -275,7 +275,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
 
         {/* Progress Overview */}
         <section className="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">Progress Overview</h2>
+          <h2 className="text-lg font-bold text-orange-500 mb-6">Progress Overview</h2>
           <div className="flex flex-col items-center gap-5">
             <div className="relative w-36 h-36">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
