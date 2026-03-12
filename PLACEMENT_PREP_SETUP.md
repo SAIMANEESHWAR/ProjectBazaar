@@ -79,6 +79,65 @@ Create a DynamoDB table named `PlacementPrep` with:
 
 Update the API endpoint URL in two files:
 
+## System design media uploads
+
+The Preparation Mode system design flow supports three media fields on `PrepSystemDesign` rows:
+
+- `diagramData` for interactive diagrams
+- `diagramUrl` for URL-based diagram fallback
+- `additionalImageUrls` for uploaded supporting images
+
+### Required frontend environment variables
+
+- `VITE_PREP_ADMIN_ENDPOINT`: prep admin Lambda/API Gateway endpoint
+- `VITE_PREP_USER_ENDPOINT`: prep user Lambda/API Gateway endpoint
+- `VITE_PREP_SD_MEDIA_BUCKET`: S3 bucket name for system design media uploads
+
+If `VITE_PREP_SD_MEDIA_BUCKET` is not set, the frontend defaults to `projectbazaar-prep-notes`.
+
+### Required Lambda configuration
+
+`lambda/prep_admin_handler.py` expects:
+
+- `S3_BUCKET` to point at the media bucket
+- `AWS_REGION` / `REGION` to match the deployed bucket region
+
+The Lambda IAM role must allow:
+
+- `s3:PutObject`
+- `s3:GetObject`
+
+for the `system-design/*` key prefix in the configured bucket.
+
+### Upload flow
+
+1. The admin UI requests `get_sd_media_upload_url` from the prep admin API.
+2. The Lambda validates the content type against the supported image allowlist.
+3. The frontend uploads the file directly to the presigned S3 URL.
+4. The returned `publicUrl` is saved in `diagramUrl` or `additionalImageUrls` through the admin CRUD flow.
+
+Supported content types:
+
+- `image/png`
+- `image/jpeg`
+- `image/gif`
+- `image/webp`
+- `image/svg+xml`
+
+### Migration workflow
+
+Before enabling the updated candidate and admin experiences in production, run the system design media backfill:
+
+```bash
+npx tsx scripts/migrations/001_backfill_system_design_media.ts --apply
+```
+
+If you need to revert the explicit media fields:
+
+```bash
+npx tsx scripts/migrations/001_rollback_system_design_media.ts --apply
+```
+
 1. **`components/admin/PlacementPrepManagementPage.tsx`**
    ```typescript
    const API_ENDPOINT = 'https://YOUR_API_GATEWAY_URL.execute-api.ap-south-2.amazonaws.com/default/placement_prep_handler';
