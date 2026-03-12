@@ -12,6 +12,15 @@ from botocore.exceptions import ClientError
 # ========================== CONFIG ==========================
 REGION = "ap-south-2"
 S3_BUCKET = "projectbazaar-prep-notes"
+# S3 key prefixes:
+#   notes/          — handwritten notes (PDF uploads via get_note_upload_url)
+#   system-design/  — system design media images (PNG/JPEG via get_sd_media_upload_url)
+#
+# Required IAM policy for the Lambda execution role:
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/notes/*
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/system-design/*
+# Bucket CORS must allow PUT from the admin origin.
+# Override bucket via VITE_PREP_SD_MEDIA_BUCKET env var on the frontend.
 
 TABLE_INTERVIEW_QUESTIONS = "PrepInterviewQuestions"
 TABLE_DSA_PROBLEMS = "PrepDSAProblems"
@@ -248,7 +257,26 @@ def normalize_system_design(raw: dict, now: str) -> dict:
     design_type = str(dt).strip().lower() if isinstance(dt, str) else "hld"
     if design_type not in ("hld", "lld"):
         design_type = "hld"
-    return {
+
+    # diagramData — accept dict or JSON string; omit key if absent/invalid
+    raw_diagram_data = raw.get("diagramData")
+    diagram_data = None
+    if isinstance(raw_diagram_data, dict):
+        diagram_data = raw_diagram_data
+    elif isinstance(raw_diagram_data, str) and raw_diagram_data.strip():
+        try:
+            diagram_data = json.loads(raw_diagram_data)
+        except (json.JSONDecodeError, ValueError):
+            diagram_data = None
+
+    # additionalImageUrls — list of non-empty strings
+    raw_urls = raw.get("additionalImageUrls", [])
+    if isinstance(raw_urls, list):
+        additional_image_urls = [str(u).strip() for u in raw_urls if u and str(u).strip()]
+    else:
+        additional_image_urls = []
+
+    normalized = {
         "id": str(raw.get("id") or generate_id("sd")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
@@ -259,9 +287,13 @@ def normalize_system_design(raw: dict, now: str) -> dict:
         "topics": [str(t).strip() for t in raw.get("topics", []) if t],
         "content": str(raw.get("content", "")).strip(),
         "diagramUrl": str(raw.get("diagramUrl", "")).strip(),
+        "additionalImageUrls": additional_image_urls,
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
+    if diagram_data is not None:
+        normalized["diagramData"] = diagram_data
+    return normalized
 
 
 def normalize_fundamental(raw: dict, now: str) -> dict:
@@ -309,6 +341,7 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
     category = query_params.get("category")
     topic = query_params.get("topic")
     role = query_params.get("role")
+    design_type = query_params.get("designType") or query_params.get("type")
     search = query_params.get("search", "").lower()
     page = int(query_params.get("page", 1))
     limit = int(query_params.get("limit", 50))
@@ -323,6 +356,12 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
             filter_expressions.append(Attr("topic").eq(topic))
         if role and role != "all":
             filter_expressions.append(Attr("role").eq(role))
+        if design_type and str(design_type).lower() != "all":
+            normalized_design_type = str(design_type).strip().lower()
+            filter_expressions.append(
+                Attr("designType").eq(normalized_design_type)
+                | Attr("type").eq(normalized_design_type.upper())
+            )
 
         scan_kwargs = {}
         if filter_expressions:
@@ -534,6 +573,42 @@ def handle_get_note_upload_url(data: dict) -> dict:
         return api_response(500, {"success": False, "message": "Error generating upload URL", "error": str(e)})
 
 
+ALLOWED_SD_MEDIA_CONTENT_TYPES = {
+    "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
+}
+
+
+def handle_get_sd_media_upload_url(data: dict) -> dict:
+    """Generate a presigned S3 URL for uploading a system-design media image."""
+    filename = data.get("filename", "")
+    content_type = data.get("contentType", "image/png")
+
+    if not filename:
+        return api_response(400, {"success": False, "message": "filename is required"})
+
+    if content_type not in ALLOWED_SD_MEDIA_CONTENT_TYPES:
+        return api_response(400, {"success": False, "message": f"Unsupported content type '{content_type}'. Allowed: {', '.join(sorted(ALLOWED_SD_MEDIA_CONTENT_TYPES))}"})
+
+    s3_key = f"system-design/{generate_id('img')}/{filename}"
+    public_url = f"https://{S3_BUCKET}.s3.{REGION}.amazonaws.com/{s3_key}"
+
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": S3_BUCKET, "Key": s3_key, "ContentType": content_type},
+            ExpiresIn=3600,
+        )
+        return api_response(200, {
+            "success": True,
+            "uploadUrl": presigned_url,
+            "s3Key": s3_key,
+            "publicUrl": public_url,
+            "expiresIn": 3600,
+        })
+    except ClientError as e:
+        return api_response(500, {"success": False, "message": "Error generating upload URL", "error": str(e)})
+
+
 def handle_get_content_stats() -> dict:
     """Get counts for every content type (admin dashboard overview)."""
     counts = {}
@@ -566,6 +641,7 @@ def lambda_handler(event, context):
     bulk_delete_content     POST       { contentType, ids: [...] }
     full_sync_content       POST       { contentType, items: [...] }
     get_note_upload_url     POST       { filename, contentType? }
+    get_sd_media_upload_url POST       { filename, contentType? }  — images for system_design
     get_content_stats       GET/POST   (no params)
     ──────────────────────────────────────────────────────────────
 
@@ -619,6 +695,9 @@ def lambda_handler(event, context):
         if action == "get_note_upload_url":
             return handle_get_note_upload_url(body)
 
+        if action == "get_sd_media_upload_url":
+            return handle_get_sd_media_upload_url(body)
+
         if action == "get_content_stats":
             return handle_get_content_stats()
 
@@ -629,7 +708,7 @@ def lambda_handler(event, context):
             "availableActions": [
                 "list_content", "get_content", "put_content", "put_content_single",
                 "delete_content", "bulk_delete_content", "full_sync_content",
-                "get_note_upload_url", "get_content_stats",
+                "get_note_upload_url", "get_sd_media_upload_url", "get_content_stats",
             ],
         })
 
