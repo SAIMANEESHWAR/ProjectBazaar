@@ -11,6 +11,7 @@ import {
   positionResources,
 } from "../../data/preparationMockData";
 import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
+import { DiagramData } from "../../data/systemDesignData";
 import { prepAdminApi } from "../../services/preparationApi";
 
 type PrepTab =
@@ -38,6 +39,7 @@ interface AdminSDQuestion {
   designType: "hld" | "lld";
   topics: string[];
   content: string;
+  diagramData?: DiagramData;
   diagramUrl: string;
   additionalImageUrls: string[];
   createdAt?: string;
@@ -52,6 +54,48 @@ const SD_SECTIONS_LLD = [
   "Data Structures",
   "Design Patterns",
 ];
+
+const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
+  subtitle: "",
+  nodes: [
+    {
+      id: "node-1",
+      x: 60,
+      y: 80,
+      w: 140,
+      h: 48,
+      label: "ServiceA",
+      fill: "#1e3a8a",
+    },
+  ],
+  edges: [],
+  legend: [{ color: "#1e3a8a", label: "Service" }],
+};
+
+const parseDiagramDataShape = (
+  value: string,
+): { data?: DiagramData; error?: string } => {
+  if (!value.trim()) return { data: undefined };
+
+  try {
+    const parsed = JSON.parse(value) as Partial<DiagramData>;
+    if (typeof parsed !== "object" || parsed === null) {
+      return { error: "Diagram data must be a JSON object." };
+    }
+
+    const normalized: DiagramData = {
+      subtitle:
+        typeof parsed.subtitle === "string" ? parsed.subtitle : undefined,
+      nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
+      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+      legend: Array.isArray(parsed.legend) ? parsed.legend : [],
+    };
+
+    return { data: normalized };
+  } catch {
+    return { error: "Diagram data is not valid JSON." };
+  }
+};
 
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -226,7 +270,7 @@ interface SDQuestionModalProps {
     data: Omit<AdminSDQuestion, "id" | "createdAt" | "updatedAt"> & {
       id?: string;
     },
-  ) => void;
+  ) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -245,24 +289,165 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
     difficulty: item?.difficulty ?? "Medium",
     topics: (item?.topics ?? []).join(", "),
     content: item?.content ?? "",
+    diagramData: item?.diagramData
+      ? JSON.stringify(item.diagramData, null, 2)
+      : "",
     diagramUrl: item?.diagramUrl ?? "",
-    additionalImageUrls: (item?.additionalImageUrls ?? []).join("\n"),
+    additionalImageUrls: item?.additionalImageUrls ?? [],
   });
+  const [diagramError, setDiagramError] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [imageUploadInfo, setImageUploadInfo] = useState<string | null>(null);
+  const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const setDiagramTemplate = () => {
+    set("diagramData", JSON.stringify(EMPTY_DIAGRAM_TEMPLATE, null, 2));
+    setDiagramError(null);
+  };
+
+  const formatDiagramJson = () => {
+    const parsed = parseDiagramDataShape(form.diagramData);
+    if (parsed.error) {
+      setDiagramError(parsed.error);
+      return;
+    }
+    if (!parsed.data) {
+      setDiagramError("Add JSON first, then format it.");
+      return;
+    }
+    set("diagramData", JSON.stringify(parsed.data, null, 2));
+    setDiagramError(null);
+  };
+
+  const compactDiagramJson = () => {
+    const parsed = parseDiagramDataShape(form.diagramData);
+    if (parsed.error) {
+      setDiagramError(parsed.error);
+      return;
+    }
+    if (!parsed.data) {
+      setDiagramError("Add JSON first, then compact it.");
+      return;
+    }
+    set("diagramData", JSON.stringify(parsed.data));
+    setDiagramError(null);
+  };
+
+  const addMissingDiagramKeys = () => {
+    if (!form.diagramData.trim()) {
+      setDiagramTemplate();
+      return;
+    }
+    const parsed = parseDiagramDataShape(form.diagramData);
+    if (parsed.error) {
+      setDiagramError(parsed.error);
+      return;
+    }
+    set("diagramData", JSON.stringify(parsed.data, null, 2));
+    setDiagramError(null);
+  };
+
+  const onSelectImageFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    const validImages = selected.filter((file) =>
+      file.type.toLowerCase().startsWith("image/"),
+    );
+    const ignoredCount = selected.length - validImages.length;
+    if (ignoredCount > 0) {
+      setImageUploadError(`${ignoredCount} file(s) ignored because they are not images.`);
+    } else {
+      setImageUploadError(null);
+    }
+
+    setPendingImageFiles((prev) => [...prev, ...validImages]);
+    e.target.value = "";
+  };
+
+  const removePendingImageFile = (index: number) => {
+    setPendingImageFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImageUrl = (url: string) => {
+    setForm((prev) => ({
+      ...prev,
+      additionalImageUrls: prev.additionalImageUrls.filter((u) => u !== url),
+    }));
+  };
+
+  const uploadImageToS3 = async (file: File): Promise<string> => {
+    const uploadData = await prepAdminApi.getSystemDesignUploadUrl(
+      file.name,
+      file.type || "image/png",
+    );
+    if (!uploadData) {
+      throw new Error(`Failed to get upload URL for ${file.name}`);
+    }
+
+    const uploadRes = await fetch(uploadData.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed for ${file.name} (${uploadRes.status})`);
+    }
+
+    return uploadData.publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDiagramError(null);
+    setImageUploadError(null);
+    setImageUploadInfo(null);
+
+    const parsedDiagram = parseDiagramDataShape(form.diagramData);
+    if (parsedDiagram.error) {
+      setDiagramError(parsedDiagram.error);
+      return;
+    }
+
+    let uploadedImageUrls: string[] = [];
+    if (pendingImageFiles.length > 0) {
+      setUploadingImages(true);
+      setImageUploadInfo(`Uploading ${pendingImageFiles.length} image(s)...`);
+      try {
+        uploadedImageUrls = await Promise.all(
+          pendingImageFiles.map((file) => uploadImageToS3(file)),
+        );
+      } catch (err) {
+        setUploadingImages(false);
+        setImageUploadInfo(null);
+        setImageUploadError(
+          err instanceof Error ? err.message : "Image upload failed.",
+        );
+        return;
+      }
+      setUploadingImages(false);
+      setImageUploadInfo(`${uploadedImageUrls.length} image(s) uploaded.`);
+    }
+
+    const mergedImageUrls = Array.from(
+      new Set([...form.additionalImageUrls, ...uploadedImageUrls]),
+    );
+    if (uploadedImageUrls.length > 0) {
+      setPendingImageFiles([]);
+      setForm((prev) => ({ ...prev, additionalImageUrls: mergedImageUrls }));
+    }
+
     const topicList = form.topics
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
-    const urlList = form.additionalImageUrls
-      .split("\n")
-      .map((u) => u.trim())
-      .filter(Boolean);
-    onSave({
+
+    await onSave({
       ...(item?.id ? { id: item.id } : {}),
       title: form.title.trim(),
       description: form.description.trim(),
@@ -271,14 +456,24 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
       designType,
       topics: topicList,
       content: form.content.trim(),
+      diagramData: parsedDiagram.data,
       diagramUrl: form.diagramUrl.trim(),
-      additionalImageUrls: urlList,
+      additionalImageUrls: mergedImageUrls,
     });
   };
 
+  const parsedDiagram = parseDiagramDataShape(form.diagramData);
+  const diagramSummary = parsedDiagram.data
+    ? {
+        nodes: parsedDiagram.data.nodes.length,
+        edges: parsedDiagram.data.edges.length,
+        legend: parsedDiagram.data.legend.length,
+      }
+    : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-4">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             {item ? "Edit" : "Add"} {designType.toUpperCase()} Question
@@ -302,132 +497,252 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
             </svg>
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              required
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="e.g. Design a URL Shortener"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              required
-              rows={2}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-              placeholder="Short description of the problem"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex flex-1 flex-col">
+          <div className="p-6 space-y-4 overflow-y-auto min-h-0">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Section
+                Title <span className="text-red-500">*</span>
               </label>
-              <select
-                value={form.section}
-                onChange={(e) => set("section", e.target.value)}
+              <input
+                required
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                {sections.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                placeholder="e.g. Design a URL Shortener"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Difficulty
+                Description <span className="text-red-500">*</span>
               </label>
-              <select
-                value={form.difficulty}
-                onChange={(e) => set("difficulty", e.target.value)}
+              <textarea
+                required
+                rows={2}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                placeholder="Short description of the problem"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Section
+                </label>
+                <select
+                  value={form.section}
+                  onChange={(e) => set("section", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  {sections.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Difficulty
+                </label>
+                <select
+                  value={form.difficulty}
+                  onChange={(e) => set("difficulty", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  {["Easy", "Medium", "Hard"].map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Topics{" "}
+                <span className="text-xs text-gray-400">(comma-separated)</span>
+              </label>
+              <input
+                value={form.topics}
+                onChange={(e) => set("topics", e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                {["Easy", "Medium", "Hard"].map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                placeholder="e.g. Caching, Databases, Load Balancer"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Solution / Content
+              </label>
+              <textarea
+                rows={4}
+                value={form.content}
+                onChange={(e) => set("content", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
+                placeholder="Solution text (optional)"
+              />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Diagram Data (JSON)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={setDiagramTemplate}
+                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
+                  >
+                    Use Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addMissingDiagramKeys}
+                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
+                  >
+                    Add Missing Keys
+                  </button>
+                  <button
+                    type="button"
+                    onClick={formatDiagramJson}
+                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
+                  >
+                    Beautify
+                  </button>
+                  <button
+                    type="button"
+                    onClick={compactDiagramJson}
+                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
+                  >
+                    Collapse (Compact)
+                  </button>
+                </div>
+              </div>
+              <textarea
+                rows={10}
+                value={form.diagramData}
+                onChange={(e) => {
+                  set("diagramData", e.target.value);
+                  setDiagramError(null);
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm leading-relaxed font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y bg-white"
+                placeholder='{"nodes":[],"edges":[],"legend":[],"subtitle":""}'
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Required top-level keys: <span className="font-mono">nodes</span>,{" "}
+                <span className="font-mono">edges</span>,{" "}
+                <span className="font-mono">legend</span>, optional{" "}
+                <span className="font-mono">subtitle</span>.
+              </p>
+              {diagramSummary && (
+                <p className="mt-1 text-xs text-emerald-700">
+                  Parsed: {diagramSummary.nodes} nodes, {diagramSummary.edges} edges, {diagramSummary.legend} legend entries.
+                </p>
+              )}
+              {diagramError && (
+                <p className="mt-1 text-xs text-red-600">{diagramError}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Legacy Diagram URL <span className="text-xs text-gray-400">(optional fallback)</span>
+              </label>
+              <input
+                value={form.diagramUrl}
+                onChange={(e) => set("diagramUrl", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Additional Images (Upload to S3)
+              </label>
+              <input
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                onChange={onSelectImageFiles}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Selected files are uploaded on save. Supported types: PNG, JPEG, GIF, WEBP, SVG.
+              </p>
+
+              {pendingImageFiles.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-gray-700 mb-2">Pending Uploads</p>
+                  <div className="space-y-1.5">
+                    {pendingImageFiles.map((file, idx) => (
+                      <div key={`${file.name}-${idx}`} className="flex items-center justify-between gap-2 text-xs bg-orange-50 text-orange-700 px-2 py-1.5 rounded-md">
+                        <span className="truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removePendingImageFile(idx)}
+                          className="text-orange-700 hover:text-orange-900 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {form.additionalImageUrls.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-gray-700 mb-2">Existing Uploaded Images</p>
+                  <div className="space-y-1.5">
+                    {form.additionalImageUrls.map((url) => (
+                      <div key={url} className="flex items-center justify-between gap-2 text-xs bg-gray-100 text-gray-700 px-2 py-1.5 rounded-md">
+                        <span className="truncate">{url}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeExistingImageUrl(url)}
+                          className="text-gray-600 hover:text-gray-900 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {imageUploadInfo && (
+                <p className="mt-2 text-xs text-emerald-700">{imageUploadInfo}</p>
+              )}
+              {imageUploadError && (
+                <p className="mt-2 text-xs text-red-600">{imageUploadError}</p>
+              )}
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Topics{" "}
-              <span className="text-xs text-gray-400">(comma-separated)</span>
-            </label>
-            <input
-              value={form.topics}
-              onChange={(e) => set("topics", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="e.g. Caching, Databases, Load Balancer"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Solution / Content
-            </label>
-            <textarea
-              rows={4}
-              value={form.content}
-              onChange={(e) => set("content", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
-              placeholder="Solution text (optional)"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Diagram URL{" "}
-              <span className="text-xs text-gray-400">(legacy image link)</span>
-            </label>
-            <input
-              value={form.diagramUrl}
-              onChange={(e) => set("diagramUrl", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="https://..."
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Additional Image URLs{" "}
-              <span className="text-xs text-gray-400">(one URL per line)</span>
-            </label>
-            <textarea
-              rows={3}
-              value={form.additionalImageUrls}
-              onChange={(e) => set("additionalImageUrls", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y font-mono"
-              placeholder="https://bucket.s3.region.amazonaws.com/system-design/img-xxx/photo.png"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+
+          <div className="flex justify-end gap-3 p-6 pt-4 border-t border-gray-100 bg-white">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              disabled={saving || uploadingImages}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingImages}
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {saving && (
+              {(saving || uploadingImages) && (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               )}
-              {item ? "Save Changes" : "Add Question"}
+              {uploadingImages
+                ? "Uploading Images..."
+                : item
+                  ? "Save Changes"
+                  : "Add Question"}
             </button>
           </div>
         </form>
