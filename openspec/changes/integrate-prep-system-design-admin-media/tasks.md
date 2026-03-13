@@ -34,5 +34,5 @@
 ## 6. Verification and rollout readiness
 
 - [x] 6.1 Add or update tests for admin system design CRUD flows, Lambda normalization, and candidate media rendering states
-- [ ] 6.2 Verify end-to-end behavior against migrated `PrepSystemDesign` records for both HLD and LLD
+- [x] 6.2 Verify end-to-end behavior against migrated `PrepSystemDesign` records for both HLD and LLD
 - [x] 6.3 Update developer-facing documentation for the migration workflow, required environment variables, and media upload process
