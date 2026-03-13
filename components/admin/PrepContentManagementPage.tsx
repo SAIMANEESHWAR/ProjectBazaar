@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import Editor from "@monaco-editor/react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import type { editor as MonacoEditor } from "monaco-editor";
 import {
   interviewQuestions,
   dsaProblems,
@@ -300,6 +302,10 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
   const [imageUploadInfo, setImageUploadInfo] = useState<string | null>(null);
   const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [isDiagramFolded, setIsDiagramFolded] = useState(false);
+  const diagramEditorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(
+    null,
+  );
 
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
@@ -323,18 +329,18 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
     setDiagramError(null);
   };
 
-  const compactDiagramJson = () => {
-    const parsed = parseDiagramDataShape(form.diagramData);
-    if (parsed.error) {
-      setDiagramError(parsed.error);
+  const toggleFoldAllDiagramJson = () => {
+    const editor = diagramEditorRef.current;
+    if (!editor) return;
+
+    if (isDiagramFolded) {
+      editor.trigger("toolbar", "editor.unfoldAll", null);
+      setIsDiagramFolded(false);
       return;
     }
-    if (!parsed.data) {
-      setDiagramError("Add JSON first, then compact it.");
-      return;
-    }
-    set("diagramData", JSON.stringify(parsed.data));
-    setDiagramError(null);
+
+    editor.trigger("toolbar", "editor.foldAll", null);
+    setIsDiagramFolded(true);
   };
 
   const addMissingDiagramKeys = () => {
@@ -348,6 +354,7 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
       return;
     }
     set("diagramData", JSON.stringify(parsed.data, null, 2));
+    setIsDiagramFolded(false);
     setDiagramError(null);
   };
 
@@ -612,28 +619,49 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={compactDiagramJson}
+                    onClick={toggleFoldAllDiagramJson}
                     className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
                   >
-                    Collapse (Compact)
+                    {isDiagramFolded ? "Expand All" : "Collapse All"}
                   </button>
                 </div>
               </div>
-              <textarea
-                rows={10}
-                value={form.diagramData}
-                onChange={(e) => {
-                  set("diagramData", e.target.value);
-                  setDiagramError(null);
-                }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm leading-relaxed font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y bg-white"
-                placeholder='{"nodes":[],"edges":[],"legend":[],"subtitle":""}'
-              />
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                <Editor
+                  height="320px"
+                  defaultLanguage="json"
+                  value={form.diagramData}
+                  onChange={(value) => {
+                    set("diagramData", value ?? "");
+                    setDiagramError(null);
+                  }}
+                  onMount={(editor) => {
+                    diagramEditorRef.current = editor;
+                  }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbersMinChars: 3,
+                    automaticLayout: true,
+                    wordWrap: "on",
+                    scrollBeyondLastLine: false,
+                    folding: true,
+                    foldingHighlight: true,
+                    showFoldingControls: "always",
+                    glyphMargin: true,
+                    renderLineHighlight: "line",
+                    bracketPairColorization: { enabled: true },
+                  }}
+                />
+              </div>
               <p className="mt-2 text-xs text-gray-500">
                 Required top-level keys: <span className="font-mono">nodes</span>,{" "}
                 <span className="font-mono">edges</span>,{" "}
                 <span className="font-mono">legend</span>, optional{" "}
                 <span className="font-mono">subtitle</span>.
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Click the fold arrow in the gutter beside a line to collapse or expand that specific JSON object/array block.
               </p>
               {diagramSummary && (
                 <p className="mt-1 text-xs text-emerald-700">
