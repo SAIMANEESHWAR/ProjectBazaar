@@ -1276,7 +1276,6 @@ const CompanyPostsPage: React.FC = () => {
                                 </div>
                         </div>
                     </div>
-                </div>
                 </>
             ) : null}
             {!isCreating && (
