@@ -38,6 +38,7 @@ import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
+import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
@@ -623,6 +624,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+            case 'company-posts':
+                return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'coding-questions':

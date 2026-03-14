@@ -21,6 +21,7 @@ export type DashboardView =
     | 'payouts'
     | 'help-center'
     | 'career-guidance'
+    | 'company-posts'
     | 'mock-assessment'
     | 'coding-questions'
     | 'build-portfolio'

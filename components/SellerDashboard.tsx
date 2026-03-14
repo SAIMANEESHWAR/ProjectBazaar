@@ -156,6 +156,7 @@ const GET_PROJECTS_ENDPOINT = 'https://qosmi6luq0.execute-api.ap-south-2.amazona
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GET_REPORTS_ENDPOINT = 'https://0en59tzhoa.execute-api.ap-south-2.amazonaws.com/default/Get_ReportDetails_by_sellerid_buyerId_ReportId';
 const ADMIN_APPROVAL_ENDPOINT = 'https://wt58x2f09d.execute-api.ap-south-2.amazonaws.com/default/Admin_approved_or_rejected';
+const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const MAX_IMAGE_SIZE_MB = 10;
 
 
@@ -304,6 +305,8 @@ const SellerDashboard: React.FC = () => {
     const [isDraftSave, setIsDraftSave] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<string>('');
     const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+    const [deleteConfirmProject, setDeleteConfirmProject] = useState<{ id: string; name: string } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Upload single image to S3 and return the URL
     const uploadImageToS3 = async (file: File, index: number): Promise<string> => {
@@ -1441,6 +1444,68 @@ const SellerDashboard: React.FC = () => {
         }
     };
 
+    // Handle delete draft project
+    const handleDeleteDraft = async (projectId: string) => {
+        if (!userId) {
+            setSubmitError('You must be logged in to delete a project');
+            return;
+        }
+
+        setIsDeleting(true);
+        setSubmitError(null);
+
+        try {
+            const response = await fetch(UPDATE_PROJECT_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'DELETE_PROJECT',
+                    projectId: projectId,
+                    sellerId: userId
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Failed to delete project' }));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove from local state
+                setUploadedProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
+                
+                // Update stats
+                const deletedProject = uploadedProjects.find(p => p.id === projectId);
+                if (deletedProject && deletedProject.status === 'Draft') {
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        draftProjects: Math.max(0, prevStats.draftProjects - 1)
+                    }));
+                }
+
+                // Close confirmation modal
+                setDeleteConfirmProject(null);
+                
+                // Show success message
+                setSubmitSuccess(true);
+                setTimeout(() => setSubmitSuccess(false), 3000);
+            } else {
+                throw new Error(data.message || 'Failed to delete project');
+            }
+        } catch (error) {
+            console.error('Error deleting draft project:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to delete project. Please try again.';
+            setSubmitError(errorMessage);
+            setTimeout(() => setSubmitError(null), 5000);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <div className="mt-8 space-y-8">
             {isLoadingProjects && !showUploadForm ? (
@@ -1825,6 +1890,9 @@ const SellerDashboard: React.FC = () => {
                                                                     adminAction={project.adminAction}
                                                                     projectId={project.id}
                                                                     onToggleStatus={handleToggleProjectStatus}
+                                                                    onEdit={project.status === 'Draft' ? () => loadDraftProject(project.id) : undefined}
+                                                                    onDelete={project.status === 'Draft' ? () => setDeleteConfirmProject({ id: project.id, name: project.name }) : undefined}
+                                                                    showActions={project.status === 'Draft'}
                                                                 />
                                                             </div>
                                                         ))}
@@ -1950,16 +2018,34 @@ const SellerDashboard: React.FC = () => {
                                                                                 </td>
                                                                                 <td className="px-8 py-4 whitespace-nowrap text-sm font-medium">
                                                                                     <div className="flex items-center gap-4">
-                                                                                        <button className="p-2.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200 hover:scale-105 border border-transparent hover:border-blue-200" title="Edit">
-                                                                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
-                                                                                            </svg>
-                                                                                        </button>
-                                                                                        <button className="p-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-105 border border-transparent hover:border-red-200" title="Delete">
-                                                                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                            </svg>
-                                                                                        </button>
+                                                                                        {project.status === 'Draft' && (
+                                                                                            <>
+                                                                                                <button 
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        loadDraftProject(project.id);
+                                                                                                    }}
+                                                                                                    className="p-2.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200 hover:scale-105 border border-transparent hover:border-blue-200" 
+                                                                                                    title="Edit Draft"
+                                                                                                >
+                                                                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
+                                                                                                    </svg>
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        setDeleteConfirmProject({ id: project.id, name: project.name });
+                                                                                                    }}
+                                                                                                    className="p-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 hover:scale-105 border border-transparent hover:border-red-200" 
+                                                                                                    title="Delete Draft"
+                                                                                                >
+                                                                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                                    </svg>
+                                                                                                </button>
+                                                                                            </>
+                                                                                        )}
                                                                                     </div>
                                                                                 </td>
                                                                             </tr>
@@ -2657,8 +2743,66 @@ const SellerDashboard: React.FC = () => {
                         </form>
                     )}
 
-                    {/* Premium Modal */}
-                    {showPremiumModal && (
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmProject && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteConfirmProject(null)}>
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setDeleteConfirmProject(null)}
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div className="text-center mb-6">
+                            <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                <svg className="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">Delete Draft Project?</h3>
+                            <p className="text-gray-600">
+                                Are you sure you want to delete <span className="font-semibold text-gray-900">"{deleteConfirmProject.name}"</span>? This action cannot be undone.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirmProject(null)}
+                                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                                disabled={isDeleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteDraft(deleteConfirmProject.id)}
+                                className="flex-1 px-4 py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Premium Modal */}
+            {showPremiumModal && (
                         <>
                             <div
                                 className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
