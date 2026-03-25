@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DynamoDB table (postId only, no GSIs) + HTTP API Lambda for company posts
+
+Globals:
+  Function:
+    Timeout: 29
+    Runtime: python3.12
+    Architectures:
+      - arm64
+    MemorySize: 256
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    Description: Deployment stage name
+
+Resources:
+  # DynamoDB — partition key only; LIST uses Scan + in-memory sort (fine for small/medium tables)
+  CompanyPostsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-posts'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: postId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: postId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  CompanyPostsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-api'
+      Handler: company_posts_handler.lambda_handler
+      CodeUri: ../
+      Environment:
+        Variables:
+          POSTS_TABLE_NAME: !Ref CompanyPostsTable
+          STAGE: !Ref Stage
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompanyPostsTable
+      Events:
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CompanyPostsHttpApi
+            Path: /posts
+            Method: ANY
+        ApiProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CompanyPostsHttpApi
+            Path: /posts/{proxy+}
+            Method: ANY
+
+  CompanyPostsHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowCredentials: false
+        AllowHeaders:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+Outputs:
+  HttpApiUrl:
+    Description: Base URL for the HTTP API (append /posts)
+    Value: !Sub 'https://${CompanyPostsHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  PostsTableName:
+    Description: DynamoDB table name
+    Value: !Ref CompanyPostsTable
+  CompanyPostsFunctionArn:
+    Description: Lambda ARN
+    Value: !GetAtt CompanyPostsFunction.Arn

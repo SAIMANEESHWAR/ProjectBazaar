@@ -1,7 +1,99 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../App';
 
 type PostCategory = 'interview-experience' | 'company-feedback' | 'salary-compensation' | 'career-discussion';
+
+const POST_CATEGORIES = [
+    'interview-experience',
+    'company-feedback',
+    'salary-compensation',
+    'career-discussion',
+] as const satisfies readonly PostCategory[];
+
+const CATEGORY_FILTER_KEYS = ['all', ...POST_CATEGORIES] as const;
+
+/** Which form sections to render for create-post UI (single source for layout). */
+type CategoryFormLayout = 'interview' | 'salary' | 'feedback' | 'career';
+
+const EXPERIENCE_LEVEL_OPTIONS = ['Fresher', '0-1 years', '1-3 years', '3+ years'] as const;
+
+const INTERVIEW_FOCUS_OPTIONS = [
+    'Online Assessment',
+    'Technical Interview',
+    'System Design',
+    'HR / Managerial',
+] as const;
+
+const OFFER_TYPE_OPTIONS = ['Internship', 'Full-time', 'Intern + PPO'] as const;
+export type CompanyPostOfferType = (typeof OFFER_TYPE_OPTIONS)[number];
+
+const CATEGORY_META: Record<
+    PostCategory,
+    {
+        label: string;
+        shortLabel: string;
+        formLayout: CategoryFormLayout;
+        requireCompany: boolean;
+        requireRole: boolean;
+        requireCtc: boolean;
+        requireRating: boolean;
+        titlePlaceholder: string;
+        contentPlaceholder: string;
+    }
+> = {
+    'interview-experience': {
+        label: 'Interview Experience',
+        shortLabel: 'Interview',
+        formLayout: 'interview',
+        requireCompany: true,
+        requireRole: true,
+        requireCtc: false,
+        requireRating: false,
+        titlePlaceholder: 'e.g., Google SDE Intern 2026 – 3 rounds, OA + interviews',
+        contentPlaceholder:
+            'Describe each round, questions you remember, difficulty level, preparation tips, and final result.',
+    },
+    'company-feedback': {
+        label: 'Company Feedback',
+        shortLabel: 'Feedback',
+        formLayout: 'feedback',
+        requireCompany: true,
+        requireRole: false,
+        requireCtc: false,
+        requireRating: true,
+        titlePlaceholder: 'e.g., Microsoft Work Culture Review - Great WLB, Supportive Team',
+        contentPlaceholder:
+            'Share your experience about company culture, work-life balance, team support, growth opportunities, management style, perks, and overall satisfaction.',
+    },
+    'salary-compensation': {
+        label: 'Salary Compensation',
+        shortLabel: 'Salary',
+        formLayout: 'salary',
+        requireCompany: true,
+        requireRole: true,
+        requireCtc: true,
+        requireRating: false,
+        titlePlaceholder: 'e.g., Amazon SDE1 package – 45 LPA CTC, 23 LPA base',
+        contentPlaceholder:
+            'Explain CTC vs in-hand, bonuses, stocks, cost of living, work-from-home policy, negotiation tips, etc.',
+    },
+    'career-discussion': {
+        label: 'Career Discussion',
+        shortLabel: 'Career',
+        formLayout: 'career',
+        requireCompany: false,
+        requireRole: false,
+        requireCtc: false,
+        requireRating: false,
+        titlePlaceholder: 'e.g., How to transition from Frontend to Full Stack Developer?',
+        contentPlaceholder:
+            'Share career advice, tips, experiences, challenges faced, solutions, and insights that can help others in their career journey.',
+    },
+};
+
+function isPostCategory(value: unknown): value is PostCategory {
+    return typeof value === 'string' && (POST_CATEGORIES as readonly string[]).includes(value);
+}
 
 interface CompanyPostComment {
     id: string;
@@ -31,7 +123,7 @@ export interface CompanyPost {
         bonus?: string;
         stock?: string;
         graduationYear?: string;
-        offerType?: 'Internship' | 'Full-time' | 'Intern + PPO';
+        offerType?: CompanyPostOfferType;
     };
     companyRating?: number; // 1-5 for company feedback
     careerTopic?: string; // Topic/tag for career discussion
@@ -40,7 +132,175 @@ export interface CompanyPost {
     comments: CompanyPostComment[];
 }
 
+function isValidOfferType(value: string): value is CompanyPostOfferType {
+    return (OFFER_TYPE_OPTIONS as readonly string[]).includes(value);
+}
+
+function normalizeCompanyPostForCategory(p: CompanyPost): CompanyPost {
+    const c = p.category;
+    const rating =
+        typeof p.companyRating === 'number' && p.companyRating >= 1 && p.companyRating <= 5
+            ? p.companyRating
+            : undefined;
+    const rawOffer = p.packageDetails?.offerType;
+    const offerType =
+        typeof rawOffer === 'string' && isValidOfferType(rawOffer) ? rawOffer : undefined;
+
+    return {
+        ...p,
+        packageDetails:
+            c === 'salary-compensation' && p.packageDetails
+                ? {
+                      ...p.packageDetails,
+                      offerType,
+                  }
+                : undefined,
+        companyRating: c === 'company-feedback' ? rating : undefined,
+        careerTopic: c === 'career-discussion' && typeof p.careerTopic === 'string' ? p.careerTopic : undefined,
+        interviewRound: c === 'interview-experience' && typeof p.interviewRound === 'string' ? p.interviewRound : undefined,
+    };
+}
+
+function sanitizeStoredPosts(raw: unknown): CompanyPost[] {
+    if (!Array.isArray(raw)) return [];
+    const out: CompanyPost[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const p = item as Partial<CompanyPost>;
+        if (!p.id || typeof p.id !== 'string') continue;
+        if (!isPostCategory(p.category)) continue;
+        const base: CompanyPost = {
+            ...p,
+            category: p.category,
+            companyName: typeof p.companyName === 'string' ? p.companyName : 'General',
+            role: typeof p.role === 'string' ? p.role : 'General',
+            title: typeof p.title === 'string' ? p.title : '',
+            content: typeof p.content === 'string' ? p.content : '',
+            comments: Array.isArray(p.comments) ? p.comments : [],
+            upvotes: typeof p.upvotes === 'number' ? p.upvotes : 0,
+        } as CompanyPost;
+        out.push(normalizeCompanyPostForCategory(base));
+    }
+    return out;
+}
+
+/** Map Lambda GET response item → CompanyPost */
+function mapApiPostToCompanyPost(raw: unknown): CompanyPost | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const p = raw as Record<string, unknown>;
+    const id = typeof p.id === 'string' ? p.id : null;
+    if (!id || !isPostCategory(p.category)) return null;
+    const commentsRaw = Array.isArray(p.comments) ? p.comments : [];
+    const comments: CompanyPostComment[] = commentsRaw
+        .filter((c): c is Record<string, unknown> => Boolean(c && typeof c === 'object'))
+        .map(c => ({
+            id: String(c.id ?? ''),
+            author: String(c.author ?? ''),
+            text: String(c.text ?? ''),
+            createdAt: String(c.createdAt ?? ''),
+        }))
+        .filter(c => c.id && c.text);
+
+    return normalizeCompanyPostForCategory({
+        id,
+        authorId: typeof p.authorId === 'string' ? p.authorId : null,
+        authorName: String(p.authorName ?? ''),
+        companyName: typeof p.companyName === 'string' ? p.companyName : 'General',
+        isAdminCompany: Boolean(p.isAdminCompany),
+        role: typeof p.role === 'string' ? p.role : 'General',
+        category: p.category as PostCategory,
+        createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
+        title: String(p.title ?? ''),
+        content: String(p.content ?? ''),
+        location: typeof p.location === 'string' ? p.location : undefined,
+        experienceLevel: typeof p.experienceLevel === 'string' ? p.experienceLevel : undefined,
+        interviewRound: typeof p.interviewRound === 'string' ? p.interviewRound : undefined,
+        packageDetails: p.packageDetails as CompanyPost['packageDetails'],
+        companyRating: typeof p.companyRating === 'number' ? p.companyRating : undefined,
+        careerTopic: typeof p.careerTopic === 'string' ? p.careerTopic : undefined,
+        tags: Array.isArray(p.tags) ? (p.tags as string[]) : [],
+        upvotes: typeof p.upvotes === 'number' ? p.upvotes : 0,
+        comments,
+    });
+}
+
 const STORAGE_KEY = 'dashboardCompanyPosts';
+
+const CATEGORY_BADGE_STYLES: Record<PostCategory, string> = {
+    'interview-experience': 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    'company-feedback': 'bg-blue-50 text-blue-700 border-blue-100',
+    'salary-compensation': 'bg-indigo-50 text-indigo-700 border-indigo-100',
+    'career-discussion': 'bg-purple-50 text-purple-700 border-purple-100',
+};
+
+function getCategoryValidationError(input: {
+    category: PostCategory;
+    title: string;
+    content: string;
+    companyName: string;
+    role: string;
+    ctc: string;
+    companyRating: number;
+    offerType: string;
+}): string | null {
+    const meta = CATEGORY_META[input.category];
+    if (!input.title.trim() || !input.content.trim()) {
+        return 'Add a title and details for your post.';
+    }
+    if (meta.requireCompany && !input.companyName.trim()) {
+        return 'Select or enter a company name.';
+    }
+    if (meta.requireRole && !input.role.trim()) {
+        return 'Enter your role or position.';
+    }
+    if (meta.requireCtc) {
+        const ctcTrim = input.ctc.trim();
+        if (!ctcTrim) {
+            return 'Enter CTC (approx.) for salary posts.';
+        }
+        if (!/\d/.test(ctcTrim)) {
+            return 'CTC should include a number (e.g., 18 LPA or 45,00,000).';
+        }
+    }
+    if (meta.requireRating && (input.companyRating < 1 || input.companyRating > 5)) {
+        return 'Choose an overall company rating from 1 to 5 stars.';
+    }
+    if (input.category === 'salary-compensation' && input.offerType.trim() && !isValidOfferType(input.offerType)) {
+        return 'Select a valid offer type, or leave it blank.';
+    }
+    return null;
+}
+
+/**
+ * JSON body for POST /posts — aligned with `lambda/company_posts_handler.py`.
+ * Category-specific fields should match {@link normalizeCompanyPostForCategory} (same shape as persisted locally).
+ */
+export function toLambdaCreateBody(post: CompanyPost, isAnonymous: boolean): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+        isAnonymous,
+        authorName: post.authorName,
+        companyName: post.companyName,
+        isAdminCompany: post.isAdminCompany,
+        role: post.role,
+        category: post.category,
+        title: post.title,
+        content: post.content,
+        tags: post.tags ?? [],
+        upvotes: post.upvotes,
+        comments: post.comments ?? [],
+    };
+    if (!isAnonymous && post.authorId) {
+        body.authorId = post.authorId;
+        body.authorUserId = post.authorId;
+    }
+    if (post.location) body.location = post.location;
+    if (post.experienceLevel) body.experienceLevel = post.experienceLevel;
+    if (post.interviewRound) body.interviewRound = post.interviewRound;
+    if (post.packageDetails) body.packageDetails = post.packageDetails;
+    if (post.companyRating != null) body.companyRating = post.companyRating;
+    if (post.careerTopic) body.careerTopic = post.careerTopic;
+    return body;
+}
 
 const defaultAdminCompanies = [
     'Google',
@@ -55,15 +315,28 @@ const defaultAdminCompanies = [
     'Wipro',
 ];
 
-const CompanyPostsPage: React.FC = () => {
+/** Set `VITE_COMPANY_POSTS_OFFLINE=true` to use browser storage only. Otherwise uses env URL or default API. */
+const companyPostsApiBase = (() => {
+    if (import.meta.env.VITE_COMPANY_POSTS_OFFLINE === 'true') return '';
+    const fromEnv = (import.meta.env.VITE_COMPANY_POSTS_API_URL as string | undefined)?.trim();
+    if (fromEnv) return fromEnv.replace(/\/$/, '');
+    return 'https://dj1gnnn8p9.execute-api.ap-south-2.amazonaws.com/default/company_posts_handler';
+})();
+
+const useCompanyPostsApi = Boolean(companyPostsApiBase);
+
+const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     const { userEmail } = useAuth();
     const [posts, setPosts] = useState<CompanyPost[]>([]);
+    const [postsLoading, setPostsLoading] = useState(useCompanyPostsApi);
+    const [postsFetchError, setPostsFetchError] = useState<string | null>(null);
     const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | PostCategory>('all');
     const [viewMineOnly, setViewMineOnly] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [isCreating, setIsCreating] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
     const [isAdminCompany, setIsAdminCompany] = useState(true);
     const [selectedAdminCompany, setSelectedAdminCompany] = useState<string>('');
     const [customCompanyName, setCustomCompanyName] = useState('');
@@ -82,7 +355,7 @@ const CompanyPostsPage: React.FC = () => {
     const [bonus, setBonus] = useState('');
     const [stock, setStock] = useState('');
     const [graduationYear, setGraduationYear] = useState('');
-    const [offerType, setOfferType] = useState<'Internship' | 'Full-time' | 'Intern + PPO' | ''>('');
+    const [offerType, setOfferType] = useState<CompanyPostOfferType | ''>('');
 
     // Company feedback fields
     const [companyRating, setCompanyRating] = useState<number>(0);
@@ -92,24 +365,52 @@ const CompanyPostsPage: React.FC = () => {
 
     const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+    const [isSubmittingPost, setIsSubmittingPost] = useState(false);
 
-    // Load from localStorage on mount
-    useEffect(() => {
+    const loadRemotePosts = useCallback(async () => {
+        if (!useCompanyPostsApi) return;
+        setPostsLoading(true);
+        setPostsFetchError(null);
         try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (Array.isArray(parsed)) {
-                    setPosts(parsed);
-                }
+            const res = await fetch(companyPostsApiBase);
+            const j = (await res.json()) as { posts?: unknown[]; error?: string };
+            if (!res.ok) {
+                throw new Error(j.error || `HTTP ${res.status}`);
             }
-        } catch {
-            // ignore
+            const list = (j.posts ?? [])
+                .map(mapApiPostToCompanyPost)
+                .filter((p): p is CompanyPost => p != null);
+            setPosts(list);
+        } catch (e) {
+            setPostsFetchError(e instanceof Error ? e.message : 'Failed to load posts');
+            setPosts([]);
+        } finally {
+            setPostsLoading(false);
         }
     }, []);
 
-    // Persist to localStorage whenever posts change
+    // Load: remote API or localStorage
     useEffect(() => {
+        if (!useCompanyPostsApi) {
+            setPostsLoading(false);
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    setPosts(sanitizeStoredPosts(parsed));
+                }
+            } catch {
+                // ignore
+            }
+            return;
+        }
+
+        void loadRemotePosts();
+    }, [loadRemotePosts]);
+
+    // Persist to localStorage only when not using remote API
+    useEffect(() => {
+        if (useCompanyPostsApi) return;
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
         } catch {
@@ -137,21 +438,51 @@ const CompanyPostsPage: React.FC = () => {
         return posts.filter(post => {
             if (selectedCompanyFilter !== 'all' && post.companyName !== selectedCompanyFilter) return false;
             if (selectedCategoryFilter !== 'all' && post.category !== selectedCategoryFilter) return false;
-            if (viewMineOnly && post.authorName !== currentUserName && post.authorId !== null) return false;
+            if (viewMineOnly) {
+                const isMine =
+                    (userEmail != null && post.authorId === userEmail) ||
+                    (post.authorId == null && post.authorName === currentUserName);
+                if (!isMine) return false;
+            }
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
+                const topicMatch =
+                    post.careerTopic && post.careerTopic.toLowerCase().includes(q);
+                const locationMatch =
+                    post.location && post.location.toLowerCase().includes(q);
+                const tagMatch =
+                    post.tags?.some(t => t.toLowerCase().includes(q)) ?? false;
                 const matches =
                     post.companyName.toLowerCase().includes(q) ||
                     post.role.toLowerCase().includes(q) ||
                     post.title.toLowerCase().includes(q) ||
-                    post.content.toLowerCase().includes(q);
+                    post.content.toLowerCase().includes(q) ||
+                    !!topicMatch ||
+                    !!locationMatch ||
+                    tagMatch;
                 if (!matches) return false;
             }
             return true;
         });
-    }, [posts, selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery, currentUserName]);
+    }, [posts, selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery, currentUserName, userEmail]);
+
+    const filterExcludedAll =
+        posts.length > 0 && filteredPosts.length === 0;
+
+    const clearListFilters = () => {
+        setSelectedCompanyFilter('all');
+        setSelectedCategoryFilter('all');
+        setViewMineOnly(false);
+        setSearchQuery('');
+    };
+
+    const sortedAdminCompanyOptions = useMemo(
+        () => [...allCompanies.admin].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        [allCompanies.admin],
+    );
 
     const resetForm = () => {
+        setFormError(null);
         setIsCreating(false);
         setIsAdminCompany(true);
         setSelectedAdminCompany('');
@@ -174,39 +505,35 @@ const CompanyPostsPage: React.FC = () => {
         setCareerTopic('');
     };
 
-    const handleCreatePost = () => {
+    const handleCreatePost = async () => {
         const companyName = isAdminCompany ? selectedAdminCompany : customCompanyName;
-        
-        // Basic validation
-        if (!title.trim() || !content.trim()) {
+        const validationError = getCategoryValidationError({
+            category,
+            title,
+            content,
+            companyName,
+            role,
+            ctc,
+            companyRating,
+            offerType,
+        });
+        if (validationError) {
+            setFormError(validationError);
             return;
         }
-
-        // Category-specific validation
-        if (category === 'interview-experience' || category === 'salary-compensation') {
-            if (!companyName.trim() || !role.trim()) {
-                return;
-            }
-            if (category === 'salary-compensation' && !ctc.trim()) {
-                return;
-            }
-        } else if (category === 'company-feedback') {
-            if (!companyName.trim() || companyRating === 0) {
-                return;
-            }
+        if (useCompanyPostsApi && !isAnonymous && !userEmail) {
+            setFormError('Sign in to post with your name, or use Post as anonymous.');
+            return;
         }
+        setFormError(null);
 
         const id = `post-${Date.now()}`;
-        const categoryLabels: Record<PostCategory, string> = {
-            'interview-experience': 'Interview Experience',
-            'company-feedback': 'Company Feedback',
-            'salary-compensation': 'Salary Compensation',
-            'career-discussion': 'Career Discussion',
-        };
+        const offerTypeClean =
+            offerType && isValidOfferType(offerType) ? offerType : undefined;
 
-        const newPost: CompanyPost = {
+        const newPost: CompanyPost = normalizeCompanyPostForCategory({
             id,
-            authorId: null,
+            authorId: isAnonymous || !userEmail ? null : userEmail,
             authorName: isAnonymous ? 'Anonymous' : currentUserName,
             companyName: companyName.trim() || 'General',
             isAdminCompany,
@@ -225,32 +552,89 @@ const CompanyPostsPage: React.FC = () => {
                     bonus: bonus.trim() || undefined,
                     stock: stock.trim() || undefined,
                     graduationYear: graduationYear.trim() || undefined,
-                    offerType: offerType || undefined,
+                    offerType: offerTypeClean,
                 }
                 : undefined,
             companyRating: category === 'company-feedback' ? companyRating : undefined,
             careerTopic: category === 'career-discussion' ? careerTopic.trim() || undefined : undefined,
             tags: [
-                categoryLabels[category],
+                CATEGORY_META[category].label,
                 ...(experienceLevel ? [experienceLevel] : []),
                 ...(interviewRound ? [interviewRound] : []),
-                ...(careerTopic ? [careerTopic] : []),
+                ...(careerTopic.trim() ? [careerTopic.trim()] : []),
             ],
             upvotes: 0,
             comments: [],
-        };
+        });
 
-        setPosts(prev => [newPost, ...prev]);
-        resetForm();
+        if (!useCompanyPostsApi) {
+            setPosts(prev => [newPost, ...prev]);
+            resetForm();
+            return;
+        }
+
+        setIsSubmittingPost(true);
+        try {
+            const body = toLambdaCreateBody(newPost, isAnonymous);
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (userEmail && !isAnonymous) {
+                headers['x-user-id'] = userEmail;
+                headers['x-user-name'] = currentUserName;
+            }
+            const res = await fetch(companyPostsApiBase, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            });
+            const j = (await res.json()) as { post?: unknown; error?: string; details?: string[] };
+            if (!res.ok) {
+                const msg = j.details?.length ? j.details.join(' ') : j.error || `HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+            const mapped = mapApiPostToCompanyPost(j.post);
+            if (!mapped) throw new Error('Invalid response from server');
+            setPosts(prev => [mapped, ...prev]);
+            resetForm();
+        } catch (e) {
+            setFormError(e instanceof Error ? e.message : 'Failed to create post');
+        } finally {
+            setIsSubmittingPost(false);
+        }
     };
 
     const handleToggleComments = (postId: string) => {
         setExpandedComments(prev => ({ ...prev, [postId]: !prev[postId] }));
     };
 
-    const handleAddComment = (postId: string) => {
+    const handleAddComment = async (postId: string) => {
         const draft = (commentDrafts[postId] || '').trim();
         if (!draft) return;
+
+        if (useCompanyPostsApi) {
+            try {
+                const res = await fetch(companyPostsApiBase, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'addComment',
+                        postId,
+                        author: currentUserName,
+                        text: draft,
+                    }),
+                });
+                const j = (await res.json()) as { post?: unknown; error?: string };
+                if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+                const mapped = mapApiPostToCompanyPost(j.post);
+                if (mapped) {
+                    setPosts(prev => prev.map(p => (p.id === postId ? mapped : p)));
+                }
+                setCommentDrafts(prev => ({ ...prev, [postId]: '' }));
+                setExpandedComments(prev => ({ ...prev, [postId]: true }));
+            } catch {
+                // keep draft; optional: toast
+            }
+            return;
+        }
 
         const newComment: CompanyPostComment = {
             id: `c-${Date.now()}`,
@@ -268,7 +652,26 @@ const CompanyPostsPage: React.FC = () => {
         setExpandedComments(prev => ({ ...prev, [postId]: true }));
     };
 
-    const handleUpvote = (postId: string) => {
+    const handleUpvote = async (postId: string) => {
+        if (useCompanyPostsApi) {
+            try {
+                const res = await fetch(companyPostsApiBase, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'upvote', postId }),
+                });
+                const j = (await res.json()) as { post?: unknown; error?: string };
+                if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+                const mapped = mapApiPostToCompanyPost(j.post);
+                if (mapped) {
+                    setPosts(prev => prev.map(p => (p.id === postId ? mapped : p)));
+                }
+            } catch {
+                // ignore
+            }
+            return;
+        }
+
         setPosts(prev =>
             prev.map(post =>
                 post.id === postId ? { ...post, upvotes: post.upvotes + 1 } : post,
@@ -276,36 +679,13 @@ const CompanyPostsPage: React.FC = () => {
         );
     };
 
-    const renderCategoryBadge = (c: PostCategory) => {
-        switch (c) {
-            case 'interview-experience':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Interview Experience
-                    </span>
-                );
-            case 'company-feedback':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                        Company Feedback
-                    </span>
-                );
-            case 'salary-compensation':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        Salary Compensation
-                    </span>
-                );
-            case 'career-discussion':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-100">
-                        Career Discussion
-                    </span>
-                );
-            default:
-                return null;
-        }
-    };
+    const renderCategoryBadge = (c: PostCategory) => (
+        <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${CATEGORY_BADGE_STYLES[c]}`}
+        >
+            {CATEGORY_META[c].label}
+        </span>
+    );
 
     const formatDate = (iso: string) => {
         try {
@@ -343,6 +723,11 @@ const CompanyPostsPage: React.FC = () => {
                                 <p className="text-sm text-gray-600 leading-relaxed">
                                     Share real interview stories, package details, and polls about companies to help the community.
                                 </p>
+                                {useCompanyPostsApi && (
+                                    <p className="text-[11px] text-emerald-700 mt-1.5">
+                                        Live feed: posts load from your API (same data as DynamoDB).
+                                    </p>
+                                )}
                             </div>
                         </div>
                         
@@ -355,12 +740,7 @@ const CompanyPostsPage: React.FC = () => {
                                     </h2>
                                     <button
                                         className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
-                                        onClick={() => {
-                                            setSelectedCompanyFilter('all');
-                                            setSelectedCategoryFilter('all');
-                                            setViewMineOnly(false);
-                                            setSearchQuery('');
-                                        }}
+                                        onClick={clearListFilters}
                                     >
                                         Reset
                                     </button>
@@ -402,7 +782,7 @@ const CompanyPostsPage: React.FC = () => {
                                             Category
                                         </label>
                                         <div className="grid grid-cols-2 gap-1.5">
-                                            {(['all', 'interview-experience', 'company-feedback', 'salary-compensation', 'career-discussion'] as const).map(c => (
+                                            {CATEGORY_FILTER_KEYS.map(c => (
                                                 <button
                                                     key={c}
                                                     type="button"
@@ -416,15 +796,7 @@ const CompanyPostsPage: React.FC = () => {
                                                         : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                                         }`}
                                                 >
-                                                    {c === 'all'
-                                                        ? 'All'
-                                                        : c === 'interview-experience'
-                                                            ? 'Interview'
-                                                            : c === 'company-feedback'
-                                                                ? 'Feedback'
-                                                                : c === 'salary-compensation'
-                                                                    ? 'Salary'
-                                                                    : 'Career'}
+                                                    {c === 'all' ? 'All' : CATEGORY_META[c as PostCategory].shortLabel}
                                                 </button>
                                             ))}
                                         </div>
@@ -447,12 +819,7 @@ const CompanyPostsPage: React.FC = () => {
                                 </h2>
                                 <button
                                     className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
-                                    onClick={() => {
-                                        setSelectedCompanyFilter('all');
-                                        setSelectedCategoryFilter('all');
-                                        setViewMineOnly(false);
-                                        setSearchQuery('');
-                                    }}
+                                    onClick={clearListFilters}
                                 >
                                     Reset
                                 </button>
@@ -493,7 +860,7 @@ const CompanyPostsPage: React.FC = () => {
                                         Category
                                     </label>
                                     <div className="grid grid-cols-2 gap-1.5">
-                                        {(['all', 'interview-experience', 'company-feedback', 'salary-compensation', 'career-discussion'] as const).map(c => (
+                                        {CATEGORY_FILTER_KEYS.map(c => (
                                             <button
                                                 key={c}
                                                 type="button"
@@ -507,15 +874,7 @@ const CompanyPostsPage: React.FC = () => {
                                                     : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                                     }`}
                                             >
-                                                {c === 'all'
-                                                    ? 'All'
-                                                    : c === 'interview-experience'
-                                                        ? 'Interview'
-                                                        : c === 'company-feedback'
-                                                            ? 'Feedback'
-                                                            : c === 'salary-compensation'
-                                                                ? 'Salary'
-                                                                : 'Career'}
+                                                {c === 'all' ? 'All' : CATEGORY_META[c as PostCategory].shortLabel}
                                             </button>
                                         ))}
                                     </div>
@@ -570,7 +929,7 @@ const CompanyPostsPage: React.FC = () => {
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search by company, role, keyword"
+                                            placeholder="Search title, company, role, tags, location…"
                                             className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60"
                                         />
                                         <svg className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -589,26 +948,61 @@ const CompanyPostsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {filteredPosts.length === 0 ? (
+                            {postsFetchError && useCompanyPostsApi && (
+                                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-wrap items-center justify-between gap-2">
+                                    <span>{postsFetchError}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => void loadRemotePosts()}
+                                        className="px-2 py-1 rounded-lg bg-white border border-red-200 font-medium hover:bg-red-100/80"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            )}
+
+                            {postsLoading ? (
+                                <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                                    Loading posts…
+                                </div>
+                            ) : filteredPosts.length === 0 ? (
                                 <div className="mt-3 rounded-2xl border border-dashed border-gray-300 bg-white/60 px-4 py-6 text-center">
                                     <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-600 mb-2">
                                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                         </svg>
                                     </div>
-                                    <h3 className="text-sm font-semibold text-gray-900 mb-1">No posts yet</h3>
-                                    <p className="text-xs text-gray-500 mb-3">
-                                        Start by sharing your latest interview experience, package details, or a quick poll about a company.
-                                    </p>
-                                    <button
-                                        onClick={() => setIsCreating(true)}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-semibold shadow-md shadow-orange-500/30"
-                                    >
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Share first post
-                                    </button>
+                                    {filterExcludedAll ? (
+                                        <>
+                                            <h3 className="text-sm font-semibold text-gray-900 mb-1">No matching posts</h3>
+                                            <p className="text-xs text-gray-500 mb-3">
+                                                Nothing matches your company, category, &quot;My posts&quot;, or search. Try clearing filters or a different keyword.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={clearListFilters}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-800 text-xs font-semibold hover:bg-gray-50 mb-2"
+                                            >
+                                                Clear filters &amp; search
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h3 className="text-sm font-semibold text-gray-900 mb-1">No posts yet</h3>
+                                            <p className="text-xs text-gray-500 mb-3">
+                                                Start by sharing your latest interview experience, package details, or a quick poll about a company.
+                                            </p>
+                                            <button
+                                                onClick={() => setIsCreating(true)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-semibold shadow-md shadow-orange-500/30"
+                                            >
+                                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                Share first post
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -814,7 +1208,16 @@ const CompanyPostsPage: React.FC = () => {
                                 Share an interview experience, company feedback, salary details, or career discussion
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                            {formError && (
+                                <p
+                                    className="w-full sm:max-w-md text-right sm:text-left text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
+                                    role="alert"
+                                >
+                                    {formError}
+                                </p>
+                            )}
+                            <div className="flex items-center gap-2">
                             <button
                                 type="button"
                                 onClick={resetForm}
@@ -824,14 +1227,16 @@ const CompanyPostsPage: React.FC = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={handleCreatePost}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700 transition"
+                                onClick={() => void handleCreatePost()}
+                                disabled={isSubmittingPost}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                                 Post
                             </button>
+                            </div>
                         </div>
                     </div>
 
@@ -847,15 +1252,7 @@ const CompanyPostsPage: React.FC = () => {
                                         type="text"
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
-                                        placeholder={
-                                            category === 'interview-experience'
-                                                ? 'e.g., Google SDE Intern 2026 – 3 rounds, OA + interviews'
-                                                : category === 'company-feedback'
-                                                    ? 'e.g., Microsoft Work Culture Review - Great WLB, Supportive Team'
-                                                    : category === 'salary-compensation'
-                                                        ? 'e.g., Amazon SDE1 package – 45 LPA CTC, 23 LPA base'
-                                                        : 'e.g., How to transition from Frontend to Full Stack Developer?'
-                                        }
+                                        placeholder={CATEGORY_META[category].titlePlaceholder}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                     />
                                 </div>
@@ -868,15 +1265,7 @@ const CompanyPostsPage: React.FC = () => {
                                         value={content}
                                         onChange={(e) => setContent(e.target.value)}
                                         rows={16}
-                                        placeholder={
-                                            category === 'interview-experience'
-                                                ? 'Describe each round, questions you remember, difficulty level, preparation tips, and final result.'
-                                                : category === 'company-feedback'
-                                                    ? 'Share your experience about company culture, work-life balance, team support, growth opportunities, management style, perks, and overall satisfaction.'
-                                                    : category === 'salary-compensation'
-                                                        ? 'Explain CTC vs in-hand, bonuses, stocks, cost of living, work-from-home policy, negotiation tips, etc.'
-                                                        : 'Share career advice, tips, experiences, challenges faced, solutions, and insights that can help others in their career journey.'
-                                        }
+                                        placeholder={CATEGORY_META[category].contentPlaceholder}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500 resize-none"
                                     />
                                 </div>
@@ -891,23 +1280,20 @@ const CompanyPostsPage: React.FC = () => {
                                             Post Category
                                         </label>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {(['interview-experience', 'company-feedback', 'salary-compensation', 'career-discussion'] as const).map(c => (
+                                            {POST_CATEGORIES.map(c => (
                                                 <button
                                                     key={c}
                                                     type="button"
-                                                    onClick={() => setCategory(c)}
+                                                    onClick={() => {
+                                                        setCategory(c);
+                                                        setFormError(null);
+                                                    }}
                                                     className={`px-3 py-2.5 rounded-lg text-xs font-medium border transition-all ${category === c
                                                         ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
                                                         : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                                                         }`}
                                                 >
-                                                    {c === 'interview-experience'
-                                                        ? 'Interview Experience'
-                                                        : c === 'company-feedback'
-                                                            ? 'Company Feedback'
-                                                            : c === 'salary-compensation'
-                                                                ? 'Salary Compensation'
-                                                                : 'Career Discussion'}
+                                                    {CATEGORY_META[c].label}
                                                 </button>
                                             ))}
                                         </div>
@@ -917,8 +1303,13 @@ const CompanyPostsPage: React.FC = () => {
                                 {/* Common Fields */}
                                 <div className="rounded-xl border border-gray-300 bg-white p-4 space-y-3">
                                     <div>
-                                        <p className="text-sm font-semibold text-gray-900 mb-2">
+                                        <p className="text-sm font-semibold text-gray-900 mb-1">
                                             Company Information
+                                        </p>
+                                        <p className="text-xs text-gray-500 mb-2">
+                                            {CATEGORY_META[category].requireCompany
+                                                ? 'Company is required for this category.'
+                                                : 'Optional — leave blank or pick General if the post is not about one employer.'}
                                         </p>
                                         <div className="inline-flex rounded-full bg-gray-100 border border-gray-300 p-1 text-xs mb-3">
                                             <button
@@ -947,7 +1338,7 @@ const CompanyPostsPage: React.FC = () => {
                                     {isAdminCompany ? (
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Company (admin) {category !== 'career-discussion' && <span className="text-red-500">*</span>}
+                                                Company (admin) {CATEGORY_META[category].requireCompany && <span className="text-red-500">*</span>}
                                             </label>
                                             <select
                                                 value={selectedAdminCompany}
@@ -955,7 +1346,7 @@ const CompanyPostsPage: React.FC = () => {
                                                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                             >
                                                 <option value="">Select company</option>
-                                                {defaultAdminCompanies.map(name => (
+                                                {sortedAdminCompanyOptions.map(name => (
                                                     <option key={name} value={name}>
                                                         {name}
                                                     </option>
@@ -965,7 +1356,7 @@ const CompanyPostsPage: React.FC = () => {
                                     ) : (
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                New company name {category !== 'career-discussion' && <span className="text-red-500">*</span>}
+                                                New company name {CATEGORY_META[category].requireCompany && <span className="text-red-500">*</span>}
                                             </label>
                                             <input
                                                 type="text"
@@ -977,12 +1368,16 @@ const CompanyPostsPage: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {(category === 'interview-experience' || category === 'salary-compensation') && (
+                                    {(CATEGORY_META[category].formLayout === 'interview' ||
+                                        CATEGORY_META[category].formLayout === 'salary') && (
                                         <>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                        Role / Position <span className="text-red-500">*</span>
+                                                        Role / Position{' '}
+                                                        {CATEGORY_META[category].requireRole && (
+                                                            <span className="text-red-500">*</span>
+                                                        )}
                                                     </label>
                                                     <input
                                                         type="text"
@@ -1017,13 +1412,14 @@ const CompanyPostsPage: React.FC = () => {
                                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                                     >
                                                         <option value="">Select</option>
-                                                        <option value="Fresher">Fresher</option>
-                                                        <option value="0-1 years">0-1 years</option>
-                                                        <option value="1-3 years">1-3 years</option>
-                                                        <option value="3+ years">3+ years</option>
+                                                        {EXPERIENCE_LEVEL_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
-                                                {category === 'interview-experience' && (
+                                                {CATEGORY_META[category].formLayout === 'interview' && (
                                                     <div>
                                                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
                                                             Focus / round (optional)
@@ -1034,10 +1430,11 @@ const CompanyPostsPage: React.FC = () => {
                                                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                                         >
                                                             <option value="">General</option>
-                                                            <option value="Online Assessment">Online Assessment</option>
-                                                            <option value="Technical Interview">Technical Interview</option>
-                                                            <option value="System Design">System Design</option>
-                                                            <option value="HR / Managerial">HR / Managerial</option>
+                                                            {INTERVIEW_FOCUS_OPTIONS.map(opt => (
+                                                                <option key={opt} value={opt}>
+                                                                    {opt}
+                                                                </option>
+                                                            ))}
                                                         </select>
                                                     </div>
                                                 )}
@@ -1045,12 +1442,17 @@ const CompanyPostsPage: React.FC = () => {
                                         </>
                                     )}
 
-                                    {category === 'company-feedback' && (
+                                    {CATEGORY_META[category].formLayout === 'feedback' && (
                                         <>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                        Role / Position (optional)
+                                                        Role / Position{' '}
+                                                        {CATEGORY_META[category].requireRole ? (
+                                                            <span className="text-red-500">*</span>
+                                                        ) : (
+                                                            <span className="text-gray-500 font-normal">(optional)</span>
+                                                        )}
                                                     </label>
                                                     <input
                                                         type="text"
@@ -1075,7 +1477,10 @@ const CompanyPostsPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                    Overall Rating <span className="text-red-500">*</span>
+                                                    Overall Rating{' '}
+                                                    {CATEGORY_META[category].requireRating && (
+                                                        <span className="text-red-500">*</span>
+                                                    )}
                                                 </label>
                                                 <div className="flex items-center gap-2">
                                                     {[1, 2, 3, 4, 5].map((rating) => (
@@ -1109,16 +1514,17 @@ const CompanyPostsPage: React.FC = () => {
                                                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                                 >
                                                     <option value="">Select</option>
-                                                    <option value="Fresher">Fresher</option>
-                                                    <option value="0-1 years">0-1 years</option>
-                                                    <option value="1-3 years">1-3 years</option>
-                                                    <option value="3+ years">3+ years</option>
+                                                    {EXPERIENCE_LEVEL_OPTIONS.map(opt => (
+                                                        <option key={opt} value={opt}>
+                                                            {opt}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </div>
                                         </>
                                     )}
 
-                                    {category === 'career-discussion' && (
+                                    {CATEGORY_META[category].formLayout === 'career' && (
                                         <>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -1135,7 +1541,12 @@ const CompanyPostsPage: React.FC = () => {
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                        Role / Position (optional)
+                                                        Role / Position{' '}
+                                                        {CATEGORY_META[category].requireRole ? (
+                                                            <span className="text-red-500">*</span>
+                                                        ) : (
+                                                            <span className="text-gray-500 font-normal">(optional)</span>
+                                                        )}
                                                     </label>
                                                     <input
                                                         type="text"
@@ -1155,10 +1566,11 @@ const CompanyPostsPage: React.FC = () => {
                                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                                     >
                                                         <option value="">Select</option>
-                                                        <option value="Fresher">Fresher</option>
-                                                        <option value="0-1 years">0-1 years</option>
-                                                        <option value="1-3 years">1-3 years</option>
-                                                        <option value="3+ years">3+ years</option>
+                                                        {EXPERIENCE_LEVEL_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                             </div>
@@ -1167,7 +1579,7 @@ const CompanyPostsPage: React.FC = () => {
                                 </div>
 
                                     {/* Salary Compensation Specific Fields */}
-                                    {category === 'salary-compensation' && (
+                                    {CATEGORY_META[category].formLayout === 'salary' && (
                                         <div className="rounded-xl border border-gray-300 bg-white p-4 space-y-3 mt-4">
                                             <p className="text-sm font-semibold text-gray-900 mb-2">
                                                 Compensation Details
@@ -1175,7 +1587,10 @@ const CompanyPostsPage: React.FC = () => {
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
                                                     <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                        CTC (approx.) <span className="text-red-500">*</span>
+                                                        CTC (approx.){' '}
+                                                        {CATEGORY_META[category].requireCtc && (
+                                                            <span className="text-red-500">*</span>
+                                                        )}
                                                     </label>
                                                     <input
                                                         type="text"
@@ -1239,15 +1654,19 @@ const CompanyPostsPage: React.FC = () => {
                                                     </label>
                                                     <select
                                                         value={offerType}
-                                                        onChange={(e) =>
-                                                            setOfferType(e.target.value as typeof offerType)
-                                                        }
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            if (v === '') setOfferType('');
+                                                            else if (isValidOfferType(v)) setOfferType(v);
+                                                        }}
                                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500"
                                                     >
                                                         <option value="">Select</option>
-                                                        <option value="Internship">Internship</option>
-                                                        <option value="Full-time">Full-time</option>
-                                                        <option value="Intern + PPO">Intern + PPO</option>
+                                                        {OFFER_TYPE_OPTIONS.map(opt => (
+                                                            <option key={opt} value={opt}>
+                                                                {opt}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </div>
                                             </div>
