@@ -351,7 +351,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
                 const mappedProjects = filteredApiProjects.map(mapApiProjectToComponent);
 
-                const sellerMap = new Map<string, { sellerId: string; sellerEmail: string }>();
+                const sellerMap = new Map<string, { sellerId: string; sellerEmail: string; sellerProfilePicture?: string; sellerName?: string }>();
                 filteredApiProjects.forEach((apiProject) => {
                     if (apiProject.projectId && apiProject.sellerId) {
                         sellerMap.set(apiProject.projectId, {
@@ -362,8 +362,30 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 });
                 setProjectSellerMap(sellerMap);
 
-                setProjects(mappedProjects);
-                setFilteredProjects(mappedProjects);
+                const uniqueSellerIds = Array.from(
+                    new Set(filteredApiProjects.map((p) => p.sellerId).filter(Boolean))
+                ) as string[];
+
+                const sellerProfiles = new Map<string, { profilePicture?: string; fullName?: string }>();
+                await Promise.all(
+                    uniqueSellerIds.map(async (sellerId) => {
+                        const profile = await fetchSellerProfile(sellerId);
+                        if (profile) sellerProfiles.set(sellerId, profile);
+                    })
+                );
+
+                const enrichedProjects = mappedProjects.map((project) => {
+                    const sellerInfo = sellerMap.get(project.id);
+                    const profile = sellerInfo?.sellerId ? sellerProfiles.get(sellerInfo.sellerId) : undefined;
+                    return {
+                        ...project,
+                        sellerName: profile?.fullName || undefined,
+                        sellerProfilePicture: profile?.profilePicture || undefined,
+                    };
+                });
+
+                setProjects(enrichedProjects);
+                setFilteredProjects(enrichedProjects);
             } else if (data.success === false || (rawProjects.length === 0 && !Array.isArray(data.projects) && !Array.isArray(data.data))) {
                 throw new Error(data.message || 'Invalid response format from API');
             }
@@ -561,6 +583,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return (
                     <WishlistPage
                         allProjects={projects}
+                        onBack={() => setActiveView('dashboard')}
                         onViewDetails={(proj) => {
                             setPreviousView('wishlist');
                             setSelectedProject(proj);
@@ -569,7 +592,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     />
                 );
             case 'cart':
-                return <CartPage allProjects={projects} />;
+                return (
+                    <CartPage
+                        allProjects={projects}
+                        onBack={() => setActiveView('dashboard')}
+                    />
+                );
             case 'messages':
                 return <ChatRoom />;
             case 'courses':

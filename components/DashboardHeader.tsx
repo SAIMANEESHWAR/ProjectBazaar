@@ -12,6 +12,43 @@ const NOTIFICATION_API =
 const MARK_ALL_READ_API =
   'https://pnhs6gk3u3.execute-api.ap-south-2.amazonaws.com/default/mark_all_notifications_read';
 
+/** Persist "mark all read" per user so refresh still shows read until backend catches up. */
+const readIdsStorageKey = (userId: string) => `pb_notif_read_ids_${userId}`;
+const MAX_STORED_READ_IDS = 3000;
+
+function loadClientReadIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(readIdsStorageKey(userId));
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown[];
+    return new Set(arr.map((id) => String(id)));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistMarkedReadIds(userId: string, notificationIds: string[]) {
+  const merged = loadClientReadIds(userId);
+  notificationIds.forEach((id) => merged.add(String(id)));
+  const list = [...merged];
+  const capped =
+    list.length > MAX_STORED_READ_IDS
+      ? list.slice(-MAX_STORED_READ_IDS)
+      : list;
+  localStorage.setItem(readIdsStorageKey(userId), JSON.stringify(capped));
+}
+
+function applyClientReadState<T extends { notificationId?: string | number; isRead?: boolean }>(
+  userId: string,
+  items: T[]
+): T[] {
+  const readIds = loadClientReadIds(userId);
+  return items.map((n) => ({
+    ...n,
+    isRead: Boolean(n.isRead) || readIds.has(String(n.notificationId)),
+  }));
+}
+
 const ToggleButton = ({
   text,
   active,
@@ -141,12 +178,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       const data = await res.json();
 
       if (data.success) {
-        const newUnread = data.unreadCount || 0;
-        if (previousNotificationUnreadRef.current !== null && newUnread > previousNotificationUnreadRef.current) {
+        const merged = applyClientReadState(userId, data.notifications || []);
+        const newUnread = merged.filter((n) => !n.isRead).length;
+        if (
+          previousNotificationUnreadRef.current !== null &&
+          newUnread > previousNotificationUnreadRef.current
+        ) {
           playNotification();
         }
         previousNotificationUnreadRef.current = newUnread;
-        setNotifications(data.notifications || []);
+        setNotifications(merged);
         setUnreadCount(newUnread);
       }
     } catch (err) {
@@ -160,14 +201,19 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const markAllAsRead = async () => {
     if (!userId) return;
 
+    const ids = notifications.map((n) => String(n.notificationId));
+    persistMarkedReadIds(userId, ids);
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+    previousNotificationUnreadRef.current = 0;
+
     try {
       await fetch(MARK_ALL_READ_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
-
-      fetchNotifications();
     } catch (err) {
       console.error('Failed to mark notifications as read', err);
     }

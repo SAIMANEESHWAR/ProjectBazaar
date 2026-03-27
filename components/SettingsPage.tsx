@@ -12,21 +12,18 @@ const FREELANCER_OAUTH_CALLBACK_API = 'https://0pwxlef4jj.execute-api.ap-south-2
 // Freelancer OAuth Client ID - must match the CLIENT_ID in your Lambda environment variable FREELANCER_CLIENT_ID
 const FREELANCER_CLIENT_ID = 'e7f386e4-b386-48e8-bed4-449692bc20cb';
 
-// LLM provider logos for AI & ATS section
+// LLM provider logos for AI & ATS section (image URLs provided for correct branding)
+const OPENAI_LOGO_URL = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMdM9MEQ0ExL1PmInT3U5I8v63YXBEdoIT0Q&s';
+const GEMINI_LOGO_URL = 'https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/gemini-color.png';
+const CLAUDE_LOGO_URL = 'https://upload.wikimedia.org/wikipedia/commons/b/b0/Claude_AI_symbol.svg';
 const OpenAILogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 260" className={className} preserveAspectRatio="xMidYMid">
-        <path fill="#10a37f" d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Z" />
-    </svg>
+    <img src={OPENAI_LOGO_URL} alt="OpenAI" className={className} aria-hidden="true" />
 );
 const GeminiLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={className}>
-        <path fill="#4285F4" d="M12 2l2.5 6.5L21 9l-5.5 4 1 7-4.5-3-4.5 3 1-7L3 9l6.5-.5L12 2z" />
-    </svg>
+    <img src={GEMINI_LOGO_URL} alt="Google Gemini" className={className} aria-hidden="true" />
 );
 const ClaudeLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
-    <svg fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
-        <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z" />
-    </svg>
+    <img src={CLAUDE_LOGO_URL} alt="Anthropic Claude" className={className} aria-hidden="true" />
 );
 
 // Models per provider for ATS (id = API model id, label = display name)

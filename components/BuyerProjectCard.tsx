@@ -18,6 +18,8 @@ export interface BuyerProject {
   likesCount?: number;
   purchasesCount?: number;
   sellerEmail?: string;
+  sellerName?: string;
+  sellerProfilePicture?: string;
   isOwnProject?: boolean;
 }
 
@@ -49,6 +51,21 @@ const PremiumIcon = () => (
 );
 const DocsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
 const VideoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>;
+
+const getSellerDisplayName = (sellerEmail?: string) => {
+  if (!sellerEmail) return 'Seller';
+  const localPart = sellerEmail.split('@')[0] || 'Seller';
+  return localPart.replace(/[._-]+/g, ' ').trim() || 'Seller';
+};
+
+const getSellerInitials = (sellerEmail?: string) => {
+  const name = getSellerDisplayName(sellerEmail);
+  const words = name.split(' ').filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
 
 // Custom Tooltip Component
 const Tooltip = ({ children, text, position = 'bottom' }: { children: React.ReactNode; text: string; position?: 'top' | 'bottom' | 'left' | 'right' }) => {
@@ -83,7 +100,7 @@ const Tooltip = ({ children, text, position = 'bottom' }: { children: React.Reac
 
 
 const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDetails }) => {
-  const { id, imageUrl, category, title, description, tags, price, isPremium, hasDocumentation, hasExecutionVideo, isOwnProject } = project;
+  const { id, imageUrl, category, title, description, tags, price, isPremium, hasDocumentation, hasExecutionVideo, isOwnProject, sellerEmail, sellerName, sellerProfilePicture } = project;
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isInCart, addToCart, removeFromCart } = useCart();
   const liked = isInWishlist(id);
@@ -182,6 +199,25 @@ const BuyerProjectCard: React.FC<BuyerProjectCardProps> = ({ project, onViewDeta
         <div>
           <div className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1.5 opacity-90 truncate">
             {category}
+          </div>
+          <div className="inline-flex items-center gap-2 text-xs text-gray-500 mb-2.5">
+            {sellerProfilePicture ? (
+              <img
+                src={sellerProfilePicture}
+                alt={sellerName || getSellerDisplayName(sellerEmail)}
+                className="h-6 w-6 rounded-full object-cover border border-orange-100"
+                onError={(e) => {
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                    sellerName || getSellerDisplayName(sellerEmail)
+                  )}&background=f97316&color=fff&size=64`;
+                }}
+              />
+            ) : (
+              <span className="h-6 w-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-semibold">
+                {getSellerInitials(sellerEmail)}
+              </span>
+            )}
+            <span className="truncate max-w-[170px]">by {sellerName || getSellerDisplayName(sellerEmail)}</span>
           </div>
           <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors" title={title}>
             {title}
