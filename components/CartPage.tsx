@@ -17,9 +17,23 @@ declare global {
 interface CartPageProps {
   allProjects: BuyerProject[];
   onViewDetails?: (project: BuyerProject) => void;
+  onBack: () => void;
 }
 
-const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails }) => {
+const BackButton: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <button
+    type="button"
+    onClick={onBack}
+    className="inline-flex items-center gap-2 text-sm font-medium text-orange-600 hover:text-orange-700 transition-colors mb-4"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+    Back to dashboard
+  </button>
+);
+
+const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack }) => {
   const { userId, userEmail } = useAuth();
   const { cart, removeFromCart, isLoading } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,9 +61,12 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails }) => {
 
   if (isLoading) {
     return (
-      <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-        <p className="text-gray-500 text-lg font-medium">Loading cart...</p>
+      <div className="bg-white border border-gray-200 rounded-2xl p-6">
+        <BackButton onBack={onBack} />
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-500 text-lg font-medium">Loading cart...</p>
+        </div>
       </div>
     );
   }
@@ -157,25 +174,30 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails }) => {
 
   if (cartProjects.length === 0) {
     return (
-      <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-        <div className="mx-auto mb-4 w-full max-w-[380px] h-[280px] flex items-center justify-center">
-          <Lottie
-            animationData={noShoppingCartAnimation}
-            loop
-            className="w-full h-full"
-          />
+      <div className="bg-white border border-gray-200 rounded-2xl p-6">
+        <BackButton onBack={onBack} />
+        <div className="text-center py-12">
+          <div className="mx-auto mb-4 w-full max-w-[380px] h-[280px] flex items-center justify-center">
+            <Lottie
+              animationData={noShoppingCartAnimation}
+              loop
+              className="w-full h-full"
+            />
+          </div>
+          <p className="text-gray-500 text-lg font-medium">Your cart is empty</p>
+          <p className="text-gray-400 text-sm mt-2">Start adding projects to your cart!</p>
         </div>
-        <p className="text-gray-500 text-lg font-medium">Your cart is empty</p>
-        <p className="text-gray-400 text-sm mt-2">Start adding projects to your cart!</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        {/* <h2 className="text-2xl font-bold text-gray-900">Shopping Cart</h2> */}
-        <span className="text-gray-600">{cartProjects.length} {cartProjects.length === 1 ? 'item' : 'items'}</span>
+      <BackButton onBack={onBack} />
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-gray-600">
+          {cartProjects.length} {cartProjects.length === 1 ? 'item' : 'items'}
+        </span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
