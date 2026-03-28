@@ -1,7 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import Lottie from 'lottie-react';
 import { useAuth } from '../App';
+import CompanyPostDetailView from './CompanyPostDetailView';
+import engagementLottie from '../lottiefiles/wired-outline-2803-engagement-alt-hover-pinch.json';
+import type {
+    CompanyPost,
+    CompanyPostComment,
+    CompanyPostOfferType,
+    PostCategory,
+} from '../types/companyPosts';
 
-type PostCategory = 'interview-experience' | 'company-feedback' | 'salary-compensation' | 'career-discussion';
+export type { CompanyPost, CompanyPostComment, CompanyPostOfferType, PostCategory } from '../types/companyPosts';
 
 const POST_CATEGORIES = [
     'interview-experience',
@@ -9,8 +18,6 @@ const POST_CATEGORIES = [
     'salary-compensation',
     'career-discussion',
 ] as const satisfies readonly PostCategory[];
-
-const CATEGORY_FILTER_KEYS = ['all', ...POST_CATEGORIES] as const;
 
 /** Which form sections to render for create-post UI (single source for layout). */
 type CategoryFormLayout = 'interview' | 'salary' | 'feedback' | 'career';
@@ -24,8 +31,7 @@ const INTERVIEW_FOCUS_OPTIONS = [
     'HR / Managerial',
 ] as const;
 
-const OFFER_TYPE_OPTIONS = ['Internship', 'Full-time', 'Intern + PPO'] as const;
-export type CompanyPostOfferType = (typeof OFFER_TYPE_OPTIONS)[number];
+const OFFER_TYPE_OPTIONS = ['Internship', 'Full-time', 'Intern + PPO'] as const satisfies readonly CompanyPostOfferType[];
 
 const CATEGORY_META: Record<
     PostCategory,
@@ -93,43 +99,6 @@ const CATEGORY_META: Record<
 
 function isPostCategory(value: unknown): value is PostCategory {
     return typeof value === 'string' && (POST_CATEGORIES as readonly string[]).includes(value);
-}
-
-interface CompanyPostComment {
-    id: string;
-    author: string;
-    text: string;
-    createdAt: string;
-}
-
-
-export interface CompanyPost {
-    id: string;
-    authorId: string | null;
-    authorName: string;
-    companyName: string;
-    isAdminCompany: boolean;
-    role: string;
-    category: PostCategory;
-    createdAt: string;
-    title: string;
-    content: string;
-    location?: string;
-    experienceLevel?: string;
-    interviewRound?: string;
-    packageDetails?: {
-        ctc: string;
-        basePay?: string;
-        bonus?: string;
-        stock?: string;
-        graduationYear?: string;
-        offerType?: CompanyPostOfferType;
-    };
-    companyRating?: number; // 1-5 for company feedback
-    careerTopic?: string; // Topic/tag for career discussion
-    tags?: string[];
-    upvotes: number;
-    comments: CompanyPostComment[];
 }
 
 function isValidOfferType(value: string): value is CompanyPostOfferType {
@@ -210,6 +179,7 @@ function mapApiPostToCompanyPost(raw: unknown): CompanyPost | null {
         role: typeof p.role === 'string' ? p.role : 'General',
         category: p.category as PostCategory,
         createdAt: typeof p.createdAt === 'string' ? p.createdAt : new Date().toISOString(),
+        updatedAt: typeof p.updatedAt === 'string' ? p.updatedAt : undefined,
         title: String(p.title ?? ''),
         content: String(p.content ?? ''),
         location: typeof p.location === 'string' ? p.location : undefined,
@@ -366,6 +336,80 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
     const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+    const [detailPostId, setDetailPostId] = useState<string | null>(null);
+    const pageRootRef = useRef<HTMLDivElement>(null);
+    const [mainPanelInset, setMainPanelInset] = useState<{ left: number; width: number } | null>(null);
+
+    /** Track dashboard main column geometry so post detail matches flex area (sidebar open/collapsed). */
+    useLayoutEffect(() => {
+        const root = pageRootRef.current;
+        const main = root?.closest('main');
+        if (!main) return;
+        const update = () => {
+            const r = main.getBoundingClientRect();
+            setMainPanelInset({ left: r.left, width: r.width });
+        };
+        update();
+        const ro = new ResizeObserver(() => update());
+        ro.observe(main);
+        window.addEventListener('resize', update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', update);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!detailPostId) return;
+        const main = pageRootRef.current?.closest('main');
+        if (!main) return;
+        const r = main.getBoundingClientRect();
+        setMainPanelInset({ left: r.left, width: r.width });
+    }, [detailPostId]);
+
+    const detailPost = useMemo(
+        () => (detailPostId ? posts.find(p => p.id === detailPostId) : undefined),
+        [posts, detailPostId],
+    );
+
+    useEffect(() => {
+        if (!detailPostId || !useCompanyPostsApi) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(
+                    `${companyPostsApiBase}?postId=${encodeURIComponent(detailPostId)}`,
+                );
+                const j = (await res.json()) as { post?: unknown; error?: string };
+                if (!res.ok || cancelled) return;
+                const mapped = mapApiPostToCompanyPost(j.post);
+                if (!mapped || cancelled) return;
+                setPosts(prev => {
+                    const i = prev.findIndex(p => p.id === mapped.id);
+                    if (i >= 0) {
+                        const next = [...prev];
+                        next[i] = mapped;
+                        return next;
+                    }
+                    return [mapped, ...prev];
+                });
+            } catch {
+                // ignore
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [detailPostId, useCompanyPostsApi, companyPostsApiBase]);
+
+    useEffect(() => {
+        if (!detailPostId) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setDetailPostId(null);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [detailPostId]);
 
     const loadRemotePosts = useCallback(async () => {
         if (!useCompanyPostsApi) return;
@@ -702,129 +746,76 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-white via-slate-50 to-white">
-            <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 py-5">
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                        {/* Left: Title section */}
-                        <div className="flex items-start gap-3 flex-1">
-                            <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center shadow-md shadow-orange-500/30 text-white flex-shrink-0">
-                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-6 4h4M5 5a2 2 0 00-2 2v11l3-3h11a2 2 0 002-2V7a2 2 0 00-2-2H5z" />
-                                </svg>
+        <div
+            ref={pageRootRef}
+            className="relative h-full min-h-0 flex flex-col bg-gradient-to-b from-white via-slate-50 to-white"
+        >
+            <main className="w-full min-w-0">
+                <div className="max-w-7xl mx-auto px-4">
+                    {/* Page hero + filters — full-width sticky bar (navbar-style); posts scroll underneath */}
+                    <div className="sticky top-0 z-30 -mx-4 px-0 mb-1 bg-gradient-to-b from-white via-slate-50 to-slate-50">
+                        <div className="w-full">
+                            <div className="px-4 sm:px-5 pt-4 pb-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="h-11 w-11 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                        <Lottie
+                                            animationData={engagementLottie}
+                                            loop
+                                            autoplay
+                                            className="h-9 w-9"
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1.5">
+                                            Company Posts & Experiences
+                                        </h1>
+                                        <p className="text-sm text-gray-600 leading-relaxed">
+                                            Share real interview stories, package details, and polls about companies to help the community.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2 mb-1.5">
-                                    Company Posts & Experiences
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200">
-                                        New
-                                    </span>
-                                </h1>
-                                <p className="text-sm text-gray-600 leading-relaxed">
-                                    Share real interview stories, package details, and polls about companies to help the community.
-                                </p>
-                                {useCompanyPostsApi && (
-                                    <p className="text-[11px] text-emerald-700 mt-1.5">
-                                        Live feed: posts load from your API (same data as DynamoDB).
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {/* Right: Filters panel */}
-                        <div className="lg:flex-shrink-0 w-full lg:w-auto lg:self-start">
-                            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-3 space-y-2 lg:w-[380px]">
-                                <div className="flex items-center justify-between gap-2">
-                                    <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
-                                        Filters
-                                    </h2>
+
+                    {/* Mobile filters */}
+                    <div className="lg:hidden px-4 sm:px-5 pb-4 pt-3 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                                    Filters
+                                </h2>
+                                <div className="flex items-center gap-2 flex-shrink-0">
                                     <button
+                                        type="button"
                                         className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
                                         onClick={clearListFilters}
                                     >
                                         Reset
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCreating(true)}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1.5 border border-gray-900 hover:bg-gray-800 transition-colors"
+                                    >
+                                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Post
+                                    </button>
                                 </div>
-                                <div className="space-y-2">
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-gray-700 mb-1">
-                                            Company
-                                        </label>
-                                        <select
-                                            value={selectedCompanyFilter}
-                                            onChange={(e) => setSelectedCompanyFilter(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
-                                        >
-                                            <option value="all">All companies</option>
-                                            {!!allCompanies.admin.length && (
-                                                <optgroup label="Admin companies">
-                                                    {allCompanies.admin.map(name => (
-                                                        <option key={name} value={name}>
-                                                            {name}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                            {!!allCompanies.custom.length && (
-                                                <optgroup label="Student added">
-                                                    {allCompanies.custom.map(name => (
-                                                        <option key={name} value={name}>
-                                                            {name}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[11px] font-medium text-gray-700 mb-1">
-                                            Category
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            {CATEGORY_FILTER_KEYS.map(c => (
-                                                <button
-                                                    key={c}
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSelectedCategoryFilter(
-                                                            c === 'all' ? 'all' : (c as PostCategory),
-                                                        )
-                                                    }
-                                                    className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition-all ${selectedCategoryFilter === c || (c === 'all' && selectedCategoryFilter === 'all')
-                                                        ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
-                                                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    {c === 'all' ? 'All' : CATEGORY_META[c as PostCategory].shortLabel}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <main className="flex-1 overflow-y-auto">
-                <div className="max-w-7xl mx-auto px-4 py-5 space-y-4">
-                    {/* Mobile filters */}
-                    <div className="lg:hidden">
-                        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 space-y-3">
-                            <div className="flex items-center justify-between gap-2">
-                                <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
-                                    Filters
-                                </h2>
-                                <button
-                                    className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
-                                    onClick={clearListFilters}
-                                >
-                                    Reset
-                                </button>
                             </div>
                             <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1.5">
+                                        Posts
+                                    </label>
+                                    <select
+                                        value={viewMineOnly ? 'mine' : 'all'}
+                                        onChange={e => setViewMineOnly(e.target.value === 'mine')}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
+                                    >
+                                        <option value="all">All posts</option>
+                                        <option value="mine">My posts</option>
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-[11px] font-medium text-gray-700 mb-1.5">
                                         Company
@@ -859,95 +850,158 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                     <label className="block text-[11px] font-medium text-gray-700 mb-1.5">
                                         Category
                                     </label>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        {CATEGORY_FILTER_KEYS.map(c => (
-                                            <button
-                                                key={c}
-                                                type="button"
-                                                onClick={() =>
-                                                    setSelectedCategoryFilter(
-                                                        c === 'all' ? 'all' : (c as PostCategory),
-                                                    )
-                                                }
-                                                className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition-all ${selectedCategoryFilter === c || (c === 'all' && selectedCategoryFilter === 'all')
-                                                    ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
-                                                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                {c === 'all' ? 'All' : CATEGORY_META[c as PostCategory].shortLabel}
-                                            </button>
+                                    <select
+                                        value={selectedCategoryFilter}
+                                        onChange={(e) => {
+                                            const v = e.target.value;
+                                            setSelectedCategoryFilter(v === 'all' ? 'all' : (v as PostCategory));
+                                        }}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
+                                    >
+                                        <option value="all">All categories</option>
+                                        {POST_CATEGORIES.map(c => (
+                                            <option key={c} value={c}>
+                                                {CATEGORY_META[c].shortLabel}
+                                            </option>
                                         ))}
-                                    </div>
+                                    </select>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mobile create post button */}
-                    <div className="lg:hidden">
-                        <button
-                            onClick={() => setIsCreating(true)}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-semibold shadow-md shadow-orange-500/30 hover:shadow-lg hover:shadow-orange-500/40 transition-all"
-                        >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            Share your experience
-                        </button>
-                    </div>
-
-                    {/* Posts list - full width */}
-                    <section className="space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${!viewMineOnly
-                                            ? 'bg-gray-900 text-white border-gray-900'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
-                                            }`}
-                                        onClick={() => setViewMineOnly(false)}
-                                    >
-                                        All Posts
-                                    </button>
-                                    <button
-                                        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition ${viewMineOnly
-                                            ? 'bg-gray-900 text-white border-gray-900'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
-                                            }`}
-                                        onClick={() => setViewMineOnly(true)}
-                                    >
-                                        My Posts
-                                    </button>
-                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-100 text-[11px] text-orange-700 font-medium">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                                        {posts.length ? `${posts.length} active discussions` : 'Be the first to post'}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                    <div className="relative flex-1 sm:w-56">
+                                <div>
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1.5">
+                                        Search
+                                    </label>
+                                    <div className="relative">
                                         <input
-                                            type="text"
+                                            type="search"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search title, company, role, tags, location…"
-                                            className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60"
+                                            placeholder="Title, company, role, tags…"
+                                            className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60"
+                                            autoComplete="off"
                                         />
-                                        <svg className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10 17a7 7 0 100-14 7 7 0 000 14z" />
                                         </svg>
                                     </div>
-                                    <button
-                                        onClick={() => setIsCreating(true)}
-                                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-semibold shadow-md shadow-orange-500/30 hover:shadow-lg hover:shadow-orange-500/40 transition-all whitespace-nowrap"
-                                    >
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Add Post
-                                    </button>
                                 </div>
                             </div>
+                    </div>
 
+                    <div className="hidden lg:block w-full min-w-0 px-4 sm:px-5 pb-4 pt-3">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <h2 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                                                Filters
+                                            </h2>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <button
+                                                    type="button"
+                                                    className="text-[11px] text-gray-500 hover:text-gray-700 transition-colors"
+                                                    onClick={clearListFilters}
+                                                >
+                                                    Reset
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCreating(true)}
+                                                    className="inline-flex items-center gap-1 rounded-lg bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1.5 border border-gray-900 hover:bg-gray-800 transition-colors"
+                                                >
+                                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    Add Post
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3 w-full min-w-0">
+                                            <div className="min-w-0">
+                                                <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
+                                                    Posts
+                                                </label>
+                                                <select
+                                                    value={viewMineOnly ? 'mine' : 'all'}
+                                                    onChange={e => setViewMineOnly(e.target.value === 'mine')}
+                                                    className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
+                                                >
+                                                    <option value="all">All posts</option>
+                                                    <option value="mine">My posts</option>
+                                                </select>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
+                                                    Company
+                                                </label>
+                                                <select
+                                                    value={selectedCompanyFilter}
+                                                    onChange={(e) => setSelectedCompanyFilter(e.target.value)}
+                                                    className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
+                                                >
+                                                    <option value="all">All companies</option>
+                                                    {!!allCompanies.admin.length && (
+                                                        <optgroup label="Admin companies">
+                                                            {allCompanies.admin.map(name => (
+                                                                <option key={name} value={name}>
+                                                                    {name}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    )}
+                                                    {!!allCompanies.custom.length && (
+                                                        <optgroup label="Student added">
+                                                            {allCompanies.custom.map(name => (
+                                                                <option key={name} value={name}>
+                                                                    {name}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    )}
+                                                </select>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
+                                                    Category
+                                                </label>
+                                                <select
+                                                    value={selectedCategoryFilter}
+                                                    onChange={(e) => {
+                                                        const v = e.target.value;
+                                                        setSelectedCategoryFilter(v === 'all' ? 'all' : (v as PostCategory));
+                                                    }}
+                                                    className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 transition"
+                                                >
+                                                    <option value="all">All categories</option>
+                                                    {POST_CATEGORIES.map(c => (
+                                                        <option key={c} value={c}>
+                                                            {CATEGORY_META[c].shortLabel}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <label className="block text-[11px] font-medium text-gray-700 mb-1 truncate">
+                                                    Search
+                                                </label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="search"
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        placeholder="Title, company, role, tags..."
+                                                        className="w-full min-w-0 pl-8 pr-3 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60"
+                                                        autoComplete="off"
+                                                    />
+                                                    <svg className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10 17a7 7 0 100-14 7 7 0 000 14z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 pb-8 space-y-4">
+                    {/* Posts list - full width */}
+                    <section className="space-y-3">
                             {postsFetchError && useCompanyPostsApi && (
                                 <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-wrap items-center justify-between gap-2">
                                     <span>{postsFetchError}</span>
@@ -1009,10 +1063,15 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                     {filteredPosts.map(post => (
                                         <article
                                             key={post.id}
-                                            className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm hover:shadow-md transition-shadow"
+                                            className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                            onClick={e => {
+                                                const t = e.target as HTMLElement;
+                                                if (t.closest('[data-stop-detail]')) return;
+                                                setDetailPostId(post.id);
+                                            }}
                                         >
                                             <div className="p-4 pb-3 border-b border-gray-100 flex items-start justify-between gap-4">
-                                                <div>
+                                                <div className="min-w-0 flex-1">
                                                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-900 text-white">
                                                             {post.companyName}
@@ -1022,12 +1081,17 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                                         </span>
                                                         {renderCategoryBadge(post.category)}
                                                     </div>
-                                                    <h2 className="text-sm font-semibold text-gray-900 mb-1.5">
+                                                    <h2 className="text-sm font-semibold text-gray-900 mb-1.5 leading-snug">
                                                         {post.title}
                                                     </h2>
-                                                    <p className="text-xs text-gray-600 line-clamp-3">
+                                                    <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-3 overflow-hidden break-words">
                                                         {post.content}
                                                     </p>
+                                                    {post.content.trim().length > 160 && (
+                                                        <p className="text-[11px] text-gray-400 mt-1.5 font-medium">
+                                                            Read full post
+                                                        </p>
+                                                    )}
                                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                                         <span className="text-[11px] text-gray-500">
                                                             Posted by <span className="font-medium text-gray-800">{post.authorName}</span>
@@ -1103,7 +1167,11 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                             )}
 
                                             {/* Actions + comments */}
-                                            <div className="px-4 py-2.5 flex flex-col gap-2 bg-slate-50/60 rounded-b-2xl">
+                                            <div
+                                                className="px-4 py-2.5 flex flex-col gap-2 bg-slate-50/60 rounded-b-2xl"
+                                                data-stop-detail
+                                                onClick={e => e.stopPropagation()}
+                                            >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="flex items-center gap-3 text-[11px]">
                                                         <button
@@ -1192,6 +1260,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                 </div>
                             )}
                         </section>
+                    </div>
                 </div>
             </main>
 
@@ -1258,15 +1327,19 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Details
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Description
                                     </label>
+                                    <p className="text-xs text-gray-500 mb-2 leading-relaxed">
+                                        Use line breaks between rounds or topics. Only the first three lines show in the feed; readers open the post for the full story.
+                                    </p>
                                     <textarea
                                         value={content}
                                         onChange={(e) => setContent(e.target.value)}
-                                        rows={16}
+                                        rows={14}
                                         placeholder={CATEGORY_META[category].contentPlaceholder}
-                                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500 resize-none"
+                                        spellCheck
+                                        className="w-full min-h-[220px] rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-sm leading-relaxed text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400/80 resize-y"
                                     />
                                 </div>
                         </div>
@@ -1697,16 +1770,19 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                     </div>
                 </>
             ) : null}
-            {!isCreating && (
-                <button
-                    onClick={() => setIsCreating(true)}
-                    className="hidden lg:fixed bottom-6 right-6 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/40 hover:shadow-xl hover:shadow-orange-500/50 transition-all hover:scale-110"
-                    aria-label="Create new post"
-                >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                </button>
+            {detailPost && (
+                <CompanyPostDetailView
+                    post={detailPost}
+                    mainPanelInset={mainPanelInset}
+                    categoryBadge={renderCategoryBadge(detailPost.category)}
+                    commentDraft={commentDrafts[detailPost.id] || ''}
+                    onCommentDraftChange={v =>
+                        setCommentDrafts(prev => ({ ...prev, [detailPost.id]: v }))
+                    }
+                    onBack={() => setDetailPostId(null)}
+                    onUpvote={() => void handleUpvote(detailPost.id)}
+                    onAddComment={() => void handleAddComment(detailPost.id)}
+                />
             )}
         </div>
     );
