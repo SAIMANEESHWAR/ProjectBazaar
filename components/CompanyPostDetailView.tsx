@@ -6,9 +6,7 @@ import {
     ChevronLeft,
     Eye,
     MessageCircle,
-    MoreHorizontal,
     Pencil,
-    Share2,
 } from 'lucide-react';
 import type { CompanyPost } from '../types/companyPosts';
 
@@ -81,11 +79,6 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
 
     const initials = (post.authorName || '?').slice(0, 2).toUpperCase();
 
-    const handleShare = () => {
-        const text = `${post.title}\n\n${post.content.slice(0, 280)}${post.content.length > 280 ? '…' : ''}`;
-        void navigator.clipboard?.writeText(text).catch(() => {});
-    };
-
     const handleReply = (authorName: string) => {
         onCommentDraftChange(`@${authorName} `);
     };
@@ -108,58 +101,17 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
             }`}
             style={panelStyle}
         >
-            <header className="flex-shrink-0 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-3 py-3 sm:px-4">
-                <div className={`${contentShell} flex items-center justify-between gap-3`}>
+            <header className="flex-shrink-0 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-3 py-2.5 sm:px-4 sm:py-3">
+                <div className={`${contentShell} flex items-center`}>
                     <button
                         type="button"
                         onClick={onBack}
-                        className="inline-flex items-center justify-center rounded-xl p-2 text-gray-700 hover:bg-gray-100 transition"
+                        className="group inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-white pl-2 pr-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2"
                         aria-label="Back to posts"
                     >
-                        <ChevronLeft className="h-6 w-6" />
+                        <ChevronLeft className="h-5 w-5 text-gray-500 transition group-hover:text-gray-800" strokeWidth={2.25} />
+                        <span>Back</span>
                     </button>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setMenuOpen(o => !o)}
-                            className="inline-flex items-center justify-center rounded-xl p-2 text-gray-600 hover:bg-gray-100 transition"
-                            aria-label="More options"
-                            aria-expanded={menuOpen}
-                        >
-                            <MoreHorizontal className="h-5 w-5" />
-                        </button>
-                        {menuOpen && (
-                            <>
-                                <button
-                                    type="button"
-                                    className="fixed inset-0 z-10 cursor-default"
-                                    aria-label="Close menu"
-                                    onClick={() => setMenuOpen(false)}
-                                />
-                                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
-                                    <button
-                                        type="button"
-                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                                        onClick={() => {
-                                            setMenuOpen(false);
-                                            void navigator.clipboard?.writeText(
-                                                `${window.location.origin}${window.location.pathname}#post-${post.id}`,
-                                            );
-                                        }}
-                                    >
-                                        Copy link
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
-                                        onClick={() => setMenuOpen(false)}
-                                    >
-                                        Report…
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
                 </div>
             </header>
 
@@ -267,15 +219,6 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
                             <span className="font-medium">{post.comments.length}</span>
                             <span>comments</span>
                         </span>
-
-                        <button
-                            type="button"
-                            onClick={handleShare}
-                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                        >
-                            <Share2 className="h-4 w-4" />
-                            Share
-                        </button>
                     </div>
 
                     <section className="mt-10 border-t border-gray-200 pt-8">
