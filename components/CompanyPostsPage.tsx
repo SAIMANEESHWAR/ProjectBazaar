@@ -147,6 +147,7 @@ function sanitizeStoredPosts(raw: unknown): CompanyPost[] {
             content: typeof p.content === 'string' ? p.content : '',
             comments: Array.isArray(p.comments) ? p.comments : [],
             upvotes: typeof p.upvotes === 'number' ? p.upvotes : 0,
+            hasUpvoted: typeof p.hasUpvoted === 'boolean' ? p.hasUpvoted : false,
         } as CompanyPost;
         out.push(normalizeCompanyPostForCategory(base));
     }
@@ -190,6 +191,7 @@ function mapApiPostToCompanyPost(raw: unknown): CompanyPost | null {
         careerTopic: typeof p.careerTopic === 'string' ? p.careerTopic : undefined,
         tags: Array.isArray(p.tags) ? (p.tags as string[]) : [],
         upvotes: typeof p.upvotes === 'number' ? p.upvotes : 0,
+        hasUpvoted: Boolean(p.hasUpvoted),
         comments,
     });
 }
@@ -377,8 +379,11 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         let cancelled = false;
         (async () => {
             try {
+                const h: Record<string, string> = {};
+                if (userEmail) h['x-user-id'] = userEmail;
                 const res = await fetch(
                     `${companyPostsApiBase}?postId=${encodeURIComponent(detailPostId)}`,
+                    { headers: h },
                 );
                 const j = (await res.json()) as { post?: unknown; error?: string };
                 if (!res.ok || cancelled) return;
@@ -400,7 +405,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         return () => {
             cancelled = true;
         };
-    }, [detailPostId, useCompanyPostsApi, companyPostsApiBase]);
+    }, [detailPostId, useCompanyPostsApi, companyPostsApiBase, userEmail]);
 
     useEffect(() => {
         if (!detailPostId) return;
@@ -416,7 +421,9 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         setPostsLoading(true);
         setPostsFetchError(null);
         try {
-            const res = await fetch(companyPostsApiBase);
+            const headers: Record<string, string> = {};
+            if (userEmail) headers['x-user-id'] = userEmail;
+            const res = await fetch(companyPostsApiBase, { headers });
             const j = (await res.json()) as { posts?: unknown[]; error?: string };
             if (!res.ok) {
                 throw new Error(j.error || `HTTP ${res.status}`);
@@ -431,7 +438,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         } finally {
             setPostsLoading(false);
         }
-    }, []);
+    }, [companyPostsApiBase, userEmail]);
 
     // Load: remote API or localStorage
     useEffect(() => {
@@ -608,6 +615,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                 ...(careerTopic.trim() ? [careerTopic.trim()] : []),
             ],
             upvotes: 0,
+            hasUpvoted: false,
             comments: [],
         });
 
@@ -698,10 +706,14 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
 
     const handleUpvote = async (postId: string) => {
         if (useCompanyPostsApi) {
+            if (!userEmail) return;
             try {
                 const res = await fetch(companyPostsApiBase, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': userEmail,
+                    },
                     body: JSON.stringify({ action: 'upvote', postId }),
                 });
                 const j = (await res.json()) as { post?: unknown; error?: string };
@@ -717,9 +729,11 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         }
 
         setPosts(prev =>
-            prev.map(post =>
-                post.id === postId ? { ...post, upvotes: post.upvotes + 1 } : post,
-            ),
+            prev.map(post => {
+                if (post.id !== postId) return post;
+                if (post.hasUpvoted) return post;
+                return { ...post, upvotes: post.upvotes + 1, hasUpvoted: true };
+            }),
         );
     };
 
@@ -1177,9 +1191,24 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleUpvote(post.id)}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition text-gray-700"
+                                                            disabled={Boolean(useCompanyPostsApi && !userEmail)}
+                                                            title={
+                                                                useCompanyPostsApi && !userEmail
+                                                                    ? 'Sign in to mark as helpful'
+                                                                    : undefined
+                                                            }
+                                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border transition text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                                post.hasUpvoted
+                                                                    ? 'bg-orange-50 border-orange-200 text-orange-900'
+                                                                    : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                            }`}
                                                         >
-                                                            <svg className="h-3.5 w-3.5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <svg
+                                                                className={`h-3.5 w-3.5 ${post.hasUpvoted ? 'text-orange-600 fill-current' : 'text-orange-500'}`}
+                                                                fill={post.hasUpvoted ? 'currentColor' : 'none'}
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                            >
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-8 7 8" />
                                                             </svg>
                                                             <span className="font-medium">{post.upvotes}</span>
@@ -1782,6 +1811,8 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                     onBack={() => setDetailPostId(null)}
                     onUpvote={() => void handleUpvote(detailPost.id)}
                     onAddComment={() => void handleAddComment(detailPost.id)}
+                    upvoteDisabled={Boolean(useCompanyPostsApi && !userEmail)}
+                    upvoteDisabledTitle="Sign in to mark as helpful"
                 />
             )}
         </div>

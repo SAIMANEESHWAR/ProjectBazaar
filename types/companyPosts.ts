@@ -37,5 +37,7 @@ export interface CompanyPost {
     careerTopic?: string;
     tags?: string[];
     upvotes: number;
+    /** Present when loaded from API or offline session; whether the current viewer already upvoted */
+    hasUpvoted?: boolean;
     comments: CompanyPostComment[];
 }

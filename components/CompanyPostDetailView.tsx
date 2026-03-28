@@ -4,15 +4,11 @@ import {
     ArrowBigUp,
     Calendar,
     ChevronLeft,
-    Code2,
     Eye,
-    ImageIcon,
-    Link2,
     MessageCircle,
     MoreHorizontal,
     Pencil,
     Share2,
-    AtSign,
 } from 'lucide-react';
 import type { CompanyPost } from '../types/companyPosts';
 
@@ -47,6 +43,9 @@ export interface CompanyPostDetailViewProps {
     onBack: () => void;
     onUpvote: () => void;
     onAddComment: () => void;
+    /** When true (e.g. API mode without signed-in user), helpful is disabled */
+    upvoteDisabled?: boolean;
+    upvoteDisabledTitle?: string;
 }
 
 const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
@@ -58,6 +57,8 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
     onBack,
     onUpvote,
     onAddComment,
+    upvoteDisabled = false,
+    upvoteDisabledTitle,
 }) => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [commentSort, setCommentSort] = useState<CommentSort>('new');
@@ -237,10 +238,17 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
                             <button
                                 type="button"
                                 onClick={onUpvote}
-                                className="inline-flex items-center rounded-lg px-2 py-1.5 text-gray-600 hover:bg-white hover:text-orange-600 transition"
-                                aria-label="Upvote"
+                                disabled={upvoteDisabled}
+                                title={upvoteDisabled ? upvoteDisabledTitle : undefined}
+                                className={`inline-flex items-center rounded-lg px-2 py-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    post.hasUpvoted
+                                        ? 'text-orange-600 bg-white'
+                                        : 'text-gray-600 hover:bg-white hover:text-orange-600'
+                                }`}
+                                aria-label={post.hasUpvoted ? 'Already marked helpful' : 'Mark as helpful'}
+                                aria-pressed={post.hasUpvoted}
                             >
-                                <ArrowBigUp className="h-5 w-5" />
+                                <ArrowBigUp className={`h-5 w-5 ${post.hasUpvoted ? 'fill-current' : ''}`} />
                             </button>
                             <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums text-gray-900">
                                 {post.upvotes}
@@ -297,21 +305,7 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
                                 rows={4}
                                 className="w-full resize-y rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-400/60 min-h-[100px]"
                             />
-                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex items-center gap-1 text-gray-400" aria-hidden>
-                                    <button type="button" tabIndex={-1} className="p-1.5 rounded-lg hover:bg-gray-200/80 hover:text-gray-600">
-                                        <Code2 className="h-4 w-4" />
-                                    </button>
-                                    <button type="button" tabIndex={-1} className="p-1.5 rounded-lg hover:bg-gray-200/80 hover:text-gray-600">
-                                        <ImageIcon className="h-4 w-4" />
-                                    </button>
-                                    <button type="button" tabIndex={-1} className="p-1.5 rounded-lg hover:bg-gray-200/80 hover:text-gray-600">
-                                        <Link2 className="h-4 w-4" />
-                                    </button>
-                                    <button type="button" tabIndex={-1} className="p-1.5 rounded-lg hover:bg-gray-200/80 hover:text-gray-600">
-                                        <AtSign className="h-4 w-4" />
-                                    </button>
-                                </div>
+                            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={onAddComment}
