@@ -40,9 +40,10 @@ const CodingInterviewQuestionsPage = lazy(() => import('./components/CodingInter
 const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage'));
 const TermsAndConditionsPage = lazy(() => import('./components/TermsAndConditionsPage'));
 const ResumeBuilderPage = lazy(() => import('./components/resume-builder').then(m => ({ default: m.ResumeBuilderPage })));
+const LiveMockInterviewPage = lazy(() => import('./components/LiveMockInterviewPage'));
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'privacy' | 'terms' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'liveMockInterview' | 'privacy' | 'terms' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -201,6 +202,7 @@ const PAGE_TITLES: Record<Page, string> = {
   mockDailyChallenge: 'Daily Challenge — Mock Assessments — Project Bazaar',
   mockHistory: 'Test History — Mock Assessments — Project Bazaar',
   codingQuestions: 'Coding Interview Questions — Project Bazaar',
+  liveMockInterview: 'Live AI Mock Interview — Project Bazaar',
   privacy: 'Privacy Policy — Project Bazaar',
   terms: 'Terms & Conditions — Project Bazaar',
   notFound: 'Page Not Found — Project Bazaar',
@@ -212,6 +214,7 @@ const PAGE_META_DESCRIPTIONS: Record<string, string> = {
   browseProjects: 'Browse and discover projects for sale on Project Bazaar. Find the perfect project to buy or get inspired for your next build.',
   mockAssessment: 'Practice with mock assessments and coding challenges on Project Bazaar. Prepare for technical interviews and track your progress.',
   codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on Project Bazaar.',
+  liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on Project Bazaar.',
   privacy: 'Learn how Project Bazaar collects, uses, and protects your personal data. Read our full privacy policy.',
   terms: 'Read the terms and conditions for using Project Bazaar, including marketplace rules, intellectual property, and payment terms.',
 };
@@ -243,7 +246,7 @@ function updatePageMeta(page: Page) {
     const pageToPath: Record<string, string> = {
       home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
       mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
-      privacy: '/privacy', terms: '/terms',
+      liveMockInterview: '/live-mock-interview', privacy: '/privacy', terms: '/terms',
     };
     const path = pageToPath[page] || '/';
     canonicalEl.setAttribute('href', `${base}${path}`);
@@ -312,6 +315,8 @@ const AppContent: React.FC = () => {
         return <MockAssessmentPage initialView="history" />;
       case 'codingQuestions':
         return <CodingInterviewQuestionsPage />;
+      case 'liveMockInterview':
+        return <LiveMockInterviewPage />;
       case 'privacy':
         return <PrivacyPolicyPage />;
       case 'terms':
@@ -406,6 +411,7 @@ const App: React.FC = () => {
         '/mock-assessment/history': 'mockHistory',
         '/coding-questions': 'codingQuestions',
         '/coding-interview-questions': 'codingQuestions',
+        '/live-mock-interview': 'liveMockInterview',
         '/privacy': 'privacy',
         '/privacy-policy': 'privacy',
         '/terms': 'terms',
@@ -428,6 +434,7 @@ const App: React.FC = () => {
         'mockDailyChallenge': 'mockDailyChallenge',
         'mockHistory': 'mockHistory',
         'codingQuestions': 'codingQuestions',
+        'liveMockInterview': 'liveMockInterview',
         'privacy': 'privacy',
         'terms': 'terms',
         'notFound': 'notFound',
@@ -551,6 +558,7 @@ const App: React.FC = () => {
       'mockDailyChallenge': '/mock-assessment/daily-challenge',
       'mockHistory': '/mock-assessment/history',
       'codingQuestions': '/coding-questions',
+      'liveMockInterview': '/live-mock-interview',
       'privacy': '/privacy',
       'terms': '/terms',
       'notFound': '/404'
