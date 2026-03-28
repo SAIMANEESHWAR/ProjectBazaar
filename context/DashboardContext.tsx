@@ -23,6 +23,7 @@ export type DashboardView =
     | 'career-guidance'
     | 'company-posts'
     | 'mock-assessment'
+    | 'live-mock-interview'
     | 'coding-questions'
     | 'build-portfolio'
     | 'build-resume'

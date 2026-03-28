@@ -35,6 +35,7 @@ import MyCoursesPage from './MyCoursesPage';
 import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
+import LiveMockInterviewPage from './LiveMockInterviewPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
@@ -656,6 +657,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'course-details':
@@ -753,6 +756,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'my-projects':
@@ -819,6 +824,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         switch (activeView) {
             case 'prep-hub':
                 return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'prep-interview-questions':
                 return <PrepInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'prep-dsa':
@@ -857,6 +864,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     };
 
     const isCodingQuestions = activeView === 'coding-questions';
+    const isLiveMockInterview = activeView === 'live-mock-interview';
+    const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview;
 
     const renderModeContent = () => {
         if (dashboardMode === 'preparation') return renderPreparationContent();
@@ -870,7 +879,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     return (
         <main
             ref={mainScrollRef}
-            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : isLiveMockInterview ? 'bg-gray-50' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
                 <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn ${isPrepDark ? 'prep-dark-mode' : ''}`}>
@@ -1052,7 +1061,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         {renderModeContent()}
                     </div>
                 </div>
-            ) : isCodingQuestions ? (
+            ) : isToolViewWithStickyHeader ? (
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 px-6">
                     <div className="flex-shrink-0">
                         <DashboardHeader
