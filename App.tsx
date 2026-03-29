@@ -14,11 +14,8 @@ import Hero from './components/Hero';
 const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
 const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
 const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
-const UniSystemSection = lazy(() => import('./components/sections/UniSystemSection'));
-const CurriculumSection = lazy(() => import('./components/sections/CurriculumSection'));
 const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
 const ResultsGridSection = lazy(() => import('./components/sections/ResultsGridSection'));
-const TestimonialsSection = lazy(() => import('./components/sections/TestimonialsSection'));
 const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
 const FAQSection = lazy(() => import('./components/sections/FAQSection'));
 const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
@@ -333,12 +330,9 @@ const AppContent: React.FC = () => {
               <InterviewPrepHowItWorks />
               <ProblemsSection />
               <PlatformCardsSection />
-              <UniSystemSection />
-              <CurriculumSection />
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
               <ResultsGridSection />
-              <TestimonialsSection />
               <TopSellers />
               <InstructorSection />
               <FAQSection />

@@ -41,7 +41,7 @@ import {
   companyInitials,
   MOCK_INTERVIEW_ROUNDS,
   MOCK_INTERVIEWERS,
-  MOCK_ROLE_TITLES,
+  MOCK_ROLE_PICKER_CARDS,
   PRACTICE_INSTRUCTION_STEPS,
   PREREQUISITE_CHECK_LABELS,
   TRACK_OPTIONS,
@@ -83,8 +83,6 @@ const LV_TITLE = 'text-[#1a1c2e] dark:text-white';
 const PICKER_SURFACE =
   'bg-gradient-to-b from-orange-50/90 via-white to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
 const PICKER_BORDER = 'border-orange-100/90 dark:border-orange-900/40';
-const ACCENT_RING = 'ring-[#f97316]';
-const RING_OFFSET_PICKER = 'ring-offset-orange-50 dark:ring-offset-[#12111a]';
 
 const formatMmSs = (totalSec: number) => {
   const m = Math.floor(totalSec / 60);
@@ -104,12 +102,23 @@ const SETUP_TABS: { id: SetupTabId; label: string }[] = [
   { id: 'custom', label: 'Create Your Own' },
 ];
 
-function CompanyPickerLogo({ name, logoUrl }: { name: string; logoUrl?: string }) {
+function CompanyPickerLogo({
+  name,
+  logoUrl,
+  size = 'md',
+}: {
+  name: string;
+  logoUrl?: string;
+  size?: 'md' | 'lg';
+}) {
   const [failed, setFailed] = useState(false);
+  const box = size === 'lg' ? 'h-14 w-14 text-sm' : 'h-10 w-10 text-[11px]';
+  const imgBox = size === 'lg' ? 'h-14 w-14 p-1.5' : 'h-10 w-10 p-1';
+  const imgClass = size === 'lg' ? 'h-11 w-11' : 'h-8 w-8';
   if (!logoUrl || failed) {
     return (
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950/80 text-[10px] font-bold leading-tight text-orange-800 dark:text-orange-200"
+        className={`flex shrink-0 items-center justify-center rounded-xl border border-orange-200/90 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-950/50 font-bold leading-tight text-orange-800 dark:text-orange-200 ${box}`}
         aria-hidden
       >
         {companyInitials(name)}
@@ -117,15 +126,19 @@ function CompanyPickerLogo({ name, logoUrl }: { name: string; logoUrl?: string }
     );
   }
   return (
-    <img
-      src={logoUrl}
-      alt=""
-      width={36}
-      height={36}
-      className="h-9 w-9 shrink-0 rounded-lg object-contain bg-white dark:bg-gray-800"
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-xl border border-orange-200/80 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-orange-900/50 dark:bg-gray-900 ${imgBox}`}
+    >
+      <img
+        src={logoUrl}
+        alt=""
+        width={size === 'lg' ? 44 : 32}
+        height={size === 'lg' ? 44 : 32}
+        className={`${imgClass} object-contain`}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </span>
   );
 }
 
@@ -168,6 +181,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const prereqVideoRef = useRef<HTMLVideoElement>(null);
   const companySearchInputRef = useRef<HTMLInputElement>(null);
   const companyGridSectionRef = useRef<HTMLDivElement>(null);
+  const roleSearchInputRef = useRef<HTMLInputElement>(null);
+  const roleGridSectionRef = useRef<HTMLDivElement>(null);
   const prereqNetworkPhaseStartedRef = useRef(false);
   const micTestGenerationRef = useRef(0);
   const liveVideoBindCleanupRef = useRef<(() => void) | null>(null);
@@ -269,9 +284,14 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
-    if (!q) return MOCK_ROLE_TITLES;
-    return MOCK_ROLE_TITLES.filter((r) => r.toLowerCase().includes(q));
+    if (!q) return MOCK_ROLE_PICKER_CARDS;
+    return MOCK_ROLE_PICKER_CARDS.filter((r) => r.title.toLowerCase().includes(q));
   }, [roleSearch]);
+
+  const runRoleSearch = useCallback(() => {
+    roleGridSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => roleSearchInputRef.current?.focus(), 350);
+  }, []);
 
   const filteredCompanies = useMemo(() => {
     const q = companySearch.trim().toLowerCase();
@@ -826,7 +846,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               <span className="block text-2xl sm:text-3xl md:text-4xl">Role-Specific</span>
               <span className="block text-3xl sm:text-4xl md:text-5xl mt-1 text-[#f97316] dark:text-orange-400">
                 AI Mock Interviews
-              </span>
+          </span>
             </>
           ) : (
             <>
@@ -836,13 +856,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               </span>
             </>
           )}
-        </h1>
+          </h1>
         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto">
           {isRole
             ? `Practice role-specific interviews with real-world questions. Improve domain knowledge, articulation and communication with an instant feedback-style report (demo). Typical walkthrough about ${ESTIMATED_DURATION_MIN} minutes.`
             : 'Practice company-targeted scenarios and talking points. Build confidence for recruiter screens and onsite loops — tailored demo script per company.'}
-        </p>
-      </div>
+          </p>
+        </div>
     );
   };
 
@@ -864,9 +884,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           >
             <label className="flex flex-1 items-center gap-3 min-w-0 cursor-text">
               <Search className="w-5 h-5 text-orange-500 dark:text-orange-400 shrink-0" aria-hidden />
-              <input
+            <input
                 ref={companySearchInputRef}
-                type="search"
+              type="search"
                 value={companySearch}
                 onChange={(e) => setCompanySearch(e.target.value)}
                 placeholder="Select or search any company"
@@ -881,93 +901,119 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               Search
             </button>
           </form>
-        </div>
+          </div>
       );
     }
     return (
       <div className="w-full max-w-3xl mx-auto mb-10 px-1">
-        <div className="flex rounded-full border border-orange-100 dark:border-orange-900/40 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.06] dark:shadow-black/30 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/25 pl-5 pr-1.5 py-1.5">
+        <form
+          className="flex rounded-full border-2 border-orange-500/70 dark:border-orange-500/45 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/30 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/35 pl-5 pr-1.5 py-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            runRoleSearch();
+          }}
+          role="search"
+          aria-label="Search roles"
+        >
           <label className="flex flex-1 items-center gap-3 min-w-0 cursor-text">
-            <Search className="w-5 h-5 text-gray-400 shrink-0" aria-hidden />
+            <Search className="w-5 h-5 text-orange-500 dark:text-orange-400 shrink-0" aria-hidden />
             <input
+              ref={roleSearchInputRef}
               type="search"
               value={roleSearch}
               onChange={(e) => setRoleSearch(e.target.value)}
               placeholder="Search for roles (e.g. Software Engineer, Data Analyst)"
               className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
+              enterKeyHint="search"
             />
           </label>
           <button
-            type="button"
-            className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:opacity-95 transition-opacity shadow-sm shadow-orange-500/20"
+            type="submit"
+            className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30"
           >
             Search
           </button>
-        </div>
+        </form>
       </div>
     );
   };
 
   const renderRoleCompanyGrid = () => {
-    const tileOrange =
-      'rounded-3xl border border-orange-100/90 dark:border-orange-900/40 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.05] dark:shadow-black/30 flex items-center justify-center min-h-[100px] px-4 py-6 text-center transition-all hover:shadow-lg hover:ring-2 ' +
-      `${ACCENT_RING} ring-offset-2 ${RING_OFFSET_PICKER}`;
-
     if (setupTab === 'role') {
       return (
-        <div>
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <User className="w-5 h-5 text-[#f97316] shrink-0" aria-hidden />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Roles</h2>
+        <div ref={roleGridSectionRef} id="live-mock-role-grid" className="w-full max-w-5xl mx-auto scroll-mt-24">
+          <div className="flex flex-col items-center gap-1 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <User className="w-5 h-5 text-[#f97316] dark:text-orange-400 shrink-0" aria-hidden />
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Roles</h2>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
+              Each card shows a sample employer logo from our library — pick a role to start your mock interview.
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {filteredRoles.map((title) => (
-              <button
-                key={title}
-                type="button"
-                onClick={() => {
-                  setSessionLabel(title);
-                  setCompanyName(undefined);
-                  setTrack(inferTrackFromText(title));
-                  goToBriefing();
-                }}
-                className={tileOrange}
+            {filteredRoles.map((card) => (
+            <button
+                key={card.title}
+              type="button"
+                title={card.title}
+              onClick={() => {
+                  setSessionLabel(card.title);
+                setCompanyName(undefined);
+                  setTrack(inferTrackFromText(card.title));
+                goToBriefing();
+              }}
+                className="group relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-orange-200/95 dark:border-orange-800/55 bg-white dark:bg-gray-900 px-4 py-6 sm:py-7 text-center shadow-sm shadow-orange-900/[0.05] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-b hover:from-orange-50/95 hover:to-white dark:hover:from-orange-950/35 dark:hover:to-gray-900 hover:shadow-lg hover:shadow-orange-500/12 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 active:translate-y-0 active:scale-[0.99]"
               >
-                <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white leading-snug">
-                  {title}
+                <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-orange-400/0 transition-colors group-hover:bg-orange-400/80" aria-hidden />
+                <CompanyPickerLogo size="lg" name={card.title} logoUrl={card.logo} />
+                <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white leading-snug px-1 group-hover:text-orange-950 dark:group-hover:text-orange-50">
+                  {card.title}
                 </span>
-              </button>
-            ))}
+                <span className="text-[10px] font-medium uppercase tracking-wider text-orange-600/70 dark:text-orange-400/80">
+                  Spotlight employer
+                </span>
+            </button>
+          ))}
           </div>
+          {filteredRoles.length === 0 ? (
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No roles match your search.</p>
+          ) : null}
         </div>
       );
     }
     if (setupTab === 'company') {
       return (
         <div ref={companyGridSectionRef} id="live-mock-company-grid" className="w-full max-w-5xl mx-auto scroll-mt-24">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <Building2 className="w-5 h-5 text-[#f97316] dark:text-orange-400 shrink-0" aria-hidden />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Companies</h2>
+          <div className="flex flex-col items-center gap-1 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Building2 className="w-5 h-5 text-[#f97316] dark:text-orange-400 shrink-0" aria-hidden />
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Companies</h2>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
+              Each company includes a logo from our library. Search to filter the list.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-3 sm:gap-3.5 justify-start">
-            {filteredCompanies.map((company) => (
-              <button
-                key={company.id}
-                type="button"
-                onClick={() => {
-                  setSessionLabel(`Company: ${company.name}`);
-                  setCompanyName(company.name);
-                  setTrack('swe');
-                  goToBriefing();
-                }}
-                className="inline-flex min-w-0 max-w-full items-center gap-2.5 rounded-full border-2 border-orange-700/90 dark:border-orange-500/60 bg-white dark:bg-gray-900 px-3.5 py-2 text-left shadow-sm transition-all hover:border-[#f97316] dark:hover:border-orange-400 hover:bg-orange-50/70 dark:hover:bg-orange-950/35 hover:shadow-md hover:shadow-orange-500/10 active:scale-[0.99]"
+          <div className="flex flex-wrap gap-3 sm:gap-3 justify-center sm:justify-start">
+          {filteredCompanies.map((company) => (
+            <button
+              key={company.id}
+              type="button"
+                title={company.name}
+              onClick={() => {
+                setSessionLabel(`Company: ${company.name}`);
+                setCompanyName(company.name);
+                setTrack('swe');
+                goToBriefing();
+              }}
+                className="group inline-flex min-w-0 max-w-[min(100%,17rem)] items-center gap-3 rounded-2xl border-2 border-orange-600/85 dark:border-orange-500/50 bg-white dark:bg-gray-900 pl-2 pr-4 py-2 text-left shadow-sm shadow-orange-900/[0.04] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-r hover:from-orange-50/90 hover:to-white dark:hover:from-orange-950/40 dark:hover:to-gray-900 hover:shadow-md hover:shadow-orange-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
               >
                 <CompanyPickerLogo name={company.name} logoUrl={company.logo} />
-                <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100 pr-0.5">
-                  {company.name}
-                </span>
-              </button>
-            ))}
+                <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-orange-950 dark:group-hover:text-orange-50">
+                {company.name}
+              </span>
+            </button>
+          ))}
           </div>
           {filteredCompanies.length === 0 ? (
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No companies match your search.</p>
@@ -1236,40 +1282,40 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 </div>
               ) : (
                 <>
-                  <div className="mb-8 text-center sm:text-left space-y-3">
+                <div className="mb-8 text-center sm:text-left space-y-3">
                     <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/40 bg-white dark:bg-gray-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#ea580c] dark:text-orange-400">
-                      <User className="w-3.5 h-3.5" aria-hidden />
-                      Live mock interview
-                    </span>
+                    <User className="w-3.5 h-3.5" aria-hidden />
+                    Live mock interview
+                  </span>
                     <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                      <span className="text-[#f97316]">Practice</span>
-                      <span className="text-gray-400 dark:text-gray-500 font-light mx-2">|</span>
+                    <span className="text-[#f97316]">Practice</span>
+                    <span className="text-gray-400 dark:text-gray-500 font-light mx-2">|</span>
                       <span className={LV_TITLE}>on your terms</span>
-                    </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
-                      Pick a path below. All flows use the same demo transcript engine — no real recording.
-                    </p>
-                  </div>
+                  </h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+                    Pick a path below. All flows use the same demo transcript engine — no real recording.
+                  </p>
+                </div>
 
                   <div className="flex flex-wrap justify-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-                    {SETUP_TABS.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          setSetupTab(t.id);
-                          if (t.id === 'custom') setCustomStep(1);
-                        }}
-                        className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
-                          setupTab === t.id ? pillTabActive : pillTabIdle
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
+                {SETUP_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSetupTab(t.id);
+                      if (t.id === 'custom') setCustomStep(1);
+                    }}
+                    className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
+                      setupTab === t.id ? pillTabActive : pillTabIdle
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
 
-                  {renderSetupBody()}
+              {renderSetupBody()}
                 </>
               )}
             </motion.div>
@@ -1768,12 +1814,12 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     </span>
                     <Video className="w-4 h-4" aria-hidden />
                     Live
-                  </div>
+                </div>
                   <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm font-mono tabular-nums text-gray-700 dark:text-gray-300">
                     <Timer className="w-4 h-4 text-gray-400" aria-hidden />
                     {formatMmSs(elapsedSec)}
-                  </div>
                 </div>
+              </div>
               </header>
 
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 items-start">
@@ -1914,16 +1960,16 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       >
                         <MoreHorizontal className="w-5 h-5" aria-hidden />
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleEndEarly}
+                  <button
+                    type="button"
+                    onClick={handleEndEarly}
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 ml-1"
                         aria-label="End call"
-                      >
+                  >
                         <Phone className="w-5 h-5 rotate-[135deg]" aria-hidden />
-                      </button>
+                  </button>
                     </div>
-                  </div>
+                </div>
 
                   {/* Key meeting notes */}
                   <div className="rounded-[1.25rem] sm:rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none overflow-hidden">
@@ -1938,7 +1984,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       >
                         <MoreHorizontal className="w-5 h-5" aria-hidden />
                       </button>
-                    </div>
+                      </div>
                     <div className="px-5 py-4 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
                         <Calendar className="w-3.5 h-3.5 text-gray-500" aria-hidden />
@@ -2034,18 +2080,18 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                                   {card.current ? 'Your demo reply will appear as you continue.' : 'Not reached yet.'}
                                 </p>
                               )}
-                            </div>
-                          ))}
-                        </div>
+                          </div>
+                      ))}
+                    </div>
                         <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/50">
-                          <button
-                            type="button"
-                            onClick={handleContinueConversation}
+                      <button
+                        type="button"
+                        onClick={handleContinueConversation}
                             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-600/20 hover:opacity-95"
-                          >
-                            {continueLabel}
-                          </button>
-                        </div>
+                      >
+                        {continueLabel}
+                      </button>
+                    </div>
                       </>
                     )}
 
@@ -2074,7 +2120,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                   {i < segmentIndex ? 'Completed' : i === segmentIndex ? 'In progress' : 'Upcoming'}
                                 </p>
-                              </div>
+                  </div>
                             </li>
                           ))}
                         </ul>

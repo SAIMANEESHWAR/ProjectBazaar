@@ -157,7 +157,7 @@ const AIExtractionAnimation: React.FC = () => {
     const getBlurClass = (id: string, row = false) => activeElements.has(id) ? 'blur-none' : row ? 'blur-[5px]' : 'blur-sm';
 
     return (
-        <div className="relative flex items-center justify-center min-h-[280px] transition-transform duration-700 transform scale-[0.28] sm:scale-[0.38] md:scale-[0.48] lg:scale-[0.52] xl:scale-[0.62] origin-center will-change-transform" style={{ backfaceVisibility: 'hidden' as const }}>
+        <div className="relative flex items-center justify-center min-h-[200px] sm:min-h-[220px] transition-transform duration-700 transform scale-[0.28] sm:scale-[0.38] md:scale-[0.48] lg:scale-[0.52] xl:scale-[0.62] origin-center will-change-transform" style={{ backfaceVisibility: 'hidden' as const }}>
             <div className="relative w-[860px] h-[390px] shrink-0">
                 {/* Canvas for dotted lines */}
                 <canvas ref={canvasRef} width="860" height="390" className="absolute top-0 left-0 w-[860px] h-[390px] pointer-events-none z-10" />

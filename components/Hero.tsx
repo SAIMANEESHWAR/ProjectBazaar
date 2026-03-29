@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { useNavigation } from '../App';
 import { CTAArrowIcon } from './CTAArrowIcon';
+import LandingInterviewMock from './ui/LandingInterviewMock';
 
 const TYPEWRITER_PHRASES = [
   'Sell your capstone project and earn real revenue',
@@ -79,7 +80,6 @@ const Hero: React.FC = () => {
   const { d, h, m, s } = useCountdown(6 * 86400000);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const videoY = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const bgY = useTransform(scrollYProgress, [0, 1], [0, -40]);
 
   return (
@@ -234,48 +234,6 @@ const Hero: React.FC = () => {
               </div>
             </div>
           </div>
-        </motion.div>
-
-        {/* Video / Hero visual */}
-        <motion.div
-          style={{ y: videoY }}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          custom={4}
-          className="w-full max-w-[1140px] relative mt-10"
-        >
-          <motion.div
-            animate={{
-              boxShadow: [
-                '0 0 60px rgba(255,122,0,0.1)',
-                '0 0 100px rgba(255,122,0,0.25)',
-                '0 0 60px rgba(255,122,0,0.1)',
-              ],
-            }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="relative aspect-video rounded-[24px] overflow-hidden border border-gray-200 dark:border-white/10 group"
-          >
-            <img
-              src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=675&fit=crop"
-              alt="Project Bazaar"
-              className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay transition-transform duration-700 group-hover:scale-[1.02]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <motion.div
-                whileHover={{ scale: 1.12 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{ scale: [1, 1.06, 1] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="w-20 h-20 rounded-full bg-[#ff7a00] flex items-center justify-center cursor-pointer shadow-[0_0_30px_rgba(255,122,0,0.4)]"
-              >
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </motion.div>
-            </div>
-          </motion.div>
         </motion.div>
       </div>
     </header>

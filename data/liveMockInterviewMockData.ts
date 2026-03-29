@@ -340,31 +340,47 @@ export function getMockResults(
 export const AI_INTERVIEWER_NAME = 'Ava';
 export const ESTIMATED_DURATION_MIN = 12;
 
-/** Role grid (mock) — search & pick like reference UI */
-export const MOCK_ROLE_TITLES: string[] = [
-  'Web Designer',
-  'Account Manager',
-  'Full Stack Developer',
-  'Customer Service Representative',
-  'Digital Marketing Specialist',
-  'Software Engineer',
-  'Product Manager',
-  'Financial Analyst',
-  'Marketing Manager',
-  'Project Manager',
-  'Cybersecurity Analyst',
-  'Sales Executive',
-  'Business Analyst',
-  'Data Analyst',
-  'Data Scientist',
-];
-
 /** Build URL to a file in `public/company_logos/` (respects Vite `base`). */
 export function companyLogoPublicUrl(file: string): string {
   const base = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null ? import.meta.env.BASE_URL : '/';
   const prefix = base.endsWith('/') ? base : `${base}/`;
   return `${prefix}company_logos/${file}`;
 }
+
+/** Role picker card — sample “hiring spotlight” logo from `public/company_logos/` (illustrative). */
+export interface MockRolePickerCard {
+  title: string;
+  logo: string;
+  /** File name for reference / tooling */
+  logoFile: string;
+}
+
+const ROLE_PICKER_LOGO_SEED: { title: string; logoFile: string }[] = [
+  { title: 'Web Designer', logoFile: 'adobe.png' },
+  { title: 'Account Manager', logoFile: 'salesforce.png' },
+  { title: 'Full Stack Developer', logoFile: 'github.png' },
+  { title: 'Customer Service Representative', logoFile: 'amazon.png' },
+  { title: 'Digital Marketing Specialist', logoFile: 'hubspot.png' },
+  { title: 'Software Engineer', logoFile: 'microsoft.png' },
+  { title: 'Product Manager', logoFile: 'meta.png' },
+  { title: 'Financial Analyst', logoFile: 'jp-morgan-chase.png' },
+  { title: 'Marketing Manager', logoFile: 'shopify.png' },
+  { title: 'Project Manager', logoFile: 'deloitte.png' },
+  { title: 'Cybersecurity Analyst', logoFile: 'cisco.jpg' },
+  { title: 'Sales Executive', logoFile: 'linkedin.png' },
+  { title: 'Business Analyst', logoFile: 'accenture.jpg' },
+  { title: 'Data Analyst', logoFile: 'ibm.png' },
+  { title: 'Data Scientist', logoFile: 'google.png' },
+];
+
+export const MOCK_ROLE_PICKER_CARDS: MockRolePickerCard[] = ROLE_PICKER_LOGO_SEED.map(({ title, logoFile }) => ({
+  title,
+  logoFile,
+  logo: companyLogoPublicUrl(logoFile),
+}));
+
+/** Title list derived from role picker cards (search, legacy helpers). */
+export const MOCK_ROLE_TITLES: string[] = MOCK_ROLE_PICKER_CARDS.map((c) => c.title);
 
 /** Company grid (mock) — optional `logo` is a public URL; otherwise initials are used in the UI */
 export interface MockCompanyCard {
@@ -391,41 +407,60 @@ function companyIdFromName(name: string): string {
 }
 
 /**
- * Mass-recruitment / IT services companies.
- * `logoFile` must exist under `public/company_logos/`; add PNG/JPG there and set the filename to show a logo.
+ * Companies shown in the live mock interview picker — **only entries with a file in `public/company_logos/`**.
+ * To add a company: drop `yourbrand.png` (or .jpg) in that folder and append a row here.
  */
-const MOCK_COMPANY_SEED: { name: string; logoFile?: string }[] = [
-  { name: 'Infosys', logoFile: 'infosys.png' },
-  { name: 'Wipro' },
-  { name: 'TCS' },
-  { name: 'Tech Mahindra' },
-  { name: 'Infosys BPO', logoFile: 'infosys.png' },
-  { name: 'TCS BPO' },
-  { name: 'Sitel' },
-  { name: 'HCL Technologies' },
-  { name: 'Capgemini', logoFile: 'capgemini.jpg' },
-  { name: 'L&T Infotech', logoFile: 'mindtree.png' },
-  { name: 'Tech Mahindra BPO' },
-  { name: 'HCL BPO' },
-  { name: 'Aegis' },
-  { name: 'Cognizant (CCL)', logoFile: 'cognizant.jpg' },
+const MOCK_COMPANY_SEED: { name: string; logoFile: string }[] = [
   { name: 'Accenture', logoFile: 'accenture.jpg' },
+  { name: 'Adobe', logoFile: 'adobe.png' },
+  { name: 'American Express', logoFile: 'americanexpress.jpg' },
+  { name: 'Amazon', logoFile: 'amazon.png' },
+  { name: 'Apple', logoFile: 'apple.png' },
+  { name: 'Axis Bank', logoFile: 'axis_bank.jpg' },
+  { name: 'Capgemini', logoFile: 'capgemini.jpg' },
+  { name: 'Cisco', logoFile: 'cisco.jpg' },
+  { name: 'Cognizant', logoFile: 'cognizant.jpg' },
+  { name: 'Coinbase', logoFile: 'coinbase.png' },
+  { name: 'Dell', logoFile: 'dell.png' },
+  { name: 'Deloitte', logoFile: 'deloitte.png' },
+  { name: 'Flipkart', logoFile: 'flipkart.png' },
+  { name: 'GitHub', logoFile: 'github.png' },
+  { name: 'Goldman Sachs', logoFile: 'goldmansachs.jpg' },
+  { name: 'Google', logoFile: 'google.png' },
+  { name: 'HubSpot', logoFile: 'hubspot.png' },
   { name: 'IBM', logoFile: 'ibm.png' },
-  { name: 'Concentrix' },
-  { name: 'WNS Global Services' },
-  { name: 'Sutherland' },
+  { name: 'Infosys', logoFile: 'infosys.png' },
+  { name: 'JP Morgan Chase', logoFile: 'jp-morgan-chase.png' },
+  { name: 'LinkedIn', logoFile: 'linkedin.png' },
+  { name: 'Mastercard', logoFile: 'mastercard.jpg' },
+  { name: 'McKinsey & Company', logoFile: 'mckinsey.jpg' },
+  { name: 'Meesho', logoFile: 'meesho.jpg' },
+  { name: 'Meta', logoFile: 'meta.png' },
+  { name: 'Microsoft', logoFile: 'microsoft.png' },
   { name: 'Mindtree', logoFile: 'mindtree.png' },
-  { name: 'Hinduja Global Solutions' },
-  { name: 'Firstsource Solutions' },
-  { name: 'Genpact' },
-  { name: 'Wipro BPO' },
+  { name: 'Oracle', logoFile: 'oracle.png' },
+  { name: 'PayPal', logoFile: 'paypal.png' },
+  { name: 'Paytm', logoFile: 'paytm.jpg' },
+  { name: 'PwC', logoFile: 'pwc.jpg' },
+  { name: 'Salesforce', logoFile: 'salesforce.png' },
+  { name: 'Samsung', logoFile: 'samsung.png' },
+  { name: 'Shopify', logoFile: 'shopify.png' },
+  { name: 'Stripe', logoFile: 'stripe.png' },
+  { name: 'Swiggy', logoFile: 'swiggy.png' },
+  { name: 'Uber', logoFile: 'uber.png' },
+  { name: 'Visa', logoFile: 'visa.png' },
+  { name: 'VMware', logoFile: 'vmware.jpg' },
+  { name: 'Walmart', logoFile: 'walmart.png' },
+  { name: 'Wells Fargo', logoFile: 'wellsfargo.jpg' },
+  { name: 'Workday', logoFile: 'workday.png' },
+  { name: 'Zoho', logoFile: 'zoho.png' },
 ];
 
 export const MOCK_COMPANIES: MockCompanyCard[] = MOCK_COMPANY_SEED.map(({ name, logoFile }) => ({
   id: companyIdFromName(name),
   name,
-  logo: logoFile ? companyLogoPublicUrl(logoFile) : undefined,
-}));
+  logo: companyLogoPublicUrl(logoFile),
+})).sort((a, b) => a.name.localeCompare(b.name));
 
 export interface MockInterviewer {
   id: string;
