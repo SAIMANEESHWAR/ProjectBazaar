@@ -77,7 +77,6 @@ const prepNavGroups: PrepNavGroup[] = [
     {
         label: 'Library',
         items: [
-            { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
             { name: 'All Interview Questions', view: 'prep-interview-questions' as DashboardView, icon: InterviewQIcon },
             { name: 'Role Wise Resources', view: 'prep-position-resources' as DashboardView, icon: PositionIcon },
             { name: 'Company Wise Resources', view: 'prep-mass-recruitment' as DashboardView, icon: MassRecruitIcon },

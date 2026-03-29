@@ -3,18 +3,26 @@ import Lottie from 'lottie-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight,
+  Calendar,
   Check,
   ChevronLeft,
   Circle,
   Loader2,
   Menu,
+  MessageCircle,
   Mic,
+  MicOff,
+  MoreHorizontal,
+  Phone,
   Search,
+  Sparkles,
   Square,
   Timer,
   UploadCloud,
   User,
+  Users,
   Video,
+  VideoOff,
   Volume2,
   X,
   Zap,
@@ -46,11 +54,22 @@ import {
   playSpeakerTestTone,
 } from '../utils/liveInterviewMediaCheck';
 import interviewerFlowAnimation from '../lottiefiles/ai-animation-interviewer-Flow.json';
+import { ShimmerButton } from './ui/shimmer-button';
 
 type FlowPhase = 'setup' | 'briefing' | 'prereq' | 'warming' | 'live' | 'results';
 type SetupTabId = 'role' | 'company' | 'jd' | 'custom';
 
-type PrereqItemStatus = 'pending' | 'running' | 'pass' | 'skip' | 'fail' | 'awaiting_tone';
+type PrereqItemStatus =
+  | 'pending'
+  | 'running'
+  | 'pass'
+  | 'skip'
+  | 'fail'
+  | 'awaiting_mic_test'
+  | 'awaiting_confirm_mic'
+  | 'awaiting_mic_retry'
+  | 'awaiting_tone'
+  | 'awaiting_confirm_heard';
 
 const initialPrereqStatuses = (): PrereqItemStatus[] =>
   PREREQUISITE_CHECK_LABELS.map(() => 'pending' as PrereqItemStatus);
@@ -120,6 +139,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [prereqChecksBegun, setPrereqChecksBegun] = useState(false);
   const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(null);
   const prereqVideoRef = useRef<HTMLVideoElement>(null);
+  const prereqNetworkPhaseStartedRef = useRef(false);
+  const micTestGenerationRef = useRef(0);
   const liveVideoBindCleanupRef = useRef<(() => void) | null>(null);
 
   const [warmProgress, setWarmProgress] = useState(0);
@@ -129,6 +150,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [revealCount, setRevealCount] = useState(1);
   const [aiState, setAiState] = useState<'idle' | 'speaking' | 'listening'>('speaking');
   const [finishedFullSession, setFinishedFullSession] = useState(false);
+  const [liveSidebarTab, setLiveSidebarTab] = useState<'questions' | 'timeline' | 'clips'>('questions');
+  /** Live-stage toggles: map to MediaStreamTrack.enabled (setup useAudio/useVideo must have acquired tracks). */
+  const [liveMicEnabled, setLiveMicEnabled] = useState(true);
+  const [liveCameraEnabled, setLiveCameraEnabled] = useState(true);
 
   const interviewerDisplay = useMemo(
     () => MOCK_INTERVIEWERS.find((i) => i.id === selectedInterviewerId)?.name ?? AI_INTERVIEWER_NAME,
@@ -140,6 +165,58 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const visibleTurns = currentSegment ? currentSegment.turns.slice(0, revealCount) : [];
   const atEndOfSegment = currentSegment ? revealCount >= currentSegment.turns.length : false;
   const atEndOfInterview = atEndOfSegment && segmentIndex >= script.length - 1;
+
+  const liveSessionTitle = useMemo(() => {
+    const t = sessionLabel.trim();
+    if (t) return t;
+    const tl = TRACK_OPTIONS.find((x) => x.id === track)?.label ?? 'Interview';
+    return `${tl} — mock session`;
+  }, [sessionLabel, track]);
+
+  const liveSessionSubtitle = useMemo(() => {
+    const bits: string[] = [];
+    if (companyName) bits.push(companyName);
+    const round = MOCK_INTERVIEW_ROUNDS.find((r) => r.id === selectedRoundId)?.label;
+    if (round) bits.push(round);
+    bits.push('Practice transcript · demo (no recording stored)');
+    return bits.join(' · ');
+  }, [companyName, selectedRoundId]);
+
+  const interviewerInitials = useMemo(() => {
+    const parts = interviewerDisplay.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return interviewerDisplay.slice(0, 2).toUpperCase() || 'AI';
+  }, [interviewerDisplay]);
+
+  const liveQuestionCards = useMemo(() => {
+    return script.map((seg, i) => {
+      const firstAi = seg.turns.find((t) => t.speaker === 'ai');
+      const question = firstAi?.text ?? seg.topic;
+      const youScript = seg.turns.filter((t) => t.speaker === 'you');
+      let answer = '';
+      let done = i < segmentIndex;
+      if (i < segmentIndex) {
+        answer = youScript.map((t) => t.text).join(' ');
+      } else if (i === segmentIndex) {
+        answer = visibleTurns.filter((t) => t.speaker === 'you').map((t) => t.text).join(' ');
+      }
+      return {
+        id: seg.id,
+        topic: seg.topic,
+        question,
+        answer,
+        done,
+        current: i === segmentIndex,
+      };
+    });
+  }, [script, segmentIndex, visibleTurns]);
+
+  const liveAiSummaryText = useMemo(() => {
+    if (!currentSegment) return '';
+    const lastAi = [...visibleTurns].reverse().find((t) => t.speaker === 'ai');
+    if (lastAi) return lastAi.text;
+    return `Current focus: ${currentSegment.topic}. Follow the question list and use Continue to advance the demo transcript.`;
+  }, [currentSegment, visibleTurns]);
 
   /** Last visible line when it is the AI — used to drive speech synthesis in live phase. */
   const liveAiUtterance = useMemo(() => {
@@ -298,6 +375,40 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   );
 
   useEffect(() => {
+    if (phase !== 'live' || !localMediaStream) return;
+    const vt = localMediaStream.getVideoTracks()[0];
+    const at = localMediaStream.getAudioTracks()[0];
+    setLiveCameraEnabled(vt?.enabled ?? false);
+    setLiveMicEnabled(at?.enabled ?? false);
+  }, [phase, localMediaStream]);
+
+  const toggleLiveMic = useCallback(() => {
+    if (!localMediaStream || !useAudio) return;
+    const tracks = localMediaStream.getAudioTracks();
+    if (!tracks.length) return;
+    const next = !tracks[0].enabled;
+    tracks.forEach((t) => {
+      t.enabled = next;
+    });
+    setLiveMicEnabled(next);
+  }, [localMediaStream, useAudio]);
+
+  const toggleLiveCamera = useCallback(() => {
+    if (!localMediaStream || !useVideo) return;
+    const tracks = localMediaStream.getVideoTracks();
+    if (!tracks.length) return;
+    const next = !tracks[0].enabled;
+    tracks.forEach((t) => {
+      t.enabled = next;
+    });
+    setLiveCameraEnabled(next);
+  }, [localMediaStream, useVideo]);
+
+  const liveHasAudioTrack = !!localMediaStream?.getAudioTracks().length;
+  const liveHasVideoTrack = !!localMediaStream?.getVideoTracks().length;
+  const micLiveMuted = phase === 'live' ? !useAudio || !liveMicEnabled : !useAudio;
+
+  useEffect(() => {
     if (phase !== 'warming') return;
     setWarmProgress(0);
     const start = performance.now();
@@ -361,6 +472,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setPrereqStatuses(initialPrereqStatuses());
     setPrereqError(null);
     setPrereqChecksBegun(false);
+    prereqNetworkPhaseStartedRef.current = false;
+    micTestGenerationRef.current += 1;
     setWarmProgress(0);
     setElapsedSec(0);
     setSegmentIndex(0);
@@ -369,9 +482,39 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setAiState('speaking');
   }, [stopLocalMedia]);
 
+  const continueAfterMicResolved = useCallback(async () => {
+    if (prereqNetworkPhaseStartedRef.current) return;
+    prereqNetworkPhaseStartedRef.current = true;
+
+    const setS = (idx: number, s: PrereqItemStatus) => {
+      setPrereqStatuses((prev) => {
+        const next = [...prev];
+        next[idx] = s;
+        return next;
+      });
+    };
+
+    setPrereqError(null);
+    setS(4, 'running');
+    const net = await checkNetworkLatency();
+    if (!net.ok || net.ms > 12000) {
+      setS(4, 'fail');
+      setPrereqError(
+        net.ms > 12000
+          ? `This site responded slowly (${Math.round(net.ms)} ms). Check your connection.`
+          : 'Could not verify network connectivity to this site.'
+      );
+      return;
+    }
+    setS(4, 'pass');
+    setS(5, 'awaiting_tone');
+  }, []);
+
   const beginPrereqChecks = useCallback(async () => {
     setPrereqError(null);
     setPrereqChecksBegun(true);
+    prereqNetworkPhaseStartedRef.current = false;
+
     const setS = (idx: number, s: PrereqItemStatus) => {
       setPrereqStatuses((prev) => {
         const next = [...prev];
@@ -416,49 +559,92 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       setS(2, 'skip');
     }
 
-    setS(3, 'running');
     if (!useAudio || !stream) {
       setS(3, 'skip');
-    } else {
-      const heard = await measureMicInput(stream);
-      if (heard) {
-        setS(3, 'pass');
-      } else {
-        setS(3, 'fail');
-        setPrereqError(
-          'We could not detect speech on the microphone. Speak clearly when the voice step runs, check your input device, or turn off “Use microphone” if you only want the camera.'
-        );
-        return;
-      }
-    }
-
-    setS(4, 'running');
-    const net = await checkNetworkLatency();
-    if (!net.ok || net.ms > 12000) {
-      setS(4, 'fail');
-      setPrereqError(
-        net.ms > 12000
-          ? `This site responded slowly (${Math.round(net.ms)} ms). Check your connection.`
-          : 'Could not verify network connectivity to this site.'
-      );
+      await continueAfterMicResolved();
       return;
     }
-    setS(4, 'pass');
 
-    setS(5, 'awaiting_tone');
-  }, [useAudio, useVideo]);
+    setS(3, 'awaiting_mic_test');
+  }, [useAudio, useVideo, continueAfterMicResolved]);
 
-  const handlePlayTestTone = useCallback(async () => {
+  const handleRunMicTest = useCallback(async () => {
+    setPrereqError(null);
+    const stream = localMediaStream;
+    if (!stream?.getAudioTracks()[0]) return;
+
+    const gen = ++micTestGenerationRef.current;
     setPrereqStatuses((prev) => {
       const next = [...prev];
-      if (next[5] === 'awaiting_tone') next[5] = 'running';
+      if (
+        next[3] === 'awaiting_mic_test' ||
+        next[3] === 'awaiting_confirm_mic' ||
+        next[3] === 'awaiting_mic_retry'
+      ) {
+        next[3] = 'running';
+      }
+      return next;
+    });
+
+    try {
+      const heard = await measureMicInput(stream);
+      if (gen !== micTestGenerationRef.current) return;
+      setPrereqStatuses((prev) => {
+        if (prev[3] !== 'running') return prev;
+        const next = [...prev];
+        next[3] = heard ? 'awaiting_confirm_mic' : 'awaiting_mic_retry';
+        return next;
+      });
+    } catch {
+      if (gen !== micTestGenerationRef.current) return;
+      setPrereqStatuses((prev) => {
+        if (prev[3] !== 'running') return prev;
+        const next = [...prev];
+        next[3] = 'awaiting_mic_retry';
+        return next;
+      });
+    }
+  }, [localMediaStream]);
+
+  const confirmMicHeard = useCallback(() => {
+    setPrereqStatuses((prev) => {
+      const next = [...prev];
+      if (next[3] === 'awaiting_confirm_mic') next[3] = 'pass';
+      return next;
+    });
+    void continueAfterMicResolved();
+  }, [continueAfterMicResolved]);
+
+  const skipMicCheck = useCallback(() => {
+    micTestGenerationRef.current += 1;
+    setPrereqError(null);
+    setPrereqStatuses((prev) => {
+      const next = [...prev];
+      if (
+        next[3] === 'awaiting_mic_test' ||
+        next[3] === 'awaiting_confirm_mic' ||
+        next[3] === 'awaiting_mic_retry' ||
+        next[3] === 'running'
+      ) {
+        next[3] = 'skip';
+      }
+      return next;
+    });
+    void continueAfterMicResolved();
+  }, [continueAfterMicResolved]);
+
+  const handlePlayTestTone = useCallback(async () => {
+    setPrereqError(null);
+    setPrereqStatuses((prev) => {
+      const next = [...prev];
+      if (next[5] === 'awaiting_tone' || next[5] === 'awaiting_confirm_heard') next[5] = 'running';
       return next;
     });
     try {
       await playSpeakerTestTone();
       setPrereqStatuses((prev) => {
         const next = [...prev];
-        next[5] = 'pass';
+        next[5] = 'awaiting_confirm_heard';
         return next;
       });
     } catch {
@@ -471,8 +657,33 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
   }, []);
 
+  const confirmSpeakerHeard = useCallback(() => {
+    setPrereqStatuses((prev) => {
+      const next = [...prev];
+      if (next[5] === 'awaiting_confirm_heard') next[5] = 'pass';
+      return next;
+    });
+  }, []);
+
+  const skipSpeakerCheck = useCallback(() => {
+    setPrereqError(null);
+    setPrereqStatuses((prev) => {
+      const next = [...prev];
+      if (
+        next[5] === 'awaiting_tone' ||
+        next[5] === 'awaiting_confirm_heard' ||
+        next[5] === 'running'
+      ) {
+        next[5] = 'skip';
+      }
+      return next;
+    });
+  }, []);
+
   const retryPrereqChecks = useCallback(() => {
     stopLocalMedia();
+    micTestGenerationRef.current += 1;
+    prereqNetworkPhaseStartedRef.current = false;
     setPrereqStatuses(initialPrereqStatuses());
     setPrereqError(null);
     setPrereqChecksBegun(false);
@@ -542,12 +753,39 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     const isRole = setupTab === 'role';
     const isCompany = setupTab === 'company';
     if (!isRole && !isCompany) return null;
+    const chipLabel = isRole ? '3000+ roles available' : 'Practice by company';
+    const chipClass =
+      'h-auto min-h-0 border-orange-200 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ea580c] shadow-lg shadow-orange-500/10';
     return (
       <div className="mb-8 text-center max-w-3xl mx-auto space-y-5 px-2">
-        <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/35 bg-white dark:bg-gray-900 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ea580c] dark:text-orange-400">
-          <Zap className="w-4 h-4 text-[#f97316]" aria-hidden />
-          {isRole ? '3000+ roles available' : 'Practice by company'}
-        </span>
+        <div className="flex justify-center">
+          <ShimmerButton
+            type="button"
+            tabIndex={-1}
+            aria-label={chipLabel}
+            className={`${chipClass} dark:hidden`}
+            background="#ffffff"
+            shimmerColor="rgba(249, 115, 22, 0.4)"
+            shimmerDuration="3.5s"
+            borderRadius="100px"
+          >
+            <Zap className="h-4 w-4 shrink-0 text-[#f97316]" aria-hidden />
+            <span>{chipLabel}</span>
+          </ShimmerButton>
+          <ShimmerButton
+            type="button"
+            tabIndex={-1}
+            aria-label={chipLabel}
+            className={`${chipClass} hidden border-orange-500/35 text-orange-400 shadow-orange-500/5 dark:inline-flex`}
+            background="rgb(17, 24, 39)"
+            shimmerColor="rgba(251, 146, 60, 0.35)"
+            shimmerDuration="3.5s"
+            borderRadius="100px"
+          >
+            <Zap className="h-4 w-4 shrink-0 text-orange-400" aria-hidden />
+            <span>{chipLabel}</span>
+          </ShimmerButton>
+        </div>
         <h1 className="font-bold tracking-tight text-gray-900 dark:text-white">
           {isRole ? (
             <>
@@ -883,7 +1121,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       )}
 
       <div className={`px-0 sm:px-0 ${mainInner}`}>
-        <div className="flex items-center justify-between gap-4 mb-6">
+        <div
+          className={`flex items-center justify-between gap-4 mb-6 ${phase === 'live' ? 'hidden' : ''}`}
+        >
           <button
             type="button"
             onClick={goBack}
@@ -1148,8 +1388,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">Compatibility test</h3>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Real checks in your browser — grant permissions when asked. On the voice step, speak a short sentence
-                    out loud.
+                    Real checks in your browser — grant permissions when asked. When you reach the microphone step, click{' '}
+                    <strong className="text-gray-800 dark:text-gray-200">Test microphone</strong> and speak clearly for a couple
+                    of seconds.
                   </p>
                   {!prereqChecksBegun && (
                     <button
@@ -1182,7 +1423,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       const done = st === 'pass' || st === 'skip';
                       const loading = st === 'running';
                       const failed = st === 'fail';
+                      const awaitMicTest = idx === 3 && st === 'awaiting_mic_test';
+                      const awaitConfirmMic = idx === 3 && st === 'awaiting_confirm_mic';
+                      const awaitMicRetry = idx === 3 && st === 'awaiting_mic_retry';
                       const awaitTone = st === 'awaiting_tone';
+                      const awaitConfirmHeard = st === 'awaiting_confirm_heard';
                       return (
                         <li
                           key={idx}
@@ -1206,8 +1451,107 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                                 <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">(skipped)</span>
                               )}
                             </span>
+                            {awaitMicTest && (
+                              <div className="mt-2 space-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRunMicTest()}
+                                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2"
+                                >
+                                  <Mic className="w-3.5 h-3.5" aria-hidden />
+                                  Test microphone
+                                </button>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Speak a short sentence while this runs (~2s). We listen for input level, not your words.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={skipMicCheck}
+                                  className="text-xs font-medium text-[#ea580c] dark:text-orange-400 underline hover:no-underline"
+                                >
+                                  Skip microphone check — I’ll fix the mic later
+                                </button>
+                              </div>
+                            )}
+                            {awaitConfirmMic && (
+                              <div className="mt-2 space-y-3">
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                                  We detected audio on your microphone. Did that work on your side?
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={confirmMicHeard}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2"
+                                  >
+                                    <Check className="w-3.5 h-3.5" aria-hidden />
+                                    Yes, that worked
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRunMicTest()}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-semibold px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                  >
+                                    <Mic className="w-3.5 h-3.5" aria-hidden />
+                                    Test again
+                                  </button>
+                                </div>
+                                <details className="text-xs text-gray-500 dark:text-gray-400">
+                                  <summary className="cursor-pointer font-medium text-gray-600 dark:text-gray-300 hover:text-[#ea580c] dark:hover:text-orange-400">
+                                    Wrong mic or too quiet?
+                                  </summary>
+                                  <ul className="mt-2 list-disc list-inside space-y-1 pl-0.5">
+                                    <li>Choose the correct input in your system sound settings (Bluetooth vs built-in).</li>
+                                    <li>Move closer and speak a bit louder during the test.</li>
+                                    <li>Allow microphone access for this site if the browser prompted you.</li>
+                                  </ul>
+                                </details>
+                                <button
+                                  type="button"
+                                  onClick={skipMicCheck}
+                                  className="text-xs font-medium text-gray-500 dark:text-gray-400 underline hover:text-gray-700 dark:hover:text-gray-300"
+                                >
+                                  Skip anyway — continue without confirming
+                                </button>
+                              </div>
+                            )}
+                            {awaitMicRetry && (
+                              <div className="mt-2 space-y-3">
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                                  We didn’t pick up much from the microphone. Try again, or skip if you’ll use a different
+                                  device later.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRunMicTest()}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2"
+                                  >
+                                    <Mic className="w-3.5 h-3.5" aria-hidden />
+                                    Test microphone again
+                                  </button>
+                                </div>
+                                <details className="text-xs text-gray-500 dark:text-gray-400">
+                                  <summary className="cursor-pointer font-medium text-gray-600 dark:text-gray-300 hover:text-[#ea580c] dark:hover:text-orange-400">
+                                    Still not working?
+                                  </summary>
+                                  <ul className="mt-2 list-disc list-inside space-y-1 pl-0.5">
+                                    <li>Check the mic isn’t muted in system settings or on the headset cable.</li>
+                                    <li>Close other apps that might be using the microphone exclusively.</li>
+                                    <li>Turn off “Use microphone” in the previous step if you only need the camera.</li>
+                                  </ul>
+                                </details>
+                                <button
+                                  type="button"
+                                  onClick={skipMicCheck}
+                                  className="text-xs font-medium text-gray-500 dark:text-gray-400 underline hover:text-gray-700 dark:hover:text-gray-300"
+                                >
+                                  Skip microphone check
+                                </button>
+                              </div>
+                            )}
                             {awaitTone && (
-                              <div className="mt-2">
+                              <div className="mt-2 space-y-2">
                                 <button
                                   type="button"
                                   onClick={() => void handlePlayTestTone()}
@@ -1216,9 +1560,59 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                                   <Volume2 className="w-3.5 h-3.5" aria-hidden />
                                   Play test tone
                                 </button>
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                  You should hear a brief beep — unmute your device if needed.
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  You should hear a brief beep — unmute your device and tab if needed.
                                 </p>
+                                <button
+                                  type="button"
+                                  onClick={skipSpeakerCheck}
+                                  className="text-xs font-medium text-[#ea580c] dark:text-orange-400 underline hover:no-underline"
+                                >
+                                  Skip speaker check — I’ll fix audio later
+                                </button>
+                              </div>
+                            )}
+                            {awaitConfirmHeard && (
+                              <div className="mt-2 space-y-3">
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                                  Did you hear the beep?
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={confirmSpeakerHeard}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2"
+                                  >
+                                    <Check className="w-3.5 h-3.5" aria-hidden />
+                                    Yes, I heard it
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handlePlayTestTone()}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs font-semibold px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" aria-hidden />
+                                    Play again
+                                  </button>
+                                </div>
+                                <details className="text-xs text-gray-500 dark:text-gray-400">
+                                  <summary className="cursor-pointer font-medium text-gray-600 dark:text-gray-300 hover:text-[#ea580c] dark:hover:text-orange-400">
+                                    No sound? Quick checks
+                                  </summary>
+                                  <ul className="mt-2 list-disc list-inside space-y-1 pl-0.5">
+                                    <li>Turn up system volume and unplug muted headphones.</li>
+                                    <li>macOS/Windows: pick the correct output device (Bluetooth vs speakers).</li>
+                                    <li>Browser tab: ensure the tab isn’t muted (icon on the tab).</li>
+                                    <li>Try “Play again” after changing volume — the tone is short.</li>
+                                  </ul>
+                                </details>
+                                <button
+                                  type="button"
+                                  onClick={skipSpeakerCheck}
+                                  className="text-xs font-medium text-gray-500 dark:text-gray-400 underline hover:text-gray-700 dark:hover:text-gray-300"
+                                >
+                                  Skip anyway — continue without confirming
+                                </button>
                               </div>
                             )}
                           </div>
@@ -1268,162 +1662,365 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
-              className="space-y-4 w-full min-w-0"
+              className="w-full min-w-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 rounded-2xl bg-[#f9fafb] dark:bg-[#0a0a0c] border border-gray-200/80 dark:border-gray-800"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-3 shadow-sm">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center gap-2 rounded-md bg-red-600 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white">
+              {/* Meeting-style header */}
+              <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-6 lg:mb-8">
+                <div className="flex items-start gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="mt-1 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 shrink-0"
+                    aria-label="Back"
+                  >
+                    <ChevronLeft className="w-5 h-5" aria-hidden />
+                  </button>
+                  <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">
+                      {liveSessionTitle}
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed max-w-2xl">
+                      {liveSessionSubtitle}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleEndEarly}
+                    className="inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-semibold text-gray-800 dark:text-gray-100 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <Square className="w-4 h-4" aria-hidden />
+                    Stop session
+                  </button>
+                  <div className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-600/25">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
                     </span>
+                    <Video className="w-4 h-4" aria-hidden />
                     Live
-                  </span>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Interview in progress</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">·</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {MOCK_INTERVIEW_ROUNDS.find((r) => r.id === selectedRoundId)?.label ?? 'Round'} · Topic{' '}
-                    {segmentIndex + 1} of {script.length}
-                  </span>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                    <Timer className="w-4 h-4 text-gray-400" aria-hidden />
+                    {formatMmSs(elapsedSec)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm font-mono tabular-nums text-gray-700 dark:text-gray-300">
-                  <Timer className="w-4 h-4 text-[#f97316]" aria-hidden />
-                  <span>{formatMmSs(elapsedSec)}</span>
-                </div>
-              </div>
+              </header>
 
-              <div className="grid lg:grid-cols-5 gap-6 lg:gap-8">
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="rounded-2xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-                    <div className="aspect-video bg-white dark:bg-gray-950 flex flex-col items-center justify-center p-6 text-center relative border-b border-gray-100 dark:border-gray-800">
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 items-start">
+                {/* Left ~65% */}
+                <div className="xl:col-span-8 space-y-6">
+                  <div className="relative rounded-[1.25rem] sm:rounded-3xl overflow-hidden bg-white dark:bg-gray-900 shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-none border border-gray-200/90 dark:border-gray-800">
+                    <div className="aspect-video bg-white dark:bg-gray-950 relative flex flex-col items-center justify-center p-6 sm:p-10">
                       <div
-                        className={`absolute inset-0 pointer-events-none ${aiState === 'speaking' ? 'animate-pulse bg-orange-50/80 dark:bg-orange-500/10' : ''}`}
+                        className={`absolute inset-0 pointer-events-none ${aiState === 'speaking' ? 'bg-gradient-to-b from-blue-50/40 to-transparent dark:from-blue-500/5' : ''}`}
                         aria-hidden
                       />
+                      {/* Top overlays */}
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 rounded-full bg-black/45 dark:bg-black/55 backdrop-blur-md pl-1.5 pr-3 py-1.5 text-white text-xs font-medium max-w-[min(100%,18rem)]">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold">
+                          {interviewerInitials}
+                        </span>
+                        <span className="truncate">{interviewerDisplay}</span>
+                      </div>
+                      {useVideo && localMediaStream?.getVideoTracks().length ? (
+                        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 w-[28%] max-w-[200px] min-w-[120px] rounded-xl overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg ring-1 ring-black/10">
+                          <div className="relative aspect-video bg-gray-900">
+                            <video
+                              ref={setLiveUserVideoRef}
+                              key={localMediaStream.id}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              autoPlay
+                              playsInline
+                              muted
+                            />
+                            {!liveCameraEnabled ? (
+                              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-gray-950/85 text-white px-2">
+                                <VideoOff className="w-6 h-6 opacity-90" aria-hidden />
+                                <span className="text-[10px] font-medium text-center leading-tight">Camera off</span>
+                              </div>
+                            ) : null}
+                            <div className="absolute bottom-1.5 right-1.5 z-20 flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[10px] text-white">
+                              {liveMicEnabled ? (
+                                <Mic className="w-3 h-3" aria-hidden />
+                              ) : (
+                                <MicOff className="w-3 h-3 text-amber-300" aria-hidden />
+                              )}
+                            </div>
+                          </div>
+                          <p className="bg-black/80 text-[10px] text-white/90 px-2 py-1 truncate">You</p>
+                        </div>
+                      ) : null}
                       <div
-                        className="relative z-10 w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center pointer-events-none"
+                        className="relative z-10 w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center pointer-events-none"
                         aria-hidden
                       >
                         <Lottie
                           animationData={interviewerFlowAnimation}
                           loop
-                          className="h-full w-full max-h-[11rem] max-w-[11rem] sm:max-h-[13rem] sm:max-w-[13rem] object-contain"
+                          className="h-full w-full object-contain"
                         />
                       </div>
                       <span className="sr-only">AI interviewer {interviewerDisplay}</span>
-                      <p className="relative z-10 mt-4 font-semibold text-gray-900 dark:text-white">{interviewerDisplay}</p>
-                      <p className="relative z-10 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap items-center justify-center gap-2 mt-1">
-                        {!useVideo && (
-                          <span className="text-amber-700 dark:text-amber-300 text-xs">Video off</span>
-                        )}
+                      <p className="relative z-10 mt-2 text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
                         {aiState === 'speaking' ? (
                           <>
-                            <Volume2 className="w-4 h-4 text-[#f97316]" aria-hidden />
+                            <Volume2 className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden />
                             Speaking
                           </>
                         ) : (
                           <>
-                            <Mic className="w-4 h-4 text-[#f97316]" aria-hidden />
+                            <Mic className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden />
                             Listening
                           </>
                         )}
+                        {micLiveMuted && (
+                          <span className="text-amber-600 dark:text-amber-400 text-xs">· Mic off</span>
+                        )}
                       </p>
                     </div>
-                    <div className="p-4 flex items-center justify-between text-sm border-t border-gray-200 dark:border-gray-600">
-                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                        <Circle className="w-2 h-2 fill-emerald-500 text-emerald-500" aria-hidden />
-                        Connected
-                        {!useAudio && <span className="text-amber-600 text-xs">· Audio off</span>}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Part {segmentIndex + 1}/{script.length}
-                      </span>
-                    </div>
-                  </div>
-                  {useVideo && localMediaStream?.getVideoTracks().length ? (
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-                      <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                          Your camera
-                        </span>
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Live</span>
-                      </div>
-                      <div className="relative aspect-video w-full min-h-0 overflow-hidden bg-gray-950">
-                        <video
-                          ref={setLiveUserVideoRef}
-                          key={localMediaStream.id}
-                          className="absolute inset-0 h-full w-full object-cover"
-                          autoPlay
-                          playsInline
-                          muted
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-950/30 px-4 py-6 text-center text-xs text-gray-500 dark:text-gray-400">
-                      {useVideo
-                        ? 'Camera preview will appear here when video is enabled and permission is granted.'
-                        : 'Camera is off for this session (enable under interview details next time).'}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleEndEarly}
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Square className="w-3.5 h-3.5" aria-hidden />
-                    End session early
-                  </button>
-                </div>
-
-                <div className="lg:col-span-3 flex flex-col min-h-[380px] lg:min-h-[420px]">
-                  <div className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 flex flex-col overflow-hidden shadow-sm">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                          Current section
-                        </p>
-                        <p className="font-semibold text-gray-900 dark:text-white">{currentSegment.topic}</p>
-                      </div>
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-800 dark:text-orange-200 font-medium">
-                        {TRACK_OPTIONS.find((t) => t.id === track)?.label}
-                      </span>
-                    </div>
-                    <div
-                      className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[min(52vh,520px)]"
-                      aria-live="polite"
-                    >
-                      {visibleTurns.map((turn, idx) => (
-                        <motion.div
-                          key={`${currentSegment.id}-${idx}`}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`flex ${turn.speaker === 'you' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                              turn.speaker === 'ai'
-                                ? 'bg-gray-100 dark:bg-gray-700/80 text-gray-900 dark:text-gray-100 rounded-tl-sm'
-                                : 'bg-[#f97316] text-white rounded-tr-sm'
-                            }`}
-                          >
-                            <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80 mb-1">
-                              {turn.speaker === 'ai' ? interviewerDisplay : 'You (demo reply)'}
-                            </p>
-                            {turn.text}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    <div className="p-4 border-t border-gray-200 dark:border-gray-600">
+                    {/* Floating control bar */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 sm:gap-2 rounded-full border border-gray-200/90 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-2 sm:px-3 py-2 shadow-lg">
                       <button
                         type="button"
-                        onClick={handleContinueConversation}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#f97316] to-orange-600 text-white text-sm font-semibold shadow-md shadow-orange-500/20 hover:opacity-95"
+                        onClick={toggleLiveMic}
+                        disabled={!useAudio || !liveHasAudioTrack}
+                        aria-pressed={liveMicEnabled}
+                        title={
+                          !useAudio || !liveHasAudioTrack
+                            ? 'Microphone was disabled for this session'
+                            : liveMicEnabled
+                              ? 'Turn microphone off'
+                              : 'Turn microphone on'
+                        }
+                        className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          useAudio && liveHasAudioTrack && liveMicEnabled
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/60'
+                            : 'bg-gray-100 text-gray-400 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
                       >
-                        {continueLabel}
+                        {useAudio && liveHasAudioTrack && !liveMicEnabled ? (
+                          <MicOff className="w-5 h-5" aria-hidden />
+                        ) : (
+                          <Mic className="w-5 h-5" aria-hidden />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleLiveCamera}
+                        disabled={!useVideo || !liveHasVideoTrack}
+                        aria-pressed={liveCameraEnabled}
+                        title={
+                          !useVideo || !liveHasVideoTrack
+                            ? 'Camera was disabled for this session'
+                            : liveCameraEnabled
+                              ? 'Turn camera off'
+                              : 'Turn camera on'
+                        }
+                        className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          useVideo && liveHasVideoTrack && liveCameraEnabled
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/60'
+                            : 'bg-gray-100 text-gray-400 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {useVideo && liveHasVideoTrack && !liveCameraEnabled ? (
+                          <VideoOff className="w-5 h-5" aria-hidden />
+                        ) : (
+                          <Video className="w-5 h-5" aria-hidden />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 cursor-not-allowed"
+                        title="Chat not available in demo"
+                      >
+                        <MessageCircle className="w-5 h-5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 cursor-not-allowed"
+                        title="More (demo)"
+                      >
+                        <MoreHorizontal className="w-5 h-5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleEndEarly}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 ml-1"
+                        aria-label="End call"
+                      >
+                        <Phone className="w-5 h-5 rotate-[135deg]" aria-hidden />
                       </button>
                     </div>
+                  </div>
+
+                  {/* Key meeting notes */}
+                  <div className="rounded-[1.25rem] sm:rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none overflow-hidden">
+                    <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                      <h2 className="text-base font-semibold text-gray-900 dark:text-white leading-snug">
+                        Key session notes — {liveSessionTitle}
+                      </h2>
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        aria-label="Menu"
+                      >
+                        <MoreHorizontal className="w-5 h-5" aria-hidden />
+                      </button>
+                    </div>
+                    <div className="px-5 py-4 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        <Calendar className="w-3.5 h-3.5 text-gray-500" aria-hidden />
+                        {formatMmSs(elapsedSec)} elapsed
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        <Search className="w-3.5 h-3.5 text-gray-500" aria-hidden />
+                        Topic {segmentIndex + 1}/{script.length}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        <Users className="w-3.5 h-3.5 text-gray-500" aria-hidden />
+                        You, {interviewerDisplay}
+                      </span>
+                    </div>
+                    <div className="px-5 pb-5">
+                      <div className="rounded-2xl bg-gradient-to-br from-sky-100 via-indigo-50 to-violet-100 dark:from-sky-950/50 dark:via-indigo-950/40 dark:to-violet-950/40 border border-sky-200/60 dark:border-indigo-500/20 p-4 sm:p-5">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-indigo-900 dark:text-indigo-200 mb-2">
+                          <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" aria-hidden />
+                          AI summary (live snippet)
+                        </div>
+                        <p className="text-sm text-indigo-950/90 dark:text-indigo-100/90 leading-relaxed">
+                          {liveAiSummaryText}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right ~35% */}
+                <div className="xl:col-span-4 flex flex-col min-h-0 xl:sticky xl:top-4">
+                  <div className="rounded-[1.25rem] sm:rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-none flex flex-col overflow-hidden max-h-[min(88vh,900px)]">
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800/80 p-1">
+                        {(
+                          [
+                            ['questions', 'Question list'],
+                            ['timeline', 'Timeline'],
+                            ['clips', 'Highlight clips'],
+                          ] as const
+                        ).map(([id, label]) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setLiveSidebarTab(id)}
+                            className={`flex-1 rounded-lg px-2 py-2 text-[11px] sm:text-xs font-semibold transition-colors ${
+                              liveSidebarTab === id
+                                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {liveSidebarTab === 'questions' && (
+                      <>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+                          {liveQuestionCards.map((card, i) => (
+                            <div
+                              key={card.id}
+                              className={`rounded-2xl border p-4 transition-shadow ${
+                                card.current
+                                  ? 'border-blue-200 dark:border-blue-500/40 bg-blue-50/30 dark:bg-blue-950/20 ring-1 ring-blue-200/50 dark:ring-blue-500/20'
+                                  : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-950/40'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
+                                  {String(i + 1).padStart(2, '0')}
+                                </span>
+                                {card.done ? (
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white shrink-0">
+                                    <Check className="w-4 h-4" aria-hidden />
+                                  </span>
+                                ) : (
+                                  <span className="h-7 w-7 shrink-0" aria-hidden />
+                                )}
+                              </div>
+                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                {card.topic}
+                              </p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white leading-snug mb-2">
+                                {card.question}
+                              </p>
+                              {card.answer ? (
+                                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-6">
+                                  {card.answer}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                                  {card.current ? 'Your demo reply will appear as you continue.' : 'Not reached yet.'}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/50">
+                          <button
+                            type="button"
+                            onClick={handleContinueConversation}
+                            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-600/20 hover:opacity-95"
+                          >
+                            {continueLabel}
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {liveSidebarTab === 'timeline' && (
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[200px]">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Simple timeline from your demo progress (no server recording).
+                        </p>
+                        <ul className="space-y-3">
+                          {script.map((seg, i) => (
+                            <li
+                              key={seg.id}
+                              className="flex gap-3 text-sm border-l-2 border-gray-200 dark:border-gray-700 pl-4 py-1"
+                            >
+                              <span
+                                className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                                  i < segmentIndex
+                                    ? 'bg-emerald-500'
+                                    : i === segmentIndex
+                                      ? 'bg-blue-500 animate-pulse'
+                                      : 'bg-gray-300 dark:bg-gray-600'
+                                }`}
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{seg.topic}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {i < segmentIndex ? 'Completed' : i === segmentIndex ? 'In progress' : 'Upcoming'}
+                                </p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {liveSidebarTab === 'clips' && (
+                      <div className="flex-1 overflow-y-auto p-6 min-h-[200px] flex flex-col items-center justify-center text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
+                          Highlight clips are not generated in this demo build. Use{' '}
+                          <strong className="text-gray-800 dark:text-gray-200">Question list</strong> to follow the script.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import Lottie from 'lottie-react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
@@ -247,6 +247,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             sessionStorage.removeItem('justLoggedIn');
         }
     }, [setDashboardMode, setActiveView, setBrowseView]);
+
+    // Live AI Interview is not part of Prep Mode navigation; normalize stale localStorage / deep state.
+    useLayoutEffect(() => {
+        if (dashboardMode === 'preparation' && activeView === 'live-mock-interview') {
+            setActiveView('prep-hub');
+        }
+    }, [dashboardMode, activeView, setActiveView]);
 
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
@@ -824,8 +831,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         switch (activeView) {
             case 'prep-hub':
                 return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
-            case 'live-mock-interview':
-                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'prep-interview-questions':
                 return <PrepInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'prep-dsa':
