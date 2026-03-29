@@ -359,8 +359,31 @@ export const MOCK_ROLE_TITLES: string[] = [
   'Data Scientist',
 ];
 
-/** Company grid (mock) */
-export const MOCK_COMPANY_NAMES: string[] = [
+/** Company grid (mock) — optional `logo` URL shows image; otherwise initials are used in the UI */
+export interface MockCompanyCard {
+  id: string;
+  name: string;
+  logo?: string;
+}
+
+export function companyInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function companyIdFromName(name: string): string {
+  const s = name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return s || `company-${name.length}`;
+}
+
+const MOCK_COMPANY_NAMES_SEED: string[] = [
   'Google',
   'Accenture',
   'Caterpillar',
@@ -377,6 +400,11 @@ export const MOCK_COMPANY_NAMES: string[] = [
   'Netflix',
   'Stripe',
 ];
+
+export const MOCK_COMPANIES: MockCompanyCard[] = MOCK_COMPANY_NAMES_SEED.map((name) => ({
+  id: companyIdFromName(name),
+  name,
+}));
 
 export interface MockInterviewer {
   id: string;
@@ -401,19 +429,19 @@ export const MOCK_INTERVIEW_ROUNDS = [
 
 export const PRACTICE_INSTRUCTION_STEPS: string[] = [
   'Your interview will be taken by an AI interviewer — wait for the introduction before starting.',
-  "After each prompt, use the action button to advance your demo reply. In a full build you'd record your answer here.",
+  'After each prompt, use the button to advance. If your mic is on, you can practice speaking out loud; this build does not send audio to a server.',
   'Give structured answers for clearer feedback in the sample report.',
   'Complete all sections to unlock the full analytics-style summary (demo).',
-  'Use headphones for the best experience when using real audio.',
+  'Use headphones to avoid echo while testing speakers and microphone.',
 ];
 
 export const PREREQUISITE_CHECK_LABELS: string[] = [
-  'Your browser is compatible with our system.',
-  'The microphone path is ready (demo — no capture).',
-  'The camera path is ready (demo — no capture).',
-  'Voice quality check passed (simulated).',
-  'Network latency looks stable (simulated).',
-  'System audio output is available (simulated).',
+  'Browser supports secure camera and microphone access.',
+  'Microphone is available and permission granted (or skipped if audio is off).',
+  'Camera is available and permission granted (or skipped if video is off).',
+  'Microphone is picking up sound — speak when this step runs.',
+  'Network reachability to this site looks OK.',
+  'Speaker / audio output test (short tone played).',
 ];
 
 /** Map free-text role / JD title to interview script track */

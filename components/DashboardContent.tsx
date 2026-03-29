@@ -879,7 +879,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     return (
         <main
             ref={mainScrollRef}
-            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : isLiveMockInterview ? 'bg-gray-50' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
                 <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn ${isPrepDark ? 'prep-dark-mode' : ''}`}>
@@ -1057,12 +1057,20 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         /* Smooth transition on theme change */
                         .prep-dark-mode * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
                     `}</style>
-                    <div className="container mx-auto px-6 py-8">
+                    <div
+                        className={
+                            activeView === 'live-mock-interview'
+                                ? 'w-full max-w-none py-8'
+                                : 'container mx-auto px-6 py-8'
+                        }
+                    >
                         {renderModeContent()}
                     </div>
                 </div>
             ) : isToolViewWithStickyHeader ? (
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 px-6">
+                <div
+                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}
+                >
                     <div className="flex-shrink-0">
                         <DashboardHeader
                             searchQuery={searchQuery}
