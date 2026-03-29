@@ -15,7 +15,6 @@ const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'))
 const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
 const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
 const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
-const ResultsGridSection = lazy(() => import('./components/sections/ResultsGridSection'));
 const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
 const FAQSection = lazy(() => import('./components/sections/FAQSection'));
 const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
@@ -332,7 +331,6 @@ const AppContent: React.FC = () => {
               <PlatformCardsSection />
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
-              <ResultsGridSection />
               <TopSellers />
               <InstructorSection />
               <FAQSection />
