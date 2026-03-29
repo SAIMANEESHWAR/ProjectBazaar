@@ -350,8 +350,7 @@ export const siteConfig = {
     {
       title: "Products",
       links: [
-        { id: 5, title: "Curriculum", url: "#curriculum" },
-        { id: 6, title: "Reviews", url: "#reviews" },
+        { id: 5, title: "How it works", url: "#how-it-works" },
         { id: 7, title: "Pricing", url: "#pricing" },
         { id: 8, title: "Why us", url: "#why-choose-us" },
       ],

@@ -50,8 +50,7 @@ const Header: React.FC = () => {
   };
 
   const navLinks: NavLink[] = [
-    { name: 'Curriculum', onClick: () => scrollToSection('curriculum') },
-    { name: 'Reviews', onClick: () => scrollToSection('reviews') },
+    { name: 'How it works', onClick: () => scrollToSection('how-it-works') },
     { name: 'Pricing', onClick: () => scrollToSection('pricing') },
     { name: 'Why us', onClick: () => scrollToSection('why-choose-us') },
     { name: 'FAQs', onClick: () => navigateTo('faq') },

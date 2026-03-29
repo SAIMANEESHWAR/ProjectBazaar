@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { useNavigation } from '../App';
 import { CTAArrowIcon } from './CTAArrowIcon';
-import LandingInterviewMock from './ui/LandingInterviewMock';
 
 const TYPEWRITER_PHRASES = [
   'Sell your capstone project and earn real revenue',
