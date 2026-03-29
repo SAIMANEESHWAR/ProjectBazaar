@@ -359,7 +359,14 @@ export const MOCK_ROLE_TITLES: string[] = [
   'Data Scientist',
 ];
 
-/** Company grid (mock) — optional `logo` URL shows image; otherwise initials are used in the UI */
+/** Build URL to a file in `public/company_logos/` (respects Vite `base`). */
+export function companyLogoPublicUrl(file: string): string {
+  const base = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null ? import.meta.env.BASE_URL : '/';
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  return `${prefix}company_logos/${file}`;
+}
+
+/** Company grid (mock) — optional `logo` is a public URL; otherwise initials are used in the UI */
 export interface MockCompanyCard {
   id: string;
   name: string;
@@ -383,27 +390,41 @@ function companyIdFromName(name: string): string {
   return s || `company-${name.length}`;
 }
 
-const MOCK_COMPANY_NAMES_SEED: string[] = [
-  'Google',
-  'Accenture',
-  'Caterpillar',
-  'Aditya Birla Group',
-  'Adobe',
-  'Airbnb',
-  'Amazon',
-  'American Express',
-  'Ather Energy',
-  'Capgemini',
-  'Cognizant',
-  'CRED',
-  'Microsoft',
-  'Netflix',
-  'Stripe',
+/**
+ * Mass-recruitment / IT services companies.
+ * `logoFile` must exist under `public/company_logos/`; add PNG/JPG there and set the filename to show a logo.
+ */
+const MOCK_COMPANY_SEED: { name: string; logoFile?: string }[] = [
+  { name: 'Infosys', logoFile: 'infosys.png' },
+  { name: 'Wipro' },
+  { name: 'TCS' },
+  { name: 'Tech Mahindra' },
+  { name: 'Infosys BPO', logoFile: 'infosys.png' },
+  { name: 'TCS BPO' },
+  { name: 'Sitel' },
+  { name: 'HCL Technologies' },
+  { name: 'Capgemini', logoFile: 'capgemini.jpg' },
+  { name: 'L&T Infotech', logoFile: 'mindtree.png' },
+  { name: 'Tech Mahindra BPO' },
+  { name: 'HCL BPO' },
+  { name: 'Aegis' },
+  { name: 'Cognizant (CCL)', logoFile: 'cognizant.jpg' },
+  { name: 'Accenture', logoFile: 'accenture.jpg' },
+  { name: 'IBM', logoFile: 'ibm.png' },
+  { name: 'Concentrix' },
+  { name: 'WNS Global Services' },
+  { name: 'Sutherland' },
+  { name: 'Mindtree', logoFile: 'mindtree.png' },
+  { name: 'Hinduja Global Solutions' },
+  { name: 'Firstsource Solutions' },
+  { name: 'Genpact' },
+  { name: 'Wipro BPO' },
 ];
 
-export const MOCK_COMPANIES: MockCompanyCard[] = MOCK_COMPANY_NAMES_SEED.map((name) => ({
+export const MOCK_COMPANIES: MockCompanyCard[] = MOCK_COMPANY_SEED.map(({ name, logoFile }) => ({
   id: companyIdFromName(name),
   name,
+  logo: logoFile ? companyLogoPublicUrl(logoFile) : undefined,
 }));
 
 export interface MockInterviewer {

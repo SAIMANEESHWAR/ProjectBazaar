@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Circle,
   Loader2,
+  Building2,
   Menu,
   MessageCircle,
   Mic,
@@ -37,6 +38,7 @@ import {
   inferTrackFromText,
   LEVEL_OPTIONS,
   MOCK_COMPANIES,
+  companyInitials,
   MOCK_INTERVIEW_ROUNDS,
   MOCK_INTERVIEWERS,
   MOCK_ROLE_TITLES,
@@ -102,6 +104,31 @@ const SETUP_TABS: { id: SetupTabId; label: string }[] = [
   { id: 'custom', label: 'Create Your Own' },
 ];
 
+function CompanyPickerLogo({ name, logoUrl }: { name: string; logoUrl?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!logoUrl || failed) {
+    return (
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950/80 text-[10px] font-bold leading-tight text-orange-800 dark:text-orange-200"
+        aria-hidden
+      >
+        {companyInitials(name)}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={logoUrl}
+      alt=""
+      width={36}
+      height={36}
+      className="h-9 w-9 shrink-0 rounded-lg object-contain bg-white dark:bg-gray-800"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   embedded = false,
   toggleSidebar,
@@ -139,6 +166,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [prereqChecksBegun, setPrereqChecksBegun] = useState(false);
   const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(null);
   const prereqVideoRef = useRef<HTMLVideoElement>(null);
+  const companySearchInputRef = useRef<HTMLInputElement>(null);
+  const companyGridSectionRef = useRef<HTMLDivElement>(null);
   const prereqNetworkPhaseStartedRef = useRef(false);
   const micTestGenerationRef = useRef(0);
   const liveVideoBindCleanupRef = useRef<(() => void) | null>(null);
@@ -249,6 +278,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     if (!q) return MOCK_COMPANIES;
     return MOCK_COMPANIES.filter((c) => c.name.toLowerCase().includes(q));
   }, [companySearch]);
+
+  const runCompanySearch = useCallback(() => {
+    companyGridSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => companySearchInputRef.current?.focus(), 350);
+  }, []);
 
   useEffect(() => {
     if (phase !== 'live') return;
@@ -816,6 +850,40 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     const isRole = setupTab === 'role';
     const isCompany = setupTab === 'company';
     if (!isRole && !isCompany) return null;
+    if (isCompany) {
+      return (
+        <div className="w-full max-w-4xl mx-auto mb-8 px-1">
+          <form
+            className="flex rounded-full border-2 border-orange-600/90 dark:border-orange-500/55 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/40 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/35 pl-5 pr-1.5 py-1.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              runCompanySearch();
+            }}
+            role="search"
+            aria-label="Search companies"
+          >
+            <label className="flex flex-1 items-center gap-3 min-w-0 cursor-text">
+              <Search className="w-5 h-5 text-orange-500 dark:text-orange-400 shrink-0" aria-hidden />
+              <input
+                ref={companySearchInputRef}
+                type="search"
+                value={companySearch}
+                onChange={(e) => setCompanySearch(e.target.value)}
+                placeholder="Select or search any company"
+                className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
+                enterKeyHint="search"
+              />
+            </label>
+            <button
+              type="submit"
+              className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+      );
+    }
     return (
       <div className="w-full max-w-3xl mx-auto mb-10 px-1">
         <div className="flex rounded-full border border-orange-100 dark:border-orange-900/40 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.06] dark:shadow-black/30 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/25 pl-5 pr-1.5 py-1.5">
@@ -823,13 +891,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             <Search className="w-5 h-5 text-gray-400 shrink-0" aria-hidden />
             <input
               type="search"
-              value={isRole ? roleSearch : companySearch}
-              onChange={(e) => (isRole ? setRoleSearch(e.target.value) : setCompanySearch(e.target.value))}
-              placeholder={
-                isRole
-                  ? 'Search for roles (e.g. Software Engineer, Data Analyst)'
-                  : 'Search companies (e.g. Google, Amazon)'
-              }
+              value={roleSearch}
+              onChange={(e) => setRoleSearch(e.target.value)}
+              placeholder="Search for roles (e.g. Software Engineer, Data Analyst)"
               className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
             />
           </label>
@@ -880,12 +944,12 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
     if (setupTab === 'company') {
       return (
-        <div>
+        <div ref={companyGridSectionRef} id="live-mock-company-grid" className="w-full max-w-5xl mx-auto scroll-mt-24">
           <div className="flex items-center justify-center gap-2 mb-6">
-            <User className="w-5 h-5 text-[#f97316] shrink-0" aria-hidden />
+            <Building2 className="w-5 h-5 text-[#f97316] dark:text-orange-400 shrink-0" aria-hidden />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Companies</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          <div className="flex flex-wrap gap-3 sm:gap-3.5 justify-start">
             {filteredCompanies.map((company) => (
               <button
                 key={company.id}
@@ -896,14 +960,18 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   setTrack('swe');
                   goToBriefing();
                 }}
-                className={tileOrange}
+                className="inline-flex min-w-0 max-w-full items-center gap-2.5 rounded-full border-2 border-orange-700/90 dark:border-orange-500/60 bg-white dark:bg-gray-900 px-3.5 py-2 text-left shadow-sm transition-all hover:border-[#f97316] dark:hover:border-orange-400 hover:bg-orange-50/70 dark:hover:bg-orange-950/35 hover:shadow-md hover:shadow-orange-500/10 active:scale-[0.99]"
               >
-                <span className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white leading-snug">
+                <CompanyPickerLogo name={company.name} logoUrl={company.logo} />
+                <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100 pr-0.5">
                   {company.name}
                 </span>
               </button>
             ))}
           </div>
+          {filteredCompanies.length === 0 ? (
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No companies match your search.</p>
+          ) : null}
         </div>
       );
     }
