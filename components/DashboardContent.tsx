@@ -36,6 +36,7 @@ import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import LiveMockInterviewPage from './LiveMockInterviewPage';
+import LiveMockInterviewDashboard from './LiveMockInterviewDashboard';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
@@ -666,6 +667,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
                 return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview-dashboard':
+                return <LiveMockInterviewDashboard />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'course-details':
@@ -765,6 +768,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
                 return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview-dashboard':
+                return <LiveMockInterviewDashboard />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'my-projects':

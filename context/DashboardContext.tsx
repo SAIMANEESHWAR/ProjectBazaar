@@ -24,6 +24,7 @@ export type DashboardView =
     | 'company-posts'
     | 'mock-assessment'
     | 'live-mock-interview'
+    | 'live-mock-interview-dashboard'
     | 'coding-questions'
     | 'build-portfolio'
     | 'build-resume'

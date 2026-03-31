@@ -101,6 +101,7 @@ const viewTitles: Record<DashboardView, string> = {
   'company-posts': 'Company Posts',
   'mock-assessment': 'Mock Assessments',
   'live-mock-interview': 'Live AI Interview',
+  'live-mock-interview-dashboard': 'Interview Reports',
   'coding-questions': 'Coding Interview Questions',
   'post-project': 'Post Project Bid',
   projects: 'Projects',

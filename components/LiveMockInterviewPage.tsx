@@ -45,6 +45,7 @@ import {
   PRACTICE_INSTRUCTION_STEPS,
   PREREQUISITE_CHECK_LABELS,
   TRACK_OPTIONS,
+  type InterviewSegment,
   type InterviewLevelId,
   type InterviewTrackId,
 } from '../data/liveMockInterviewMockData';
@@ -57,6 +58,13 @@ import {
 } from '../utils/liveInterviewMediaCheck';
 import interviewerFlowAnimation from '../lottiefiles/ai-animation-interviewer-Flow.json';
 import { ShimmerButton } from './ui/shimmer-button';
+import {
+  evaluateInterviewWithProvider,
+  generateInterviewQuestionsWithProvider,
+  saveLiveInterviewResult,
+  type LiveInterviewEvaluation,
+  type LlmProvider,
+} from '../services/liveMockInterviewApi';
 
 type FlowPhase = 'setup' | 'briefing' | 'prereq' | 'warming' | 'live' | 'results';
 type SetupTabId = 'role' | 'company' | 'jd' | 'custom';
@@ -78,6 +86,7 @@ const initialPrereqStatuses = (): PrereqItemStatus[] =>
 
 const PAGE_BG = 'bg-white dark:bg-[#12111a]';
 const LV_TITLE = 'text-[#1a1c2e] dark:text-white';
+const LIVE_INTERVIEW_API_KEY_SESSION_KEY = 'liveMockInterviewApiKey';
 
 /** Role / company picker — orange + white */
 const PICKER_SURFACE =
@@ -147,7 +156,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   toggleSidebar,
 }) => {
   const { navigateTo } = useNavigation();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, userId } = useAuth();
   const { dashboardMode, setActiveView } = useDashboard();
 
   const [phase, setPhase] = useState<FlowPhase>('setup');
@@ -167,12 +176,19 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [jdJobTitle, setJdJobTitle] = useState('');
   const [jdInterviewType, setJdInterviewType] = useState<InterviewTrackId>('swe');
   const [jdText, setJdText] = useState('');
+  const [resumeText, setResumeText] = useState('');
+  const [questionCount, setQuestionCount] = useState(8);
+  const [timeMinutes, setTimeMinutes] = useState(20);
+  const [selectedRoleTitle, setSelectedRoleTitle] = useState<string>('');
+  const [selectedCompanyTitle, setSelectedCompanyTitle] = useState<string>('');
+  const [generatedScript, setGeneratedScript] = useState<InterviewSegment[] | null>(null);
+  const [questionGenLoading, setQuestionGenLoading] = useState(false);
+  const [questionGenError, setQuestionGenError] = useState<string | null>(null);
 
   const [selectedInterviewerId, setSelectedInterviewerId] = useState(MOCK_INTERVIEWERS[0].id);
   const [selectedRoundId, setSelectedRoundId] = useState<string>(MOCK_INTERVIEW_ROUNDS[0].id);
   const [useAudio, setUseAudio] = useState(true);
   const [useVideo, setUseVideo] = useState(true);
-  const [termsOk, setTermsOk] = useState(false);
 
   const [prereqStatuses, setPrereqStatuses] = useState<PrereqItemStatus[]>(initialPrereqStatuses);
   const [prereqError, setPrereqError] = useState<string | null>(null);
@@ -194,17 +210,40 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [revealCount, setRevealCount] = useState(1);
   const [aiState, setAiState] = useState<'idle' | 'speaking' | 'listening'>('speaking');
   const [finishedFullSession, setFinishedFullSession] = useState(false);
-  const [liveSidebarTab, setLiveSidebarTab] = useState<'questions' | 'timeline' | 'clips'>('questions');
+  const [transcriptForResult, setTranscriptForResult] = useState('');
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>('openrouter');
+  const [llmApiKey, setLlmApiKey] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return window.sessionStorage.getItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY) ?? '';
+  });
+  const [llmModel, setLlmModel] = useState('');
+  const [aiEvaluation, setAiEvaluation] = useState<LiveInterviewEvaluation | null>(null);
+  const [aiEvalLoading, setAiEvalLoading] = useState(false);
+  const [aiEvalError, setAiEvalError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const resultPersistedRef = useRef(false);
+  const [liveSidebarTab, setLiveSidebarTab] = useState<'questions' | 'timeline'>('questions');
   /** Live-stage toggles: map to MediaStreamTrack.enabled (setup useAudio/useVideo must have acquired tracks). */
   const [liveMicEnabled, setLiveMicEnabled] = useState(true);
   const [liveCameraEnabled, setLiveCameraEnabled] = useState(true);
+  const [liveTranscriptDraft, setLiveTranscriptDraft] = useState('');
+  const [transcribedAnswersBySegment, setTranscribedAnswersBySegment] = useState<Record<string, string>>({});
+  const transcriptDraftRef = useRef('');
+  const finalizeVoiceAnswerAndAdvanceRef = useRef<(answerText: string) => void>(() => {});
 
   const interviewerDisplay = useMemo(
     () => MOCK_INTERVIEWERS.find((i) => i.id === selectedInterviewerId)?.name ?? AI_INTERVIEWER_NAME,
     [selectedInterviewerId]
   );
 
-  const script = useMemo(() => getInterviewScript(track), [track]);
+  const baseScript = useMemo(
+    () => generatedScript ?? getInterviewScript(track),
+    [generatedScript, track]
+  );
+  const script = useMemo(
+    () => baseScript.slice(0, Math.max(1, questionCount)),
+    [baseScript, questionCount]
+  );
   const currentSegment = script[segmentIndex];
   const visibleTurns = currentSegment ? currentSegment.turns.slice(0, revealCount) : [];
   const atEndOfSegment = currentSegment ? revealCount >= currentSegment.turns.length : false;
@@ -236,11 +275,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     return script.map((seg, i) => {
       const firstAi = seg.turns.find((t) => t.speaker === 'ai');
       const question = firstAi?.text ?? seg.topic;
-      const youScript = seg.turns.filter((t) => t.speaker === 'you');
       let answer = '';
       let done = i < segmentIndex;
-      if (i < segmentIndex) {
-        answer = youScript.map((t) => t.text).join(' ');
+      const saved = transcribedAnswersBySegment[seg.id];
+      if (saved) {
+        answer = saved;
+      } else if (i === segmentIndex && liveTranscriptDraft.trim()) {
+        answer = liveTranscriptDraft.trim();
       } else if (i === segmentIndex) {
         answer = visibleTurns.filter((t) => t.speaker === 'you').map((t) => t.text).join(' ');
       }
@@ -253,7 +294,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         current: i === segmentIndex,
       };
     });
-  }, [script, segmentIndex, visibleTurns]);
+  }, [script, segmentIndex, visibleTurns, transcribedAnswersBySegment, liveTranscriptDraft]);
 
   const liveAiSummaryText = useMemo(() => {
     if (!currentSegment) return '';
@@ -305,6 +346,109 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   }, []);
 
   useEffect(() => {
+    transcriptDraftRef.current = liveTranscriptDraft;
+  }, [liveTranscriptDraft]);
+
+  useEffect(() => {
+    if (phase === 'live') setLiveTranscriptDraft('');
+  }, [phase, currentSegment?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const value = llmApiKey.trim();
+    if (value) {
+      window.sessionStorage.setItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY, value);
+    } else {
+      window.sessionStorage.removeItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY);
+    }
+  }, [llmApiKey]);
+
+  const toGeneratedScript = useCallback((questions: string[]): InterviewSegment[] => {
+    return questions.map((question, idx) => ({
+      id: `gen-${idx + 1}`,
+      topic: `Question ${idx + 1}`,
+      turns: [
+        { speaker: 'ai', text: question },
+        { speaker: 'you', text: 'Share your answer aloud. Then click Continue to see the next question.' },
+      ],
+    }));
+  }, []);
+
+  const generateQuestionsForSetup = useCallback(
+    async (
+      mode: 'role' | 'company' | 'jd',
+      values: {
+        role?: string;
+        company?: string;
+        jobTitle?: string;
+        jdText?: string;
+        resumeText?: string;
+        trackOverride?: InterviewTrackId;
+        sessionLabelText: string;
+      }
+    ): Promise<boolean> => {
+      setQuestionGenLoading(true);
+      setQuestionGenError(null);
+      try {
+        let questions: string[];
+        let sessionLabelText = values.sessionLabelText;
+
+        if (llmApiKey.trim()) {
+          const generated = await generateInterviewQuestionsWithProvider({
+            provider: llmProvider,
+            apiKey: llmApiKey.trim(),
+            model: llmModel.trim() || undefined,
+            mode,
+            role: values.role,
+            company: values.company,
+            jobTitle: values.jobTitle,
+            jdText: values.jdText,
+            resumeText: values.resumeText,
+            questionCount,
+            timeMinutes,
+          });
+          questions = generated.questions.slice(0, questionCount);
+          if (generated.sessionLabel?.trim()) sessionLabelText = generated.sessionLabel.trim();
+        } else {
+          const base = values.role || values.company || values.jobTitle || 'interview';
+          questions = Array.from({ length: questionCount }, (_, i) => {
+            const n = i + 1;
+            if (n % 3 === 0) {
+              return `Describe a challenge you faced as a ${base} candidate and how you handled it.`;
+            }
+            if (n % 2 === 0) {
+              return `What trade-offs would you consider for ${base} in this role?`;
+            }
+            return `Walk me through your approach to a key ${base} problem relevant to this position.`;
+          });
+        }
+
+        setGeneratedScript(toGeneratedScript(questions));
+        setElapsedSec(0);
+        setSegmentIndex(0);
+        setRevealCount(1);
+        setSessionLabel(sessionLabelText);
+        setTrack(values.trackOverride ?? inferTrackFromText(values.role || values.jobTitle || values.company || 'swe'));
+        setCompanyName(values.company || undefined);
+        return true;
+      } catch (err) {
+        setQuestionGenError(err instanceof Error ? err.message : 'Could not generate interview questions');
+        return false;
+      } finally {
+        setQuestionGenLoading(false);
+      }
+    },
+    [
+      llmApiKey,
+      llmProvider,
+      llmModel,
+      questionCount,
+      timeMinutes,
+      toGeneratedScript,
+    ]
+  );
+
+  useEffect(() => {
     if (phase !== 'live') return;
     const id = window.setInterval(() => setElapsedSec((t) => t + 1), 1000);
     return () => window.clearInterval(id);
@@ -328,6 +472,12 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     utter.lang = ttsLang;
     utter.rate = 0.95;
     utter.pitch = 1;
+    utter.onend = () => {
+      setAiState('listening');
+    };
+    utter.onerror = () => {
+      setAiState('listening');
+    };
 
     const baseLang = ttsLang.split('-')[0] ?? 'en';
     let cancelled = false;
@@ -362,6 +512,73 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       window.speechSynthesis.cancel();
     };
   }, [phase, useAudio, liveAiUtterance?.key, liveAiUtterance?.text, ttsLang]);
+
+  useEffect(() => {
+    if (phase !== 'live') return;
+    if (aiState !== 'listening') return;
+    if (!useAudio || !liveMicEnabled || !currentSegment) return;
+    const Ctor =
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).webkitSpeechRecognition;
+    if (!Ctor) return;
+
+    const recognition = new Ctor();
+    recognition.lang = ttsLang;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let stopped = false;
+    let finalText = '';
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const text = String(result?.[0]?.transcript || '');
+        if (!text) continue;
+        if (result.isFinal) finalText += `${text} `;
+        else interim += text;
+      }
+      const merged = `${finalText} ${interim}`.trim();
+      setLiveTranscriptDraft(merged);
+    };
+
+    recognition.onend = () => {
+      if (stopped) return;
+      const merged = `${finalText} ${transcriptDraftRef.current}`.trim();
+      if (merged) {
+        finalizeVoiceAnswerAndAdvanceRef.current(merged);
+      } else {
+        try {
+          recognition.start();
+        } catch {
+          // no-op: browser can throw if restarted too quickly
+        }
+      }
+    };
+
+    recognition.onerror = () => {
+      // keep graceful fallback to manual continue button
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      return;
+    }
+
+    return () => {
+      stopped = true;
+      recognition.onresult = null;
+      recognition.onend = null;
+      recognition.onerror = null;
+      try {
+        recognition.stop();
+      } catch {
+        // no-op
+      }
+    };
+  }, [phase, aiState, useAudio, liveMicEnabled, currentSegment?.id, ttsLang]);
 
   const stopLocalMedia = useCallback(() => {
     setLocalMediaStream((prev) => {
@@ -501,6 +718,15 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
   }, [embedded, setActiveView, navigateTo]);
 
+  const goResultsDashboard = useCallback(() => {
+    if (embedded) {
+      setActiveView('live-mock-interview-dashboard');
+      return;
+    }
+    setActiveView('live-mock-interview-dashboard');
+    navigateTo('dashboard');
+  }, [embedded, setActiveView, navigateTo]);
+
   const resetSession = useCallback(() => {
     stopLocalMedia();
     setPhase('setup');
@@ -518,11 +744,18 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setJdJobTitle('');
     setJdInterviewType('swe');
     setJdText('');
+    setResumeText('');
+    setQuestionCount(8);
+    setTimeMinutes(20);
+    setSelectedRoleTitle('');
+    setSelectedCompanyTitle('');
+    setGeneratedScript(null);
+    setQuestionGenLoading(false);
+    setQuestionGenError(null);
     setSelectedInterviewerId(MOCK_INTERVIEWERS[0].id);
     setSelectedRoundId(MOCK_INTERVIEW_ROUNDS[0].id);
     setUseAudio(true);
     setUseVideo(true);
-    setTermsOk(false);
     setPrereqStatuses(initialPrereqStatuses());
     setPrereqError(null);
     setPrereqChecksBegun(false);
@@ -534,6 +767,14 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setRevealCount(1);
     setFinishedFullSession(false);
     setAiState('speaking');
+    setLiveTranscriptDraft('');
+    setTranscribedAnswersBySegment({});
+    setTranscriptForResult('');
+    setAiEvaluation(null);
+    setAiEvalLoading(false);
+    setAiEvalError(null);
+    setSaveStatus('idle');
+    resultPersistedRef.current = false;
   }, [stopLocalMedia]);
 
   const continueAfterMicResolved = useCallback(async () => {
@@ -750,13 +991,86 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const goToBriefing = useCallback(() => {
     setPhase('briefing');
-    setTermsOk(false);
   }, []);
 
+  const handleStartPracticeFromBriefing = useCallback(async () => {
+    if (questionGenLoading) return;
+
+    let ready = true;
+    if (setupTab === 'role') {
+      const roleName = selectedRoleTitle || sessionLabel.replace(/^Role:\s*/i, '').trim();
+      if (!roleName) {
+        setQuestionGenError('Select a role first.');
+        return;
+      }
+      ready = await generateQuestionsForSetup('role', {
+        role: roleName,
+        trackOverride: inferTrackFromText(roleName),
+        sessionLabelText: `Role: ${roleName}`,
+      });
+    } else if (setupTab === 'company') {
+      const company = companyName || selectedCompanyTitle;
+      if (!company) {
+        setQuestionGenError('Select a company first.');
+        return;
+      }
+      ready = await generateQuestionsForSetup('company', {
+        company,
+        trackOverride: 'swe',
+        sessionLabelText: `Company: ${company}`,
+      });
+    } else if (setupTab === 'jd') {
+      if (!jdJobTitle.trim()) {
+        setQuestionGenError('Job title is required.');
+        return;
+      }
+      const inferred = inferTrackFromText(`${jdJobTitle} ${jdText}`);
+      ready = await generateQuestionsForSetup('jd', {
+        jobTitle: jdJobTitle.trim(),
+        jdText,
+        resumeText,
+        trackOverride: inferred !== 'swe' ? inferred : jdInterviewType,
+        sessionLabelText: `JD: ${jdJobTitle.trim()}`,
+      });
+    }
+
+    if (!ready) return;
+    setQuestionGenError(null);
+    setPhase('prereq');
+  }, [
+    questionGenLoading,
+    setupTab,
+    selectedRoleTitle,
+    sessionLabel,
+    companyName,
+    selectedCompanyTitle,
+    jdJobTitle,
+    jdText,
+    resumeText,
+    jdInterviewType,
+    generateQuestionsForSetup,
+  ]);
+
   const goToResults = useCallback((full: boolean) => {
+    const transcript = script
+      .slice(0, full ? script.length : segmentIndex + 1)
+      .flatMap((seg, idx) => {
+        const turns = idx < segmentIndex ? seg.turns : seg.turns.slice(0, revealCount);
+        return turns.map((turn) => {
+          if (turn.speaker !== 'you') return `${turn.speaker.toUpperCase()}: ${turn.text}`;
+          const spoken = transcribedAnswersBySegment[seg.id];
+          return `YOU: ${spoken || turn.text}`;
+        });
+      })
+      .join('\n');
+    setTranscriptForResult(transcript);
+    setAiEvaluation(null);
+    setAiEvalError(null);
+    setSaveStatus('idle');
+    resultPersistedRef.current = false;
     setFinishedFullSession(full);
     setPhase('results');
-  }, []);
+  }, [script, segmentIndex, revealCount, transcribedAnswersBySegment]);
 
   const handleContinueConversation = () => {
     if (!currentSegment) return;
@@ -772,29 +1086,169 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
   };
 
+  const finalizeVoiceAnswerAndAdvance = useCallback(
+    (answerText: string) => {
+      if (!currentSegment) return;
+      const cleaned = answerText.trim();
+      if (!cleaned) return;
+      setTranscribedAnswersBySegment((prev) => ({ ...prev, [currentSegment.id]: cleaned }));
+      setLiveTranscriptDraft('');
+      setRevealCount((prev) => Math.max(prev, currentSegment.turns.length));
+      const shouldAutoAskNext = Boolean(generatedScript) || currentSegment.turns.length <= 2;
+      if (!shouldAutoAskNext) return;
+      window.setTimeout(() => {
+        if (segmentIndex < script.length - 1) {
+          setSegmentIndex((i) => i + 1);
+          setRevealCount(1);
+        } else {
+          goToResults(true);
+        }
+      }, 350);
+    },
+    [currentSegment, generatedScript, segmentIndex, script.length, goToResults]
+  );
+
+  useEffect(() => {
+    finalizeVoiceAnswerAndAdvanceRef.current = finalizeVoiceAnswerAndAdvance;
+  }, [finalizeVoiceAnswerAndAdvance]);
+
   const handleEndEarly = () => {
     goToResults(false);
   };
+
+  useEffect(() => {
+    if (phase !== 'live') return;
+    const limitSec = Math.max(1, timeMinutes) * 60;
+    if (elapsedSec >= limitSec) {
+      goToResults(false);
+    }
+  }, [phase, elapsedSec, timeMinutes, goToResults]);
 
   const results = useMemo(
     () => getMockResults(track, level, elapsedSec),
     [track, level, elapsedSec, phase]
   );
+  const displayedResults = aiEvaluation ?? results;
+  const mockEvaluationPayload = useMemo<LiveInterviewEvaluation>(
+    () => ({
+      overall: `${results.overall}/100`,
+      dimensions: results.dimensions.map((d) => ({
+        label: d.label,
+        score: d.score,
+        max: d.max,
+      })),
+      strengths: results.strengths,
+      improvements: results.improvements,
+      coachNote: results.coachNote,
+    }),
+    [results]
+  );
+
+  useEffect(() => {
+    if (phase !== 'results') return;
+    if (!isLoggedIn || !userId) return;
+    if (resultPersistedRef.current) return;
+    resultPersistedRef.current = true;
+
+    const persistResult = async () => {
+      let evaluationPayload: LiveInterviewEvaluation = mockEvaluationPayload;
+      if (llmApiKey.trim()) {
+        setAiEvalLoading(true);
+        setAiEvalError(null);
+        try {
+          const aiScored = await evaluateInterviewWithProvider({
+            provider: llmProvider,
+            apiKey: llmApiKey.trim(),
+            model: llmModel.trim() || undefined,
+            track,
+            level,
+            sessionLabel: liveSessionTitle,
+            transcript:
+              transcriptForResult ||
+              'No transcript captured. Use fallback mock rubric from track and level.',
+            durationSec: elapsedSec,
+          });
+          setAiEvaluation(aiScored);
+          evaluationPayload = aiScored;
+        } catch (err) {
+          setAiEvalError(err instanceof Error ? err.message : 'AI scoring failed');
+          setSaveStatus('error');
+          setAiEvalLoading(false);
+          return;
+        } finally {
+          setAiEvalLoading(false);
+        }
+      }
+
+      setSaveStatus('saving');
+      try {
+        const generatedQuestions = script.map(
+          (seg) => seg.turns.find((t) => t.speaker === 'ai')?.text ?? seg.topic
+        );
+        const answersByQuestion = script.reduce<Record<string, string>>((acc, seg, idx) => {
+          const question = generatedQuestions[idx] || seg.topic;
+          const answer = transcribedAnswersBySegment[seg.id] || '';
+          if (question && answer.trim()) acc[question] = answer.trim();
+          return acc;
+        }, {});
+        await saveLiveInterviewResult({
+          userId,
+          provider: llmApiKey.trim() ? llmProvider : undefined,
+          model: llmApiKey.trim() ? llmModel.trim() || undefined : undefined,
+          track,
+          level,
+          sessionLabel: liveSessionTitle,
+          durationSec: elapsedSec,
+          finishedFullSession,
+          questionCount,
+          timeMinutes,
+          generatedQuestions,
+          answersByQuestion,
+          transcript: transcriptForResult,
+          evaluation: evaluationPayload,
+        });
+        setSaveStatus('saved');
+      } catch {
+        setSaveStatus('error');
+      }
+    };
+
+    void persistResult();
+  }, [
+    phase,
+    isLoggedIn,
+    userId,
+    mockEvaluationPayload,
+    llmApiKey,
+    llmProvider,
+    llmModel,
+    track,
+    level,
+    liveSessionTitle,
+    transcriptForResult,
+    elapsedSec,
+    finishedFullSession,
+    questionCount,
+    timeMinutes,
+    script,
+    transcribedAnswersBySegment,
+  ]);
 
   const continueLabel = atEndOfSegment
     ? atEndOfInterview
       ? 'Finish & view results'
       : 'Next topic'
-    : visibleTurns[visibleTurns.length - 1]?.speaker === 'you'
-      ? 'Show interviewer reply'
-      : 'Play my response (demo)';
+    : aiState === 'listening'
+      ? 'Next question'
+      : 'Continue';
 
   const shell =
     'text-gray-900 dark:text-gray-100 ' +
     (embedded ? `min-h-0 w-full min-w-0 ${PAGE_BG}` : `min-h-screen w-full ${PAGE_BG}`);
 
   const mainInner =
-    (embedded ? 'pb-10 pt-2' : 'pb-16 pt-6') + ' px-4 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0';
+    (embedded ? 'pb-10 pt-2' : 'pb-16 pt-6') +
+    ' px-4 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 mx-auto max-w-[1320px]';
 
   const cardWhite =
     'rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
@@ -958,12 +1412,14 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               type="button"
                 title={card.title}
               onClick={() => {
-                  setSessionLabel(card.title);
-                setCompanyName(undefined);
-                  setTrack(inferTrackFromText(card.title));
-                goToBriefing();
+                  setSelectedRoleTitle(card.title);
+                  setQuestionGenError(null);
               }}
-                className="group relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-orange-200/95 dark:border-orange-800/55 bg-white dark:bg-gray-900 px-4 py-6 sm:py-7 text-center shadow-sm shadow-orange-900/[0.05] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-b hover:from-orange-50/95 hover:to-white dark:hover:from-orange-950/35 dark:hover:to-gray-900 hover:shadow-lg hover:shadow-orange-500/12 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 active:translate-y-0 active:scale-[0.99]"
+                className={`group relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 px-4 py-6 sm:py-7 text-center shadow-sm shadow-orange-900/[0.05] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-b hover:from-orange-50/95 hover:to-white dark:hover:from-orange-950/35 dark:hover:to-gray-900 hover:shadow-lg hover:shadow-orange-500/12 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 active:translate-y-0 active:scale-[0.99] ${
+                  selectedRoleTitle === card.title
+                    ? 'border-[#f97316] bg-orange-50/70 dark:bg-orange-500/10'
+                    : 'border-orange-200/95 dark:border-orange-800/55 bg-white dark:bg-gray-900'
+                }`}
               >
                 <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-orange-400/0 transition-colors group-hover:bg-orange-400/80" aria-hidden />
                 <CompanyPickerLogo size="lg" name={card.title} logoUrl={card.logo} />
@@ -975,6 +1431,26 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 </span>
             </button>
           ))}
+          </div>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              disabled={!selectedRoleTitle}
+              onClick={() => {
+                setSessionLabel(`Role: ${selectedRoleTitle}`);
+                setCompanyName(undefined);
+                setTrack(inferTrackFromText(selectedRoleTitle));
+                setGeneratedScript(null);
+                setQuestionGenError(null);
+                goToBriefing();
+              }}
+              className="rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
+            >
+              Continue
+            </button>
+            {questionGenError ? (
+              <p className="text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
+            ) : null}
           </div>
           {filteredRoles.length === 0 ? (
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No roles match your search.</p>
@@ -1003,7 +1479,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               onClick={() => {
                 setSessionLabel(`Company: ${company.name}`);
                 setCompanyName(company.name);
+                setSelectedCompanyTitle(company.name);
                 setTrack('swe');
+                setGeneratedScript(null);
+                setQuestionGenError(null);
+                setQuestionGenLoading(false);
                 goToBriefing();
               }}
                 className="group inline-flex min-w-0 max-w-[min(100%,17rem)] items-center gap-3 rounded-2xl border-2 border-orange-600/85 dark:border-orange-500/50 bg-white dark:bg-gray-900 pl-2 pr-4 py-2 text-left shadow-sm shadow-orange-900/[0.04] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-r hover:from-orange-50/90 hover:to-white dark:hover:from-orange-950/40 dark:hover:to-gray-900 hover:shadow-md hover:shadow-orange-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
@@ -1015,6 +1495,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </button>
           ))}
           </div>
+          <p className="mt-6 text-xs text-gray-500 dark:text-gray-400 text-center sm:text-left">
+            Question generation happens after you choose question count and time in Interview details.
+          </p>
           {filteredCompanies.length === 0 ? (
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No companies match your search.</p>
           ) : null}
@@ -1033,6 +1516,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           onClick={() => {
             setSetupTab(t.id);
             if (t.id === 'custom') setCustomStep(1);
+            setQuestionGenError(null);
+            setQuestionGenLoading(false);
           }}
           className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
             setupTab === t.id ? pillTabActive : pillTabIdle
@@ -1044,7 +1529,51 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     </div>
   );
 
-  const jdValid = jdJobTitle.trim().length > 0;
+  const renderQuestionGenerationApiPanel = () => (
+    <div className="max-w-2xl mx-auto mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/70 p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        Question generation API (optional)
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setLlmProvider('openrouter')}
+          className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
+            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+            : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+            }`}
+        >
+          OpenRouter
+        </button>
+        <button
+          type="button"
+          onClick={() => setLlmProvider('groq')}
+          className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
+            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+            : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+            }`}
+        >
+          Groq
+        </button>
+      </div>
+      <input
+        type="password"
+        value={llmApiKey}
+        onChange={(e) => setLlmApiKey(e.target.value)}
+        placeholder={`Paste your ${llmProvider === 'groq' ? 'Groq' : 'OpenRouter'} API key`}
+        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
+      />
+      <input
+        type="text"
+        value={llmModel}
+        onChange={(e) => setLlmModel(e.target.value)}
+        placeholder="Model override (optional)"
+        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
+      />
+    </div>
+  );
+
+  const jdValid = jdJobTitle.trim().length > 0 && questionCount > 0 && timeMinutes > 0;
 
   const renderSetupBody = () => {
     switch (setupTab) {
@@ -1093,6 +1622,46 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 placeholder="Paste key requirements…"
               />
             </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
+                Resume details
+              </label>
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                rows={4}
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-3 text-sm"
+                placeholder="Paste resume summary / key experience…"
+              />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
+                  Number of questions
+                </label>
+                <input
+                  type="number"
+                  min={3}
+                  max={20}
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(Math.max(3, Math.min(20, Number(e.target.value) || 8)))}
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
+                  Total time (minutes)
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={90}
+                  value={timeMinutes}
+                  onChange={(e) => setTimeMinutes(Math.max(5, Math.min(90, Number(e.target.value) || 20)))}
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
+                />
+              </div>
+            </div>
             <div className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
               <UploadCloud className="w-8 h-8 mx-auto mb-2 text-[#f97316] opacity-80" aria-hidden />
               Drag & drop a JD file (mock — no upload)
@@ -1101,17 +1670,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               type="button"
               disabled={!jdValid}
               onClick={() => {
-                const combined = `${jdJobTitle} ${jdText}`;
-                const inferred = inferTrackFromText(combined);
+                const inferred = inferTrackFromText(`${jdJobTitle} ${jdText}`);
                 setSessionLabel(`JD: ${jdJobTitle.trim()}`);
                 setCompanyName(undefined);
                 setTrack(inferred !== 'swe' ? inferred : jdInterviewType);
+                setGeneratedScript(null);
+                setQuestionGenError(null);
                 goToBriefing();
               }}
               className="w-full sm:w-auto rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
             >
-              Submit
+              Continue
             </button>
+            {questionGenError ? (
+              <p className="text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
+            ) : null}
           </div>
         );
       case 'custom':
@@ -1201,6 +1774,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   setSessionLabel(`Custom: ${customRole.trim()}${companyPart}`);
                   setCompanyName(customCompanyOpt.trim() || undefined);
                   setTrack(inferTrackFromText(customRole));
+                  setGeneratedScript(null);
                   setSelectedRoundId(customRound);
                   goToBriefing();
                 }}
@@ -1216,7 +1790,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
   };
 
-  const briefingCanStart = termsOk;
+  const briefingCanStart = true;
 
   const content = (
     <>
@@ -1254,10 +1828,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           </button>
           <button
             type="button"
-            onClick={goMockAssessments}
+            onClick={goResultsDashboard}
             className="text-sm font-medium text-[#f97316] hover:underline"
           >
-            Mock assessments
+            Results dashboard
           </button>
         </div>
 
@@ -1279,6 +1853,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   {renderRoleCompanyHeadline()}
                   {renderRoleCompanySearch()}
                   {renderRoleCompanyGrid()}
+                  {renderQuestionGenerationApiPanel()}
                 </div>
               ) : (
                 <>
@@ -1305,6 +1880,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     onClick={() => {
                       setSetupTab(t.id);
                       if (t.id === 'custom') setCustomStep(1);
+                      setQuestionGenError(null);
+                      setQuestionGenLoading(false);
                     }}
                     className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
                       setupTab === t.id ? pillTabActive : pillTabIdle
@@ -1316,6 +1893,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               </div>
 
               {renderSetupBody()}
+              {renderQuestionGenerationApiPanel()}
                 </>
               )}
             </motion.div>
@@ -1328,13 +1906,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
-              className="w-full min-w-0 flex justify-center"
+              className="w-full min-w-0 flex justify-center pt-1"
             >
-              <div className={`w-full max-w-3xl ${cardWhite} overflow-hidden`}>
-                <div className="border-b border-gray-100 dark:border-gray-800 px-6 py-4">
+              <div className={`w-full max-w-4xl ${cardWhite} overflow-hidden ring-1 ring-orange-100/70 dark:ring-orange-900/30`}>
+                <div className="border-b border-gray-100 dark:border-gray-800 px-6 py-5 bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-500/10 dark:to-transparent">
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interview details</h2>
                 </div>
-                <div className="p-6 space-y-6">
+                <div className="p-6 sm:p-7 space-y-6">
                   <div className="rounded-xl bg-orange-50/80 dark:bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 px-4 py-3 text-sm">
                     <p className="font-semibold text-gray-900 dark:text-white">{sessionLabel || 'Session'}</p>
                     {companyName && (
@@ -1345,6 +1923,42 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       {LEVEL_OPTIONS.find((x) => x.id === level)?.label}
                     </p>
                   </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Number of questions
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={questionCount}
+                        onChange={(e) =>
+                          setQuestionCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                        }
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Time limit (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={timeMinutes}
+                        onChange={(e) =>
+                          setTimeMinutes(Math.max(1, Math.min(120, Number(e.target.value) || 1)))
+                        }
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+                    Session auto-ends when the time limit is reached if questions are still remaining.
+                  </p>
 
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
@@ -1417,17 +2031,51 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       <Video className="w-4 h-4 text-[#f97316] shrink-0" aria-hidden />
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Use camera / video</span>
                     </label>
-                    <label className="flex items-center gap-3 p-4 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={termsOk}
-                        onChange={(e) => setTermsOk(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]"
-                      />
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                        I agree to the demo terms (no recording stored in this build)
-                      </span>
-                    </label>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Optional AI scoring provider
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setLlmProvider('openrouter')}
+                        className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
+                          ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                          }`}
+                      >
+                        OpenRouter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLlmProvider('groq')}
+                        className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
+                          ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                          }`}
+                      >
+                        Groq
+                      </button>
+                    </div>
+                    <input
+                      type="password"
+                      value={llmApiKey}
+                      onChange={(e) => setLlmApiKey(e.target.value)}
+                      placeholder={`Paste your ${llmProvider === 'groq' ? 'Groq' : 'OpenRouter'} API key (optional)`}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
+                    />
+                    <input
+                      type="text"
+                      value={llmModel}
+                      onChange={(e) => setLlmModel(e.target.value)}
+                      placeholder="Model override (optional)"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Leave API key empty to use existing mock rubric.
+                    </p>
                   </div>
 
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1445,11 +2093,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={!briefingCanStart}
-                    onClick={() => setPhase('prereq')}
+                      disabled={!briefingCanStart || questionGenLoading}
+                      onClick={() => void handleStartPracticeFromBriefing()}
                     className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/25"
                   >
-                    Start practice
+                      {questionGenLoading ? 'Generating questions...' : 'Start practice'}
                     <ArrowRight className="w-4 h-4" aria-hidden />
                   </button>
                 </div>
@@ -2009,6 +2657,19 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                           {liveAiSummaryText}
                         </p>
                       </div>
+                      <div className="mt-4 rounded-2xl border border-emerald-200/70 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 sm:p-5">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2">
+                          <Mic className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden />
+                          Live answer transcription
+                        </div>
+                        <p className="text-sm text-emerald-950/90 dark:text-emerald-100/90 leading-relaxed whitespace-pre-wrap min-h-8">
+                          {liveTranscriptDraft ||
+                            transcribedAnswersBySegment[currentSegment.id] ||
+                            (aiState === 'listening'
+                              ? 'Listening... start speaking to see your answer transcribed live.'
+                              : 'The transcript appears here when you answer the question.')}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2022,7 +2683,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                           [
                             ['questions', 'Question list'],
                             ['timeline', 'Timeline'],
-                            ['clips', 'Highlight clips'],
                           ] as const
                         ).map(([id, label]) => (
                           <button
@@ -2127,14 +2787,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       </div>
                     )}
 
-                    {liveSidebarTab === 'clips' && (
-                      <div className="flex-1 overflow-y-auto p-6 min-h-[200px] flex flex-col items-center justify-center text-center">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
-                          Highlight clips are not generated in this demo build. Use{' '}
-                          <strong className="text-gray-800 dark:text-gray-200">Question list</strong> to follow the script.
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -2165,9 +2817,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 </div>
                 <div className="p-6 sm:p-8 space-y-8">
                   <div className="rounded-2xl border border-gray-200 dark:border-gray-600 p-6 bg-gradient-to-b from-orange-50/90 to-white dark:from-orange-500/10 dark:to-gray-900/50 text-center">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Overall demo score</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Overall {llmApiKey.trim() ? 'AI' : 'demo'} score
+                    </p>
                     <p className="text-5xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#f97316] to-amber-600 mt-2 tabular-nums">
-                      {results.overall}
+                      {displayedResults.overall}
                     </p>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-2 font-mono tabular-nums">
                       Duration {formatMmSs(elapsedSec)}
@@ -2179,7 +2833,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                       Score breakdown
                     </h2>
                     <ul className="space-y-3">
-                      {results.dimensions.map((d) => (
+                      {displayedResults.dimensions.map((d) => (
                         <li key={d.label}>
                           <div className="flex justify-between text-sm mb-1.5">
                             <span className="text-gray-700 dark:text-gray-300">{d.label}</span>
@@ -2205,7 +2859,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                         Strengths
                       </h3>
                       <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
-                        {results.strengths.map((s) => (
+                        {displayedResults.strengths.map((s) => (
                           <li key={s}>{s}</li>
                         ))}
                       </ul>
@@ -2213,7 +2867,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 p-5">
                       <h3 className="font-semibold text-amber-900 dark:text-amber-200 mb-3 text-sm">Growth areas</h3>
                       <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
-                        {results.improvements.map((s) => (
+                        {displayedResults.improvements.map((s) => (
                           <li key={s}>{s}</li>
                         ))}
                       </ul>
@@ -2221,8 +2875,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   </div>
 
                   <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-5 bg-gray-50 dark:bg-gray-800/50">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Coach note (demo)</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{results.coachNote}</p>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                      Coach note {llmApiKey.trim() ? '(AI)' : '(demo)'}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{displayedResults.coachNote}</p>
+                  </div>
+                  <div className="text-xs text-center text-gray-500 dark:text-gray-400 space-y-1">
+                    {aiEvalLoading && <p>Generating AI score...</p>}
+                    {aiEvalError && (
+                      <p className="text-amber-600 dark:text-amber-400">AI scoring fallback used: {aiEvalError}</p>
+                    )}
+                    {saveStatus === 'saving' && <p>Saving to dashboard...</p>}
+                    {saveStatus === 'saved' && <p>Saved to Interview Reports dashboard.</p>}
+                    {saveStatus === 'error' && (
+                      <p className="text-red-600 dark:text-red-400">Could not save result to dashboard.</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col-reverse sm:flex-row flex-wrap gap-3 justify-center pt-2">
@@ -2240,6 +2907,15 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     >
                       Mock assessments
                     </button>
+                    {embedded && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveView('live-mock-interview-dashboard')}
+                        className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        Interview reports dashboard
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2275,10 +2951,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => navigateTo('mockAssessment')}
+              onClick={goResultsDashboard}
               className="font-medium text-[#f97316] hover:underline"
             >
-              Mock assessments
+              Results dashboard
             </button>
           </nav>
         </div>
