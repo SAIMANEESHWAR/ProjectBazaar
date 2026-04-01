@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
+  ChevronRight,
   FileText,
+  History,
   Info,
   Loader2,
   Save,
@@ -26,6 +28,13 @@ const LEGACY_API_KEY_STORAGE = 'pb_ats_llm_api_key';
 const PRIMARY = '#FF6B00';
 const RING_RADIUS = 52;
 const RING_CIRC = 2 * Math.PI * RING_RADIUS;
+
+function scoreBand(score: number): { label: string; className: string } {
+  if (score >= 80) return { label: 'Strong match', className: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+  if (score >= 60) return { label: 'Good fit', className: 'text-amber-800 bg-amber-50 border-amber-200' };
+  if (score >= 40) return { label: 'Room to improve', className: 'text-orange-800 bg-orange-50 border-orange-200' };
+  return { label: 'Needs work', className: 'text-red-800 bg-red-50 border-red-200' };
+}
 const PROVIDERS: Array<{ id: AtsProvider; label: string; keyPlaceholder: string }> = [
   { id: 'gemini', label: 'Google Gemini', keyPlaceholder: 'AIza...' },
   { id: 'openai', label: 'OpenAI', keyPlaceholder: 'sk-...' },
@@ -65,10 +74,23 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
   const [saveKeyMessage, setSaveKeyMessage] = useState<string | null>(null);
   const [historyItems, setHistoryItems] = useState<AtsHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [fileHint, setFileHint] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLElement>(null);
   const { userId } = useAuth();
   const providerLabel = PROVIDERS.find((p) => p.id === provider)?.label || provider;
   const hasSavedProviderKey = savedKeysByProvider[provider];
+
+  const keyReady =
+    Boolean(apiKey.trim()) || Boolean(useSavedKey && hasSavedProviderKey && userId);
+  const steps = useMemo(
+    () => [
+      { id: 'resume', label: 'Resume', done: Boolean(resumeFile) },
+      { id: 'jd', label: 'Job description', done: jobDescription.trim().length > 0 },
+      { id: 'key', label: 'API key', done: keyReady },
+    ],
+    [resumeFile, jobDescription, keyReady]
+  );
 
   useEffect(() => {
     try {
@@ -159,7 +181,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       file.type ===
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       file.name.toLowerCase().endsWith('.docx');
-    if (ok) setResumeFile(file);
+    if (ok) {
+      setFileHint(null);
+      setResumeFile(file);
+    } else {
+      setFileHint('Please upload a PDF or DOCX file.');
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -180,7 +207,8 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
     try {
       const out = await analyzeAtsWithProvider({
         provider,
-        ...(usingSavedKey ? { userId } : { apiKey: apiKey.trim() }),
+        ...(userId ? { userId } : {}),
+        ...(!usingSavedKey ? { apiKey: apiKey.trim() } : {}),
         jobDescription: jobDescription.trim(),
         resumeFile,
       });
@@ -197,6 +225,9 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       });
       setHasAnalyzed(true);
       if (userId) refreshHistory();
+      requestAnimationFrame(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Network error. Try again.');
     } finally {
@@ -255,10 +286,35 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
           ATS Resume Scorer
         </h1>
         <p className="mt-2 text-gray-600 text-base leading-relaxed">
-          Upload your resume, paste a job description, choose your LLM provider, and analyze ATS compatibility.
-          You can use an instant API key entry or a key saved in your account settings (DynamoDB-backed).
+          Upload your resume, paste a job description, choose your LLM provider, and get a compatibility preview.
+          Use a key in the browser or one saved to your account when you&apos;re signed in.
         </p>
       </header>
+
+      <nav
+        aria-label="Analysis steps"
+        className="mb-8 flex flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-600"
+      >
+        {steps.map((s, i) => (
+          <React.Fragment key={s.id}>
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300" aria-hidden />}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 ${
+                s.done ? 'text-gray-900 bg-orange-50/80' : 'text-gray-500'
+              }`}
+            >
+              {s.done ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" aria-hidden />
+              ) : (
+                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-400">
+                  {i + 1}
+                </span>
+              )}
+              {s.label}
+            </span>
+          </React.Fragment>
+        ))}
+      </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
         {/* Resume upload */}
@@ -337,16 +393,26 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
               </>
             )}
           </div>
+          {fileHint && (
+            <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" role="status">
+              {fileHint}
+            </p>
+          )}
         </div>
 
         {/* Job description */}
         <div className="flex flex-col min-h-0">
-          <label
-            htmlFor="ats-job-description"
-            className="text-sm font-semibold text-gray-800 mb-2"
-          >
-            Job description
-          </label>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <label
+              htmlFor="ats-job-description"
+              className="text-sm font-semibold text-gray-800"
+            >
+              Job description
+            </label>
+            <span className="text-xs text-gray-400 tabular-nums">
+              {jobDescription.length.toLocaleString()} chars
+            </span>
+          </div>
           <textarea
             id="ats-job-description"
             value={jobDescription}
@@ -361,35 +427,51 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       {/* Provider and API key */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5 mb-8 flex flex-col gap-4">
         {userId && (
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 text-[#FF6B00] focus:ring-[#FF6B00]/30"
-              checked={useSavedKey}
-              onChange={(e) => setUseSavedKey(e.target.checked)}
-              disabled={!hasSavedProviderKey}
-            />
-            Use saved {providerLabel} key from account
-            {!hasSavedProviderKey && <span className="text-xs text-gray-500">(no saved key for this provider)</span>}
-          </label>
+          <div className="rounded-lg bg-gray-50/80 border border-gray-100 px-3 py-2.5">
+            <label className="inline-flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 rounded border-gray-300 text-[#FF6B00] focus:ring-[#FF6B00]/30"
+                checked={useSavedKey}
+                onChange={(e) => setUseSavedKey(e.target.checked)}
+                disabled={!hasSavedProviderKey}
+              />
+              <span>
+                <span className="font-medium">Use saved {providerLabel} key</span>
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  {hasSavedProviderKey
+                    ? 'Key is stored on your account. Uncheck to paste a different key for this session.'
+                    : 'Save a key below or in Settings to enable this.'}
+                </span>
+              </span>
+            </label>
+          </div>
         )}
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
         <div className="sm:w-52">
           <label htmlFor="ats-provider" className="text-sm font-semibold text-gray-800 mb-2 block">
             LLM provider
           </label>
-          <select
-            id="ats-provider"
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as AtsProvider)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white"
-          >
-            {PROVIDERS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1.5">
+            <select
+              id="ats-provider"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as AtsProvider)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white"
+            >
+              {PROVIDERS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {hasSavedProviderKey && (
+              <span className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />
+                Saved key on file for this provider
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
@@ -400,13 +482,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
               <button
                 type="button"
                 className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/40 rounded"
-                aria-label="About API key storage"
+                aria-label="API keys stay in this browser unless you save"
               >
                 <Info className="h-4 w-4" />
               </button>
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none">
-                Saved in this browser (localStorage) for convenience. Each analysis sends it over HTTPS
-                to the ATS Lambda only for the selected provider; we do not write it to our database.
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[min(280px,calc(100vw-2rem))] px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-[11px] leading-snug font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none text-center">
+                Typed keys stay in this browser unless you save.
                 <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-8 border-transparent border-t-gray-900" />
               </div>
             </div>
@@ -456,14 +537,25 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       </div>
 
       {saveKeyMessage && (
-        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {saveKeyMessage}
+        <div
+          className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-start justify-between gap-3"
+          role="status"
+        >
+          <span>{saveKeyMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSaveKeyMessage(null)}
+            className="shrink-0 text-green-700/80 hover:text-green-900 text-xs font-semibold"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
       {errorMessage && (
         <div
           role="alert"
+          aria-live="assertive"
           className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
         >
           {errorMessage}
@@ -491,8 +583,27 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
 
       {/* Results */}
       {hasAnalyzed && result && !isAnalyzing && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">Match overview</h2>
+        <section
+          ref={resultsRef}
+          tabIndex={-1}
+          className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/25 focus-visible:ring-offset-2"
+          aria-labelledby="ats-match-overview-heading"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h2 id="ats-match-overview-heading" className="text-lg font-bold text-gray-900">
+              Match overview
+            </h2>
+            {(() => {
+              const band = scoreBand(result.score);
+              return (
+                <span
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${band.className}`}
+                >
+                  {band.label}
+                </span>
+              );
+            })()}
+          </div>
           <div className="flex flex-col lg:flex-row lg:items-center gap-10 mb-10">
             <div className="flex justify-center lg:justify-start">
               <div className="relative h-36 w-36">
@@ -539,15 +650,19 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
                 <span className="h-2 w-2 rounded-full bg-green-500" />
                 Keywords found
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {result.keywordsFound.map((k) => (
-                  <span
-                    key={k}
-                    className="inline-flex items-center rounded-full bg-green-50 text-green-800 border border-green-200 px-2.5 py-1 text-xs font-medium"
-                  >
-                    {k}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 min-h-[2rem]">
+                {result.keywordsFound.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic">No matches listed — try a longer job description.</p>
+                ) : (
+                  result.keywordsFound.map((k) => (
+                    <span
+                      key={k}
+                      className="inline-flex items-center rounded-full bg-green-50 text-green-800 border border-green-200 px-2.5 py-1 text-xs font-medium"
+                    >
+                      {k}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-5">
@@ -555,15 +670,19 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
                 <span className="h-2 w-2 rounded-full bg-red-500" />
                 Missing keywords
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {result.missingKeywords.map((k) => (
-                  <span
-                    key={k}
-                    className="inline-flex items-center rounded-full bg-red-50 text-red-800 border border-red-200 px-2.5 py-1 text-xs font-medium"
-                  >
-                    {k}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 min-h-[2rem]">
+                {result.missingKeywords.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic">None flagged — nice alignment with the JD.</p>
+                ) : (
+                  result.missingKeywords.map((k) => (
+                    <span
+                      key={k}
+                      className="inline-flex items-center rounded-full bg-red-50 text-red-800 border border-red-200 px-2.5 py-1 text-xs font-medium"
+                    >
+                      {k}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-5 md:col-span-1">
@@ -571,14 +690,18 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
                 <span className="h-2 w-2 rounded-full bg-[#FF6B00]" />
                 Critical fixes
               </h3>
-              <ul className="space-y-2">
-                {result.criticalFixes.map((fix) => (
-                  <li key={fix}>
-                    <span className="inline-block rounded-lg bg-orange-50 text-orange-900 border border-orange-200 px-2.5 py-1.5 text-xs font-medium leading-snug">
-                      {fix}
-                    </span>
-                  </li>
-                ))}
+              <ul className="space-y-2 min-h-[2rem]">
+                {result.criticalFixes.length === 0 ? (
+                  <li className="text-xs text-gray-500 italic">No extra suggestions from this run.</li>
+                ) : (
+                  result.criticalFixes.map((fix) => (
+                    <li key={fix}>
+                      <span className="inline-block rounded-lg bg-orange-50 text-orange-900 border border-orange-200 px-2.5 py-1.5 text-xs font-medium leading-snug">
+                        {fix}
+                      </span>
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
           </div>
@@ -588,46 +711,62 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       {userId && (
         <section className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm mt-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Your ATS history</h2>
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <History className="h-5 w-5 text-gray-500 shrink-0" aria-hidden />
+              Your ATS history
+            </h2>
             <button
               type="button"
               onClick={refreshHistory}
               disabled={historyLoading}
-              className="text-sm font-medium text-[#FF6B00] hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-[#FF6B00] hover:bg-orange-50/50 disabled:opacity-50 transition-colors"
             >
               {historyLoading ? 'Loading…' : 'Refresh'}
             </button>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            Recent scores are saved when you&apos;re signed in (server-side). Compare match scores over time.
+            Recent scores are saved when you&apos;re signed in. Compare runs over time — same colors and layout as the rest of the app.
           </p>
           {historyItems.length === 0 && !historyLoading ? (
-            <p className="text-sm text-gray-500">No saved runs yet. Run an analysis while logged in.</p>
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-gray-700">No saved runs yet</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                Run an analysis while logged in. Your score and keywords will show up here automatically.
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-left border border-gray-100 rounded-lg">
-                <thead className="bg-gray-50 text-gray-700 font-semibold">
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-100">
                   <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Score</th>
-                    <th className="px-3 py-2">Provider</th>
-                    <th className="px-3 py-2">Missing keywords</th>
-                    <th className="px-3 py-2">Resume</th>
+                    <th className="px-3 py-2.5">Date</th>
+                    <th className="px-3 py-2.5">Score</th>
+                    <th className="px-3 py-2.5">Provider</th>
+                    <th className="px-3 py-2.5">Missing keywords</th>
+                    <th className="px-3 py-2.5">Resume</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {historyItems.map((row) => (
-                    <tr key={row.reportId} className="bg-white">
-                      <td className="px-3 py-2 text-gray-800 whitespace-nowrap">
+                  {historyItems.map((row, idx) => (
+                    <tr key={row.reportId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                      <td className="px-3 py-2.5 text-gray-800 whitespace-nowrap text-xs sm:text-sm">
                         {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
                       </td>
-                      <td className="px-3 py-2 font-semibold text-gray-900">{row.overallScore ?? '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 capitalize">{row.provider ?? '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-xs">
+                      <td className="px-3 py-2.5">
+                        {row.overallScore != null ? (
+                          <span className="inline-flex min-w-[2.25rem] justify-center rounded-md bg-orange-50 text-[#FF6B00] border border-orange-200 px-2 py-0.5 text-xs font-bold tabular-nums">
+                            {row.overallScore}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 capitalize text-xs sm:text-sm">{row.provider ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 max-w-xs text-xs">
                         {(row.missingKeywords ?? []).slice(0, 5).join(', ')}
                         {(row.missingKeywords?.length ?? 0) > 5 ? '…' : ''}
                       </td>
-                      <td className="px-3 py-2 text-gray-600 truncate max-w-[140px]" title={row.resumeFileName}>
+                      <td className="px-3 py-2.5 text-gray-600 truncate max-w-[140px] text-xs" title={row.resumeFileName}>
                         {row.resumeFileName ?? '—'}
                       </td>
                     </tr>
