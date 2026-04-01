@@ -30,6 +30,7 @@ import CourseDetailsPage from './CourseDetailsPage';
 import HackathonsPage from './HackathonsPage';
 import Pagination from './Pagination';
 import BuildPortfolioPage from './BuildPortfolioPage';
+import ATSScorer from './ATSScorer';
 import { ResumeBuilderPage } from './resume-builder';
 import MyCoursesPage from './MyCoursesPage';
 import CareerGuidancePage from './CareerGuidancePage';
@@ -650,6 +651,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
+            case 'ats-scorer':
+                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'company-posts':
@@ -749,6 +752,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
+            case 'ats-scorer':
+                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':

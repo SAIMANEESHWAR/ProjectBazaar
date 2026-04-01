@@ -25,9 +25,15 @@ const GeminiLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
 const ClaudeLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
     <img src={CLAUDE_LOGO_URL} alt="Anthropic Claude" className={className} aria-hidden="true" />
 );
+const OPENROUTER_LOGO_URL = 'https://openrouter.ai/favicon.ico';
+const OpenRouterLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
+    <img src={OPENROUTER_LOGO_URL} alt="OpenRouter" className={className} aria-hidden="true" />
+);
+
+type SettingsLlmProviderId = 'openai' | 'openrouter' | 'gemini' | 'claude';
 
 // Models per provider for ATS (id = API model id, label = display name)
-const LLM_MODELS: Record<'openai' | 'gemini' | 'claude', { id: string; label: string }[]> = {
+const LLM_MODELS: Record<SettingsLlmProviderId, { id: string; label: string }[]> = {
     openai: [
         { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
         { id: 'gpt-4o', label: 'GPT-4o' },
@@ -39,6 +45,12 @@ const LLM_MODELS: Record<'openai' | 'gemini' | 'claude', { id: string; label: st
         { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
         { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
         { id: 'gemini-1.0-pro', label: 'Gemini 1.0 Pro' },
+    ],
+    openrouter: [
+        { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
+        { id: 'openai/gpt-4o', label: 'GPT-4o' },
+        { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+        { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
     ],
     claude: [
         { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
@@ -240,9 +252,10 @@ const SettingsPage: React.FC = () => {
 
     // LLM API Keys for ATS / Resume Builder
     const [hasOpenAiKey, setHasOpenAiKey] = useState(false);
+    const [hasOpenrouterKey, setHasOpenrouterKey] = useState(false);
     const [hasGeminiKey, setHasGeminiKey] = useState(false);
     const [hasClaudeKey, setHasClaudeKey] = useState(false);
-    const [selectedLlmProvider, setSelectedLlmProvider] = useState<'openai' | 'gemini' | 'claude'>('openai');
+    const [selectedLlmProvider, setSelectedLlmProvider] = useState<SettingsLlmProviderId>('openai');
     const [selectedLlmModel, setSelectedLlmModel] = useState<string>('gpt-4o-mini');
     const [llmSavedModels, setLlmSavedModels] = useState<Record<string, string>>({});
     const [llmKeyInput, setLlmKeyInput] = useState('');
@@ -368,6 +381,7 @@ const SettingsPage: React.FC = () => {
                 const data = await res.json();
                 if (data.success) {
                     setHasOpenAiKey(!!data.hasOpenAiKey);
+                    setHasOpenrouterKey(!!data.hasOpenrouterKey);
                     setHasGeminiKey(!!data.hasGeminiKey);
                     setHasClaudeKey(!!data.hasClaudeKey);
                     if (data.savedModels && typeof data.savedModels === 'object') {
@@ -424,8 +438,15 @@ const SettingsPage: React.FC = () => {
             setLlmKeyError('You must be logged in.');
             return;
         }
-        const p = provider.toLowerCase() as 'openai' | 'gemini' | 'claude';
-        const hasKeyForProvider = p === 'openai' ? hasOpenAiKey : p === 'gemini' ? hasGeminiKey : hasClaudeKey;
+        const p = provider.toLowerCase() as SettingsLlmProviderId;
+        const hasKeyForProvider =
+            p === 'openai'
+                ? hasOpenAiKey
+                : p === 'openrouter'
+                  ? hasOpenrouterKey
+                  : p === 'gemini'
+                    ? hasGeminiKey
+                    : hasClaudeKey;
         const savingKey = !!key;
         const savingModelOnly = !key && hasKeyForProvider && selectedLlmModel;
         if (!savingKey && !savingModelOnly) {
@@ -450,9 +471,10 @@ const SettingsPage: React.FC = () => {
             const data = await res.json();
             if (data.success) {
                 setLlmKeyMessage(`${provider} key and model saved. You can use ATS Score in the Resume Builder.`);
-                if (p === 'openai') setHasOpenAiKey(!!key);
-                if (p === 'gemini') setHasGeminiKey(!!key);
-                if (p === 'claude') setHasClaudeKey(!!key);
+                if (p === 'openai') setHasOpenAiKey(savingKey ? !!key : hasOpenAiKey);
+                if (p === 'openrouter') setHasOpenrouterKey(savingKey ? !!key : hasOpenrouterKey);
+                if (p === 'gemini') setHasGeminiKey(savingKey ? !!key : hasGeminiKey);
+                if (p === 'claude') setHasClaudeKey(savingKey ? !!key : hasClaudeKey);
                 setLlmSavedModels((prev) => ({ ...prev, [p]: selectedLlmModel }));
                 setLlmKeyInput('');
             } else {
@@ -1633,9 +1655,10 @@ const SettingsPage: React.FC = () => {
                             <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select LLM provider</label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {[
                                             { id: 'openai' as const, name: 'OpenAI (GPT)', Logo: OpenAILogo, saved: hasOpenAiKey },
+                                            { id: 'openrouter' as const, name: 'OpenRouter', Logo: OpenRouterLogo, saved: hasOpenrouterKey },
                                             { id: 'gemini' as const, name: 'Google Gemini', Logo: GeminiLogo, saved: hasGeminiKey },
                                             { id: 'claude' as const, name: 'Anthropic Claude', Logo: ClaudeLogo, saved: hasClaudeKey },
                                         ].map(({ id, name, Logo, saved }) => (
@@ -1683,9 +1706,21 @@ const SettingsPage: React.FC = () => {
                                             value={llmKeyInput}
                                             onChange={(e) => setLlmKeyInput(e.target.value)}
                                             placeholder={
-                                                selectedLlmProvider === 'openai' ? (hasOpenAiKey ? 'Enter new key to replace' : 'sk-...') :
-                                                    selectedLlmProvider === 'gemini' ? (hasGeminiKey ? 'Enter new key to replace' : 'AIza...') :
-                                                        hasClaudeKey ? 'Enter new key to replace' : 'sk-ant-...'
+                                                selectedLlmProvider === 'openai'
+                                                    ? hasOpenAiKey
+                                                        ? 'Enter new key to replace'
+                                                        : 'sk-...'
+                                                    : selectedLlmProvider === 'openrouter'
+                                                      ? hasOpenrouterKey
+                                                        ? 'Enter new key to replace'
+                                                        : 'sk-or-v1-...'
+                                                      : selectedLlmProvider === 'gemini'
+                                                        ? hasGeminiKey
+                                                          ? 'Enter new key to replace'
+                                                          : 'AIza...'
+                                                        : hasClaudeKey
+                                                          ? 'Enter new key to replace'
+                                                          : 'sk-ant-...'
                                             }
                                             className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                                         />
@@ -1697,7 +1732,11 @@ const SettingsPage: React.FC = () => {
                                             onClick={() => saveLlmApiKey(selectedLlmProvider, llmKeyInput)}
                                             disabled={
                                                 llmSavingProvider !== null ||
-                                                (!llmKeyInput.trim() && !(hasOpenAiKey && selectedLlmProvider === 'openai') && !(hasGeminiKey && selectedLlmProvider === 'gemini') && !(hasClaudeKey && selectedLlmProvider === 'claude'))
+                                                (!llmKeyInput.trim() &&
+                                                    !(hasOpenAiKey && selectedLlmProvider === 'openai') &&
+                                                    !(hasOpenrouterKey && selectedLlmProvider === 'openrouter') &&
+                                                    !(hasGeminiKey && selectedLlmProvider === 'gemini') &&
+                                                    !(hasClaudeKey && selectedLlmProvider === 'claude'))
                                             }
                                             className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
                                         >
@@ -1705,11 +1744,16 @@ const SettingsPage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
-                                {(hasOpenAiKey || hasGeminiKey || hasClaudeKey) && (
+                                {(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey) && (
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         {hasOpenAiKey && (
                                             <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
                                                 <OpenAILogo className="w-3.5 h-3.5" /> OpenAI ✓
+                                            </span>
+                                        )}
+                                        {hasOpenrouterKey && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                                                <OpenRouterLogo className="w-3.5 h-3.5" /> OpenRouter ✓
                                             </span>
                                         )}
                                         {hasGeminiKey && (
@@ -1725,7 +1769,7 @@ const SettingsPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <p className="text-xs text-gray-500">Get keys from OpenAI, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
+                            <p className="text-xs text-gray-500">Get keys from OpenAI, OpenRouter, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
                         </div>
                     </SectionCard>
 

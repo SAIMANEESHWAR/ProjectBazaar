@@ -7,10 +7,12 @@ import type { ResumeInfo } from '../context/ResumeInfoContext';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 
-// ATS resume scorer Lambda (override with VITE_ATS_SCORER_ENDPOINT if needed)
-const ATS_SCORER_ENDPOINT =
+// Production / preview: full API URL. Dev: Vite proxy (see vite.config.ts) so localhost avoids CORS.
+const ATS_SCORER_DIRECT =
   (import.meta.env?.VITE_ATS_SCORER_ENDPOINT as string) ||
-  'https://b238hguu88.execute-api.ap-south-2.amazonaws.com/default/ats_resume_scorer';
+  'https://8ysn1do8kb.execute-api.ap-south-2.amazonaws.com/default/ats_scorer_handler';
+
+const ATS_SCORER_ENDPOINT = import.meta.env.DEV ? '/dev-api/ats-scorer' : ATS_SCORER_DIRECT;
 
 export interface LlmProvider {
   id: string;
@@ -21,6 +23,7 @@ export interface LlmProvider {
 export interface LlmKeysStatus {
   success: boolean;
   hasOpenAiKey: boolean;
+  hasOpenrouterKey: boolean;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
   /** List of supported LLM providers and whether the user has a key for each */
@@ -44,6 +47,8 @@ export interface AtsResult {
   feedback: string[];
 }
 
+export type AtsProvider = 'gemini' | 'openai' | 'openrouter' | 'anthropic';
+
 export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
   const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
     method: 'POST',
@@ -54,6 +59,7 @@ export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
   return {
     success: !!data.success,
     hasOpenAiKey: !!data.hasOpenAiKey,
+    hasOpenrouterKey: !!data.hasOpenrouterKey,
     hasGeminiKey: !!data.hasGeminiKey,
     hasClaudeKey: !!data.hasClaudeKey,
     providers: Array.isArray(data.providers) ? data.providers : undefined,
@@ -81,6 +87,151 @@ export async function getAtsScore(
   return {
     success: !!data.success,
     atsResult: data.atsResult,
+    message: data.message,
+  };
+}
+
+/** Read File as base64 (no data URL prefix). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result;
+      if (typeof r !== 'string') {
+        reject(new Error('Could not read file'));
+        return;
+      }
+      const i = r.indexOf(',');
+      resolve(i >= 0 ? r.slice(i + 1) : r);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+export interface AnalyzeAtsWithProviderParams {
+  provider: AtsProvider;
+  apiKey?: string;
+  userId?: string;
+  jobDescription: string;
+  resumeFile: File;
+  /** Provider model id (optional), e.g. gemini-2.0-flash, gpt-4o-mini, claude-3-haiku-20240307 */
+  model?: string;
+}
+
+/**
+ * ATS score via user-provided LLM API key (BYOK). Sends resume as base64; Lambda extracts text.
+ */
+export async function analyzeAtsWithProvider(
+  params: AnalyzeAtsWithProviderParams
+): Promise<{ success: boolean; atsResult?: AtsResult; message?: string }> {
+  const { provider, apiKey, userId, jobDescription, resumeFile, model } = params;
+  const resumeBase64 = await fileToBase64(resumeFile);
+  const hasDirectApiKey = Boolean(apiKey?.trim());
+  const providerPayload: Record<string, string> = hasDirectApiKey
+    ? provider === 'gemini'
+      ? { geminiApiKey: apiKey!.trim() }
+      : provider === 'openai'
+        ? { openaiApiKey: apiKey!.trim() }
+        : provider === 'openrouter'
+          ? { openrouterApiKey: apiKey!.trim() }
+          : { anthropicApiKey: apiKey!.trim() }
+    : {};
+  const legacyProvider = provider === 'anthropic' ? 'claude' : provider;
+  const res = await fetch(ATS_SCORER_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...(userId ? { userId } : {}),
+      provider: hasDirectApiKey ? provider : userId ? legacyProvider : provider,
+      ...providerPayload,
+      jobDescription,
+      resumeBase64,
+      resumeFileName: resumeFile.name || 'resume.pdf',
+      ...(model ? { model } : {}),
+    }),
+  });
+  let data: { success?: boolean; atsResult?: AtsResult; message?: string } = {};
+  try {
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return {
+        success: false,
+        message:
+          res.status === 500 || res.status === 502
+            ? `Server error (${res.status}). If this persists, increase Lambda timeout to 60–90s (Gemini + PDF need time). Raw: ${text.slice(0, 120)}`
+            : `Invalid response (${res.status}): ${text.slice(0, 200)}`,
+      };
+    }
+  } catch {
+    return { success: false, message: 'Could not read response from server' };
+  }
+  if (!res.ok || !data.success) {
+    return {
+      success: false,
+      message:
+        data.message ||
+        (res.status === 502 || res.status === 504
+          ? 'Gateway or Lambda timeout. HTTP API times out ~30s even if Lambda is 90s—use a Lambda Function URL (see ATS_RESUME_SCORER_SETUP.md) or retry with a shorter JD/resume.'
+          : `Request failed (${res.status})`),
+    };
+  }
+  return {
+    success: true,
+    atsResult: data.atsResult,
+  };
+}
+
+export interface AtsHistoryItem {
+  userId: string;
+  reportId: string;
+  createdAt?: string;
+  provider?: string;
+  overallScore?: number;
+  matchedKeywords?: string[];
+  missingKeywords?: string[];
+  resumeFileName?: string;
+  jobDescriptionPreview?: string;
+}
+
+export async function getAtsScoreHistory(
+  userId: string,
+  limit = 20
+): Promise<{ success: boolean; items?: AtsHistoryItem[]; message?: string }> {
+  const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'getAtsScoreHistory', userId, limit }),
+  });
+  const data = await res.json();
+  return {
+    success: !!data.success,
+    items: Array.isArray(data.items) ? data.items : undefined,
+    message: data.message,
+  };
+}
+
+export async function saveLlmApiKeyForProvider(params: {
+  userId: string;
+  provider: AtsProvider;
+  apiKey: string;
+}): Promise<{ success: boolean; message?: string }> {
+  const mappedProvider =
+    params.provider === 'anthropic' ? 'claude' : params.provider;
+  const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'updateSettings',
+      userId: params.userId,
+      llmApiKeys: { [mappedProvider]: params.apiKey.trim() },
+    }),
+  });
+  const data = await res.json();
+  return {
+    success: !!data.success,
     message: data.message,
   };
 }

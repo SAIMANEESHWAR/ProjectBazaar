@@ -1,4 +1,5 @@
 import json
+import os
 import boto3
 import uuid
 import urllib.request
@@ -6,9 +7,11 @@ import urllib.error
 from datetime import datetime
 from decimal import Decimal
 from botocore.config import Config
+from boto3.dynamodb.conditions import Key
 
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
+ATS_HISTORY_TABLE = (os.environ.get("ATS_HISTORY_TABLE") or "AtsScoreHistory").strip() or "AtsScoreHistory"
 S3_BUCKET = "project-bazaar-users-profile-images"
 S3_REGION = "ap-south-2"
 
@@ -99,6 +102,22 @@ def _test_openai_key(api_key):
         return False, str(e)
 
 
+def _test_openrouter_key(api_key):
+    """Validate OpenRouter API key (OpenAI-compatible models list)."""
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
 def _test_gemini_key(api_key):
     """Validate Gemini API key with generateContent."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
@@ -147,11 +166,13 @@ def _test_llm_key(provider, api_key):
         return False, "Provider and API key are required"
     if p == "openai":
         return _test_openai_key(key)
+    if p == "openrouter":
+        return _test_openrouter_key(key)
     if p == "gemini":
         return _test_gemini_key(key)
     if p == "claude":
         return _test_claude_key(key)
-    return False, "provider must be openai, gemini, or claude"
+    return False, "provider must be openai, openrouter, gemini, or claude"
 
 
 def handle_test_llm_api_key(body):
@@ -170,6 +191,7 @@ def handle_test_llm_api_key(body):
 # List of supported LLM providers (id, display name)
 LLM_PROVIDERS = [
     {"id": "openai", "name": "OpenAI (GPT)"},
+    {"id": "openrouter", "name": "OpenRouter"},
     {"id": "gemini", "name": "Google Gemini"},
     {"id": "claude", "name": "Anthropic Claude"},
 ]
@@ -194,6 +216,7 @@ def handle_get_llm_keys_status(body):
         return response(200, {
             "success": True,
             "hasOpenAiKey": False,
+            "hasOpenrouterKey": False,
             "hasGeminiKey": False,
             "hasClaudeKey": False,
             "providers": providers,
@@ -207,9 +230,10 @@ def handle_get_llm_keys_status(body):
     if not isinstance(models, dict):
         models = {}
     has_openai = bool(keys.get("openai"))
+    has_openrouter = bool(keys.get("openrouter"))
     has_gemini = bool(keys.get("gemini"))
     has_claude = bool(keys.get("claude"))
-    by_id = {"openai": has_openai, "gemini": has_gemini, "claude": has_claude}
+    by_id = {"openai": has_openai, "openrouter": has_openrouter, "gemini": has_gemini, "claude": has_claude}
     providers = [
         {"id": p["id"], "name": p["name"], "hasKey": by_id.get(p["id"], False)}
         for p in LLM_PROVIDERS
@@ -219,11 +243,36 @@ def handle_get_llm_keys_status(body):
     return response(200, {
         "success": True,
         "hasOpenAiKey": has_openai,
+        "hasOpenrouterKey": has_openrouter,
         "hasGeminiKey": has_gemini,
         "hasClaudeKey": has_claude,
         "providers": providers,
         "savedModels": saved_models,
     })
+
+
+def handle_get_ats_score_history(body):
+    user_id = body.get("userId")
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+    try:
+        lim = int(body.get("limit", 20))
+    except (TypeError, ValueError):
+        lim = 20
+    lim = max(1, min(lim, 50))
+
+    try:
+        ht = dynamodb.Table(ATS_HISTORY_TABLE)
+        qResp = ht.query(
+            KeyConditionExpression=Key("userId").eq(user_id),
+            ScanIndexForward=False,
+            Limit=lim,
+        )
+        items = decimal_to_native(qResp.get("Items") or [])
+        return response(200, {"success": True, "items": items})
+    except Exception as e:
+        print(f"getAtsScoreHistory error: {e}")
+        return response(500, {"success": False, "message": str(e)})
 
 
 # ---------- ACTION: PRESIGNED URL ----------
@@ -472,6 +521,9 @@ def lambda_handler(event, context):
 
         if action == "getLlmKeysStatus":
             return handle_get_llm_keys_status(body)
+
+        if action == "getAtsScoreHistory":
+            return handle_get_ats_score_history(body)
 
         return response(400, {
             "success": False,

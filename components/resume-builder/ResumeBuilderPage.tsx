@@ -129,7 +129,12 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
       return;
     }
     getLlmKeysStatus(userId).then((status) => {
-      setHasAnyLlmKey(!!status.hasOpenAiKey || !!status.hasGeminiKey || !!status.hasClaudeKey);
+      setHasAnyLlmKey(
+        !!status.hasOpenAiKey ||
+          !!status.hasOpenrouterKey ||
+          !!status.hasGeminiKey ||
+          !!status.hasClaudeKey
+      );
     }).catch(() => setHasAnyLlmKey(false));
   }, [userId]);
 
