@@ -141,6 +141,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const { dashboardMode, setDashboardMode, activeView, setActiveView, browseView, setBrowseView } = useDashboard();
   const { navigateTo } = useNavigation();
   const title = viewTitles[activeView] || 'Dashboard';
+  const isLiveInterviewView = activeView === 'live-mock-interview';
   const isBuyerDashboard =
     activeView === 'dashboard' && dashboardMode === 'buyer';
 
@@ -265,14 +266,18 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-1">
           <button
             onClick={toggleSidebar}
             className="lg:hidden p-2 rounded-lg hover:bg-orange-50"
           >
             ☰
           </button>
-          <h1 className="text-3xl font-bold text-gray-800">{title}</h1>
+          <h1
+            className={`text-3xl font-bold text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
+          >
+            {title}
+          </h1>
         </div>
 
         <div className="flex items-center gap-2">
