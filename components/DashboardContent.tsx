@@ -28,6 +28,7 @@ import HelpCenterPage from './HelpCenterPage';
 import BuyerCoursesPage, { Course } from './BuyerCoursesPage';
 import CourseDetailsPage from './CourseDetailsPage';
 import HackathonsPage from './HackathonsPage';
+import JobHuntPage from './JobHuntPage';
 import Pagination from './Pagination';
 import BuildPortfolioPage from './BuildPortfolioPage';
 import ATSScorer from './ATSScorer';
@@ -206,8 +207,8 @@ const activatedProjects = [
 
 
 interface DashboardContentProps {
-    dashboardMode?: 'buyer' | 'seller' | 'preparation';
-    setDashboardMode?: (mode: 'buyer' | 'seller') => void;
+    dashboardMode?: 'buyer' | 'seller' | 'preparation' | 'jobHunt';
+    setDashboardMode?: (mode: 'buyer' | 'seller' | 'preparation' | 'jobHunt') => void;
     activeView?: DashboardView;
     isSidebarOpen: boolean;
     toggleSidebar: () => void;
@@ -254,6 +255,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     useLayoutEffect(() => {
         if (dashboardMode === 'preparation' && activeView === 'live-mock-interview') {
             setActiveView('prep-hub');
+        }
+        if (dashboardMode === 'jobHunt' && activeView !== 'job-hunt') {
+            setActiveView('job-hunt');
         }
     }, [dashboardMode, activeView, setActiveView]);
 
@@ -837,6 +841,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     };
 
+    const renderJobHuntContent = () => {
+        switch (activeView) {
+            case 'job-hunt':
+                return <JobHuntPage toggleSidebar={toggleSidebar} />;
+            default:
+                return <JobHuntPage toggleSidebar={toggleSidebar} />;
+        }
+    };
+
     const renderPreparationContent = () => {
         switch (activeView) {
             case 'prep-hub':
@@ -883,6 +896,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview;
 
     const renderModeContent = () => {
+        if (dashboardMode === 'jobHunt') return renderJobHuntContent();
         if (dashboardMode === 'preparation') return renderPreparationContent();
         if (dashboardMode === 'buyer') return renderBuyerContent();
         return renderSellerContent();

@@ -501,7 +501,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   // Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleSidebarNavigation = (navView: DashboardView) => {
     if (navView === 'mock-assessment') {

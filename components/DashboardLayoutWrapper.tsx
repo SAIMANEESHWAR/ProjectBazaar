@@ -17,7 +17,7 @@ const DashboardLayoutWrapper: React.FC<DashboardLayoutWrapperProps> = ({ childre
   const { userId } = useAuth();
   const { navigateTo } = useNavigation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleNavClick = (_view: DashboardView) => {
     navigateTo('dashboard');

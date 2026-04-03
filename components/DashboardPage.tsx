@@ -312,7 +312,7 @@ const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
     // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [showWelcomeToast, setShowWelcomeToast] = useState(false);
     const [userName, setUserName] = useState<string>('');
 

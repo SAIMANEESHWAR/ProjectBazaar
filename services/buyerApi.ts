@@ -11,6 +11,10 @@ const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazo
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
 const FETCH_HACKATHONS_ENDPOINT = 'https://zv6v6bsuie.execute-api.ap-south-2.amazonaws.com/default/get_hackathons_details';
+/** Paginated jobs read API — override with `VITE_GET_JOBS_DETAILS_URL` if needed */
+const FETCH_JOBS_ENDPOINT =
+  import.meta.env.VITE_GET_JOBS_DETAILS_URL ||
+  'https://m0vv8nr0uj.execute-api.ap-south-2.amazonaws.com/default/get_job_details';
 // Course purchase Lambda endpoint
 const COURSE_PURCHASE_ENDPOINT = 'https://ukcbl5e5p7.execute-api.ap-south-2.amazonaws.com/default/course_purchase_handler';
 
@@ -829,6 +833,163 @@ export const fetchHackathons = async (
       error: {
         code: 'NETWORK_ERROR',
         message: error instanceof Error ? error.message : 'Failed to fetch hackathons',
+      },
+    };
+  }
+};
+
+// =========================
+// JOB LISTINGS (Job Hunt dashboard)
+// =========================
+
+export interface JobListing {
+  id: string;
+  job_title?: string;
+  company?: string;
+  location?: string;
+  salary?: string;
+  job_type?: string;
+  experience_level?: string;
+  description?: string;
+  apply_link?: string;
+  source_platform?: string;
+  scraped_at?: number;
+  created_at?: number;
+}
+
+export interface FetchJobsResponse {
+  success: boolean;
+  data?: {
+    jobs: JobListing[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+const mapJobRow = (row: Record<string, unknown>): JobListing => ({
+  id: String(row.PK ?? row.pk ?? ''),
+  job_title: row.job_title != null ? String(row.job_title) : undefined,
+  company: row.company != null ? String(row.company) : undefined,
+  location: row.location != null ? String(row.location) : undefined,
+  salary: row.salary != null ? String(row.salary) : undefined,
+  job_type: row.job_type != null ? String(row.job_type) : undefined,
+  experience_level: row.experience_level != null ? String(row.experience_level) : undefined,
+  description: row.description != null ? String(row.description) : undefined,
+  apply_link: row.apply_link != null ? String(row.apply_link) : undefined,
+  source_platform: row.source_platform != null ? String(row.source_platform) : undefined,
+  scraped_at: typeof row.scraped_at === 'number' ? row.scraped_at : undefined,
+  created_at: typeof row.created_at === 'number' ? row.created_at : undefined,
+});
+
+export interface FetchJobsOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export const fetchJobs = async (options: FetchJobsOptions = {}): Promise<FetchJobsResponse> => {
+  if (!FETCH_JOBS_ENDPOINT) {
+    return {
+      success: false,
+      error: {
+        code: 'MISSING_CONFIG',
+        message: 'Set VITE_GET_JOBS_DETAILS_URL to your get_job_details API URL.',
+      },
+    };
+  }
+  try {
+    const { limit = 12, offset = 0 } = options;
+    const query = new URLSearchParams();
+    query.set('limit', String(limit));
+    query.set('offset', String(offset));
+    const url = `${FETCH_JOBS_ENDPOINT}?${query.toString()}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const rawText = await response.text();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: {
+          code: 'FETCH_ERROR',
+          message: rawText || `HTTP ${response.status}`,
+        },
+      };
+    }
+
+    let data: unknown;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: 'Jobs API did not return valid JSON.',
+        },
+      };
+    }
+
+    if (typeof data === 'string') {
+      return {
+        success: false,
+        error: {
+          code: 'PLACEHOLDER_LAMBDA',
+          message:
+            'This API still returns the default Lambda message. Deploy `lambda/get_jobs_details.py` as the handler for get_job_details.',
+        },
+      };
+    }
+
+    if (typeof data !== 'object' || data === null) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: 'Unexpected jobs API response shape.',
+        },
+      };
+    }
+
+    const dataObj = data as Record<string, unknown>;
+    if (dataObj.success === false || dataObj.error) {
+      return {
+        success: false,
+        error: typeof dataObj.error === 'string'
+          ? { code: 'API_ERROR', message: dataObj.error }
+          : { code: 'API_ERROR', message: (dataObj.error as { message?: string })?.message || 'Failed to fetch jobs' },
+      };
+    }
+
+    const payload = (dataObj.data as Record<string, unknown> | undefined) ?? dataObj;
+    const rawJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+    const jobs = rawJobs.map((row: Record<string, unknown>) => mapJobRow(row));
+
+    return {
+      success: true,
+      data: {
+        jobs,
+        total: typeof payload.total === 'number' ? payload.total : jobs.length,
+        limit: typeof payload.limit === 'number' ? payload.limit : limit,
+        offset: typeof payload.offset === 'number' ? payload.offset : offset,
+        has_more: Boolean(payload.has_more),
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    return {
+      success: false,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to fetch jobs',
       },
     };
   }

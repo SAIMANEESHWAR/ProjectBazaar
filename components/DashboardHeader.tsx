@@ -130,6 +130,7 @@ const viewTitles: Record<DashboardView, string> = {
   'prep-language': 'Language Fundamentals',
   'prep-oops': 'OOPs Concepts',
   'prep-activity': 'My Activity',
+  'job-hunt': 'Job Hunt',
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -282,9 +283,39 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick Access: Purchases, Wishlist, Cart (Buyer mode only) */}
-          {dashboardMode === 'buyer' && (
-            <div className="flex items-center gap-1 mr-2">
+          {/* Quick Access: Job Hunt entry/exit + Purchases, Wishlist, Cart */}
+          {(dashboardMode === 'buyer' || dashboardMode === 'preparation' || dashboardMode === 'jobHunt') && (
+            <div className="flex items-center gap-1.5 mr-2 flex-wrap justify-end">
+              {(dashboardMode === 'buyer' || dashboardMode === 'preparation') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardMode('jobHunt');
+                    navigateTo('dashboard');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
+                >
+                  <span>Job Hunt</span>
+                  <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                    New
+                  </span>
+                </button>
+              )}
+              {dashboardMode === 'jobHunt' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardMode('buyer');
+                    navigateTo('dashboard');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-gray-900 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                >
+                  Exit Job Hunt
+                </button>
+              )}
+
+              {dashboardMode === 'buyer' && (
+              <>
               {/* Purchases */}
               <div className="relative group">
                 <button
@@ -351,6 +382,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
                 </div>
               </div>
+              </>
+              )}
             </div>
           )}
 

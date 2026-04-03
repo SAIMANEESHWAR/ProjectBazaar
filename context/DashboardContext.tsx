@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 // Define the available dashboard modes
-export type DashboardMode = 'buyer' | 'seller' | 'preparation';
+export type DashboardMode = 'buyer' | 'seller' | 'preparation' | 'jobHunt';
 
 // Define the available views (keep in sync with DashboardPage/Sidebar)
 // This is a superset of views for both buyer and seller dashboards
@@ -30,6 +30,7 @@ export type DashboardView =
     | 'build-resume'
     | 'ats-scorer'
     | 'hackathons'
+    | 'job-hunt'
     | 'courses'
     | 'cart'
     | 'wishlist'
@@ -81,7 +82,10 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     const [dashboardMode, setDashboardModeState] = useState<DashboardMode>(() => {
         if (typeof window !== 'undefined') {
             const storedMode = localStorage.getItem('dashboardMode');
-            return (storedMode as DashboardMode) || 'buyer';
+            const valid: DashboardMode[] = ['buyer', 'seller', 'preparation', 'jobHunt'];
+            if (storedMode && valid.includes(storedMode as DashboardMode)) {
+                return storedMode as DashboardMode;
+            }
         }
         return 'buyer';
     });
@@ -144,6 +148,8 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         setDashboardModeState(mode);
         if (mode === 'preparation') {
             setActiveViewState('prep-hub');
+        } else if (mode === 'jobHunt') {
+            setActiveViewState('job-hunt');
         } else {
             setActiveViewState('dashboard');
         }
@@ -158,7 +164,7 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const toggleDashboardMode = () => {
-        if (dashboardMode === 'preparation') {
+        if (dashboardMode === 'preparation' || dashboardMode === 'jobHunt') {
             setDashboardMode('buyer');
         } else {
             setDashboardMode(dashboardMode === 'buyer' ? 'seller' : 'buyer');
