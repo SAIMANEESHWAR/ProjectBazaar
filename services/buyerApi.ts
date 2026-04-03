@@ -584,6 +584,7 @@ export interface FetchHackathonsResponse {
   data?: {
     hackathons: Hackathon[];
     count: number;
+    nextCursor?: string | null;
   };
   error?: {
     code: string;
@@ -678,19 +679,23 @@ export interface FetchHackathonsOptions {
   allData?: boolean;
   limit?: number;
   cursor?: string;
+  status?: 'live' | 'upcoming';
+  type?: 'online' | 'offline' | 'hybrid';
 }
 
 export const fetchHackathons = async (
   options: FetchHackathonsOptions = {}
 ): Promise<FetchHackathonsResponse> => {
   try {
-    const { allData = true, limit, cursor } = options;
+    const { allData = false, limit, cursor, status, type } = options;
     const query = new URLSearchParams();
     if (allData) query.set('all', 'true');
     if (typeof limit === 'number' && Number.isFinite(limit)) {
       query.set('limit', String(limit));
     }
     if (cursor) query.set('cursor', cursor);
+    if (status) query.set('status', status);
+    if (type) query.set('type', type);
     const endpoint = query.toString()
       ? `${FETCH_HACKATHONS_ENDPOINT}?${query.toString()}`
       : FETCH_HACKATHONS_ENDPOINT;
@@ -804,6 +809,7 @@ export const fetchHackathons = async (
         data: {
           hackathons: mappedHackathons,
           count: count || mappedHackathons.length,
+          nextCursor: data?.data?.next_cursor ?? data?.next_cursor ?? null,
         },
       };
     }
