@@ -28,6 +28,7 @@ export type DashboardView =
     | 'coding-questions'
     | 'build-portfolio'
     | 'build-resume'
+    | 'ats-scorer'
     | 'hackathons'
     | 'courses'
     | 'cart'

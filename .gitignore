@@ -30,3 +30,12 @@ Thumbs.db
 .agent/
 .crush/
 .codex/
+
+# Python / Lambda artifacts
+__pycache__/
+*.py[cod]
+
+# Lambda build artifacts
+lambda/*.zip
+lambda/package/
+lambda/deploy_ats/

@@ -1,0 +1,7 @@
+# Bundle for ats_resume_scorer Lambda (PDF/DOCX text extraction + optional Textract OCR)
+# pip install -r ats_resume_scorer_requirements.txt -t package/
+# cd package && zip -r ../ats_resume_scorer.zip . && cd .. && zip ats_resume_scorer.zip ats_resume_scorer.py
+
+PyPDF2>=3.0.0
+PyMuPDF>=1.24.0
+python-docx>=1.1.0
