@@ -31,6 +31,27 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
 
+  const getHackathonSortTimestamp = (hackathon: Hackathon): number => {
+    const postDateTs = (hackathon as unknown as { post_date?: string | null }).post_date
+      ? new Date((hackathon as unknown as { post_date?: string | null }).post_date as string).getTime()
+      : NaN;
+    if (!Number.isNaN(postDateTs)) return postDateTs;
+
+    const createdAtTs = hackathon.created_at ? hackathon.created_at * 1000 : NaN;
+    if (!Number.isNaN(createdAtTs)) return createdAtTs;
+
+    const startDateTs = hackathon.start_date ? new Date(hackathon.start_date).getTime() : NaN;
+    if (!Number.isNaN(startDateTs)) return startDateTs;
+
+    const endDateTs = hackathon.end_date ? new Date(hackathon.end_date).getTime() : NaN;
+    if (!Number.isNaN(endDateTs)) return endDateTs;
+
+    return (hackathon.created_at || 0) * 1000;
+  };
+
+  const sortHackathonsLatestFirst = (items: Hackathon[]): Hackathon[] =>
+    [...items].sort((a, b) => getHackathonSortTimestamp(b) - getHackathonSortTimestamp(a));
+
   // Fetch hackathons from API
   useEffect(() => {
     const loadHackathons = async () => {
@@ -38,10 +59,11 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       setError(null);
       
       try {
-        const result = await fetchHackathons();
+        const result = await fetchHackathons({ allData: true });
         if (result.success && result.data?.hackathons) {
-          setHackathons(result.data.hackathons);
-          setFilteredHackathons(result.data.hackathons);
+          const sortedHackathons = sortHackathonsLatestFirst(result.data.hackathons);
+          setHackathons(sortedHackathons);
+          setFilteredHackathons(sortedHackathons);
           setError(null); // Clear any previous errors
         } else {
           // Extract error message from error object
@@ -101,13 +123,14 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       );
     }
 
-    setFilteredHackathons(filtered);
+    setFilteredHackathons(sortHackathonsLatestFirst(filtered));
     setCurrentPage(1); // Reset to first page when filters change
   }, [searchQuery, statusFilter, modeFilter, locationFilter, hackathons]);
   
   // Get featured hackathons (top 8 based on some criteria, e.g., live or upcoming)
   const featuredHackathons = hackathons
     .filter(h => h.status === 'live' || h.status === 'upcoming')
+    .sort((a, b) => getHackathonSortTimestamp(b) - getHackathonSortTimestamp(a))
     .slice(0, 8);
 
   // Calculate pagination
@@ -329,10 +352,11 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
                     setIsLoading(true);
                     const loadHackathons = async () => {
                       try {
-                        const result = await fetchHackathons();
+                        const result = await fetchHackathons({ allData: true });
                         if (result.success && result.data?.hackathons) {
-                          setHackathons(result.data.hackathons);
-                          setFilteredHackathons(result.data.hackathons);
+                          const sortedHackathons = sortHackathonsLatestFirst(result.data.hackathons);
+                          setHackathons(sortedHackathons);
+                          setFilteredHackathons(sortedHackathons);
                           setError(null);
                         } else {
                           const errorMessage = result.error 

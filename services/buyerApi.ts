@@ -674,10 +674,29 @@ const mapApiResponseToHackathon = (apiData: HackathonApiResponse): Hackathon => 
   };
 };
 
-export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathonsResponse> => {
+export interface FetchHackathonsOptions {
+  allData?: boolean;
+  limit?: number;
+  cursor?: string;
+}
+
+export const fetchHackathons = async (
+  options: FetchHackathonsOptions = {}
+): Promise<FetchHackathonsResponse> => {
   try {
+    const { allData = true, limit, cursor } = options;
+    const query = new URLSearchParams();
+    if (allData) query.set('all', 'true');
+    if (typeof limit === 'number' && Number.isFinite(limit)) {
+      query.set('limit', String(limit));
+    }
+    if (cursor) query.set('cursor', cursor);
+    const endpoint = query.toString()
+      ? `${FETCH_HACKATHONS_ENDPOINT}?${query.toString()}`
+      : FETCH_HACKATHONS_ENDPOINT;
+
     // Try GET first, fallback to POST if needed
-    const response = await fetch(FETCH_HACKATHONS_ENDPOINT, {
+    const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
