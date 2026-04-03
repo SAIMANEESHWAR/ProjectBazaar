@@ -78,6 +78,8 @@ export async function getAtsScore(
       userId,
       resumeText,
       jobDescription,
+      /** No PDF bytes on this path — Lambda stores plain text in S3 as resume-from-builder.txt when configured */
+      resumeFileName: 'resume-from-builder.txt',
     }),
   });
   const data = await res.json();
@@ -192,7 +194,21 @@ export interface AtsHistoryItem {
   overallScore?: number;
   matchedKeywords?: string[];
   missingKeywords?: string[];
+  /** Saved critical-fix sentences (same as live `atsResult.feedback`). */
+  feedback?: string[];
+  /** Legacy / alternate key if ever stored instead of `feedback`. */
+  criticalFixes?: string[];
   resumeFileName?: string;
+  /** Same as resumeFileUrl; canonical S3 object URL stored in DynamoDB. Do not use for browser open if bucket is private. */
+  resume?: string;
+  /** HTTPS S3 object URL (403 in browser when bucket is private). */
+  resumeFileUrl?: string;
+  /** Presigned GET URL from getAtsScoreHistory — use this for Download links. */
+  resumeDownloadUrl?: string;
+  resumeS3Bucket?: string;
+  resumeS3Key?: string;
+  /** AWS region used for SigV4 presign (matches virtual-host URL when set). */
+  resumeS3Region?: string;
   jobDescriptionPreview?: string;
 }
 

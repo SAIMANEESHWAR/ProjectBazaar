@@ -9,6 +9,8 @@ Modes:
 
 Optional env:
 - ATS_HISTORY_TABLE (default AtsScoreHistory): save reports when userId present
+- ATS_RESUME_S3_BUCKET: if set, upload resume bytes to S3 when saving history; stores resumeS3Bucket, resumeS3Key, resumeFileUrl, resume (same URL) on the item
+- ATS_RESUME_S3_PREFIX (default ats-resume-history/): key prefix under the bucket
 - ENABLE_TEXTRACT_OCR=1, OCR_MAX_PDF_PAGES (default 3): AWS Textract for scanned PDFs (needs IAM)
 
 Dependencies: PyPDF2, PyMuPDF (fitz), python-docx (see ats_resume_scorer_requirements.txt).
@@ -22,6 +24,7 @@ import re
 import time
 import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
@@ -44,9 +47,73 @@ except ValueError:
 OPENROUTER_DEFAULT_MODEL = (os.environ.get("OPENROUTER_DEFAULT_MODEL") or "openai/gpt-4o-mini").strip()
 OPENROUTER_HTTP_REFERER = (os.environ.get("OPENROUTER_HTTP_REFERER") or "https://projectbazaar.app").strip()
 
+ATS_RESUME_S3_BUCKET = (os.environ.get("ATS_RESUME_S3_BUCKET") or "").strip()
+ATS_RESUME_S3_PREFIX = (os.environ.get("ATS_RESUME_S3_PREFIX") or "ats-resume-history/").strip()
+if ATS_RESUME_S3_PREFIX and not ATS_RESUME_S3_PREFIX.endswith("/"):
+    ATS_RESUME_S3_PREFIX += "/"
+
 dynamodb = boto3.resource("dynamodb")
 users_table = dynamodb.Table(USERS_TABLE)
 history_table = dynamodb.Table(ATS_HISTORY_TABLE_NAME)
+_s3_client = None
+
+
+def _get_s3_client():
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client("s3")
+    return _s3_client
+
+
+def _content_type_for_resume_filename(filename: str) -> str:
+    fn = (filename or "").lower()
+    if fn.endswith(".pdf"):
+        return "application/pdf"
+    if fn.endswith(".docx"):
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if fn.endswith(".txt"):
+        return "text/plain; charset=utf-8"
+    return "application/octet-stream"
+
+
+def _s3_object_https_url(bucket: str, key: str) -> str:
+    region = (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "ap-south-2").strip()
+    enc_key = urllib.parse.quote(key, safe="/")
+    return f"https://{bucket}.s3.{region}.amazonaws.com/{enc_key}"
+
+
+def _upload_resume_to_s3(user_id: str, report_id: str, raw_bytes: bytes, file_name: str):
+    """Upload resume file for history row. Returns (bucket, key) or (None, None) on skip/failure."""
+    if not ATS_RESUME_S3_BUCKET:
+        print("ATS history S3: skipped — set Lambda env ATS_RESUME_S3_BUCKET to your bucket name")
+        return None, None
+    if not user_id:
+        return None, None
+    if not raw_bytes:
+        print("ATS history S3: skipped — no bytes to upload (caller should pass file bytes or text fallback)")
+        return None, None
+    base = (file_name or "resume.pdf").replace("\\", "/").split("/")[-1]
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", base)[:120] or "resume.bin"
+    if "." not in safe:
+        safe += ".pdf"
+    key = f"{ATS_RESUME_S3_PREFIX}{user_id}/{report_id}_{safe}"
+    try:
+        _get_s3_client().put_object(
+            Bucket=ATS_RESUME_S3_BUCKET,
+            Key=key,
+            Body=raw_bytes,
+            ContentType=_content_type_for_resume_filename(safe),
+            ServerSideEncryption="AES256",
+        )
+        print(f"ATS history S3: OK put_object bucket={ATS_RESUME_S3_BUCKET} key={key}")
+        return ATS_RESUME_S3_BUCKET, key
+    except ClientError as e:
+        print(f"ATS resume S3 upload ClientError: {e}")
+        return None, None
+    except Exception as e:
+        print(f"ATS resume S3 upload error: {e}")
+        return None, None
+
 
 WEIGHTS = {
     "skillsMatch": 30,
@@ -377,24 +444,62 @@ def refine_keyword_lists(result, resume_text: str):
     result["matchedKeywords"] = matched
 
 
-def _maybe_save_ats_history(user_id: str, provider_used: str, ats_result: dict, job_description: str, resume_file_name: str):
-    if not user_id or not ats_result:
+def _maybe_save_ats_history(
+    user_id: str,
+    provider_used: str,
+    ats_result: dict,
+    job_description: str,
+    resume_file_name: str,
+    resume_bytes: bytes | None = None,
+    resume_text_for_s3_fallback: str | None = None,
+):
+    if not user_id:
+        print("ATS history: skipped — no userId (sign in + send userId, or history is not saved)")
+        return
+    if not ats_result:
         return
     try:
         ms = int(time.time() * 1000)
         rid = f"{ms}#{uuid.uuid4().hex[:12]}"
-        history_table.put_item(
-            Item={
-                "userId": user_id,
-                "reportId": rid,
-                "createdAt": datetime.now(timezone.utc).isoformat(),
-                "provider": provider_used,
-                "overallScore": int(ats_result.get("overallScore") or 0),
-                "matchedKeywords": (ats_result.get("matchedKeywords") or [])[:50],
-                "missingKeywords": (ats_result.get("missingKeywords") or [])[:50],
-                "resumeFileName": (resume_file_name or "")[:200],
-                "jobDescriptionPreview": (job_description or "")[:500],
-            }
+        display_name = (resume_file_name or "").strip()
+        upload_bytes = resume_bytes
+        if upload_bytes is None and resume_text_for_s3_fallback and resume_text_for_s3_fallback.strip():
+            if ATS_RESUME_S3_BUCKET:
+                raw_txt = resume_text_for_s3_fallback.encode("utf-8")
+                if len(raw_txt) > 1_048_576:
+                    raw_txt = raw_txt[:1_048_576]
+                upload_bytes = raw_txt
+                display_name = "resume-from-builder.txt"
+                print("ATS history S3: using UTF-8 text fallback (Resume Builder / resumeText-only path)")
+        if not display_name:
+            display_name = "resume.pdf" if resume_bytes else "resume-from-builder.txt"
+        item = {
+            "userId": user_id,
+            "reportId": rid,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "provider": provider_used,
+            "overallScore": int(ats_result.get("overallScore") or 0),
+            "matchedKeywords": (ats_result.get("matchedKeywords") or [])[:50],
+            "missingKeywords": (ats_result.get("missingKeywords") or [])[:50],
+            "feedback": (ats_result.get("feedback") or [])[:20],
+            "resumeFileName": display_name[:200],
+            "jobDescriptionPreview": (job_description or "")[:500],
+        }
+        bkt, s3key = _upload_resume_to_s3(user_id, rid, upload_bytes, display_name)
+        if bkt and s3key:
+            url = _s3_object_https_url(bkt, s3key)
+            item["resumeS3Bucket"] = bkt
+            item["resumeS3Key"] = s3key
+            item["resumeFileUrl"] = url
+            # Stable object URL for DynamoDB/console; private buckets return 403 unless using a presigned URL from getAtsScoreHistory
+            item["resume"] = url
+            rgn = (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "").strip()
+            if rgn:
+                item["resumeS3Region"] = rgn
+        history_table.put_item(Item=item)
+        print(
+            f"ATS history: DynamoDB OK reportId={rid} userId={user_id[:8]}… "
+            f"s3={'yes' if bkt else 'no'}"
         )
     except ClientError as e:
         if e.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
@@ -595,7 +700,7 @@ Respond with ONLY a single JSON object (no markdown, no code block), with these 
 - "breakdown": object with keys "skillsMatch", "experience", "education", "formatting", "achievements", "locationAndSoft" (each a number 0-100)
 - "matchedKeywords": array of strings
 - "missingKeywords": array of strings
-- "feedback": array of strings (2-4 short sentences)
+- "feedback": array of strings (2-4 short actionable sentences; required, use this exact key name)
 
 RESUME:
 {resume_text[:6000]}
@@ -617,6 +722,38 @@ def parse_llm_json(raw):
     return json.loads(s)
 
 
+def _coerce_feedback_list(val):
+    """Normalize model output to a list of strings for atsResult.feedback and DynamoDB history."""
+    if val is None:
+        return []
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return []
+        lines = [ln.strip() for ln in s.splitlines() if ln.strip()]
+        if len(lines) > 1:
+            return lines[:20]
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", s) if p.strip() and len(p.strip()) > 2]
+        return (parts if len(parts) > 1 else [s])[:20]
+    if isinstance(val, list):
+        out = []
+        for x in val:
+            if isinstance(x, str) and x.strip():
+                out.append(x.strip())
+            elif isinstance(x, dict):
+                piece = (
+                    x.get("text")
+                    or x.get("message")
+                    or x.get("fix")
+                    or x.get("suggestion")
+                    or x.get("item")
+                )
+                if isinstance(piece, str) and piece.strip():
+                    out.append(piece.strip())
+        return out[:20]
+    return []
+
+
 def normalize_ats_result(result):
     result.setdefault("overallScore", 0)
     result.setdefault("breakdown", {})
@@ -628,6 +765,23 @@ def normalize_ats_result(result):
         result["overallScore"] = max(0, min(100, score))
     except (TypeError, ValueError):
         result["overallScore"] = 0
+
+    # LLMs often omit "feedback" or use other keys; history + UI need feedback[].
+    fb = _coerce_feedback_list(result.get("feedback"))
+    if not fb:
+        for key in (
+            "criticalFixes",
+            "critical_fixes",
+            "suggestions",
+            "improvements",
+            "actionItems",
+            "fixes",
+            "recommendations",
+        ):
+            fb = _coerce_feedback_list(result.get(key))
+            if fb:
+                break
+    result["feedback"] = fb
     return result
 
 
@@ -642,14 +796,18 @@ def run_byok_provider(body):
 
     resume_text = _field_str(body, "resumeText", "resume_text")
     b64 = body.get("resumeBase64") or body.get("resume_base64")
-    file_name = _field_str(body, "resumeFileName", "resume_file_name") or "resume.pdf"
+    file_name = _field_str(body, "resumeFileName", "resume_file_name")
+    if not file_name:
+        file_name = "resume.pdf" if b64 else "resume-from-builder.txt"
+    resume_bytes = None
 
-    if not resume_text and b64:
+    if b64:
         try:
-            raw_bytes = base64.b64decode(b64, validate=False)
-            if len(raw_bytes) > 6 * 1024 * 1024:
+            resume_bytes = base64.b64decode(b64, validate=False)
+            if len(resume_bytes) > 6 * 1024 * 1024:
                 return response(400, {"success": False, "message": "Resume file too large (max ~6MB)."})
-            resume_text = extract_text_from_bytes(raw_bytes, file_name)
+            if not resume_text:
+                resume_text = extract_text_from_bytes(resume_bytes, file_name)
         except Exception as e:
             print(f"resume extract error: {e}")
             return response(400, {"success": False, "message": f"Could not read resume file: {str(e)}"})
@@ -683,7 +841,9 @@ def run_byok_provider(body):
     normalize_ats_result(result)
     refine_keyword_lists(result, resume_text)
     uid_hist = _field_str(body, "userId", "user_id")
-    _maybe_save_ats_history(uid_hist, provider, result, job_description, file_name)
+    _maybe_save_ats_history(
+        uid_hist, provider, result, job_description, file_name, resume_bytes, resume_text
+    )
     return response(200, {"success": True, "atsResult": result})
 
 
@@ -691,21 +851,25 @@ def run_dynamodb_user_flow(body):
     user_id = _field_str(body, "userId", "user_id")
     resume_text = _field_str(body, "resumeText", "resume_text")
     b64 = body.get("resumeBase64") or body.get("resume_base64")
-    file_name = _field_str(body, "resumeFileName", "resume_file_name") or "resume.pdf"
+    file_name = _field_str(body, "resumeFileName", "resume_file_name")
+    if not file_name:
+        file_name = "resume.pdf" if body.get("resumeBase64") or body.get("resume_base64") else "resume-from-builder.txt"
     job_description = _field_str(body, "jobDescription", "job_description")
     requested_provider = _normalize_provider(_field_str(body, "provider", "llmProvider", "llm_provider"))
     requested_provider = "claude" if requested_provider == "anthropic" else requested_provider
+    resume_bytes = None
 
     if not user_id:
         return response(400, {"success": False, "message": "userId is required (or send provider + API key for BYOK)."})
     if not job_description:
         return response(400, {"success": False, "message": "jobDescription is required"})
-    if not resume_text and b64:
+    if b64:
         try:
-            raw_bytes = base64.b64decode(b64, validate=False)
-            if len(raw_bytes) > 6 * 1024 * 1024:
+            resume_bytes = base64.b64decode(b64, validate=False)
+            if len(resume_bytes) > 6 * 1024 * 1024:
                 return response(400, {"success": False, "message": "Resume file too large (max ~6MB)."})
-            resume_text = extract_text_from_bytes(raw_bytes, file_name)
+            if not resume_text:
+                resume_text = extract_text_from_bytes(resume_bytes, file_name)
         except Exception as e:
             print(f"resume extract error: {e}")
             return response(400, {"success": False, "message": f"Could not read resume file: {str(e)}"})
@@ -773,7 +937,9 @@ def run_dynamodb_user_flow(body):
         hist_provider = "openrouter"
     else:
         hist_provider = chosen_provider or "openai"
-    _maybe_save_ats_history(user_id, hist_provider, result, job_description, file_name)
+    _maybe_save_ats_history(
+        user_id, hist_provider, result, job_description, file_name, resume_bytes, resume_text
+    )
     return response(200, {"success": True, "atsResult": result})
 
 

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import boto3
 import uuid
 import urllib.request
@@ -12,8 +13,14 @@ from boto3.dynamodb.conditions import Key
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
 ATS_HISTORY_TABLE = (os.environ.get("ATS_HISTORY_TABLE") or "AtsScoreHistory").strip() or "AtsScoreHistory"
+try:
+    ATS_RESUME_DOWNLOAD_TTL = max(60, min(int(os.environ.get("ATS_RESUME_DOWNLOAD_TTL", "3600")), 604800))
+except ValueError:
+    ATS_RESUME_DOWNLOAD_TTL = 3600
 S3_BUCKET = "project-bazaar-users-profile-images"
 S3_REGION = "ap-south-2"
+# Override when ATS resume bucket lives in another region than S3_REGION (profile-images client).
+ATS_RESUME_S3_REGION = (os.environ.get("ATS_RESUME_S3_REGION") or "").strip()
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
@@ -27,6 +34,50 @@ s3 = boto3.client(
         signature_version='s3v4'
     )
 )
+
+_s3_presign_clients = {}
+
+
+def _region_from_s3_virtual_host_url(url):
+    """Parse region from https://bucket.s3.<region>.amazonaws.com/... (SigV4 must match bucket region)."""
+    if not url or not isinstance(url, str):
+        return None
+    m = re.search(r"\.s3\.([a-z0-9-]+)\.amazonaws\.com/", url)
+    return m.group(1) if m else None
+
+
+def _s3_client_for_presign_region(region):
+    r = (region or S3_REGION).strip() or S3_REGION
+    if r not in _s3_presign_clients:
+        _s3_presign_clients[r] = boto3.client(
+            "s3",
+            region_name=r,
+            config=Config(
+                s3={"addressing_style": "virtual"},
+                signature_version="s3v4",
+            ),
+        )
+    return _s3_presign_clients[r]
+
+
+def _ats_resume_signing_region(history_item):
+    return (
+        (history_item.get("resumeS3Region") or "").strip()
+        or _region_from_s3_virtual_host_url(
+            history_item.get("resumeFileUrl") or history_item.get("resume")
+        )
+        or ATS_RESUME_S3_REGION
+        or S3_REGION
+    )
+
+
+def _ats_resume_attachment_filename(history_item):
+    """Safe filename for Content-Disposition on presigned GetObject (attachment, not inline preview)."""
+    fn = (history_item.get("resumeFileName") or "resume").strip() or "resume"
+    fn = fn.replace("\\", "/").split("/")[-1]
+    safe = re.sub(r"[^A-Za-z0-9._ -]", "_", fn).strip(" ._") or "resume"
+    return safe[:180]
+
 
 # ---------- JSON HELPER ----------
 def decimal_to_native(obj):
@@ -269,6 +320,28 @@ def handle_get_ats_score_history(body):
             Limit=lim,
         )
         items = decimal_to_native(qResp.get("Items") or [])
+        for it in items:
+            bkt = it.get("resumeS3Bucket")
+            s3key = it.get("resumeS3Key")
+            if bkt and s3key:
+                try:
+                    sign_region = _ats_resume_signing_region(it)
+                    s3_presign = _s3_client_for_presign_region(sign_region)
+                    att_fn = _ats_resume_attachment_filename(it)
+                    it["resumeDownloadUrl"] = s3_presign.generate_presigned_url(
+                        ClientMethod="get_object",
+                        Params={
+                            "Bucket": str(bkt),
+                            "Key": str(s3key),
+                            "ResponseContentDisposition": f'attachment; filename="{att_fn}"',
+                        },
+                        ExpiresIn=ATS_RESUME_DOWNLOAD_TTL,
+                    )
+                except Exception as ex:
+                    print(
+                        f"getAtsScoreHistory presign resume bucket={bkt!r} "
+                        f"region={_ats_resume_signing_region(it)!r}: {ex}"
+                    )
         return response(200, {"success": True, "items": items})
     except Exception as e:
         print(f"getAtsScoreHistory error: {e}")

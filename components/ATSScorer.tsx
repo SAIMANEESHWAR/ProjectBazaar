@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2,
   ChevronRight,
+  Eye,
   FileText,
   History,
   Info,
@@ -42,15 +43,139 @@ const PROVIDERS: Array<{ id: AtsProvider; label: string; keyPlaceholder: string 
   { id: 'anthropic', label: 'Anthropic', keyPlaceholder: 'sk-ant-...' },
 ];
 
-export interface ATSScorerProps {
-  onBack?: () => void;
-}
-
 interface AnalysisResult {
   score: number;
   keywordsFound: string[];
   missingKeywords: string[];
   criticalFixes: string[];
+}
+
+function providerLabelForId(id?: string): string {
+  if (!id) return 'Unknown provider';
+  return PROVIDERS.find((p) => p.id === id)?.label ?? id;
+}
+
+function historyItemToResult(row: AtsHistoryItem): AnalysisResult {
+  const fixes = row.feedback?.length ? row.feedback : row.criticalFixes ?? [];
+  return {
+    score: row.overallScore ?? 0,
+    keywordsFound: row.matchedKeywords ?? [],
+    missingKeywords: row.missingKeywords ?? [],
+    criticalFixes: fixes,
+  };
+}
+
+/** Score ring + meta line + three keyword/fixes columns (shared by live run and history preview). */
+function AtsResultDetailView({
+  result,
+  metaParagraph,
+}: {
+  result: AnalysisResult;
+  metaParagraph: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-10 mb-10">
+        <div className="flex justify-center lg:justify-start">
+          <div className="relative h-36 w-36">
+            <svg className="h-36 w-36 -rotate-90" viewBox="0 0 120 120" aria-hidden>
+              <circle
+                cx="60"
+                cy="60"
+                r={RING_RADIUS}
+                fill="none"
+                stroke="#f3f4f6"
+                strokeWidth="10"
+              />
+              <circle
+                cx="60"
+                cy="60"
+                r={RING_RADIUS}
+                fill="none"
+                stroke={PRIMARY}
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={RING_CIRC}
+                strokeDashoffset={RING_CIRC * (1 - result.score / 100)}
+                className="transition-[stroke-dashoffset] duration-700 ease-out"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-gray-900">{result.score}</span>
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Match</span>
+            </div>
+          </div>
+        </div>
+        <div className="text-sm text-gray-600 leading-relaxed max-w-xl">{metaParagraph}</div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm ring-1 ring-gray-100/80">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-green-500" />
+            Keywords found
+          </h3>
+          <div className="flex flex-wrap gap-2 min-h-[2rem]">
+            {result.keywordsFound.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">No matches listed — try a longer job description.</p>
+            ) : (
+              result.keywordsFound.map((k) => (
+                <span
+                  key={k}
+                  className="inline-flex items-center rounded-full bg-green-50 text-green-800 border border-green-200 px-2.5 py-1 text-xs font-medium"
+                >
+                  {k}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm ring-1 ring-gray-100/80">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            Missing keywords
+          </h3>
+          <div className="flex flex-wrap gap-2 min-h-[2rem]">
+            {result.missingKeywords.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">None flagged — nice alignment with the JD.</p>
+            ) : (
+              result.missingKeywords.map((k) => (
+                <span
+                  key={k}
+                  className="inline-flex items-center rounded-full bg-red-50 text-red-800 border border-red-200 px-2.5 py-1 text-xs font-medium"
+                >
+                  {k}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm ring-1 ring-gray-100/80 md:col-span-1">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#FF6B00]" />
+            Critical fixes
+          </h3>
+          <ul className="space-y-2 min-h-[2rem]">
+            {result.criticalFixes.length === 0 ? (
+              <li className="text-xs text-gray-500 italic">No extra suggestions from this run.</li>
+            ) : (
+              result.criticalFixes.map((fix) => (
+                <li key={fix}>
+                  <span className="inline-block rounded-lg bg-orange-50 text-orange-900 border border-orange-200 px-2.5 py-1.5 text-xs font-medium leading-snug">
+                    {fix}
+                  </span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export interface ATSScorerProps {
+  onBack?: () => void;
 }
 
 const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
@@ -74,9 +199,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
   const [saveKeyMessage, setSaveKeyMessage] = useState<string | null>(null);
   const [historyItems, setHistoryItems] = useState<AtsHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<AtsHistoryItem | null>(null);
   const [fileHint, setFileHint] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formTopRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLElement>(null);
+  const historyPreviewRef = useRef<HTMLElement>(null);
   const { userId } = useAuth();
   const providerLabel = PROVIDERS.find((p) => p.id === provider)?.label || provider;
   const hasSavedProviderKey = savedKeysByProvider[provider];
@@ -139,6 +267,19 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
   useEffect(() => {
     refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    if (!selectedHistoryItem) return;
+    requestAnimationFrame(() => {
+      historyPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [selectedHistoryItem]);
+
+  useEffect(() => {
+    setSelectedHistoryItem((prev) =>
+      prev && !historyItems.some((h) => h.reportId === prev.reportId) ? null : prev
+    );
+  }, [historyItems]);
 
   useEffect(() => {
     try {
@@ -224,6 +365,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
         criticalFixes: ar.feedback ?? [],
       });
       setHasAnalyzed(true);
+      setSelectedHistoryItem(null);
       if (userId) refreshHistory();
       requestAnimationFrame(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -265,35 +407,39 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
       ((useSavedKey && hasSavedProviderKey && userId) || apiKey.trim())
   );
 
+  const scrollToForm = useCallback(() => {
+    formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   return (
-    <div className="min-h-full bg-gray-50/80 rounded-2xl border border-gray-200/80 p-6 md:p-8">
+    <div className="min-h-full bg-gray-50/80 rounded-2xl border border-gray-200/80 p-5 sm:p-6 md:p-8 shadow-sm">
+      <div className="max-w-6xl mx-auto">
       {onBack && (
         <button
           type="button"
           onClick={onBack}
-          className="mb-6 text-sm font-medium text-[#FF6B00] hover:opacity-90 transition-opacity"
+          className="mb-5 sm:mb-6 text-sm font-medium text-[#FF6B00] hover:opacity-90 transition-opacity rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/35 focus-visible:ring-offset-2"
         >
           ← Back
         </button>
       )}
 
-      <header className="mb-8 max-w-3xl">
+      <header className="mb-6 sm:mb-8 max-w-3xl border-l-4 border-[#FF6B00] pl-4 sm:pl-5">
         <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#FF6B00] mb-3">
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
           Career tools
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
           ATS Resume Scorer
         </h1>
-        <p className="mt-2 text-gray-600 text-base leading-relaxed">
-          Upload your resume, paste a job description, choose your LLM provider, and get a compatibility preview.
-          Use a key in the browser or one saved to your account when you&apos;re signed in.
+        <p className="mt-2 text-gray-600 text-sm sm:text-base leading-relaxed">
+          Upload your resume, paste a job description, pick an LLM, and get a keyword and fit preview.
         </p>
       </header>
 
       <nav
         aria-label="Analysis steps"
-        className="mb-8 flex flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-600"
+        className="mb-6 sm:mb-8 flex flex-wrap items-center gap-1 rounded-2xl border border-gray-200/90 bg-white px-3 py-3 text-xs font-medium text-gray-600 shadow-sm"
       >
         {steps.map((s, i) => (
           <React.Fragment key={s.id}>
@@ -316,10 +462,29 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
         ))}
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
+      {!userId && (
+        <div
+          className="mb-6 rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-sm text-sky-950 flex gap-3 items-start"
+          role="status"
+        >
+          <Info className="h-5 w-5 shrink-0 text-sky-600 mt-0.5" aria-hidden />
+          <div>
+            <p className="font-medium text-sky-900">Sign in to save history</p>
+            <p className="text-xs text-sky-800/90 mt-1 leading-relaxed">
+              You can still run a score with your own API key. When logged in, we store past runs so you can reopen
+              them anytime.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div ref={formTopRef} className="scroll-mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-6 sm:mb-8">
         {/* Resume upload */}
         <div className="flex flex-col">
-          <label className="text-sm font-semibold text-gray-800 mb-2">
+          <label className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-50 text-[11px] font-bold text-[#FF6B00]">
+              1
+            </span>
             Resume
           </label>
           <div
@@ -339,11 +504,11 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`flex-1 min-h-[220px] rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center p-8 text-center
+            className={`flex-1 min-h-[220px] rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer flex flex-col items-center justify-center p-6 sm:p-8 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/35 focus-visible:ring-offset-2
               ${
                 isDragging
-                  ? 'border-[#FF6B00] bg-orange-50/60'
-                  : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/30'
+                  ? 'border-[#FF6B00] bg-orange-50/70 scale-[1.01]'
+                  : 'border-gray-200 bg-white hover:border-orange-300/90 hover:bg-orange-50/25'
               }`}
           >
             <input
@@ -405,8 +570,11 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
           <div className="flex items-center justify-between gap-2 mb-2">
             <label
               htmlFor="ats-job-description"
-              className="text-sm font-semibold text-gray-800"
+              className="text-sm font-semibold text-gray-800 flex items-center gap-2"
             >
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-50 text-[11px] font-bold text-[#FF6B00]">
+                2
+              </span>
               Job description
             </label>
             <span className="text-xs text-gray-400 tabular-nums">
@@ -419,13 +587,25 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
             onChange={(e) => setJobDescription(e.target.value)}
             placeholder="Paste the full job description here. Include responsibilities, required skills, and qualifications for the best match preview."
             rows={10}
-            className="flex-1 min-h-[220px] w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] resize-y transition-shadow"
+            className="flex-1 min-h-[220px] w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] resize-y transition-shadow shadow-sm"
           />
         </div>
       </div>
 
       {/* Provider and API key */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5 mb-8 flex flex-col gap-4">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden mb-6 sm:mb-8">
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-100 bg-gradient-to-r from-orange-50/60 via-white to-white">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white border border-orange-100 text-[11px] font-bold text-[#FF6B00] shadow-sm">
+              3
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">Model &amp; API key</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Choose provider, then paste a key or use one saved on your account</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 md:p-5 flex flex-col gap-4">
         {userId && (
           <div className="rounded-lg bg-gray-50/80 border border-gray-100 px-3 py-2.5">
             <label className="inline-flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer">
@@ -448,91 +628,95 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
           </div>
         )}
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-        <div className="sm:w-52">
-          <label htmlFor="ats-provider" className="text-sm font-semibold text-gray-800 mb-2 block">
-            LLM provider
-          </label>
-          <div className="flex flex-col gap-1.5">
-            <select
-              id="ats-provider"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value as AtsProvider)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white"
-            >
-              {PROVIDERS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {hasSavedProviderKey && (
-              <span className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />
-                Saved key on file for this provider
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <label htmlFor="ats-api-key" className="text-sm font-semibold text-gray-800">
-              API key
+          <div className="sm:w-48 lg:w-52 shrink-0">
+            <label htmlFor="ats-provider" className="text-sm font-semibold text-gray-800 mb-2 block">
+              LLM provider
             </label>
-            <div className="relative group inline-flex">
-              <button
-                type="button"
-                className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/40 rounded"
-                aria-label="API keys stay in this browser unless you save"
+            <div className="flex flex-col gap-1.5">
+              <select
+                id="ats-provider"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as AtsProvider)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white shadow-sm"
               >
-                <Info className="h-4 w-4" />
-              </button>
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[min(280px,calc(100vw-2rem))] px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-[11px] leading-snug font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none text-center">
-                Typed keys stay in this browser unless you save.
-                <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-8 border-transparent border-t-gray-900" />
-              </div>
+                {PROVIDERS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {hasSavedProviderKey && (
+                <span className="text-[11px] font-medium text-emerald-700 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />
+                  Saved key on file for this provider
+                </span>
+              )}
             </div>
           </div>
-          <input
-            id="ats-api-key"
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(e) => persistApiKey(e.target.value)}
-            placeholder={PROVIDERS.find((p) => p.id === provider)?.keyPlaceholder || ''}
-            disabled={Boolean(useSavedKey && hasSavedProviderKey && userId)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] font-mono"
-          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <label htmlFor="ats-api-key" className="text-sm font-semibold text-gray-800">
+                API key
+              </label>
+              <div className="relative group inline-flex">
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/40 rounded"
+                  aria-label="API keys stay in this browser unless you save"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[min(280px,calc(100vw-2rem))] px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-[11px] leading-snug font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none text-center">
+                  Typed keys stay in this browser unless you save.
+                  <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-8 border-transparent border-t-gray-900" />
+                </div>
+              </div>
+            </div>
+            <input
+              id="ats-api-key"
+              type="password"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(e) => persistApiKey(e.target.value)}
+              placeholder={PROVIDERS.find((p) => p.id === provider)?.keyPlaceholder || ''}
+              disabled={Boolean(useSavedKey && hasSavedProviderKey && userId)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] font-mono shadow-sm"
+            />
+          </div>
         </div>
-        {userId && (
+
+        <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap sm:justify-end gap-3 pt-4 border-t border-gray-100">
+          {userId && (
+            <button
+              type="button"
+              onClick={handleSaveKey}
+              disabled={!apiKey.trim() || isSavingKey}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border border-gray-200 text-gray-700 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+            >
+              {isSavingKey ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
+              Save key
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleSaveKey}
-            disabled={!apiKey.trim() || isSavingKey}
-            className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold border border-gray-200 text-gray-700 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            onClick={handleAnalyze}
+            disabled={!canAnalyze || isAnalyzing}
+            className="w-full sm:w-auto sm:min-w-[220px] inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:brightness-105 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#FF6B00]/50"
+            style={{ backgroundColor: PRIMARY }}
           >
-            {isSavingKey ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
-            Save key
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Analyzing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-5 w-5" aria-hidden />
+                Analyze compatibility
+              </>
+            )}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={handleAnalyze}
-          disabled={!canAnalyze || isAnalyzing}
-          className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:brightness-105 active:scale-[0.98]"
-          style={{ backgroundColor: PRIMARY }}
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              Analyzing…
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-5 w-5" aria-hidden />
-              Analyze compatibility
-            </>
-          )}
-        </button>
+        </div>
         </div>
       </div>
 
@@ -562,21 +746,32 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* Loading */}
       {isAnalyzing && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 mb-8 animate-pulse">
-          <div className="flex flex-col md:flex-row md:items-center gap-8">
-            <div className="h-36 w-36 rounded-full bg-gray-200 mx-auto md:mx-0" />
-            <div className="flex-1 space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-1/3" />
-              <div className="h-3 bg-gray-100 rounded w-full" />
-              <div className="h-3 bg-gray-100 rounded w-5/6" />
+        <div
+          className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 mb-8 shadow-sm overflow-hidden"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <p className="text-sm font-medium text-gray-800 mb-6 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-[#FF6B00] shrink-0" aria-hidden />
+            Comparing your resume to the job description… This usually takes a few seconds.
+          </p>
+          <div className="animate-pulse">
+            <div className="flex flex-col md:flex-row md:items-center gap-8">
+              <div className="h-36 w-36 rounded-full bg-gray-200 mx-auto md:mx-0" />
+              <div className="flex-1 space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-1/3" />
+                <div className="h-3 bg-gray-100 rounded w-full" />
+                <div className="h-3 bg-gray-100 rounded w-5/6" />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-100 rounded-xl" />
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 bg-gray-100 rounded-xl" />
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -586,197 +781,268 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
         <section
           ref={resultsRef}
           tabIndex={-1}
-          className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/25 focus-visible:ring-offset-2"
+          className="rounded-2xl border border-gray-200 bg-white shadow-md scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/25 focus-visible:ring-offset-2 overflow-hidden"
           aria-labelledby="ats-match-overview-heading"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h2 id="ats-match-overview-heading" className="text-lg font-bold text-gray-900">
-              Match overview
-            </h2>
-            {(() => {
-              const band = scoreBand(result.score);
-              return (
-                <span
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${band.className}`}
-                >
-                  {band.label}
-                </span>
-              );
-            })()}
-          </div>
-          <div className="flex flex-col lg:flex-row lg:items-center gap-10 mb-10">
-            <div className="flex justify-center lg:justify-start">
-              <div className="relative h-36 w-36">
-                <svg className="h-36 w-36 -rotate-90" viewBox="0 0 120 120" aria-hidden>
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r={RING_RADIUS}
-                    fill="none"
-                    stroke="#f3f4f6"
-                    strokeWidth="10"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r={RING_RADIUS}
-                    fill="none"
-                    stroke={PRIMARY}
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={RING_CIRC}
-                    strokeDashoffset={RING_CIRC * (1 - result.score / 100)}
-                    className="transition-[stroke-dashoffset] duration-700 ease-out"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-gray-900">{result.score}</span>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    Match
+          <div className="h-1 bg-gradient-to-r from-[#FF6B00] via-orange-400 to-amber-300" aria-hidden />
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+              <h2 id="ats-match-overview-heading" className="text-lg font-bold text-gray-900">
+                Match overview
+              </h2>
+              {(() => {
+                const band = scoreBand(result.score);
+                return (
+                  <span
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${band.className}`}
+                  >
+                    {band.label}
                   </span>
-                </div>
-              </div>
+                );
+              })()}
             </div>
-            <p className="text-sm text-gray-600 leading-relaxed max-w-xl">
-              Scored with <strong className="text-gray-800">{providerLabel}</strong> using
-              your resume text and the job description you provided. Treat this as guidance,
-              not a guarantee of employer ATS behavior.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                Keywords found
-              </h3>
-              <div className="flex flex-wrap gap-2 min-h-[2rem]">
-                {result.keywordsFound.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No matches listed — try a longer job description.</p>
-                ) : (
-                  result.keywordsFound.map((k) => (
-                    <span
-                      key={k}
-                      className="inline-flex items-center rounded-full bg-green-50 text-green-800 border border-green-200 px-2.5 py-1 text-xs font-medium"
-                    >
-                      {k}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-                Missing keywords
-              </h3>
-              <div className="flex flex-wrap gap-2 min-h-[2rem]">
-                {result.missingKeywords.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">None flagged — nice alignment with the JD.</p>
-                ) : (
-                  result.missingKeywords.map((k) => (
-                    <span
-                      key={k}
-                      className="inline-flex items-center rounded-full bg-red-50 text-red-800 border border-red-200 px-2.5 py-1 text-xs font-medium"
-                    >
-                      {k}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-5 md:col-span-1">
-              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#FF6B00]" />
-                Critical fixes
-              </h3>
-              <ul className="space-y-2 min-h-[2rem]">
-                {result.criticalFixes.length === 0 ? (
-                  <li className="text-xs text-gray-500 italic">No extra suggestions from this run.</li>
-                ) : (
-                  result.criticalFixes.map((fix) => (
-                    <li key={fix}>
-                      <span className="inline-block rounded-lg bg-orange-50 text-orange-900 border border-orange-200 px-2.5 py-1.5 text-xs font-medium leading-snug">
-                        {fix}
-                      </span>
-                    </li>
-                  ))
-                )}
-              </ul>
+            <AtsResultDetailView
+              result={result}
+              metaParagraph={
+                <>
+                  Scored with <strong className="text-gray-800">{providerLabel}</strong> using your resume text and
+                  the job description you provided. Treat this as guidance, not a guarantee of employer ATS behavior.
+                </>
+              }
+            />
+            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-xs text-gray-500">Want to try another job or resume? Update the fields above and run again.</p>
+              <button
+                type="button"
+                onClick={scrollToForm}
+                className="text-sm font-semibold text-[#FF6B00] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/30 rounded"
+              >
+                Jump to inputs
+              </button>
             </div>
           </div>
         </section>
       )}
 
       {userId && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm mt-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm mt-8 overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-gray-200 via-orange-100 to-[#FF6B00]/40" aria-hidden />
+          <div className="p-5 sm:p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <History className="h-5 w-5 text-gray-500 shrink-0" aria-hidden />
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#FF6B00]">
+                <History className="h-5 w-5 shrink-0" aria-hidden />
+              </span>
               Your ATS history
             </h2>
             <button
               type="button"
               onClick={refreshHistory}
               disabled={historyLoading}
-              className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-[#FF6B00] hover:bg-orange-50/50 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#FF6B00] hover:bg-orange-50/50 disabled:opacity-50 transition-colors"
             >
-              {historyLoading ? 'Loading…' : 'Refresh'}
+              {historyLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              {historyLoading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Recent scores are saved when you&apos;re signed in. Compare runs over time — same colors and layout as the rest of the app.
+          <p className="text-sm text-gray-600 leading-relaxed mb-5 max-w-2xl">
+            Each run is saved automatically. <strong className="font-medium text-gray-800">Click a row</strong> to
+            expand the same match view you see after analyzing. Use the resume column to download the file.
           </p>
-          {historyItems.length === 0 && !historyLoading ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-8 text-center">
-              <p className="text-sm font-medium text-gray-700">No saved runs yet</p>
-              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-                Run an analysis while logged in. Your score and keywords will show up here automatically.
+          {historyLoading && historyItems.length === 0 ? (
+            <div className="rounded-xl border border-gray-100 overflow-hidden" aria-busy="true" aria-label="Loading history">
+              <div className="h-11 bg-gray-50 border-b border-gray-100 animate-pulse" />
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-14 border-b border-gray-100 bg-white flex items-center px-4 gap-4 animate-pulse">
+                  <div className="h-4 w-4 rounded bg-gray-200 shrink-0" />
+                  <div className="h-3 flex-1 max-w-[140px] bg-gray-100 rounded" />
+                  <div className="h-3 w-8 bg-gray-100 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : historyItems.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gradient-to-b from-gray-50/80 to-white px-4 py-10 text-center">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-[#FF6B00] mb-3">
+                <History className="h-6 w-6 opacity-80" aria-hidden />
+              </div>
+              <p className="text-sm font-semibold text-gray-800">No saved runs yet</p>
+              <p className="text-xs text-gray-500 mt-2 max-w-sm mx-auto leading-relaxed">
+                Run compatibility above while logged in. Your scores, keywords, and resume links will appear here.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-100">
-              <table className="min-w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-100">
-                  <tr>
-                    <th className="px-3 py-2.5">Date</th>
-                    <th className="px-3 py-2.5">Score</th>
-                    <th className="px-3 py-2.5">Provider</th>
-                    <th className="px-3 py-2.5">Missing keywords</th>
-                    <th className="px-3 py-2.5">Resume</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {historyItems.map((row, idx) => (
-                    <tr key={row.reportId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
-                      <td className="px-3 py-2.5 text-gray-800 whitespace-nowrap text-xs sm:text-sm">
-                        {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {row.overallScore != null ? (
-                          <span className="inline-flex min-w-[2.25rem] justify-center rounded-md bg-orange-50 text-[#FF6B00] border border-orange-200 px-2 py-0.5 text-xs font-bold tabular-nums">
-                            {row.overallScore}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-700 capitalize text-xs sm:text-sm">{row.provider ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-gray-600 max-w-xs text-xs">
-                        {(row.missingKeywords ?? []).slice(0, 5).join(', ')}
-                        {(row.missingKeywords?.length ?? 0) > 5 ? '…' : ''}
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-600 truncate max-w-[140px] text-xs" title={row.resumeFileName}>
-                        {row.resumeFileName ?? '—'}
-                      </td>
+            <>
+              <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm max-h-[min(420px,55vh)] overflow-y-auto">
+                <table className="min-w-full text-sm text-left">
+                  <caption className="sr-only">Saved ATS analyses; select a row to view details</caption>
+                  <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm text-gray-700 font-semibold border-b border-gray-200 shadow-sm">
+                    <tr>
+                      <th className="pl-3 pr-1 py-3 w-10" scope="col">
+                        <span className="sr-only">View</span>
+                      </th>
+                      <th className="px-3 py-3">Date</th>
+                      <th className="px-3 py-3">Score</th>
+                      <th className="px-3 py-3">Provider</th>
+                      <th className="px-3 py-3">Missing keywords</th>
+                      <th className="px-3 py-3">Resume</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {historyItems.map((row, idx) => {
+                      const selected = selectedHistoryItem?.reportId === row.reportId;
+                      const stripe = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40';
+                      return (
+                        <tr
+                          key={row.reportId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setSelectedHistoryItem((prev) => (prev?.reportId === row.reportId ? null : row))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedHistoryItem((prev) => (prev?.reportId === row.reportId ? null : row));
+                            }
+                          }}
+                          className={`cursor-pointer transition-colors duration-150 ${stripe} ${
+                            selected ? 'bg-orange-50/60 ring-1 ring-inset ring-orange-200/70' : 'hover:bg-orange-50/25'
+                          }`}
+                          title="Show full saved result"
+                        >
+                          <td className="pl-3 pr-1 py-2.5 w-10 text-center" aria-hidden>
+                            <Eye
+                              className={`h-4 w-4 mx-auto ${selected ? 'text-[#FF6B00]' : 'text-gray-300'}`}
+                              strokeWidth={2}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-800 whitespace-nowrap text-xs sm:text-sm">
+                            {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {row.overallScore != null ? (
+                              <span className="inline-flex min-w-[2.25rem] justify-center rounded-md bg-orange-50 text-[#FF6B00] border border-orange-200 px-2 py-0.5 text-xs font-bold tabular-nums">
+                                {row.overallScore}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-700 capitalize text-xs sm:text-sm">
+                            {row.provider ?? '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-600 max-w-xs text-xs">
+                            {(row.missingKeywords ?? []).slice(0, 5).join(', ')}
+                            {(row.missingKeywords?.length ?? 0) > 5 ? '…' : ''}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-600 max-w-[200px] text-xs">
+                            {row.resumeDownloadUrl ? (
+                              <a
+                                href={row.resumeDownloadUrl}
+                                rel="noopener noreferrer"
+                                download={row.resumeFileName || 'resume'}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-medium text-[#FF6B00] hover:underline truncate inline-block max-w-full"
+                                title="Download resume (link expires after a while — refresh history if it stops working)"
+                              >
+                                {row.resumeFileName || 'Download'}
+                              </a>
+                            ) : row.resume || row.resumeFileUrl || row.resumeS3Key ? (
+                              <span
+                                className="text-gray-500 truncate block max-w-full"
+                                title="File is in S3 but no download link yet. Click Refresh, or ensure Settings Lambda has s3:GetObject on this bucket."
+                              >
+                                {row.resumeFileName ?? 'Saved'}
+                                <span className="block text-[10px] text-gray-400 mt-0.5">Refresh for link</span>
+                              </span>
+                            ) : (
+                              <span className="truncate block max-w-full" title={row.resumeFileName}>
+                                {row.resumeFileName ?? '—'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedHistoryItem && (
+                <section
+                  ref={historyPreviewRef}
+                  tabIndex={-1}
+                  className="rounded-2xl border border-gray-200 bg-white shadow-md mt-6 scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/25 focus-visible:ring-offset-2 overflow-hidden"
+                  aria-labelledby="ats-history-preview-heading"
+                >
+                  <div className="h-1 bg-gradient-to-r from-[#FF6B00]/70 via-orange-300 to-amber-200" aria-hidden />
+                  <div className="p-6 md:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                    <div>
+                      <h2 id="ats-history-preview-heading" className="text-lg font-bold text-gray-900">
+                        Saved run
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {selectedHistoryItem.createdAt
+                          ? new Date(selectedHistoryItem.createdAt).toLocaleString()
+                          : ''}
+                        {selectedHistoryItem.resumeFileName ? (
+                          <>
+                            {' · '}
+                            <span className="text-gray-600">{selectedHistoryItem.resumeFileName}</span>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      {(() => {
+                        const band = scoreBand(historyItemToResult(selectedHistoryItem).score);
+                        return (
+                          <span
+                            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${band.className}`}
+                          >
+                            {band.label}
+                          </span>
+                        );
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedHistoryItem(null)}
+                        className="inline-flex items-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                  {selectedHistoryItem.jobDescriptionPreview?.trim() ? (
+                    <div className="mb-6 rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-xs text-gray-600">
+                      <span className="font-semibold text-gray-700">Job description (preview)</span>
+                      <p className="mt-1 leading-relaxed whitespace-pre-wrap">
+                        {selectedHistoryItem.jobDescriptionPreview}
+                      </p>
+                    </div>
+                  ) : null}
+                  <AtsResultDetailView
+                    result={historyItemToResult(selectedHistoryItem)}
+                    metaParagraph={
+                      <>
+                        Saved result from <strong className="text-gray-800">
+                          {providerLabelForId(selectedHistoryItem.provider)}
+                        </strong>
+                        . Only the data stored with this run is shown (scores and lists may differ slightly from a
+                        fresh analysis).
+                      </>
+                    }
+                  />
+                  </div>
+                </section>
+              )}
+            </>
           )}
+          </div>
         </section>
       )}
+      </div>
     </div>
   );
 };
