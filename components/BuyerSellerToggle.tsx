@@ -244,7 +244,8 @@ const BuyerSellerToggle: React.FC = () => {
   const { dashboardMode, setDashboardMode: setMode } = useDashboard();
   const { navigateTo } = useNavigation();
 
-  const mode: Mode = dashboardMode === 'preparation' ? 'buyer' : dashboardMode;
+  const mode: Mode =
+    dashboardMode === 'preparation' || dashboardMode === 'jobHunt' ? 'buyer' : dashboardMode;
   const steps = mode === "buyer" ? buyerSteps : sellerSteps;
   const benefits = mode === "buyer" ? buyerBenefits : sellerBenefits;
 
