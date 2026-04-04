@@ -1,16 +1,21 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
+  ArrowRight,
   Briefcase,
   ChevronDown,
   Clock,
   MapPin,
+  RefreshCw,
   Search,
   Star,
+  X,
 } from 'lucide-react';
 import Pagination from './Pagination';
-import { fetchJobs } from '../services/buyerApi';
+import { fetchJobs, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
 import type { JobListing } from '../services/buyerApi';
 import { HoverBorderGradient } from '@/components/ui/hover-border-gradient';
+import { splitSkillsToChips } from '../lib/jobSkills';
+import { useJobHuntShell } from '../context/JobHuntShellContext';
 
 interface JobHuntPageProps {
   toggleSidebar?: () => void;
@@ -47,6 +52,31 @@ function companyInitials(name?: string): string {
   return parts.map((p) => p[0]).join('').toUpperCase().slice(0, 2);
 }
 
+/** High-res favicon for known boards when company logo is missing / broken */
+function providerLogoUrl(sourcePlatform?: string): string | undefined {
+  const raw = sourcePlatform?.trim().toLowerCase();
+  if (!raw) return undefined;
+  const pairs: [string, string][] = [
+    ['indeed', 'indeed.com'],
+    ['naukri', 'naukri.com'],
+    ['internshala', 'internshala.com'],
+    ['linkedin', 'linkedin.com'],
+    ['glassdoor', 'glassdoor.com'],
+    ['foundit', 'foundit.in'],
+    ['monster', 'foundit.in'],
+    ['shine', 'shine.com'],
+    ['cutshort', 'cutshort.io'],
+    ['wellfound', 'wellfound.com'],
+    ['angel', 'wellfound.com'],
+  ];
+  for (const [needle, domain] of pairs) {
+    if (raw.includes(needle)) {
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+    }
+  }
+  return undefined;
+}
+
 /** Hash company name to a stable pastel for logo tiles */
 function logoTone(name?: string): { bg: string; text: string } {
   const palettes = [
@@ -62,23 +92,43 @@ function logoTone(name?: string): { bg: string; text: string } {
   return palettes[h % palettes.length];
 }
 
-function JobCompanyAvatar({ company, logoUrl }: { company?: string; logoUrl?: string }) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const url = logoUrl?.trim();
-  const showImg = Boolean(url && !imgFailed);
+function JobCompanyAvatar({
+  company,
+  logoUrl,
+  sourcePlatform,
+}: {
+  company?: string;
+  logoUrl?: string;
+  sourcePlatform?: string;
+}) {
+  const [companyImgFailed, setCompanyImgFailed] = useState(false);
+  const [providerImgFailed, setProviderImgFailed] = useState(false);
+  const companySrc = logoUrl?.trim();
+  const providerSrc = providerLogoUrl(sourcePlatform);
+
+  const showCompany = Boolean(companySrc && !companyImgFailed);
+  const showProvider = !showCompany && Boolean(providerSrc && !providerImgFailed);
   const tone = logoTone(company);
 
   return (
     <div
       className="flex h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"
       aria-hidden
+      title={sourcePlatform ? `Listed on ${sourcePlatform}` : undefined}
     >
-      {showImg ? (
+      {showCompany ? (
         <img
-          src={url}
+          src={companySrc}
           alt=""
           className="h-full w-full object-cover"
-          onError={() => setImgFailed(true)}
+          onError={() => setCompanyImgFailed(true)}
+        />
+      ) : showProvider ? (
+        <img
+          src={providerSrc}
+          alt=""
+          className="h-full w-full object-contain p-2"
+          onError={() => setProviderImgFailed(true)}
         />
       ) : (
         <div
@@ -87,6 +137,30 @@ function JobCompanyAvatar({ company, logoUrl }: { company?: string; logoUrl?: st
           {companyInitials(company)}
         </div>
       )}
+    </div>
+  );
+}
+
+function SourcePlatformRow({ sourcePlatform }: { sourcePlatform: string }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoSrc = providerLogoUrl(sourcePlatform);
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Source</p>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        {logoSrc && !logoFailed ? (
+          <img
+            src={logoSrc}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-lg border border-gray-100 bg-white object-contain p-1.5 shadow-sm"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : null}
+        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-gray-600">
+          {sourcePlatform}
+        </span>
+      </div>
     </div>
   );
 }
@@ -124,10 +198,167 @@ function loadSavedIds(): Set<string> {
   return new Set();
 }
 
+/** Matches list/card save key so sidebar Save uses the same id as the star on the card */
+type JobDetailSelection = { job: JobListing; saveId: string };
+
+interface JobDetailPanelProps {
+  job: JobListing;
+  onClose: () => void;
+  saved: boolean;
+  onToggleSave: () => void;
+  openApply: (job: JobListing) => void;
+}
+
+function JobDetailPanel({ job, onClose, saved, onToggleSave, openApply }: JobDetailPanelProps) {
+  const posted =
+    relativePosted(job.scraped_at ?? job.created_at) ||
+    formatJobDate(job.scraped_at ?? job.created_at);
+  const desc = job.description?.trim() || '';
+
+  return (
+    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="job-detail-title">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+        onClick={onClose}
+        aria-label="Close job details"
+      />
+      <aside className="absolute right-0 top-0 flex h-full max-h-[100dvh] w-full max-w-lg flex-col border-l border-gray-200 bg-white shadow-2xl sm:max-w-xl">
+        <header className="shrink-0 border-b border-gray-100">
+          <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+            <div className="flex min-w-0 flex-1 gap-4">
+              <JobCompanyAvatar
+                company={job.company}
+                logoUrl={job.company_logo}
+                sourcePlatform={job.source_platform}
+              />
+              <div className="min-w-0">
+                <h2
+                  id="job-detail-title"
+                  className="text-xl font-bold leading-snug text-black"
+                >
+                  {job.job_title || 'Untitled role'}
+                </h2>
+                <p className="mt-1 text-sm font-medium text-gray-600">{job.company || 'Company'}</p>
+                {job.salary ? (
+                  <p className="mt-2 text-sm font-bold text-gray-900">{job.salary}</p>
+                ) : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-3 text-sm text-gray-700">
+            {job.location ? (
+              <div className="flex gap-2">
+                <span className="shrink-0 text-gray-400" aria-hidden>
+                  <MapPin className="inline h-4 w-4 align-text-bottom" />
+                </span>
+                <span>{job.location}</span>
+              </div>
+            ) : null}
+            {job.job_type ? (
+              <div className="flex gap-2">
+                <span className="shrink-0 text-gray-400" aria-hidden>
+                  <Briefcase className="inline h-4 w-4 align-text-bottom" />
+                </span>
+                <span>{job.job_type}</span>
+              </div>
+            ) : null}
+            {job.experience_level ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Experience</p>
+                <p className="mt-1">{job.experience_level}</p>
+              </div>
+            ) : null}
+            {job.source_platform ? <SourcePlatformRow sourcePlatform={job.source_platform} /> : null}
+            {posted ? (
+              <div className="flex gap-2 text-gray-500">
+                <Clock className="h-4 w-4 shrink-0" aria-hidden />
+                <span>{posted}</span>
+              </div>
+            ) : null}
+          </div>
+
+          {desc ? (
+            <section className="mt-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Description</h3>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-800">{desc}</p>
+            </section>
+          ) : null}
+
+          {job.skills?.trim() ? (
+            <section className="mt-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Skills</h3>
+              <ul className="mt-3 flex list-none flex-wrap gap-2 p-0">
+                {splitSkillsToChips(job.skills.trim()).map((skill, i) => (
+                  <li key={`${skill.slice(0, 48)}-${i}`}>
+                    <span className="inline-block max-w-full rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-800">
+                      {skill}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {job.apply_link?.trim() ? (
+            <section className="mt-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Apply link</h3>
+              <p className="mt-2 break-all text-sm text-orange-700 underline">
+                <a href={job.apply_link.trim()} target="_blank" rel="noopener noreferrer">
+                  {job.apply_link.trim()}
+                </a>
+              </p>
+            </section>
+          ) : null}
+        </div>
+
+        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={onToggleSave}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+              saved
+                ? 'border-amber-300 bg-amber-50 text-amber-900'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            aria-pressed={saved}
+          >
+            <Star className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-500' : ''}`} />
+            {saved ? 'Saved' : 'Save'}
+          </button>
+          <button
+            type="button"
+            onClick={() => openApply(job)}
+            disabled={!job.apply_link?.trim()}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Apply
+            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+          </button>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
 const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
+  const { jobOpenRequest, consumeJobOpenRequest, savedJobsNavTick, browseAllNavTick } =
+    useJobHuntShell();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -140,17 +371,47 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const [selectedExperience, setSelectedExperience] = useState<string[]>([]);
   const [selectedWorkModes, setSelectedWorkModes] = useState<WorkMode[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(loadSavedIds);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailSelection, setDetailSelection] = useState<JobDetailSelection | null>(null);
+  const [jobListTab, setJobListTab] = useState<'all' | 'saved'>('all');
 
-  const loadPage = useCallback(async () => {
-    setIsLoading(true);
+  const loadPage = useCallback(async (mode: 'full' | 'refresh' = 'full') => {
+    if (mode === 'refresh') {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
     const offset = (currentPage - 1) * itemsPerPage;
+    const uid = getJobHuntUserId();
     try {
-      const result = await fetchJobs({ limit: itemsPerPage, offset });
+      if (jobListTab === 'saved' && !uid) {
+        setJobs([]);
+        setTotal(0);
+        return;
+      }
+      const result = await fetchJobs({
+        limit: itemsPerPage,
+        offset,
+        userId: uid || undefined,
+        savedOnly: jobListTab === 'saved',
+      });
       if (result.success && result.data) {
         setJobs(result.data.jobs);
         setTotal(result.data.total);
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          result.data!.jobs.forEach((j) => {
+            if (!j.id || typeof j.saved !== 'boolean') return;
+            if (j.saved) next.add(j.id);
+            else next.delete(j.id);
+          });
+          try {
+            localStorage.setItem(SAVED_KEY, JSON.stringify([...next]));
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
       } else {
         setError(result.error?.message || 'Failed to load jobs');
         setJobs([]);
@@ -161,13 +422,44 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
       setJobs([]);
       setTotal(0);
     } finally {
-      setIsLoading(false);
+      if (mode === 'refresh') {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, jobListTab]);
 
   useEffect(() => {
     loadPage();
   }, [loadPage]);
+
+  useEffect(() => {
+    if (!jobOpenRequest) return;
+    setDetailSelection({
+      job: jobOpenRequest.job,
+      saveId: jobOpenRequest.saveId || jobOpenRequest.job.id || '',
+    });
+    consumeJobOpenRequest();
+  }, [jobOpenRequest, consumeJobOpenRequest]);
+
+  const savedNavTickHandled = useRef(0);
+  useEffect(() => {
+    if (savedJobsNavTick === 0 || savedJobsNavTick === savedNavTickHandled.current) return;
+    savedNavTickHandled.current = savedJobsNavTick;
+    setJobListTab('saved');
+    setCurrentPage(1);
+    setDetailSelection(null);
+  }, [savedJobsNavTick]);
+
+  const browseAllTickHandled = useRef(0);
+  useEffect(() => {
+    if (browseAllNavTick === 0 || browseAllNavTick === browseAllTickHandled.current) return;
+    browseAllTickHandled.current = browseAllNavTick;
+    setJobListTab('all');
+    setCurrentPage(1);
+    setDetailSelection(null);
+  }, [browseAllNavTick]);
 
   const totalPages = Math.max(1, Math.ceil(total / itemsPerPage) || 1);
 
@@ -229,19 +521,52 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const toggleSave = (id: string) => {
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(SAVED_KEY, JSON.stringify([...next]));
-      } catch {
-        /* ignore */
+  const toggleSave = useCallback(
+    async (id: string) => {
+      const uid = getJobHuntUserId();
+      const willSave = !savedIds.has(id);
+      if (uid) {
+        const r = await toggleJobSave(uid, id, willSave);
+        if (!r.success) {
+          setError(r.error?.message || 'Could not update saved job');
+          return;
+        }
       }
-      return next;
-    });
-  };
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (willSave) next.add(id);
+        else next.delete(id);
+        try {
+          localStorage.setItem(SAVED_KEY, JSON.stringify([...next]));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      if (jobListTab === 'saved' && !willSave) {
+        void loadPage('refresh');
+      }
+    },
+    [savedIds, jobListTab, loadPage]
+  );
+
+  useEffect(() => {
+    if (!detailSelection) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailSelection(null);
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [detailSelection]);
+
+  useEffect(() => {
+    setDetailSelection(null);
+  }, [currentPage, jobListTab]);
 
   const clearFilters = () => {
     setSelectedJobTypes([]);
@@ -253,10 +578,14 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
     setQueryLoc('');
   };
 
+  const huntUserId = getJobHuntUserId();
+
   const resultsTitle =
-    queryTitle || queryLoc
-      ? `Search results for ‘${[queryTitle, queryLoc].filter(Boolean).join('’ · ‘')}’`
-      : 'Open roles';
+    jobListTab === 'saved'
+      ? 'Saved jobs'
+      : queryTitle || queryLoc
+        ? `Search results for ‘${[queryTitle, queryLoc].filter(Boolean).join('’ · ‘')}’`
+        : 'Open roles';
 
   const filterSummaryParts: string[] = [];
   if (queryTitle.trim()) filterSummaryParts.push(queryTitle.trim());
@@ -279,9 +608,27 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               </svg>
             </button>
           )}
-          <p className="text-sm text-gray-500">
+          <p className="min-w-0 flex-1 text-sm text-gray-500">
             Curated from major job boards — synced on a schedule.
+            {huntUserId ? (
+              <span className="block text-xs text-gray-400 sm:mt-0.5 sm:inline sm:before:content-['·_']">
+                Saves sync to your account.
+              </span>
+            ) : null}
           </p>
+          <button
+            type="button"
+            onClick={() => void loadPage('refresh')}
+            disabled={isLoading || isRefreshing}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Refresh listings from server"
+          >
+            <RefreshCw
+              className={`h-4 w-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
+            Refresh
+          </button>
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
@@ -340,11 +687,49 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
 
       {!isLoading && !error && jobs.length === 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-sm">
-          <p className="font-medium text-gray-700">No job listings yet</p>
-          <p className="mt-2 text-sm text-gray-500">
-            After the next sync, roles will appear here. Set{' '}
-            <code className="rounded bg-gray-100 px-1 text-xs">VITE_GET_JOBS_DETAILS_URL</code> to your jobs API.
-          </p>
+          {jobListTab === 'saved' && !huntUserId ? (
+            <>
+              <p className="font-medium text-gray-700">Sign in to see saved jobs</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Saved roles are tied to your account when you are logged in. You can still browse open roles below.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setJobListTab('all');
+                  setCurrentPage(1);
+                }}
+                className="mt-6 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+              >
+                Browse all roles
+              </button>
+            </>
+          ) : jobListTab === 'saved' ? (
+            <>
+              <p className="font-medium text-gray-700">No saved jobs yet</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Save jobs with the star on a card or in the job panel, or browse all listings to find roles.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setJobListTab('all');
+                  setCurrentPage(1);
+                }}
+                className="mt-6 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+              >
+                Browse all roles
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-gray-700">No job listings yet</p>
+              <p className="mt-2 text-sm text-gray-500">
+                After the next sync, roles will appear here. Set{' '}
+                <code className="rounded bg-gray-100 px-1 text-xs">VITE_GET_JOBS_DETAILS_URL</code> to your jobs API.
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -487,17 +872,29 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                 filteredJobs.map((job, index) => {
                   const id = job.id || `job-${index}`;
                   const posted = relativePosted(job.scraped_at ?? job.created_at) || formatJobDate(job.scraped_at ?? job.created_at);
-                  const expanded = expandedId === id;
                   const desc = job.description?.trim() || '';
-                  const longDesc = desc.length > 220;
 
                   return (
                     <article
                       key={id}
-                      className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View details: ${job.job_title || 'Job'}`}
+                      onClick={() => setDetailSelection({ job, saveId: id })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetailSelection({ job, saveId: id });
+                        }
+                      }}
+                      className="cursor-pointer overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
                     >
                       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:gap-5 sm:p-6">
-                        <JobCompanyAvatar company={job.company} logoUrl={job.company_logo} />
+                        <JobCompanyAvatar
+                          company={job.company}
+                          logoUrl={job.company_logo}
+                          sourcePlatform={job.source_platform}
+                        />
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -515,7 +912,10 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                               ) : null}
                               <button
                                 type="button"
-                                onClick={() => toggleSave(id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void toggleSave(id);
+                                }}
                                 className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                                   savedIds.has(id)
                                     ? 'border-amber-300 bg-amber-50 text-amber-800'
@@ -559,33 +959,22 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
 
                           {desc ? (
                             <div className="mt-4">
-                              <p
-                                className={`text-sm leading-relaxed text-gray-600 ${
-                                  expanded ? '' : 'line-clamp-3'
-                                }`}
-                              >
-                                {desc}
-                              </p>
-                              {longDesc ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedId(expanded ? null : id)}
-                                  className="mt-1 text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
-                                >
-                                  {expanded ? 'Show less' : 'Read more'}
-                                </button>
-                              ) : null}
+                              <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">{desc}</p>
                             </div>
                           ) : null}
 
                           <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 pt-4">
                             <button
                               type="button"
-                              onClick={() => openApply(job)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openApply(job);
+                              }}
                               disabled={!job.apply_link}
-                              className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               Apply
+                              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
                             </button>
                           </div>
                         </div>
@@ -614,6 +1003,16 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           )}
         </>
       )}
+
+      {detailSelection ? (
+        <JobDetailPanel
+          job={detailSelection.job}
+          onClose={() => setDetailSelection(null)}
+          saved={savedIds.has(detailSelection.saveId)}
+          onToggleSave={() => void toggleSave(detailSelection.saveId)}
+          openApply={openApply}
+        />
+      ) : null}
     </div>
   );
 };

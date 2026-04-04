@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useAuth } from '../App';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
 import { useDashboard } from '../context/DashboardContext';
 import { cachedFetchUserProfile } from '../services/buyerApi';
+import { useJobHuntShell } from '../context/JobHuntShellContext';
 
 const LogoIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -161,6 +162,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const { userEmail, userId, logout } = useAuth();
     // Use global state
     const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode } = useDashboard();
+    const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
 
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
     const [userFullName, setUserFullName] = useState<string>('');
@@ -337,7 +339,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </div>
                     </div>
                 )}
-                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto custom-scrollbar`}>
+                <nav
+                    className={`flex-1 custom-scrollbar ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto`}
+                >
                     {dashboardMode === 'preparation' && isExpanded ? (
                         <div className="space-y-1">
                             {prepNavGroups.map((group) => {
@@ -388,6 +392,74 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     </div>
                                 );
                             })}
+                        </div>
+                    ) : dashboardMode === 'jobHunt' ? (
+                        <div className="space-y-1">
+                            {navItems.map((item, index) => (
+                                <button
+                                    key={item.name}
+                                    onClick={() => {
+                                        setActiveView(item.view);
+                                        goToBrowseAllJobs();
+                                        if (window.innerWidth < 1024) {
+                                            onClose();
+                                        }
+                                    }}
+                                    className={`group relative flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${isExpanded ? 'px-4' : 'justify-center px-2'} ${activeView === item.view
+                                        ? isDark
+                                            ? 'bg-white text-black'
+                                            : 'bg-orange-500 text-white'
+                                        : isDark
+                                            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                            : 'text-gray-600 hover:bg-orange-50'
+                                        } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                    style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        {item.icon}
+                                        {item.view === 'cart' && cartCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                                                {cartCount > 9 ? '9+' : cartCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isExpanded ? (
+                                        <span className="ml-3 whitespace-nowrap">{item.name}</span>
+                                    ) : null}
+                                    {!isExpanded ? (
+                                        <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                            {item.name}
+                                            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                        </div>
+                                    ) : null}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    goToSavedJobsList();
+                                    if (window.innerWidth < 1024) {
+                                        onClose();
+                                    }
+                                }}
+                                className={`group relative flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${isExpanded ? 'px-4' : 'justify-center px-2'} ${isDark
+                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                    : 'text-gray-600 hover:bg-orange-50'
+                                    }`}
+                            >
+                                <div className="relative flex-shrink-0">
+                                    <Star className="h-5 w-5" strokeWidth={2} aria-hidden />
+                                </div>
+                                {isExpanded ? (
+                                    <span className="ml-3 whitespace-nowrap">Saved jobs</span>
+                                ) : null}
+                                {!isExpanded ? (
+                                    <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                        Saved jobs
+                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                    </div>
+                                ) : null}
+                            </button>
                         </div>
                     ) : (
                         navItems.map((item, index) => (
