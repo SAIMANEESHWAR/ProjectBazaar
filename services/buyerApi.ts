@@ -846,6 +846,8 @@ export interface JobListing {
   id: string;
   job_title?: string;
   company?: string;
+  /** Employer logo image URL when scraped */
+  company_logo?: string;
   location?: string;
   salary?: string;
   job_type?: string;
@@ -876,6 +878,7 @@ const mapJobRow = (row: Record<string, unknown>): JobListing => ({
   id: String(row.PK ?? row.pk ?? ''),
   job_title: row.job_title != null ? String(row.job_title) : undefined,
   company: row.company != null ? String(row.company) : undefined,
+  company_logo: row.company_logo != null ? String(row.company_logo) : undefined,
   location: row.location != null ? String(row.location) : undefined,
   salary: row.salary != null ? String(row.salary) : undefined,
   job_type: row.job_type != null ? String(row.job_type) : undefined,

@@ -62,6 +62,35 @@ function logoTone(name?: string): { bg: string; text: string } {
   return palettes[h % palettes.length];
 }
 
+function JobCompanyAvatar({ company, logoUrl }: { company?: string; logoUrl?: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const url = logoUrl?.trim();
+  const showImg = Boolean(url && !imgFailed);
+  const tone = logoTone(company);
+
+  return (
+    <div
+      className="flex h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"
+      aria-hidden
+    >
+      {showImg ? (
+        <img
+          src={url}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div
+          className={`flex h-full w-full items-center justify-center text-base font-bold ${tone.bg} ${tone.text}`}
+        >
+          {companyInitials(company)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type WorkMode = 'remote' | 'hybrid' | 'onsite';
 
 function jobWorkBlob(job: JobListing): string {
@@ -458,7 +487,6 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                 filteredJobs.map((job, index) => {
                   const id = job.id || `job-${index}`;
                   const posted = relativePosted(job.scraped_at ?? job.created_at) || formatJobDate(job.scraped_at ?? job.created_at);
-                  const tone = logoTone(job.company);
                   const expanded = expandedId === id;
                   const desc = job.description?.trim() || '';
                   const longDesc = desc.length > 220;
@@ -469,12 +497,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                       className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
                     >
                       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:gap-5 sm:p-6">
-                        <div
-                          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-base font-bold ${tone.bg} ${tone.text}`}
-                          aria-hidden
-                        >
-                          {companyInitials(job.company)}
-                        </div>
+                        <JobCompanyAvatar company={job.company} logoUrl={job.company_logo} />
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
