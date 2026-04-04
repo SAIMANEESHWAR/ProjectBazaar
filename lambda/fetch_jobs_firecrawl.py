@@ -1,101 +1,76 @@
 """
-Async batched Firecrawl Agent jobs for job listings (India).
+Single-run Firecrawl Agent for job listings (India).
 
-- **start** mode: starts a few small agent runs (narrow prompts), stores Firecrawl job ids in DynamoDB.
-- **poll** mode: one status check per pending job (no long blocking loop), writes completed results to JOBS_TABLE.
+Each invocation: start one agent job with a minimal prompt, poll until complete or timeout,
+then insert new rows into JOBS_TABLE (duplicates skipped by the configured partition key).
 
 Env:
   FIRECRAWL_API_KEY (required)
-  JOBS_TABLE (default JobListings) — job rows
-  FIRECRAWL_BATCH_TABLE (default JobFirecrawlBatches) — pending agent jobs + cursor
-    Must be a single-attribute primary key: id (String). No sort key. No Query; Scan + begins_with(id, "PENDING#") for listing.
+  JOBS_TABLE (default JobListings)
+  JOBS_PARTITION_KEY (default id) — must match JobListings table partition key attribute (use PK if your table uses PK)
   FIRECRAWL_AGENT_URL (default https://api.firecrawl.dev/v2/agent)
   FIRECRAWL_MODEL (optional, default spark-1-pro)
-  BATCHES_PER_RUN (default 3) — how many agent jobs to start per start invocation
-  MAX_PENDING (default 10) — cap concurrent pending Firecrawl jobs
-  STALE_SECONDS (default 7200) — drop pending row if older than this (2h)
+  FIRECRAWL_PROMPT (optional) — full prompt override
+  POLL_INTERVAL_SEC (default 5)
+  MAX_WAIT_SEC (default 900) — max poll window (15 minutes)
+  LOG_LEVEL (optional) — DEBUG, INFO, WARNING, ERROR (default INFO)
 
-Event:
-  { "mode": "start" }  — EventBridge schedule for enqueue
-  { "mode": "poll" }   — EventBridge schedule every 2–5 min
-
-Legacy synchronous single prompt (not recommended):
-  { "mode": "legacy" } or HANDLER_MODE=legacy
-
-DynamoDB batch table (JobFirecrawlBatches): partition key id only.
-  Pending: id = PENDING#<firecrawl_job_id>. Cursor: id = META#cursor.
-  Listing pending uses Scan with begins_with(id, "PENDING#") (pending count is capped).
+Event (optional):
+  { "prompt": "..." }  — one-off prompt override (else env or default)
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 import urllib.error
 import urllib.request
 from decimal import Decimal
+from urllib.parse import urlparse
 from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
+_LOG_LEVEL = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
+logger.setLevel(_LOG_LEVEL)
 
 # ============================================================
 # CONFIG
 # ============================================================
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
 TABLE_NAME = os.environ.get("JOBS_TABLE", "JobListings")
-BATCH_TABLE_NAME = os.environ.get("FIRECRAWL_BATCH_TABLE", "JobFirecrawlBatches")
+JOBS_PARTITION_KEY = os.environ.get("JOBS_PARTITION_KEY", "id").strip() or "id"
 AGENT_URL = os.environ.get("FIRECRAWL_AGENT_URL", "https://api.firecrawl.dev/v2/agent").rstrip("/")
 FIRECRAWL_MODEL = os.environ.get("FIRECRAWL_MODEL", "spark-1-pro")
 
-BATCHES_PER_RUN = max(1, int(os.environ.get("BATCHES_PER_RUN", "3")))
-MAX_PENDING = max(1, int(os.environ.get("MAX_PENDING", "10")))
-STALE_SECONDS = max(300, int(os.environ.get("STALE_SECONDS", "7200")))
-MAX_POLL_ITEMS = max(1, int(os.environ.get("MAX_POLL_ITEMS", "15")))
+POLL_INTERVAL = max(1, int(os.environ.get("POLL_INTERVAL_SEC", "5")))
+MAX_WAIT_SEC = max(60, int(os.environ.get("MAX_WAIT_SEC", "900")))
 
-# Legacy single-run (blocking) timeout — only for mode=legacy
-POLL_INTERVAL = 5
-MAX_WAIT_LEGACY = 900
+# Firecrawl fills job_listings[]; partition key, created_at, scraped_at, and raw are set in normalize_item().
+DEFAULT_PROMPT = (
+    "PRIORITY: Finish within ~10 minutes and use well under ~2000 Firecrawl credits (free tier is ~2500 total—stay frugal). "
+    "Minimize pages, clicks, and follow-up extractions. One search or listing surface is enough; do not deep-crawl or paginate "
+    "beyond what is needed to fill job_listings.\n\n"
+    "IMPORTANT FOR FIRECRAWL: Return immediately with whatever you successfully extracted—partial results are acceptable. "
+    "Do not keep browsing to “perfect” the set. If you have any valid rows, output them in job_listings and complete.\n\n"
+    "Scope: software development, data science, AI, and related tech roles in Bangalore, Hyderabad, Mumbai, or Delhi on naukari , internshala , linkedin , indeed.com "
+    "(or the shallowest single Indeed search/list page you open). Full-time and internships;  experience when visible. "
+    "Every job_listings row MUST include company_logo and job_type (schema required): "
+    "company_logo = https URL string or null if no logo is shown—never omit the key; do not invent URLs. "
+    "job_type = employment type string (e.g. full-time, part-time, contract, internship); if unclear use \"unknown\"—never omit the key. "
+    "Also when shown: job_title, company, skills, location, salary (including “competitive”/“not disclosed”), "
+    "experience_level, description snippet (not full HTML walls), direct_apply_link, source_platform.\n\n"
+    "Cap: prefer at most ~35-40 listings total, last few days only, 1 page per query max, dedupe, then STOP and return structured JSON per schema."
+)
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
-batch_table = dynamodb.Table(BATCH_TABLE_NAME)
-
-# JobFirecrawlBatches: single partition key `id` only (no sort key). No Query on this table.
-BATCH_KEY_MODE_SINGLE = True
-BATCH_PARTITION_KEY = "id"
-
-if BATCH_TABLE_NAME == TABLE_NAME:
-    print("WARNING: FIRECRAWL_BATCH_TABLE is the same as JOBS_TABLE — use a dedicated batch table.")
-
-PK_PENDING = "PENDING"
-PK_META = "META"
-SK_CURSOR = "cursor"
-SINGLE_CURSOR_ITEM_ID = f"{PK_META}#{SK_CURSOR}"
-
-
-def _single_pending_item_id(firecrawl_job_id: str) -> str:
-    return f"{PK_PENDING}#{firecrawl_job_id}"
-
-
-def _firecrawl_id_from_pending_item(item: Dict[str, Any]) -> Optional[str]:
-    raw = item.get(BATCH_PARTITION_KEY)
-    if not isinstance(raw, str):
-        return None
-    pfx = f"{PK_PENDING}#"
-    if raw.startswith(pfx):
-        return raw[len(pfx) :]
-    return None
-
-
-def _key_for_cursor_row() -> Dict[str, str]:
-    return {BATCH_PARTITION_KEY: SINGLE_CURSOR_ITEM_ID}
-
-
-def _key_for_pending_row(firecrawl_job_id: str) -> Dict[str, str]:
-    return {BATCH_PARTITION_KEY: _single_pending_item_id(firecrawl_job_id)}
+logger.info("Configured jobs_table=%s jobs_partition_key=%s", TABLE_NAME, JOBS_PARTITION_KEY)
 
 HEADERS = {
     "Content-Type": "application/json",
@@ -124,239 +99,23 @@ JOB_LISTINGS_SCHEMA: Dict[str, Any] = {
                     "experience": {"type": ["string", "null"]},
                     "description": {"type": ["string", "null"]},
                     "full_description": {"type": ["string", "null"]},
+                    "skills": {"type": ["string", "null"]},
                     "apply_link": {"type": ["string", "null"]},
                     "apply_url": {"type": ["string", "null"]},
                     "direct_apply_link": {"type": ["string", "null"]},
                     "source_platform": {"type": ["string", "null"]},
                     "platform": {"type": ["string", "null"]},
                 },
+                "required": ["company_logo", "job_type", "description"],
             },
         }
     },
     "required": ["job_listings"],
 }
 
-# Small, single-focus prompts: one board (Indeed, Naukri, Internshala, LinkedIn Jobs) + one city/slice;
-# cap volume; discourage deep multi-page crawls.
-SMALL_BATCHES: List[Dict[str, str]] = [
-    {
-        "id": "indeed_blr_sw",
-        "prompt": (
-            "On indeed.com, find up to 15 software developer or engineer job listings in Bangalore, India "
-            "posted in the last 14 days. Use search result snippets only; do not open more than 20 pages total. "
-            "Return: job_title, company, location, salary if shown, job_type, experience_level, short description, "
-            "direct_apply_link, source_platform indeed."
-        ),
-    },
-    {
-        "id": "indeed_hyd_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software or IT job listings in Hyderabad, India, last 14 days. "
-            "Minimal navigation; prefer listing cards. Fields: job_title, company, location, salary, job_type, "
-            "experience_level, description snippet, apply link, source_platform indeed."
-        ),
-    },
-    {
-        "id": "indeed_mum_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software development listings in Mumbai, India, last 14 days. "
-            "Cap browsing; listing-level data only. Same schema fields as prior batches."
-        ),
-    },
-    {
-        "id": "indeed_del_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software or data roles in Delhi NCR, India, last 14 days. "
-            "Keep crawl shallow. Return structured job_listings only."
-        ),
-    },
-    {
-        "id": "indeed_blr_ds",
-        "prompt": (
-            "On indeed.com, up to 12 data science or ML engineer jobs in Bangalore, last 14 days. "
-            "Shallow crawl. Include apply_link and source_platform."
-        ),
-    },
-    {
-        "id": "naukri_blr_sw",
-        "prompt": (
-            "On naukri.com, up to 15 IT-software jobs in Bangalore, last 14 days. "
-            "Stay on search/list pages; avoid visiting every job detail. Standard job fields + source_platform naukri."
-        ),
-    },
-    {
-        "id": "naukri_hyd_sw",
-        "prompt": (
-            "On naukri.com, up to 15 software jobs in Hyderabad, last 14 days. Shallow listing extraction only."
-        ),
-    },
-    {
-        "id": "internshala_tech_in",
-        "prompt": (
-            "On internshala.com, up to 12 active technology internships (software/data) in India, last 30 days. "
-            "List view only where possible. job_type internship; include stipend as salary if shown."
-        ),
-    },
-    {
-        "id": "indeed_pune_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software jobs in Pune, India, last 14 days. Minimal page depth."
-        ),
-    },
-    {
-        "id": "indeed_chennai_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software jobs in Chennai, India, last 14 days. Minimal page depth."
-        ),
-    },
-    {
-        "id": "indeed_blr_product",
-        "prompt": (
-            "On indeed.com, up to 12 product manager or product owner roles in Bangalore, last 14 days. Shallow crawl."
-        ),
-    },
-    {
-        "id": "indeed_design_blr",
-        "prompt": (
-            "On indeed.com, up to 12 UX or UI designer jobs in Bangalore, last 14 days. Shallow crawl."
-        ),
-    },
-    # -------------------------------------------------------------------------
-    # Additional major cities (Indeed)
-    # -------------------------------------------------------------------------
-    {
-        "id": "indeed_kolkata_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software or IT job listings in Kolkata, India, last 14 days. "
-            "Shallow listing extraction. source_platform indeed."
-        ),
-    },
-    {
-        "id": "indeed_ahmedabad_sw",
-        "prompt": (
-            "On indeed.com, up to 15 software or IT jobs in Ahmedabad, Gujarat, India, last 14 days. "
-            "Shallow crawl. source_platform indeed."
-        ),
-    },
-    {
-        "id": "indeed_kochi_sw",
-        "prompt": (
-            "On indeed.com, up to 12 software jobs in Kochi or Ernakulam, Kerala, India, last 14 days. "
-            "Shallow crawl. source_platform indeed."
-        ),
-    },
-    # -------------------------------------------------------------------------
-    # Naukri — more major cities
-    # -------------------------------------------------------------------------
-    {
-        "id": "naukri_mum_sw",
-        "prompt": (
-            "On naukri.com, up to 15 IT-software jobs in Mumbai, last 14 days. List/search pages only; shallow. "
-            "source_platform naukri."
-        ),
-    },
-    {
-        "id": "naukri_del_sw",
-        "prompt": (
-            "On naukri.com, up to 15 IT-software jobs in Delhi or NCR, last 14 days. Shallow listing extraction. "
-            "source_platform naukri."
-        ),
-    },
-    {
-        "id": "naukri_pune_sw",
-        "prompt": (
-            "On naukri.com, up to 15 software jobs in Pune, last 14 days. Shallow. source_platform naukri."
-        ),
-    },
-    {
-        "id": "naukri_chennai_sw",
-        "prompt": (
-            "On naukri.com, up to 15 IT jobs in Chennai, last 14 days. Shallow. source_platform naukri."
-        ),
-    },
-    # -------------------------------------------------------------------------
-    # LinkedIn Jobs — public search, major Indian cities (one city per batch)
-    # -------------------------------------------------------------------------
-    {
-        "id": "linkedin_blr_sw",
-        "prompt": (
-            "On linkedin.com/jobs, search public job listings: up to 12 software engineer or developer roles in "
-            "Bengaluru/Bangalore, India, posted in the last 14 days. Extract from job cards in search results; "
-            "avoid deep multi-page detail crawls (cap ~15 page loads). source_platform linkedin. "
-            "Include job_title, company, location, workplace type if shown, apply or job URL, description snippet."
-        ),
-    },
-    {
-        "id": "linkedin_hyd_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software or engineering jobs in Hyderabad, India, last 14 days. "
-            "Shallow search results only. source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_mum_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software developer or tech jobs in Mumbai, India, last 14 days. "
-            "Shallow listing cards. source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_del_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software or IT jobs in Delhi or NCR, India, last 14 days. "
-            "Shallow crawl from search. source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_pune_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software engineering jobs in Pune, India, last 14 days. "
-            "source_platform linkedin; shallow extraction."
-        ),
-    },
-    {
-        "id": "linkedin_chennai_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 tech/software jobs in Chennai, India, last 14 days. "
-            "source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_kolkata_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software or IT jobs in Kolkata, India, last 14 days. "
-            "source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_ahmedabad_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 12 software or IT jobs in Ahmedabad, India, last 14 days. "
-            "source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_kochi_sw",
-        "prompt": (
-            "On linkedin.com/jobs, up to 10 software jobs in Kochi or Ernakulam, Kerala, India, last 14 days. "
-            "source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_data_blr",
-        "prompt": (
-            "On linkedin.com/jobs, up to 10 data scientist, ML engineer, or AI roles in Bengaluru, India, last 14 days. "
-            "Shallow search results. source_platform linkedin."
-        ),
-    },
-    {
-        "id": "linkedin_product_mum",
-        "prompt": (
-            "On linkedin.com/jobs, up to 10 product manager or product owner roles in Mumbai, India, last 14 days. "
-            "source_platform linkedin."
-        ),
-    },
-]
+LOGO_FIELD_HINT = (
+    " Required keys per row: company_logo (string URL or null), job_type (string, use \"unknown\" if not stated)."
+)
 
 
 def _apply_link(job: Dict[str, Any]) -> str:
@@ -385,45 +144,125 @@ def generate_pk(job: Dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
+_LOGO_BOGUS = frozenset(
+    {"", "null", "none", "undefined", "n/a", "na", "nil", "false", "(null)"}
+)
+
+
+def _normalize_logo_url(candidate: str) -> Optional[str]:
+    s = candidate.strip()
+    if not s or s.lower() in _LOGO_BOGUS:
+        return None
+    if s.startswith("//"):
+        s = "https:" + s
+    if not s.startswith(("http://", "https://")):
+        return None
+    try:
+        parsed = urlparse(s)
+        if not parsed.netloc:
+            return None
+    except Exception:
+        return None
+    return s
+
+
 def _company_logo_url(job: Dict[str, Any]) -> Optional[str]:
-    for key in ("company_logo", "company_logo_url", "logo_url", "employer_logo", "company_image"):
+    """
+    Pick first usable logo URL from common Firecrawl / board fields (Naukri img.naukimg.com, Internshala CDN, etc.).
+    JSON null and string placeholders are ignored.
+    """
+    keys = (
+        "company_logo",
+        "company_logo_url",
+        "logo_url",
+        "employer_logo",
+        "company_image",
+        "brand_logo",
+        "logo",
+        "image_url",
+    )
+    for key in keys:
         v = job.get(key)
-        if isinstance(v, str) and v.strip().startswith(("http://", "https://")):
-            return v.strip()
+        if v is None:
+            continue
+        if isinstance(v, str):
+            norm = _normalize_logo_url(v)
+            if norm:
+                return norm
+            continue
+        if isinstance(v, dict) and isinstance(v.get("url"), str):
+            norm = _normalize_logo_url(v["url"])
+            if norm:
+                return norm
     return None
+
+
+def _skills_text(job: Dict[str, Any]) -> Optional[str]:
+    s = job.get("skills")
+    if isinstance(s, str) and s.strip():
+        return s.strip()
+    if isinstance(s, list):
+        joined = ", ".join(str(x).strip() for x in s if x is not None and str(x).strip())
+        return joined or None
+    return None
+
+
+def _dynamo_serialize_value(obj: Any) -> Any:
+    """DynamoDB (boto3) does not accept plain float; normalize nested maps/lists for put_item."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _dynamo_serialize_value(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_dynamo_serialize_value(x) for x in obj]
+    return obj
 
 
 def normalize_item(job: Dict[str, Any]) -> Dict[str, Any]:
     logo = _company_logo_url(job)
     out: Dict[str, Any] = {
-        "PK": generate_pk(job),
+        JOBS_PARTITION_KEY: generate_pk(job),
         "created_at": int(time.time()),
         "scraped_at": int(time.time()),
         "job_title": job.get("job_title") or job.get("title"),
         "company": job.get("company"),
+        # Canonical image URL for UI (same value mirrored for any consumer expecting *_url)
         "company_logo": logo,
+        "company_logo_url": logo,
         "location": job.get("location"),
         "salary": job.get("salary"),
         "job_type": job.get("job_type") or job.get("employment_type"),
         "experience_level": job.get("experience_level") or job.get("experience"),
         "description": job.get("description") or job.get("full_description"),
+        "skills": _skills_text(job),
         "apply_link": _apply_link(job) or None,
         "source_platform": job.get("source_platform") or job.get("platform"),
-        "raw": job,
+        "raw": _dynamo_serialize_value(job),
     }
     return {k: v for k, v in out.items() if v is not None}
 
 
 def insert_if_new(item: Dict[str, Any]) -> bool:
     try:
+        safe = _dynamo_serialize_value(item)
         table.put_item(
-            Item=item,
-            ConditionExpression="attribute_not_exists(PK)",
+            Item=safe,
+            ConditionExpression="attribute_not_exists(#jobspk)",
+            ExpressionAttributeNames={"#jobspk": JOBS_PARTITION_KEY},
         )
         return True
     except ClientError as e:
-        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+        code = e.response.get("Error", {}).get("Code", "")
+        if code == "ConditionalCheckFailedException":
             return False
+        logger.error(
+            "DynamoDB put_item failed table=%s partition_key_attr=%s value=%s code=%s message=%s",
+            TABLE_NAME,
+            JOBS_PARTITION_KEY,
+            item.get(JOBS_PARTITION_KEY),
+            code,
+            e.response.get("Error", {}).get("Message", str(e)),
+        )
         raise
 
 
@@ -443,120 +282,109 @@ def http_request(url: str, payload: Optional[Dict[str, Any]] = None, timeout: in
             return json.loads(raw.decode("utf-8"))
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace") if e.fp else ""
+        logger.error(
+            "HTTP error method=%s url=%s code=%s reason=%s body_preview=%s",
+            "POST" if payload is not None else "GET",
+            url[:120],
+            e.code,
+            e.reason,
+            (err_body[:500] + "…") if len(err_body) > 500 else err_body,
+        )
         raise RuntimeError(f"HTTP {e.code}: {err_body or e.reason}") from e
+
+
+def _parse_json_if_string(blob: Any) -> Any:
+    if isinstance(blob, str):
+        try:
+            return json.loads(blob)
+        except json.JSONDecodeError:
+            return blob
+    return blob
+
+
+def _coerce_top_level_blob(job_resp: Dict[str, Any]) -> Dict[str, Any]:
+    """Turn Firecrawl GET /agent/{id} payload into a dict we can search for job_listings."""
+    for key in ("data", "result", "output", "extract", "json", "extracted"):
+        blob = job_resp.get(key)
+        if blob is None:
+            continue
+        blob = _parse_json_if_string(blob)
+        if isinstance(blob, dict):
+            return blob
+    return job_resp if isinstance(job_resp, dict) else {}
 
 
 def extract_job_listings_from_completed_payload(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not data:
         return []
+
     nested = data.get("job_listings")
-    if nested is None and isinstance(data.get("data"), dict):
-        nested = data["data"].get("job_listings")
     if isinstance(nested, list):
-        return [x for x in nested if isinstance(x, dict)]
+        out = [x for x in nested if isinstance(x, dict)]
+        if out:
+            return out
+
+    inner = data.get("data")
+    if isinstance(inner, dict):
+        jl = inner.get("job_listings")
+        if isinstance(jl, list):
+            out = [x for x in jl if isinstance(x, dict)]
+            if out:
+                return out
+
+    for alt in ("jobs", "listings", "items", "results"):
+        arr = data.get(alt)
+        if isinstance(arr, list):
+            out = [x for x in arr if isinstance(x, dict)]
+            if out:
+                return out
+
+    for wrap_key in ("json", "extract", "structured", "schema", "output"):
+        block = data.get(wrap_key)
+        block = _parse_json_if_string(block)
+        if isinstance(block, dict):
+            jl = block.get("job_listings") or block.get("jobs")
+            if isinstance(jl, list):
+                out = [x for x in jl if isinstance(x, dict)]
+                if out:
+                    return out
+
     return []
 
 
-def _pending_firecrawl_job_id(item: Dict[str, Any]) -> Optional[str]:
-    return _firecrawl_id_from_pending_item(item)
-
-
-def _dynamo_to_python(obj: Any) -> Any:
-    if isinstance(obj, Decimal):
-        return int(obj) if obj % 1 == 0 else float(obj)
-    if isinstance(obj, dict):
-        return {k: _dynamo_to_python(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_dynamo_to_python(x) for x in obj]
-    return obj
-
-
-def _scan_pending_items(limit: int) -> List[Dict[str, Any]]:
-    """Pending rows: id = PENDING#<firecrawl_job_id>."""
-    out: List[Dict[str, Any]] = []
-    kwargs: Dict[str, Any] = {
-        "FilterExpression": "begins_with(#k, :pfx)",
-        "ExpressionAttributeNames": {"#k": BATCH_PARTITION_KEY},
-        "ExpressionAttributeValues": {":pfx": f"{PK_PENDING}#"},
-    }
-    while len(out) < limit:
-        r = batch_table.scan(**kwargs)
-        for it in r.get("Items", []):
-            out.append(it)
-            if len(out) >= limit:
-                break
-        lek = r.get("LastEvaluatedKey")
-        if not lek:
-            break
-        kwargs["ExclusiveStartKey"] = lek
-    return out
-
-
-def count_pending() -> int:
-    total = 0
-    kwargs: Dict[str, Any] = {
-        "FilterExpression": "begins_with(#k, :pfx)",
-        "ExpressionAttributeNames": {"#k": BATCH_PARTITION_KEY},
-        "ExpressionAttributeValues": {":pfx": f"{PK_PENDING}#"},
-        "Select": "COUNT",
-    }
-    while True:
-        r = batch_table.scan(**kwargs)
-        total += int(r.get("Count", 0))
-        lek = r.get("LastEvaluatedKey")
-        if not lek:
-            break
-        kwargs["ExclusiveStartKey"] = lek
-    return total
-
-
-def get_cursor() -> int:
-    try:
-        r = batch_table.get_item(Key=_key_for_cursor_row())
-        item = r.get("Item")
-        if not item:
-            return 0
-        n = item.get("next_index", 0)
-        if isinstance(n, Decimal):
-            n = int(n)
-        return int(n) % len(SMALL_BATCHES)
-    except ClientError:
-        return 0
-
-
-def set_cursor(idx: int) -> None:
-    item = {
-        **_key_for_cursor_row(),
-        "next_index": idx % len(SMALL_BATCHES),
-        "updated_at": int(time.time()),
-    }
-    batch_table.put_item(Item=item)
-
-
-def put_pending(firecrawl_job_id: str, batch_label: str) -> None:
-    batch_table.put_item(
-        Item={
-            **_key_for_pending_row(firecrawl_job_id),
-            "batch_label": batch_label,
-            "started_at": int(time.time()),
-            "poll_count": 0,
-        }
-    )
-
-
-def delete_pending(firecrawl_job_id: str) -> None:
-    batch_table.delete_item(Key=_key_for_pending_row(firecrawl_job_id))
-
-
-LOGO_FIELD_HINT = (
-    " For each row, include company_logo: a full https URL to the employer logo image when visible on the listing; "
-    "otherwise null. Do not invent URLs."
-)
+def extract_job_listings_from_job_response(job_resp: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Walk Firecrawl agent completion response for job_listings."""
+    root = _coerce_top_level_blob(job_resp)
+    listings = extract_job_listings_from_completed_payload(root)
+    if listings:
+        return listings
+    # Second pass: search one level deeper (e.g. data.extract)
+    for key in ("data", "result", "output"):
+        blob = job_resp.get(key)
+        blob = _parse_json_if_string(blob)
+        if isinstance(blob, dict):
+            listings = extract_job_listings_from_completed_payload(blob)
+            if listings:
+                return listings
+            for inner_key in ("json", "extract", "data"):
+                inner = _parse_json_if_string(blob.get(inner_key))
+                if isinstance(inner, dict):
+                    listings = extract_job_listings_from_completed_payload(inner)
+                    if listings:
+                        return listings
+    return []
 
 
 def start_agent_job(prompt: str) -> str:
     if not FIRECRAWL_API_KEY:
+        logger.error("FIRECRAWL_API_KEY is not set")
         raise RuntimeError("FIRECRAWL_API_KEY is not set")
+    logger.info(
+        "Firecrawl agent start url=%s model=%s prompt_chars=%s",
+        AGENT_URL,
+        FIRECRAWL_MODEL or "(default)",
+        len(prompt) + len(LOGO_FIELD_HINT),
+    )
     body: Dict[str, Any] = {
         "prompt": prompt.strip() + LOGO_FIELD_HINT,
         "schema": JOB_LISTINGS_SCHEMA,
@@ -566,15 +394,13 @@ def start_agent_job(prompt: str) -> str:
     start_resp = http_request(AGENT_URL, body, timeout=120)
     job_id = start_resp.get("id") if isinstance(start_resp, dict) else None
     if not job_id:
+        logger.error("Firecrawl start response missing id: %s", json.dumps(start_resp, default=str)[:2000])
         raise RuntimeError(f"Firecrawl did not return job id: {json.dumps(start_resp, default=str)[:2000]}")
+    logger.info("Firecrawl job created job_id=%s", job_id)
     return str(job_id)
 
 
 def poll_one_firecrawl_job(firecrawl_job_id: str) -> Tuple[str, Optional[Dict[str, Any]]]:
-    """
-    Returns (status, payload_or_none).
-    status in: completed, failed, running, unknown
-    """
     job_resp = http_request(f"{AGENT_URL}/{firecrawl_job_id}", None, timeout=90)
     status = (job_resp.get("status") or "").lower() if isinstance(job_resp, dict) else "unknown"
     if status == "completed":
@@ -587,22 +413,15 @@ def poll_one_firecrawl_job(firecrawl_job_id: str) -> Tuple[str, Optional[Dict[st
 
 
 def ingest_listings_from_response(job_resp: Dict[str, Any]) -> Tuple[int, int]:
-    data = (
-        job_resp.get("data")
-        or job_resp.get("result")
-        or job_resp.get("output")
-        or {}
-    )
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except json.JSONDecodeError:
-            data = {}
-    if not isinstance(data, dict):
-        data = {}
-    listings = extract_job_listings_from_completed_payload(data)
+    listings = extract_job_listings_from_job_response(job_resp)
     if not listings:
-        listings = extract_job_listings_from_completed_payload(job_resp)
+        keys = list(job_resp.keys()) if isinstance(job_resp, dict) else []
+        snippet = json.dumps(job_resp, default=str)[:2500]
+        logger.warning(
+            "Ingest: no job_listings extracted from Firecrawl payload top_level_keys=%s response_snippet=%s",
+            keys,
+            snippet,
+        )
     inserted = 0
     skipped = 0
     for job in listings:
@@ -611,211 +430,160 @@ def ingest_listings_from_response(job_resp: Dict[str, Any]) -> Tuple[int, int]:
             inserted += 1
         else:
             skipped += 1
+    logger.info(
+        "Ingest complete table=%s listings_extracted=%s newly_inserted=%s skipped_duplicates=%s",
+        TABLE_NAME,
+        len(listings),
+        inserted,
+        skipped,
+    )
     return inserted, skipped
 
 
-def handle_start() -> Dict[str, Any]:
-    pending_n = count_pending()
-    if pending_n >= MAX_PENDING:
-        return {
-            "success": True,
-            "skipped": True,
-            "reason": f"Already {pending_n} pending Firecrawl jobs (max {MAX_PENDING})",
-            "pending_count": pending_n,
-        }
-
-    slots = min(BATCHES_PER_RUN, MAX_PENDING - pending_n)
-    cursor = get_cursor()
-    started: List[Dict[str, str]] = []
-    errors: List[str] = []
-
-    for i in range(slots):
-        idx = (cursor + i) % len(SMALL_BATCHES)
-        batch = SMALL_BATCHES[idx]
-        try:
-            jid = start_agent_job(batch["prompt"])
-            put_pending(jid, batch["id"])
-            started.append({"batch_id": batch["id"], "firecrawl_job_id": jid})
-            print(f"Started batch {batch['id']} -> Firecrawl id {jid}")
-        except Exception as e:
-            err = f"{batch['id']}: {e}"
-            print("ERROR", err)
-            errors.append(err)
-
-    new_cursor = (cursor + slots) % len(SMALL_BATCHES)
-    set_cursor(new_cursor)
-
-    return {
-        "success": True,
-        "mode": "start",
-        "started": started,
-        "errors": errors,
-        "cursor_next": new_cursor,
-        "pending_after": count_pending(),
-    }
+def resolve_prompt(event: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+    if isinstance(event, dict):
+        p = event.get("prompt")
+        if isinstance(p, str) and p.strip():
+            return p.strip(), "event.prompt"
+    env_p = os.environ.get("FIRECRAWL_PROMPT", "").strip()
+    if env_p:
+        return env_p, "env.FIRECRAWL_PROMPT"
+    return DEFAULT_PROMPT, "DEFAULT_PROMPT"
 
 
-def handle_poll() -> Dict[str, Any]:
-    if _batch_key_mode_single():
-        raw_items = _scan_pending_items_single(MAX_POLL_ITEMS)
-    else:
-        r = batch_table.query(
-            KeyConditionExpression=Key(BATCH_PARTITION_KEY).eq(PK_PENDING),
-            Limit=MAX_POLL_ITEMS,
-        )
-        raw_items = r.get("Items", [])
-    now = int(time.time())
-    results: List[Dict[str, Any]] = []
-
-    for raw in raw_items:
-        item = _dynamo_to_python(raw)
-        sk = _pending_firecrawl_job_id(item)
-        if not sk:
-            continue
-        started_at = int(item.get("started_at", 0))
-        poll_count = int(item.get("poll_count", 0))
-
-        if now - started_at > STALE_SECONDS:
-            print(f"Dropping stale pending job {sk} (age {now - started_at}s)")
-            delete_pending(sk)
-            results.append({"firecrawl_job_id": sk, "action": "dropped_stale"})
-            continue
-
-        try:
-            status, payload = poll_one_firecrawl_job(sk)
-        except Exception as e:
-            print(f"Poll error for {sk}: {e}")
-            batch_table.update_item(
-                Key=_key_for_pending_row(sk),
-                UpdateExpression="SET poll_count = poll_count + :one, last_error = :err",
-                ExpressionAttributeValues={":one": 1, ":err": str(e)[:500]},
-            )
-            results.append({"firecrawl_job_id": sk, "action": "poll_error", "error": str(e)[:200]})
-            continue
-
-        if status == "completed" and payload:
-            ins, skp = ingest_listings_from_response(payload)
-            delete_pending(sk)
-            results.append(
-                {
-                    "firecrawl_job_id": sk,
-                    "action": "completed",
-                    "inserted": ins,
-                    "skipped_duplicates": skp,
-                    "batch_label": item.get("batch_label"),
-                }
-            )
-        elif status == "failed":
-            err = payload.get("error") if isinstance(payload, dict) else None
-            print(f"Firecrawl failed {sk}: {err}")
-            delete_pending(sk)
-            results.append({"firecrawl_job_id": sk, "action": "failed", "error": str(err)[:300]})
-        else:
-            batch_table.update_item(
-                Key=_key_for_pending_row(sk),
-                UpdateExpression="SET poll_count = poll_count + :one, last_status = :st",
-                ExpressionAttributeValues={":one": 1, ":st": status[:100]},
-            )
-            results.append({"firecrawl_job_id": sk, "action": "still_running", "status": status, "poll_count": poll_count + 1})
-
-    return {
-        "success": True,
-        "mode": "poll",
-        "processed": len(results),
-        "results": results,
-        "remaining_pending": count_pending(),
-    }
-
-
-def run_firecrawl_agent_with_poll_legacy() -> List[Dict[str, Any]]:
-    """Original single huge prompt + block up to 15 min (emergency only)."""
-    if not FIRECRAWL_API_KEY:
-        raise RuntimeError("FIRECRAWL_API_KEY is not set")
-    big_prompt = (
-        "Extract job listings across India from Indeed, Internshala, Naukri. "
-        "Software, data, AI, design roles in Bangalore, Hyderabad, Mumbai, Delhi. "
-        "Up to 2 pages per query. Full fields + apply link."
+def run_sync_fetch_and_ingest(
+    event: Optional[Dict[str, Any]] = None,
+    context: Any = None,
+) -> Dict[str, Any]:
+    prompt, prompt_source = resolve_prompt(event)
+    logger.info(
+        "Run started prompt_source=%s prompt_length=%s table=%s partition_key=%s max_wait_sec=%s poll_interval_sec=%s",
+        prompt_source,
+        len(prompt),
+        TABLE_NAME,
+        JOBS_PARTITION_KEY,
+        MAX_WAIT_SEC,
+        POLL_INTERVAL,
     )
-    body: Dict[str, Any] = {
-        "prompt": big_prompt.strip() + LOGO_FIELD_HINT,
-        "schema": JOB_LISTINGS_SCHEMA,
-    }
-    if FIRECRAWL_MODEL:
-        body["model"] = FIRECRAWL_MODEL
-    start_resp = http_request(AGENT_URL, body, timeout=120)
-    job_id = start_resp.get("id") if isinstance(start_resp, dict) else None
-    if not job_id:
-        raise RuntimeError(f"Firecrawl did not return job id: {json.dumps(start_resp, default=str)[:2000]}")
 
-    start_time = time.time()
-    while time.time() - start_time < MAX_WAIT_LEGACY:
+    job_id = start_agent_job(prompt)
+    t0 = time.time()
+    last_status = "started"
+    last_logged_status: Optional[str] = None
+    last_log_ts = t0
+    poll_round = 0
+
+    while time.time() - t0 < MAX_WAIT_SEC:
         time.sleep(POLL_INTERVAL)
-        st, payload = poll_one_firecrawl_job(str(job_id))
+        poll_round += 1
+        st, payload = poll_one_firecrawl_job(job_id)
+        last_status = st
+        now = time.time()
+        elapsed = int(now - t0)
+        rem_fn = getattr(context, "get_remaining_time_in_millis", None) if context is not None else None
+        rem_lambda_ms = rem_fn() if callable(rem_fn) else None
+        if rem_lambda_ms is not None and rem_lambda_ms < 30_000:
+            logger.warning(
+                "Lambda time running low job_id=%s remaining_ms=%s elapsed_sec=%s status=%s",
+                job_id,
+                rem_lambda_ms,
+                elapsed,
+                st,
+            )
+        if st != last_logged_status or (now - last_log_ts) >= 60:
+            logger.info(
+                "Poll job_id=%s status=%s round=%s elapsed_sec=%s",
+                job_id,
+                st,
+                poll_round,
+                elapsed,
+            )
+            last_logged_status = st
+            last_log_ts = now
+
         if st == "completed" and payload:
-            data = payload.get("data") or payload.get("result") or payload.get("output") or {}
-            if isinstance(data, str):
-                try:
-                    data = json.loads(data)
-                except json.JSONDecodeError:
-                    data = {}
-            if not isinstance(data, dict):
-                data = {}
-            listings = extract_job_listings_from_completed_payload(data)
-            if not listings:
-                listings = extract_job_listings_from_completed_payload(payload)
-            return listings
+            logger.info("Firecrawl completed job_id=%s elapsed_sec=%s", job_id, elapsed)
+            inserted, skipped = ingest_listings_from_response(payload)
+            total = inserted + skipped
+            out: Dict[str, Any] = {
+                "success": True,
+                "firecrawl_job_id": job_id,
+                "total_listings_parsed": total,
+                "newly_inserted": inserted,
+                "skipped_duplicates": skipped,
+                "elapsed_sec": elapsed,
+                "last_status": st,
+                "prompt_source": prompt_source,
+            }
+            if total == 0:
+                out["ingest_note"] = (
+                    "Firecrawl returned completed but no job_listings were found in the payload; "
+                    "see CloudWatch WARNING log 'Ingest: no job_listings extracted' for payload snippet."
+                )
+                logger.warning(
+                    "Completed with zero listings job_id=%s — check ingest extraction logs above",
+                    job_id,
+                )
+            else:
+                logger.info(
+                    "Run finished OK job_id=%s inserted=%s skipped_duplicates=%s",
+                    job_id,
+                    inserted,
+                    skipped,
+                )
+            return out
         if st == "failed":
             err = payload.get("error") if isinstance(payload, dict) else None
-            raise RuntimeError(f"Firecrawl job FAILED: {err or payload}")
+            logger.error("Firecrawl job failed job_id=%s error=%s", job_id, err or payload)
+            raise RuntimeError(f"Firecrawl job failed: {err or payload}")
 
-    raise TimeoutError(f"Firecrawl job did not complete within {MAX_WAIT_LEGACY} seconds")
+    logger.error(
+        "Firecrawl poll timeout job_id=%s max_wait_sec=%s last_status=%s polls=%s",
+        job_id,
+        MAX_WAIT_SEC,
+        last_status,
+        poll_round,
+    )
+    raise TimeoutError(
+        f"Firecrawl job {job_id} did not complete within {MAX_WAIT_SEC}s (last_status={last_status})"
+    )
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    mode = (
-        (event.get("mode") if isinstance(event, dict) else None)
-        or os.environ.get("HANDLER_MODE", "start")
+    request_id = getattr(context, "aws_request_id", None) or "local"
+    logger.info(
+        "========== fetch_jobs_firecrawl request_id=%s ==========",
+        request_id,
     )
-    mode = str(mode).lower().strip()
-    print("========== fetch_jobs_firecrawl ==========")
-    print("mode:", mode)
-    print("Event:", json.dumps(event, default=str)[:2000])
+    if isinstance(event, dict):
+        logger.info(
+            "Event summary keys=%s detail_type=%s source=%s",
+            list(event.keys()),
+            event.get("detail-type") or event.get("detail_type"),
+            event.get("source"),
+        )
+        logger.debug("Event body=%s", json.dumps(event, default=str)[:4000])
+    else:
+        logger.info("Event type=%s", type(event).__name__)
 
     try:
-        if mode == "poll":
-            body = handle_poll()
-            return {"statusCode": 200, "body": json.dumps(body, default=str)}
-
-        if mode == "legacy":
-            listings = run_firecrawl_agent_with_poll_legacy()
-            inserted = skipped = 0
-            for job in listings:
-                item = normalize_item(job)
-                if insert_if_new(item):
-                    inserted += 1
-                else:
-                    skipped += 1
-            return {
-                "statusCode": 200,
-                "body": json.dumps(
-                    {
-                        "success": True,
-                        "mode": "legacy",
-                        "total_fetched": len(listings),
-                        "newly_inserted": inserted,
-                        "already_existing": skipped,
-                        "table": TABLE_NAME,
-                    }
-                ),
-            }
-
-        # default: start
-        body = handle_start()
+        body = run_sync_fetch_and_ingest(
+            event if isinstance(event, dict) else None,
+            context=context,
+        )
+        body["table"] = TABLE_NAME
+        body["request_id"] = request_id
+        logger.info("Lambda success request_id=%s firecrawl_job_id=%s", request_id, body.get("firecrawl_job_id"))
         return {"statusCode": 200, "body": json.dumps(body, default=str)}
-
     except Exception as exc:
-        print("Error:", str(exc))
+        logger.exception("Lambda failed request_id=%s error=%s", request_id, exc)
         return {
             "statusCode": 500,
-            "body": json.dumps({"success": False, "error": str(exc), "mode": mode}),
+            "body": json.dumps(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "request_id": request_id,
+                }
+            ),
         }

@@ -853,10 +853,13 @@ export interface JobListing {
   job_type?: string;
   experience_level?: string;
   description?: string;
+  skills?: string;
   apply_link?: string;
   source_platform?: string;
   scraped_at?: number;
   created_at?: number;
+  /** Present when GET includes `userId` — whether this job is saved for that user */
+  saved?: boolean;
 }
 
 export interface FetchJobsResponse {
@@ -875,24 +878,51 @@ export interface FetchJobsResponse {
 }
 
 const mapJobRow = (row: Record<string, unknown>): JobListing => ({
-  id: String(row.PK ?? row.pk ?? ''),
+  id: String(row.id ?? row.PK ?? row.pk ?? ''),
   job_title: row.job_title != null ? String(row.job_title) : undefined,
   company: row.company != null ? String(row.company) : undefined,
-  company_logo: row.company_logo != null ? String(row.company_logo) : undefined,
+  company_logo:
+    row.company_logo != null
+      ? String(row.company_logo)
+      : row.company_logo_url != null
+        ? String(row.company_logo_url)
+        : row.logo_url != null
+          ? String(row.logo_url)
+          : undefined,
   location: row.location != null ? String(row.location) : undefined,
   salary: row.salary != null ? String(row.salary) : undefined,
   job_type: row.job_type != null ? String(row.job_type) : undefined,
   experience_level: row.experience_level != null ? String(row.experience_level) : undefined,
   description: row.description != null ? String(row.description) : undefined,
+  skills: row.skills != null ? String(row.skills) : undefined,
   apply_link: row.apply_link != null ? String(row.apply_link) : undefined,
   source_platform: row.source_platform != null ? String(row.source_platform) : undefined,
   scraped_at: typeof row.scraped_at === 'number' ? row.scraped_at : undefined,
   created_at: typeof row.created_at === 'number' ? row.created_at : undefined,
+  saved: typeof row.saved === 'boolean' ? row.saved : undefined,
 });
+
+/** Buyer `userId` from `localStorage` `userData` (same as App login). */
+export function getJobHuntUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('userData');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { userId?: string };
+    const id = parsed.userId?.trim();
+    return id || null;
+  } catch {
+    return null;
+  }
+}
 
 export interface FetchJobsOptions {
   limit?: number;
   offset?: number;
+  /** When set, each job may include `saved` and server tracks bookmarks */
+  userId?: string;
+  /** Only jobs saved for `userId` (requires `userId`) */
+  savedOnly?: boolean;
 }
 
 export const fetchJobs = async (options: FetchJobsOptions = {}): Promise<FetchJobsResponse> => {
@@ -906,10 +936,12 @@ export const fetchJobs = async (options: FetchJobsOptions = {}): Promise<FetchJo
     };
   }
   try {
-    const { limit = 12, offset = 0 } = options;
+    const { limit = 12, offset = 0, userId, savedOnly } = options;
     const query = new URLSearchParams();
     query.set('limit', String(limit));
     query.set('offset', String(offset));
+    if (userId?.trim()) query.set('userId', userId.trim());
+    if (savedOnly && userId?.trim()) query.set('saved_only', '1');
     const url = `${FETCH_JOBS_ENDPOINT}?${query.toString()}`;
     const response = await fetch(url, {
       method: 'GET',
@@ -993,6 +1025,72 @@ export const fetchJobs = async (options: FetchJobsOptions = {}): Promise<FetchJo
       error: {
         code: 'NETWORK_ERROR',
         message: error instanceof Error ? error.message : 'Failed to fetch jobs',
+      },
+    };
+  }
+};
+
+export interface ToggleJobSaveResult {
+  success: boolean;
+  error?: { code: string; message: string };
+}
+
+/** POST `{ userId, jobId, save }` to the jobs API — persists saved jobs in DynamoDB */
+export const toggleJobSave = async (
+  userId: string,
+  jobId: string,
+  save: boolean
+): Promise<ToggleJobSaveResult> => {
+  if (!FETCH_JOBS_ENDPOINT) {
+    return {
+      success: false,
+      error: {
+        code: 'MISSING_CONFIG',
+        message: 'Set VITE_GET_JOBS_DETAILS_URL to your get_job_details API URL.',
+      },
+    };
+  }
+  try {
+    const response = await fetch(FETCH_JOBS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, jobId, save }),
+    });
+    const rawText = await response.text();
+    let data: unknown;
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: 'Jobs API did not return valid JSON.',
+        },
+      };
+    }
+    if (typeof data !== 'object' || data === null) {
+      return {
+        success: false,
+        error: { code: 'INVALID_RESPONSE', message: 'Unexpected jobs API response shape.' },
+      };
+    }
+    const dataObj = data as Record<string, unknown>;
+    if (!response.ok || dataObj.success === false) {
+      const errMsg =
+        typeof dataObj.error === 'string'
+          ? dataObj.error
+          : (dataObj.error as { message?: string })?.message || `HTTP ${response.status}`;
+      return { success: false, error: { code: 'API_ERROR', message: errMsg } };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling job save:', error);
+    return {
+      success: false,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to update saved job',
       },
     };
   }
