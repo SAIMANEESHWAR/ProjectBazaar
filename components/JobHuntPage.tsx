@@ -13,7 +13,6 @@ import {
 import Pagination from './Pagination';
 import { fetchJobs, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
 import type { JobListing } from '../services/buyerApi';
-import { HoverBorderGradient } from '@/components/ui/hover-border-gradient';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 
@@ -592,81 +591,98 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   if (queryLoc.trim()) filterSummaryParts.push(queryLoc.trim());
 
   return (
-    <div className="mt-4 sm:mt-8 -mx-1 sm:mx-0 rounded-2xl bg-gray-50/80 p-4 sm:p-6 lg:p-8">
-      {/* Search strip — JobSpot-style neutral */}
-      <section className="mb-8 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          {toggleSidebar && (
+    <>
+    <div className="mt-3 sm:mt-6 -mx-1 sm:mx-0 space-y-4 sm:space-y-5">
+      {/* Dark hero + pill search (reference-style) */}
+      <section className="relative overflow-hidden rounded-2xl bg-black px-4 py-6 text-white shadow-xl sm:rounded-3xl sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0c1829] via-black to-black"
+          aria-hidden
+        />
+        <div className="pointer-events-none absolute -right-20 top-1/2 h-52 w-52 -translate-y-1/2 rounded-full bg-orange-500/25 blur-3xl sm:right-0" />
+        <div className="relative">
+          <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+            {toggleSidebar ? (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="rounded-lg border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10 lg:hidden"
+                aria-label="Toggle sidebar"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            ) : null}
+            <p className="min-w-0 flex-1 text-sm text-white/60">
+              Curated from major job boards — synced on a schedule.
+              {huntUserId ? (
+                <span className="mt-0.5 block text-xs text-white/45 sm:inline sm:before:content-['·_']">
+                  Saves sync to your account.
+                </span>
+              ) : null}
+            </p>
             <button
               type="button"
-              onClick={toggleSidebar}
-              className="lg:hidden rounded-lg border border-gray-200 p-2 text-gray-700 hover:bg-gray-50"
-              aria-label="Toggle sidebar"
+              onClick={() => void loadPage('refresh')}
+              disabled={isLoading || isRefreshing}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+              aria-label="Refresh listings from server"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <RefreshCw
+                className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                aria-hidden
+              />
+              Refresh
             </button>
-          )}
-          <p className="min-w-0 flex-1 text-sm text-gray-500">
-            Curated from major job boards — synced on a schedule.
-            {huntUserId ? (
-              <span className="block text-xs text-gray-400 sm:mt-0.5 sm:inline sm:before:content-['·_']">
-                Saves sync to your account.
-              </span>
-            ) : null}
-          </p>
-          <button
-            type="button"
-            onClick={() => void loadPage('refresh')}
-            disabled={isLoading || isRefreshing}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Refresh listings from server"
-          >
-            <RefreshCw
-              className={`h-4 w-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`}
-              aria-hidden
-            />
-            Refresh
-          </button>
-        </div>
+          </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-          <label className="flex flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3.5 transition-colors focus-within:border-gray-300 focus-within:bg-white">
-            <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
-            <input
-              type="search"
-              placeholder="Job title, keywords"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-            />
-          </label>
-          <label className="flex flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3.5 transition-colors focus-within:border-gray-300 focus-within:bg-white">
-            <MapPin className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
-            <input
-              type="search"
-              placeholder="City, country, or remote"
-              value={locDraft}
-              onChange={(e) => setLocDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-            />
-          </label>
-          <div className="flex shrink-0 items-center justify-stretch lg:justify-center">
-            <HoverBorderGradient
-              as="button"
+          <div className="mb-5 max-w-xl sm:mb-6">
+            <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
+              Find Your Dream Job Here
+            </h1>
+            <p className="mt-2 text-xs text-white/55 sm:text-sm">
+              Search roles from top boards in one place — filter by location and keywords.
+            </p>
+          </div>
+
+          <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
+            <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:pl-1 sm:py-2">
+              <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+              <input
+                type="search"
+                placeholder="Job title or keyword"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              />
+            </label>
+            <div className="hidden h-7 w-px shrink-0 self-center bg-gray-200 sm:block" />
+            <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:py-2">
+              <MapPin className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+              <input
+                type="search"
+                placeholder="Add country or city"
+                value={locDraft}
+                onChange={(e) => setLocDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              />
+            </label>
+            <button
+              type="button"
               onClick={runSearch}
-              containerClassName="rounded-xl w-full lg:w-auto min-w-[140px]"
-              className="flex w-full items-center justify-center gap-2 bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-sm lg:w-auto"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 sm:rounded-full sm:px-7 sm:py-2.5"
             >
-              <Search className="h-4 w-4 opacity-90" />
-              Find jobs
-            </HoverBorderGradient>
+              <Search className="h-4 w-4 shrink-0 opacity-95" aria-hidden />
+              Search
+            </button>
           </div>
         </div>
       </section>
+
+      <div className="rounded-2xl bg-gray-50/80 p-4 sm:p-6 lg:p-8">
 
       {isLoading && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
@@ -1004,6 +1020,9 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
         </>
       )}
 
+      </div>
+    </div>
+
       {detailSelection ? (
         <JobDetailPanel
           job={detailSelection.job}
@@ -1013,7 +1032,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           openApply={openApply}
         />
       ) : null}
-    </div>
+    </>
   );
 };
 
