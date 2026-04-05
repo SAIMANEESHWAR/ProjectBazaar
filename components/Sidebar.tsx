@@ -7,18 +7,7 @@ import { useDashboard } from '../context/DashboardContext';
 import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
-
-const LogoIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M14.293 3.293L12 1.00001L3.29297 9.70704C3.10547 9.89454 3.00006 10.149 3.00006 10.414V20C3.00006 20.552 3.44806 21 4.00006 21H12V13H14V21H20C20.552 21 21 20.552 21 20V10.414C21 10.149 20.8946 9.89452 20.7071 9.70702L14.293 3.293Z" fill="url(#paint0_linear_sidebar)" />
-        <defs>
-            <linearGradient id="paint0_linear_sidebar" x1="3" y1="1" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#F97316" />
-                <stop offset="1" stopColor="#EA580C" />
-            </linearGradient>
-        </defs>
-    </svg>
-);
+import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 
 const DashboardIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
 const ProjectsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>;
@@ -227,10 +216,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
             >
                 {/* Header: logo + manual collapse/expand (desktop) */}
                 {isExpanded ? (
-                    <div className={`flex h-16 shrink-0 items-center gap-2 border-b px-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}>
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <LogoIcon />
-                            <span className={`truncate text-lg font-bold transition-colors duration-300 ${isDark ? 'text-white' : ''}`}>CodeXCareer</span>
+                    <div
+                        className={`relative z-10 flex h-16 shrink-0 items-center gap-2 overflow-visible border-b px-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}
+                    >
+                        <div className="flex min-w-0 flex-1 items-center justify-start overflow-visible">
+                            <img
+                                src={CODEXCAREER_LOGO_SRC}
+                                alt="CodeXCareer"
+                                width={960}
+                                height={192}
+                                className="pointer-events-none block h-[216px] w-auto max-w-[calc(100%-2.75rem)] origin-left object-contain object-left -my-[76px]"
+                            />
                         </div>
                         <button
                             type="button"
@@ -243,9 +239,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </button>
                     </div>
                 ) : (
-                    <div className={`flex shrink-0 flex-col items-center gap-2 border-b py-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}>
-                        <div className="flex justify-center">
-                            <LogoIcon />
+                    <div
+                        className={`relative z-10 flex shrink-0 flex-col items-center gap-2 border-b py-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}
+                    >
+                        <div
+                            className="flex w-full justify-center px-1"
+                            role="img"
+                            aria-label="CodeXCareer"
+                            title="CodeXCareer"
+                        >
+                            <span
+                                className={`select-none text-center text-base font-extrabold leading-none tracking-tight sm:text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}
+                            >
+                                <span className={isDark ? 'text-white' : 'text-gray-900'}>c</span>
+                                <span className="text-[#ff7a00]">X</span>
+                                <span className={isDark ? 'text-white' : 'text-gray-900'}>c</span>
+                            </span>
                         </div>
                         <button
                             type="button"

@@ -1,18 +1,6 @@
 import React from 'react';
 import { useNavigation } from '../App';
-
-const LogoIcon: React.FC = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="3" width="18" height="18" rx="4" fill="url(#footer-logo-gradient)" />
-    <path d="M8 12h8M12 8v8" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    <defs>
-      <linearGradient id="footer-logo-gradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#ff7a00" />
-        <stop offset="1" stopColor="#ff9533" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
+import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 
 const SocialIcon: React.FC<{ href: string; children: React.ReactNode; label: string }> = ({ href, children, label }) => (
   <a
@@ -40,9 +28,14 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-12 lg:gap-x-8">
           {/* Logo and description */}
           <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-3">
-              <LogoIcon />
-              <span className="text-2xl md:text-3xl font-bold tracking-tight">CodeXCareer</span>
+            <div className="flex items-center">
+              <img
+                src={CODEXCAREER_LOGO_SRC}
+                alt="CodeXCareer — codexcareer, CODE • LEARN • LAUNCH"
+                width={260}
+                height={56}
+                className="h-11 w-auto max-w-full object-contain object-left md:h-12"
+              />
             </div>
             <p className="text-base md:text-lg leading-relaxed text-[#666] max-w-[280px]">
               The ultimate marketplace for projects, ideas, and collaborations. Discover, build, and earn.
