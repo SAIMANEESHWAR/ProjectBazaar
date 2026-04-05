@@ -257,7 +257,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         if (dashboardMode === 'preparation' && activeView === 'live-mock-interview') {
             setActiveView('prep-hub');
         }
-        if (dashboardMode === 'jobHunt' && activeView !== 'job-hunt') {
+        const jobHuntAllowedViews: DashboardView[] = ['job-hunt', 'settings', 'live-peer-requests'];
+        if (dashboardMode === 'jobHunt' && !jobHuntAllowedViews.includes(activeView)) {
             setActiveView('job-hunt');
         }
     }, [dashboardMode, activeView, setActiveView]);
@@ -848,6 +849,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
     const renderJobHuntContent = () => {
         switch (activeView) {
+            case 'settings':
+                return <SettingsPage />;
             case 'live-peer-requests':
                 return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'job-hunt':

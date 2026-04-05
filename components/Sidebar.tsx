@@ -517,28 +517,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     {isExpanded ? (
                         <div className={`flex items-center p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>
                             <button
-                                onClick={() => setActiveView('settings')}
-                                className="relative flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                type="button"
+                                onClick={() => {
+                                    setActiveView('settings');
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
+                                className="relative flex min-w-0 flex-1 cursor-pointer items-center text-left transition-opacity hover:opacity-90"
                             >
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
-                                    {userProfileImage ? (
-                                        <img
-                                            src={userProfileImage}
-                                            alt="Profile"
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                <span className="relative flex-shrink-0">
+                                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-sm font-bold text-white">
+                                        {userProfileImage ? (
+                                            <img
+                                                src={userProfileImage}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                        )}
+                                    </span>
+                                    {userProfileImage && (
+                                        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
                                     )}
-                                </div>
-                                {userProfileImage && (
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
-                                )}
+                                </span>
+                                <span className="ml-3 min-w-0 flex-1">
+                                    <span className={`block truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                        {userFullName || 'User'}
+                                    </span>
+                                    <span className={`block truncate text-xs ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>
+                                        {userEmail ?? 'user@example.com'}
+                                    </span>
+                                </span>
                             </button>
-                            <div className="ml-3 flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{userFullName || 'User'}</p>
-                                <p className={`text-xs truncate ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>{userEmail ?? 'user@example.com'}</p>
-                            </div>
                             <button
                                 onClick={logout}
                                 className={`ml-2 p-2 rounded-full flex-shrink-0 relative group ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
@@ -554,7 +564,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     ) : (
                         <div className="flex flex-col items-center gap-2">
                             <button
-                                onClick={() => setActiveView('settings')}
+                                type="button"
+                                onClick={() => {
+                                    setActiveView('settings');
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
                                 className="relative cursor-pointer hover:opacity-80 transition-opacity group"
                             >
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">

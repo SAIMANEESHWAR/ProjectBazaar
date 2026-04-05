@@ -765,15 +765,15 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
     <>
     <div className="mt-3 sm:mt-6 -mx-1 sm:mx-0 space-y-4 sm:space-y-5">
       {/* Dark hero + pill search (reference-style) */}
-      <section className="relative overflow-hidden rounded-2xl bg-black px-4 py-6 text-white shadow-xl sm:rounded-3xl sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+      <section className="relative overflow-hidden rounded-2xl bg-black px-5 py-8 text-white shadow-xl sm:rounded-3xl sm:px-7 sm:py-9 lg:px-10 lg:py-10">
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0c1829] via-black to-black"
           aria-hidden
         />
-        <div className="pointer-events-none absolute right-0 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-orange-500/18 blur-3xl lg:right-[2%]" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-start lg:gap-6 xl:gap-8">
-          <div className="min-w-0 w-full max-w-xl lg:max-w-[min(100%,28rem)] xl:max-w-[32rem] shrink-0">
-            <div className="mb-3 flex flex-wrap items-center gap-2 sm:gap-3 lg:mb-4">
+        <div className="pointer-events-none absolute right-0 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-orange-500/18 blur-3xl lg:right-[3%]" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-6 xl:gap-7">
+          <div className="flex min-w-0 w-full max-w-xl shrink-0 flex-col gap-4 sm:gap-5 lg:max-w-[min(100%,30rem)] xl:max-w-[32rem]">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {toggleSidebar ? (
                 <button
                   type="button"
@@ -788,17 +788,21 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               ) : null}
             </div>
 
-            <div className="mb-4 sm:mb-5">
-              <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Find Your Dream Job Here
+            <div className="space-y-3 text-left sm:space-y-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-500 sm:text-xs sm:tracking-[0.22em]">
+                AI-powered matching
+              </p>
+              <h1 className="text-2xl font-bold leading-[1.12] tracking-tight text-white sm:text-3xl lg:text-4xl xl:text-[2.5rem] xl:leading-[1.1]">
+                <span className="block">Find your perfect job</span>
+                <span className="block">with smarter search</span>
               </h1>
-              <p className="mt-2 text-xs text-white/55 sm:text-sm">
+              <p className="max-w-xl text-xs leading-relaxed text-white/55 sm:text-sm">
                 Search roles from top boards in one place — filter by location and keywords.
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
-              <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:pl-1 sm:py-2">
+            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1.5 sm:pl-5 sm:pr-1.5 sm:shadow-xl">
+              <label className="flex min-h-[44px] min-w-0 flex-1 cursor-text items-center gap-3 px-3 sm:min-h-0 sm:px-2 sm:py-2.5 sm:pl-3">
                 <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
                 <input
                   type="search"
@@ -809,8 +813,8 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                   className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
                 />
               </label>
-              <div className="hidden h-7 w-px shrink-0 self-center bg-gray-200 sm:block" />
-              <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:py-2">
+              <div className="hidden h-8 w-px shrink-0 self-center bg-gray-200 sm:block" />
+              <label className="flex min-h-[44px] min-w-0 flex-1 cursor-text items-center gap-3 px-3 sm:min-h-0 sm:px-2 sm:py-2.5 sm:pl-2">
                 <MapPin className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
                 <input
                   type="search"
@@ -824,7 +828,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               <button
                 type="button"
                 onClick={runSearch}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 sm:rounded-full sm:px-7 sm:py-2.5"
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 sm:min-h-0 sm:rounded-full sm:px-7 sm:py-2.5"
               >
                 <Search className="h-4 w-4 shrink-0 opacity-95" aria-hidden />
                 Search
@@ -833,7 +837,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           </div>
 
           <div
-            className="relative flex w-full justify-center min-h-0 lg:min-w-0 lg:flex-1 lg:justify-end lg:pl-4"
+            className="relative flex w-full min-h-0 justify-center lg:min-w-0 lg:flex-1 lg:justify-end"
             aria-hidden
           >
             <img
@@ -842,7 +846,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               width={480}
               height={480}
               decoding="async"
-              className="h-auto w-full max-w-[220px] select-none object-contain object-bottom drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:max-w-[260px] lg:max-h-[min(300px,36vh)] lg:w-auto lg:max-w-[min(320px,34vw)] xl:max-h-[min(340px,38vh)] xl:max-w-[360px]"
+              className="h-auto w-full max-w-[220px] select-none object-contain object-center drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:max-w-[260px] lg:max-h-[min(280px,34vh)] lg:w-auto lg:max-w-[min(300px,32vw)] xl:max-h-[min(320px,36vh)] xl:max-w-[340px]"
             />
           </div>
         </div>

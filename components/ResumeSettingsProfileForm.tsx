@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   RESUME_SETTINGS_MONTHS,
   RESUME_SETTINGS_YEARS,
@@ -16,6 +16,141 @@ const inputClass =
   'w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-0 focus:border-orange-400';
 const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
 const requiredStar = <span className="text-red-500">*</span>;
+
+function parseSkillsTextToList(text: string): string[] {
+  return text
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function listToSkillsText(skills: string[]): string {
+  return skills.join(', ');
+}
+
+function SkillsChipsField({
+  value,
+  onChange,
+  inputClass: containerClass,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  inputClass: string;
+}) {
+  const skills = useMemo(() => parseSkillsTextToList(value), [value]);
+  const [draft, setDraft] = useState('');
+
+  const commit = useCallback(
+    (next: string[]) => {
+      onChange(listToSkillsText(next));
+    },
+    [onChange]
+  );
+
+  const addFromDraft = useCallback(() => {
+    const t = draft.trim().replace(/^,+|,+$/g, '').trim();
+    if (!t) {
+      setDraft('');
+      return;
+    }
+    const lower = t.toLowerCase();
+    const exists = skills.some((s) => s.toLowerCase() === lower);
+    if (!exists) commit([...skills, t]);
+    setDraft('');
+  }, [draft, skills, commit]);
+
+  const removeAt = useCallback(
+    (index: number) => {
+      commit(skills.filter((_, i) => i !== index));
+    },
+    [skills, commit]
+  );
+
+  return (
+    <div
+      className={`${containerClass} flex min-h-[3rem] flex-wrap items-center gap-2 px-2 py-2 sm:px-3`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus();
+      }}
+    >
+      {skills.map((skill, i) => (
+        <span
+          key={`${skill}-${i}`}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border border-orange-200 bg-orange-50 pl-2.5 pr-1 py-0.5 text-sm font-medium text-gray-800"
+        >
+          <span className="truncate">{skill}</span>
+          <button
+            type="button"
+            onClick={() => removeAt(i)}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-orange-200/80 hover:text-gray-900"
+            aria-label={`Remove ${skill}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onPaste={(e) => {
+          const text = e.clipboardData.getData('text').trim();
+          if (!text.includes(',')) return;
+          e.preventDefault();
+          const parts = text
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (parts.length === 0) return;
+          const next = [...skills];
+          for (const p of parts) {
+            if (!next.some((s) => s.toLowerCase() === p.toLowerCase())) next.push(p);
+          }
+          commit(next);
+          setDraft('');
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addFromDraft();
+          } else if (e.key === ',') {
+            e.preventDefault();
+            addFromDraft();
+          } else if (e.key === 'Backspace' && draft === '' && skills.length > 0) {
+            e.preventDefault();
+            removeAt(skills.length - 1);
+          }
+        }}
+        onBlur={() => {
+          if (!draft.trim()) return;
+          if (draft.includes(',')) {
+            const parts = draft
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+            const next = [...skills];
+            for (const p of parts) {
+              if (!next.some((s) => s.toLowerCase() === p.toLowerCase())) next.push(p);
+            }
+            commit(next);
+            setDraft('');
+          } else {
+            addFromDraft();
+          }
+        }}
+        className="min-w-[8rem] flex-1 border-0 bg-transparent py-1 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-0"
+        placeholder={skills.length === 0 ? 'e.g. React, then Enter' : 'Add another…'}
+        aria-label="Add skill"
+      />
+    </div>
+  );
+}
 
 function RemoveEntryButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
@@ -206,14 +341,14 @@ const ResumeSettingsProfileForm: React.FC<ResumeSettingsProfileFormProps> = ({ f
         <h4 className="text-md font-semibold text-gray-900 mb-4">
           Skills {requiredStar}
         </h4>
-        <textarea
+        <SkillsChipsField
           value={form.skillsText}
-          onChange={(e) => setForm((f) => ({ ...f, skillsText: e.target.value }))}
-          rows={3}
-          className={inputClass}
-          placeholder="react, java, python, aws, …"
+          onChange={(skillsText) => setForm((f) => ({ ...f, skillsText }))}
+          inputClass={inputClass}
         />
-        <p className="text-xs text-gray-500 mt-1">Comma-separated list of skills</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Add skills one at a time (Enter or comma). Click remove on a chip to delete. Saved as a comma-separated list for your resume.
+        </p>
       </div>
 
       {/* Experience */}
