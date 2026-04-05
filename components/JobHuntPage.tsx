@@ -11,9 +11,10 @@ import {
   X,
 } from 'lucide-react';
 import Pagination from './Pagination';
-import { fetchJobs, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
+import { fetchJobs, fetchSavedResumeSkillNames, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
 import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
+import { computeJobSkillMatchPercent } from '../lib/jobSkillMatch';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
@@ -153,6 +154,82 @@ function JobCompanyAvatar({
   );
 }
 
+function matchBadgeColors(percent: number): {
+  pill: string;
+  track: string;
+  arc: string;
+} {
+  const p = Math.max(0, Math.min(100, percent));
+  if (p < 40) {
+    return {
+      pill: 'border-rose-200 bg-rose-50 text-rose-950',
+      track: '#fecdd3',
+      arc: '#e11d48',
+    };
+  }
+  if (p < 65) {
+    return {
+      pill: 'border-amber-200 bg-amber-50 text-amber-950',
+      track: '#fde68a',
+      arc: '#d97706',
+    };
+  }
+  if (p < 85) {
+    return {
+      pill: 'border-sky-200 bg-sky-50 text-sky-950',
+      track: '#bae6fd',
+      arc: '#0284c7',
+    };
+  }
+  return {
+    pill: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    track: '#d1fae5',
+    arc: '#059669',
+  };
+}
+
+function JobMatchBadge({ percent }: { percent: number | null }) {
+  const r = 7;
+  const c = 2 * Math.PI * r;
+  const offset = percent != null ? c * (1 - percent / 100) : 0;
+
+  if (percent === null) {
+    return (
+      <span
+        className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500"
+        title="Add skills under Settings → Resume and save to see how roles match your profile"
+      >
+        No skills to match
+      </span>
+    );
+  }
+
+  const { pill, track, arc } = matchBadgeColors(percent);
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${pill}`}
+      title="Share of your resume skills found in this job’s description or required skills"
+    >
+      <svg width={20} height={20} viewBox="0 0 20 20" className="shrink-0 -rotate-90" aria-hidden>
+        <circle cx="10" cy="10" r={r} fill="none" stroke={track} strokeWidth="2.5" />
+        <circle
+          cx="10"
+          cy="10"
+          r={r}
+          fill="none"
+          stroke={arc}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      {percent}% match
+    </span>
+  );
+}
+
 function SourcePlatformRow({ sourcePlatform }: { sourcePlatform: string }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const logoSrc = providerLogoUrl(sourcePlatform);
@@ -219,13 +296,22 @@ interface JobDetailPanelProps {
   saved: boolean;
   onToggleSave: () => void;
   openApply: (job: JobListing) => void;
+  userSkillNames: string[];
 }
 
-function JobDetailPanel({ job, onClose, saved, onToggleSave, openApply }: JobDetailPanelProps) {
+function JobDetailPanel({
+  job,
+  onClose,
+  saved,
+  onToggleSave,
+  openApply,
+  userSkillNames,
+}: JobDetailPanelProps) {
   const posted =
     relativePosted(job.scraped_at ?? job.created_at) ||
     formatJobDate(job.scraped_at ?? job.created_at);
   const desc = job.description?.trim() || '';
+  const matchPercent = computeJobSkillMatchPercent(userSkillNames, job);
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="job-detail-title">
@@ -252,19 +338,22 @@ function JobDetailPanel({ job, onClose, saved, onToggleSave, openApply }: JobDet
                   {job.job_title || 'Untitled role'}
                 </h2>
                 <p className="mt-1 text-sm font-medium text-gray-600">{job.company || 'Company'}</p>
-                {job.salary ? (
-                  <p className="mt-2 text-sm font-bold text-gray-900">{job.salary}</p>
-                ) : null}
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {job.salary?.trim() ? job.salary : 'Not disclosed'}
+                </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex shrink-0 items-start gap-2">
+              <JobMatchBadge percent={matchPercent} />
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -335,14 +424,12 @@ function JobDetailPanel({ job, onClose, saved, onToggleSave, openApply }: JobDet
           ) : null}
         </div>
 
-        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:px-6">
           <button
             type="button"
             onClick={onToggleSave}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-              saved
-                ? 'border-amber-300 bg-amber-50 text-amber-900'
-                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            className={`inline-flex items-center gap-1.5 rounded-lg border-0 bg-transparent px-2 py-2 text-sm font-medium transition-colors ${
+              saved ? 'text-amber-800 hover:text-amber-900' : 'text-gray-700 hover:text-gray-900'
             }`}
             aria-pressed={saved}
           >
@@ -385,6 +472,42 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const [savedIds, setSavedIds] = useState<Set<string>>(loadSavedIds);
   const [detailSelection, setDetailSelection] = useState<JobDetailSelection | null>(null);
   const [jobListTab, setJobListTab] = useState<'all' | 'saved'>('all');
+  const [userSkillNames, setUserSkillNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const sync = () => {
+      const uid = getJobHuntUserId();
+      if (!uid) {
+        if (!cancelled) setUserSkillNames([]);
+        return;
+      }
+      void fetchSavedResumeSkillNames(uid).then((names) => {
+        if (!cancelled) setUserSkillNames(names);
+      });
+    };
+
+    sync();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'userData' || e.key === null) sync();
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', onVis);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
 
   const loadPage = useCallback(async (mode: 'full' | 'refresh' = 'full') => {
     if (mode === 'refresh') {
@@ -914,6 +1037,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                   const id = job.id || `job-${index}`;
                   const posted = relativePosted(job.scraped_at ?? job.created_at) || formatJobDate(job.scraped_at ?? job.created_at);
                   const desc = job.description?.trim() || '';
+                  const matchPercent = computeJobSkillMatchPercent(userSkillNames, job);
 
                   return (
                     <article
@@ -947,28 +1071,11 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                                 {job.company || 'Company'}
                               </p>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
-                              {job.salary ? (
-                                <p className="text-sm font-bold text-gray-900 sm:text-right">{job.salary}</p>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void toggleSave(id);
-                                }}
-                                className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                  savedIds.has(id)
-                                    ? 'border-amber-300 bg-amber-50 text-amber-800'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                                }`}
-                                aria-pressed={savedIds.has(id)}
-                              >
-                                <Star
-                                  className={`h-3.5 w-3.5 ${savedIds.has(id) ? 'fill-amber-400 text-amber-500' : ''}`}
-                                />
-                                Save
-                              </button>
+                            <div className="flex shrink-0 flex-col items-end gap-2 sm:items-end">
+                              <p className="text-sm font-bold text-gray-900 sm:text-right">
+                                {job.salary?.trim() ? job.salary : 'Not disclosed'}
+                              </p>
+                              <JobMatchBadge percent={matchPercent} />
                             </div>
                           </div>
 
@@ -1004,7 +1111,26 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                             </div>
                           ) : null}
 
-                          <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 pt-4">
+                          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void toggleSave(id);
+                              }}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border-0 bg-transparent px-2 py-2 text-sm font-medium transition-colors ${
+                                savedIds.has(id)
+                                  ? 'text-amber-800 hover:text-amber-900'
+                                  : 'text-gray-700 hover:text-gray-900'
+                              }`}
+                              aria-pressed={savedIds.has(id)}
+                            >
+                              <Star
+                                className={`h-4 w-4 ${savedIds.has(id) ? 'fill-amber-400 text-amber-500' : ''}`}
+                                aria-hidden
+                              />
+                              {savedIds.has(id) ? 'Saved' : 'Save'}
+                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1055,6 +1181,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           saved={savedIds.has(detailSelection.saveId)}
           onToggleSave={() => void toggleSave(detailSelection.saveId)}
           openApply={openApply}
+          userSkillNames={userSkillNames}
         />
       ) : null}
     </>
