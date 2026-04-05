@@ -135,6 +135,41 @@ export const fetchUserData = async (userId: string): Promise<UserData | null> =>
   }
 };
 
+/** Skill names from Settings → Resume cloud profile (`savedResumeProfile.skills`). */
+export function skillNamesFromSavedResumeProfile(saved: unknown): string[] {
+  if (!saved || typeof saved !== 'object') return [];
+  const skills = (saved as { skills?: unknown }).skills;
+  if (!Array.isArray(skills)) return [];
+  const out: string[] = [];
+  for (const s of skills) {
+    if (s && typeof s === 'object' && 'name' in s) {
+      const n = String((s as { name?: unknown }).name ?? '').trim();
+      if (n) out.push(n);
+    }
+  }
+  return out;
+}
+
+/** Loads resume skills saved under Settings → Resume (same source as `savedResumeProfile` on the user record). */
+export async function fetchSavedResumeSkillNames(userId: string): Promise<string[]> {
+  const id = userId?.trim();
+  if (!id) return [];
+  try {
+    const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id }),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const user = data.data || data.user || {};
+    return skillNamesFromSavedResumeProfile(user.savedResumeProfile);
+  } catch (e) {
+    console.error('Error fetching resume skills for job match:', e);
+    return [];
+  }
+}
+
 /**
  * Update project counters (wishlist, cart, likes)
  */
