@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { LogOut } from 'lucide-react';
 import type { DashboardView } from './DashboardPage';
 import { useCart, useWishlist } from './DashboardPage';
 import { usePremium, useAuth, useNavigation } from '../App';
@@ -324,6 +325,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border-2 border-gray-900 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
                 >
+                  <LogOut className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
                   Exit Job Hunt
                 </button>
               )}
