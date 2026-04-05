@@ -5,6 +5,7 @@ import { usePremium, useAuth, useNavigation } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { useMessagesUnread } from '../context/MessagesUnreadContext';
 import { playNotification } from '../utils/sounds';
+import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
@@ -270,18 +271,20 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <button
             onClick={toggleSidebar}
-            className="lg:hidden p-2 rounded-lg hover:bg-orange-50"
+            className="lg:hidden p-2 rounded-lg hover:bg-orange-50 shrink-0"
           >
             ☰
           </button>
-          <h1
-            className={`text-3xl font-bold text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
-          >
-            {title}
-          </h1>
+          {dashboardMode !== 'jobHunt' && (
+            <h1
+              className={`text-3xl font-bold text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
+            >
+              {title}
+            </h1>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -295,11 +298,20 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     setDashboardMode('jobHunt');
                     navigateTo('dashboard');
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
+                  className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
                 >
-                  <span>Job Hunt</span>
-                  <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  <span className="relative z-10 flex h-[13px] w-[11px] shrink-0 items-center justify-center">
+                    <PinkJobHuntStar className="h-[11px] w-[10px] animate-pink-star-shine" aria-hidden />
+                  </span>
+                  <span className="relative z-10">Job Hunt</span>
+                  <span className="relative z-10 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                     New
+                  </span>
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                  >
+                    <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
                   </span>
                 </button>
               )}
@@ -488,27 +500,31 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             )}
           </div>
 
-          {/* MODE SWITCH - use context so Buyer/Seller is maintained across all components */}
-          <div className="flex bg-orange-50 rounded-lg p-1">
-            <button
-              onClick={() => handleSetDashboardMode('buyer')}
-              className={`px-3 py-1 rounded ${dashboardMode === 'buyer'
-                ? 'bg-orange-500 text-white'
-                : ''
-                }`}
-            >
-              Buyer
-            </button>
-            <button
-              onClick={() => handleSetDashboardMode('seller')}
-              className={`px-3 py-1 rounded ${dashboardMode === 'seller'
-                ? 'bg-orange-500 text-white'
-                : ''
-                }`}
-            >
-              Seller
-            </button>
-          </div>
+          {/* MODE SWITCH — hidden in Job Hunt (mode is fixed for that flow) */}
+          {dashboardMode !== 'jobHunt' && (
+            <div className="flex bg-orange-50 rounded-lg p-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleSetDashboardMode('buyer')}
+                className={`px-3 py-1 rounded ${dashboardMode === 'buyer'
+                  ? 'bg-orange-500 text-white'
+                  : ''
+                  }`}
+              >
+                Buyer
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetDashboardMode('seller')}
+                className={`px-3 py-1 rounded ${dashboardMode === 'seller'
+                  ? 'bg-orange-500 text-white'
+                  : ''
+                  }`}
+              >
+                Seller
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

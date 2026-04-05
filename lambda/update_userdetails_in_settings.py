@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import io
 import boto3
 import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime
 from decimal import Decimal
+from xml.sax.saxutils import escape
 from botocore.config import Config
 from boto3.dynamodb.conditions import Key
 
@@ -422,6 +424,9 @@ def handle_update_settings(body):
         "llmApiKeys",
         # Preferred model per provider for ATS (e.g. gpt-4o-mini, gemini-1.5-flash)
         "llmModels",
+        # Saved resume JSON + PDF export options (Settings → Resume; generateResumePdf reads both)
+        "savedResumeProfile",
+        "resumeExportSettings",
     ]
 
     # Alias mapping for robustness
@@ -503,6 +508,12 @@ def handle_update_settings(body):
         merged_models = {k: v for k, v in merged_models.items() if v}
         updates["llmModels"] = merged_models if merged_models else None
 
+    # Normalize resume export settings (clamps, types); per-role bullet caps not used — always []
+    if "resumeExportSettings" in updates:
+        merged_export = _merge_resume_export_settings(updates.get("resumeExportSettings"))
+        merged_export["experienceBulletLimits"] = []
+        updates["resumeExportSettings"] = merged_export
+
     # Delete old image if replaced (don't let this crash the update)
     if "profilePictureUrl" in updates:
         try:
@@ -571,6 +582,402 @@ def handle_update_settings(body):
         "data": result["Attributes"]
     })
 
+
+# ---------- RESUME PDF (reportlab optional in deployment package) ----------
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.enums import TA_LEFT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
+
+def _html_to_bullet_lines(html):
+    """Extract list items or plain lines from HTML-ish work summary."""
+    if not html or not isinstance(html, str):
+        return []
+    items = re.findall(r"<li[^>]*>(.*?)</li>", html, re.I | re.S)
+    if items:
+        lines = []
+        for raw in items:
+            t = re.sub(r"<[^>]+>", " ", raw)
+            t = re.sub(r"\s+", " ", t).strip()
+            if t:
+                lines.append(t)
+        return lines
+    t = re.sub(r"<[^>]+>", " ", html)
+    return [s.strip() for s in t.replace("<br/>", "\n").replace("<br>", "\n").split("\n") if s.strip()]
+
+
+def _safe_str(v, default=""):
+    if v is None:
+        return default
+    return str(v).strip()
+
+
+def _merge_resume_export_settings(raw):
+    defaults = {
+        "projectsCount": 1,
+        "bulletsPerProject": 7,
+        "experienceBulletsDefault": 3,
+        "experienceTitleFormat": "1line",
+        "educationTitleFormat": "1line",
+        "industries": [],
+        "experienceBulletLimits": [],
+        "customSections": [],
+    }
+    if not isinstance(raw, dict):
+        return defaults
+    out = dict(defaults)
+    for k in defaults:
+        if k in raw:
+            out[k] = raw[k]
+    try:
+        out["projectsCount"] = max(0, min(15, int(out["projectsCount"])))
+    except (TypeError, ValueError):
+        out["projectsCount"] = 1
+    try:
+        out["bulletsPerProject"] = max(1, min(20, int(out["bulletsPerProject"])))
+    except (TypeError, ValueError):
+        out["bulletsPerProject"] = 7
+    try:
+        out["experienceBulletsDefault"] = max(1, min(20, int(out["experienceBulletsDefault"])))
+    except (TypeError, ValueError):
+        out["experienceBulletsDefault"] = 3
+    if out["experienceTitleFormat"] not in ("1line", "2line"):
+        out["experienceTitleFormat"] = "1line"
+    if out["educationTitleFormat"] not in ("1line", "2line"):
+        out["educationTitleFormat"] = "1line"
+    if not isinstance(out["industries"], list):
+        out["industries"] = []
+    out["industries"] = [str(x).strip() for x in out["industries"] if str(x).strip()][:20]
+    if not isinstance(out["experienceBulletLimits"], list):
+        out["experienceBulletLimits"] = []
+    if not isinstance(out["customSections"], list):
+        out["customSections"] = []
+    cleaned_sections = []
+    for s in out["customSections"][:10]:
+        if not isinstance(s, dict):
+            continue
+        t = _safe_str(s.get("title") or s.get("name"))
+        b = _safe_str(s.get("body") or s.get("content") or s.get("text"))
+        if t or b:
+            cleaned_sections.append({"title": t or "Section", "body": b})
+    out["customSections"] = cleaned_sections
+    return out
+
+
+def _exp_bullet_limit(settings, idx, n_exp):
+    lims = settings.get("experienceBulletLimits") or []
+    default = settings["experienceBulletsDefault"]
+    if isinstance(lims, list) and idx < len(lims):
+        try:
+            return max(1, min(20, int(lims[idx])))
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _project_bullet_lines(description, max_bullets):
+    if not description or not isinstance(description, str):
+        return []
+    text = re.sub(r"<[^>]+>", " ", description)
+    parts = re.split(r"[\n•\-\u2022]+", text)
+    lines = [re.sub(r"\s+", " ", p).strip() for p in parts if p and re.sub(r"\s+", " ", p).strip()]
+    return lines[:max_bullets]
+
+
+def _build_resume_pdf_bytes(profile, settings):
+    """Build PDF bytes; assumes reportlab is installed."""
+    profile = decimal_to_native(profile) if profile else {}
+    settings = _merge_resume_export_settings(settings)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        rightMargin=0.65 * inch,
+        leftMargin=0.65 * inch,
+        topMargin=0.55 * inch,
+        bottomMargin=0.55 * inch,
+    )
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle(
+        name="ResumeH1",
+        parent=styles["Heading1"],
+        fontSize=16,
+        spaceAfter=6,
+        textColor="#111827",
+    )
+    h2 = ParagraphStyle(
+        name="ResumeH2",
+        parent=styles["Heading2"],
+        fontSize=11,
+        spaceBefore=10,
+        spaceAfter=4,
+        textColor="#1d4ed8",
+        borderPadding=0,
+    )
+    body = ParagraphStyle(
+        name="ResumeBody",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        alignment=TA_LEFT,
+    )
+    small = ParagraphStyle(
+        name="ResumeSmall",
+        parent=styles["Normal"],
+        fontSize=8,
+        leading=10,
+        textColor="#4b5563",
+    )
+    bullet = ParagraphStyle(
+        name="ResumeBullet",
+        parent=body,
+        leftIndent=12,
+        bulletIndent=6,
+        firstLineIndent=-6,
+    )
+
+    story = []
+    first = _safe_str(profile.get("firstName"))
+    last = _safe_str(profile.get("lastName"))
+    name = (first + " " + last).strip() or "Resume"
+    story.append(Paragraph(escape(name), h1))
+    jt = _safe_str(profile.get("jobTitle"))
+    if jt:
+        story.append(Paragraph(escape(jt), small))
+    contact_bits = []
+    for key in ("phone", "email", "linkedIn", "github"):
+        v = _safe_str(profile.get(key))
+        if v:
+            contact_bits.append(v)
+    web = _safe_str(profile.get("portfolio") or profile.get("website"))
+    if web:
+        contact_bits.append(web)
+    addr = _safe_str(profile.get("address"))
+    if addr:
+        contact_bits.append(addr)
+    if contact_bits:
+        story.append(Paragraph(escape(" · ".join(contact_bits)), small))
+    story.append(Spacer(1, 8))
+
+    inds = settings.get("industries") or []
+    if inds:
+        story.append(Paragraph(escape("Industries: " + ", ".join(inds)), small))
+        story.append(Spacer(1, 6))
+
+    summ = _safe_str(profile.get("summary"))
+    if summ:
+        story.append(Paragraph("Professional summary", h2))
+        story.append(Paragraph(escape(summ), body))
+
+    skills = profile.get("skills") or []
+    if isinstance(skills, list) and skills:
+        story.append(Paragraph("Skills", h2))
+        if skills and isinstance(skills[0], dict):
+            names = [_safe_str(s.get("name")) for s in skills if _safe_str(s.get("name"))]
+            line = ", ".join(names)
+        else:
+            line = ", ".join(_safe_str(s) for s in skills if _safe_str(s))
+        if line:
+            story.append(Paragraph(escape(line), body))
+
+    experiences = profile.get("experience") or []
+    if isinstance(experiences, list) and experiences:
+        story.append(Paragraph("Professional experience", h2))
+        for i, exp in enumerate(experiences):
+            if not isinstance(exp, dict):
+                continue
+            title = _safe_str(exp.get("title"))
+            company = _safe_str(exp.get("companyName"))
+            city = _safe_str(exp.get("city"))
+            state = _safe_str(exp.get("state"))
+            loc = ", ".join(x for x in (city, state) if x)
+            start = _safe_str(exp.get("startDate"))
+            end = "Present" if exp.get("currentlyWorking") else _safe_str(exp.get("endDate"))
+            dates = f"{start} – {end}" if start or end else ""
+
+            if settings["experienceTitleFormat"] == "2line":
+                if title:
+                    story.append(Paragraph(escape(title), body))
+                sub = []
+                if company:
+                    sub.append(company)
+                if loc:
+                    sub.append(loc)
+                if dates:
+                    sub.append(dates)
+                if sub:
+                    story.append(Paragraph(escape(" | ".join(sub)), small))
+            else:
+                line = title
+                if company:
+                    line = f"{title} @ {company}" if title else company
+                bits = [line]
+                if loc:
+                    bits.append(loc)
+                if dates:
+                    bits.append(dates)
+                story.append(Paragraph(escape(" — ".join(b for b in bits if b)), body))
+
+            bullets = _html_to_bullet_lines(exp.get("workSummary"))
+            cap = _exp_bullet_limit(settings, i, len(experiences))
+            for b in bullets[:cap]:
+                story.append(Paragraph(f"• {escape(b)}", bullet))
+            story.append(Spacer(1, 4))
+
+    projects = profile.get("projects") or []
+    n_proj = settings["projectsCount"]
+    bpp = settings["bulletsPerProject"]
+    if isinstance(projects, list) and n_proj > 0:
+        story.append(Paragraph("Projects", h2))
+        for proj in projects[:n_proj]:
+            if not isinstance(proj, dict):
+                continue
+            pname = _safe_str(proj.get("name"))
+            if pname:
+                story.append(Paragraph(escape(pname), body))
+            desc = proj.get("description") or ""
+            tech = proj.get("technologies") or []
+            if isinstance(tech, list) and tech:
+                tstr = ", ".join(_safe_str(t) for t in tech if _safe_str(t))
+                if tstr:
+                    story.append(Paragraph(escape(tstr), small))
+            for line in _project_bullet_lines(desc, bpp):
+                story.append(Paragraph(f"• {escape(line)}", bullet))
+            story.append(Spacer(1, 4))
+
+    education = profile.get("education") or []
+    if isinstance(education, list) and education:
+        story.append(Paragraph("Education", h2))
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            deg = _safe_str(edu.get("degree"))
+            major = _safe_str(edu.get("major"))
+            uni = _safe_str(edu.get("universityName"))
+            start = _safe_str(edu.get("startDate"))
+            end = _safe_str(edu.get("endDate"))
+            dates = f"{start} – {end}" if start or end else ""
+            if settings["educationTitleFormat"] == "2line":
+                line1 = deg
+                if major:
+                    line1 = f"{deg} in {major}" if deg else major
+                if line1:
+                    story.append(Paragraph(escape(line1), body))
+                sub = [x for x in (uni, dates) if x]
+                if sub:
+                    story.append(Paragraph(escape(" | ".join(sub)), small))
+            else:
+                parts = []
+                if deg and major:
+                    parts.append(f"{deg} in {major}")
+                elif deg or major:
+                    parts.append(deg or major)
+                if uni:
+                    parts.append(uni)
+                if dates:
+                    parts.append(dates)
+                story.append(Paragraph(escape(" — ".join(parts)), body))
+            desc = _safe_str(edu.get("description"))
+            if desc:
+                story.append(Paragraph(escape(desc), small))
+            story.append(Spacer(1, 4))
+
+    for cs in settings.get("customSections") or []:
+        t = _safe_str(cs.get("title"))
+        b = _safe_str(cs.get("body"))
+        if t:
+            story.append(Paragraph(escape(t), h2))
+        if b:
+            for para in b.split("\n"):
+                para = para.strip()
+                if para:
+                    story.append(Paragraph(escape(para), body))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def handle_generate_resume_pdf(body):
+    if not REPORTLAB_AVAILABLE:
+        return response(
+            503,
+            {
+                "success": False,
+                "message": "PDF engine not installed. Add reportlab to the Lambda deployment package (see lambda/requirements-resume-pdf.txt).",
+            },
+        )
+
+    user_id = body.get("userId")
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+
+    try:
+        existing = table.get_item(Key={"userId": user_id})
+    except Exception as e:
+        print(f"generateResumePdf get_item error: {e}")
+        return response(500, {"success": False, "message": str(e)})
+
+    if "Item" not in existing:
+        return response(404, {"success": False, "message": "User not found"})
+
+    item = decimal_to_native(existing["Item"])
+    profile = item.get("savedResumeProfile")
+    settings = item.get("resumeExportSettings")
+
+    if not profile or not isinstance(profile, dict):
+        return response(
+            400,
+            {
+                "success": False,
+                "message": "No saved resume profile. Save resume data from Settings first.",
+            },
+        )
+
+    try:
+        pdf_bytes = _build_resume_pdf_bytes(profile, settings)
+    except Exception as e:
+        print(f"generateResumePdf build error: {e}")
+        return response(500, {"success": False, "message": f"PDF build failed: {str(e)}"})
+
+    key = f"generated-resumes/{user_id}/{uuid.uuid4().hex}.pdf"
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=pdf_bytes,
+            ContentType="application/pdf",
+        )
+        download_url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": S3_BUCKET,
+                "Key": key,
+                "ResponseContentDisposition": 'attachment; filename="resume.pdf"',
+            },
+            ExpiresIn=3600,
+        )
+    except Exception as e:
+        print(f"generateResumePdf S3 error: {e}")
+        return response(500, {"success": False, "message": str(e)})
+
+    return response(
+        200,
+        {
+            "success": True,
+            "pdfUrl": download_url,
+            "expiresIn": 3600,
+            "s3Key": key,
+        },
+    )
+
+
 # ---------- ENTRY ----------
 def lambda_handler(event, context):
     try:
@@ -597,6 +1004,9 @@ def lambda_handler(event, context):
 
         if action == "getAtsScoreHistory":
             return handle_get_ats_score_history(body)
+
+        if action == "generateResumePdf":
+            return handle_generate_resume_pdf(body)
 
         return response(400, {
             "success": False,

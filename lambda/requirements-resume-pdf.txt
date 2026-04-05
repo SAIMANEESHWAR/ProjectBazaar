@@ -1,0 +1,2 @@
+# Bundle with Update_userdetails_in_settings (or a dedicated PDF Lambda) for generateResumePdf.
+reportlab>=4.0.0,<5

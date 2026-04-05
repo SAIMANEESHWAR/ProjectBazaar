@@ -67,6 +67,8 @@ export default {
         "shimmer-slide":
           "shimmer-slide var(--speed, 3s) ease-in-out infinite alternate",
         "spin-around": "spin-around calc(var(--speed, 3s) * 2) linear infinite",
+        "pink-star-shine": "pink-star-shine 2.2s ease-in-out infinite",
+        "job-hunt-btn-shine": "job-hunt-btn-shine 2.8s linear infinite",
       },
       keyframes: {
         progress: {
@@ -102,6 +104,22 @@ export default {
           "15%, 35%": { transform: "translateZ(0) rotate(90deg)" },
           "65%, 85%": { transform: "translateZ(0) rotate(270deg)" },
           "100%": { transform: "translateZ(0) rotate(360deg)" },
+        },
+        "pink-star-shine": {
+          "0%, 100%": {
+            filter:
+              "drop-shadow(0 0 2px rgba(203, 91, 178, 0.65)) drop-shadow(0 0 5px rgba(243, 116, 123, 0.45))",
+            transform: "scale(1)",
+          },
+          "50%": {
+            filter:
+              "drop-shadow(0 0 4px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 10px rgba(243, 116, 123, 0.95)) drop-shadow(0 0 18px rgba(203, 91, 178, 0.55))",
+            transform: "scale(1.14)",
+          },
+        },
+        "job-hunt-btn-shine": {
+          "0%": { transform: "translateX(-100%) skewX(-18deg)" },
+          "100%": { transform: "translateX(200%) skewX(-18deg)" },
         },
       },
     },

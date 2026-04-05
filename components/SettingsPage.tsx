@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth, useNavigation, usePremium } from '../App';
+import type { ResumeInfo } from '../context/ResumeInfoContext';
+import {
+    defaultResumeExportSettings,
+    parseResumeExportSettings,
+    saveResumeProfileToCloud,
+    type ResumeExportSettings,
+} from '../services/resumeCloudService';
+import {
+    applyUserProfileToResumePersonal,
+    emptyResumeFullForm,
+    resumeFullFormHasMinimumProfile,
+    resumeFullFormToResumeInfo,
+    resumeInfoToResumeFullForm,
+    type ResumeFullForm,
+} from '../lib/resumeSettingsForm';
+import ResumeSettingsProfileForm from './ResumeSettingsProfileForm';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 
@@ -144,7 +160,7 @@ const SettingsPage: React.FC = () => {
     const { isPremium, credits, setIsPremium } = usePremium();
     const { navigateTo } = useNavigation();
     const [profileImg, setProfileImg] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'user' | 'freelancer'>('user');
+    const [viewMode, setViewMode] = useState<'user' | 'freelancer' | 'resume'>('user');
 
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(false);
@@ -267,6 +283,15 @@ const SettingsPage: React.FC = () => {
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    /** Resume PDF export: editable form + layout settings (stored on user in DynamoDB). */
+    const [resumeExportSettings, setResumeExportSettings] = useState<ResumeExportSettings>(() => defaultResumeExportSettings());
+    const [resumeFullForm, setResumeFullForm] = useState<ResumeFullForm>(() => emptyResumeFullForm());
+    /** Preserves theme/template/profileImage from import or cloud when merging form → ResumeInfo */
+    const [resumeStylingBase, setResumeStylingBase] = useState<ResumeInfo | null>(null);
+    const [resumeCloudMessage, setResumeCloudMessage] = useState<string | null>(null);
+    const [resumeCloudError, setResumeCloudError] = useState<string | null>(null);
+    const [savingResumeCloud, setSavingResumeCloud] = useState(false);
+
     const MAX_SIZE_MB = 10;
 
     // Fetch user profile data on component mount
@@ -357,6 +382,38 @@ const SettingsPage: React.FC = () => {
                     if (typeof user.isPremium === 'boolean') {
                         setIsPremium(user.isPremium);
                     }
+
+                    const accountEmail =
+                        (typeof user.email === 'string' && user.email.trim()) || userEmail || '';
+                    const resumePrefill = {
+                        fullName: (user.fullName || user.name || '').trim(),
+                        phone: (user.phoneNumber || '').trim(),
+                        email: accountEmail.trim(),
+                        linkedIn: (user.linkedinUrl || '').trim(),
+                        github: (user.githubUrl || '').trim(),
+                        website:
+                            (typeof user.website === 'string' && user.website.trim()) ||
+                            (typeof user.portfolioUrl === 'string' && user.portfolioUrl.trim()) ||
+                            '',
+                        jobTitle:
+                            (typeof user.jobTitle === 'string' && user.jobTitle.trim()) ||
+                            (typeof user.professionalTitle === 'string' && user.professionalTitle.trim()) ||
+                            '',
+                    };
+                    if (user.savedResumeProfile && typeof user.savedResumeProfile === 'object') {
+                        const prof = user.savedResumeProfile as ResumeInfo;
+                        setResumeStylingBase(prof);
+                        setResumeFullForm(
+                            applyUserProfileToResumePersonal(resumeInfoToResumeFullForm(prof), resumePrefill)
+                        );
+                    } else {
+                        setResumeStylingBase(null);
+                        setResumeFullForm(applyUserProfileToResumePersonal(emptyResumeFullForm(), resumePrefill));
+                    }
+                    setResumeExportSettings({
+                        ...parseResumeExportSettings(user.resumeExportSettings),
+                        experienceBulletLimits: [],
+                    });
                 }
             } catch (err) {
                 console.error('Failed to fetch user profile:', err);
@@ -367,6 +424,22 @@ const SettingsPage: React.FC = () => {
 
         fetchUserProfile();
     }, [userId]);
+
+    // When User Settings profile fields change, pre-fill any still-empty Resume personal fields
+    useEffect(() => {
+        if (loading) return;
+        setResumeFullForm((prev) =>
+            applyUserProfileToResumePersonal(prev, {
+                fullName: fullName.trim(),
+                phone: phoneNumber.trim(),
+                email: (userEmail || '').trim(),
+                linkedIn: linkedinUrl.trim(),
+                github: githubUrl.trim(),
+                website: '',
+                jobTitle: '',
+            })
+        );
+    }, [loading, fullName, phoneNumber, linkedinUrl, githubUrl, userEmail]);
 
     // Fetch LLM API key status (has key or not; we never load actual keys)
     useEffect(() => {
@@ -403,6 +476,38 @@ const SettingsPage: React.FC = () => {
         const validSaved = saved && models?.some((m) => m.id === saved);
         setSelectedLlmModel(validSaved ? saved : defaultId);
     }, [selectedLlmProvider, llmSavedModels]);
+
+    const handleSaveResumeProfileAndSettings = async () => {
+        if (!userId) {
+            setResumeCloudError('You must be logged in.');
+            return;
+        }
+        if (!resumeFullFormHasMinimumProfile(resumeFullForm)) {
+            setResumeCloudError('Add at least full name, email, and phone under Personal Information.');
+            return;
+        }
+        if (!resumeFullForm.skillsText.trim()) {
+            setResumeCloudError('Add at least one skill in the Skills field (comma-separated).');
+            return;
+        }
+        setResumeCloudError(null);
+        setResumeCloudMessage(null);
+        setSavingResumeCloud(true);
+        try {
+            const built = resumeFullFormToResumeInfo(resumeFullForm, resumeStylingBase);
+            const payloadSettings = { ...resumeExportSettings, experienceBulletLimits: [] as number[] };
+            const out = await saveResumeProfileToCloud(userId, built, payloadSettings);
+            if (!out.ok) {
+                setResumeCloudError(out.message || 'Save failed');
+            } else {
+                setResumeStylingBase(built);
+                setResumeExportSettings(payloadSettings);
+                setResumeCloudMessage('Changes saved.');
+            }
+        } finally {
+            setSavingResumeCloud(false);
+        }
+    };
 
     const testLlmApiKey = async (provider: string, apiKey: string) => {
         const key = (apiKey || '').trim();
@@ -1356,18 +1461,27 @@ const SettingsPage: React.FC = () => {
         <div className="mt-8 max-w-4xl mx-auto pb-24">
             {/* Toggle Switch */}
             <div className="flex flex-col items-center mb-0">
-                <div className="flex items-center gap-0 bg-gray-100 p-1.5 rounded-full border border-gray-200 shadow-inner">
+                <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-0 bg-gray-100 p-1.5 rounded-full border border-gray-200 shadow-inner max-w-full">
                     <button
+                        type="button"
                         onClick={() => setViewMode('user')}
-                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'user' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'user' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
                     >
                         User Settings
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('freelancer')}
-                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'freelancer' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'freelancer' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
                     >
                         Freelancer Settings
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('resume')}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'resume' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                        Resume Settings
                     </button>
                 </div>
                 {viewMode === 'freelancer' && !isFreelancer && (
@@ -1375,54 +1489,58 @@ const SettingsPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Global Actions Bar */}
-            <div className="flex items-center justify-between bg-white px-6 py-4 mt-8 mb-8 rounded-2xl border border-gray-200 shadow-sm">
-                <div className="hidden sm:block">
-                    <h2 className="text-lg font-bold text-gray-900">{viewMode === 'user' ? 'User Profile' : 'Freelancer Profile'}</h2>
-                </div>
-                <div className="flex flex-1 sm:flex-none justify-end items-center gap-3">
-                    {saveError && <p className="text-sm text-red-600 hidden md:block animate-in fade-in">{saveError}</p>}
-                    {saveMessage && !saveError && <p className="text-sm text-green-600 hidden md:block animate-in fade-in">{saveMessage}</p>}
+            {/* Global Actions Bar — profile edit/save only on User & Freelancer tabs */}
+            {viewMode !== 'resume' && (
+                <div className="flex items-center justify-between bg-white px-6 py-4 mt-8 mb-8 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="hidden sm:block">
+                        <h2 className="text-lg font-bold text-gray-900">
+                            {viewMode === 'user' ? 'User Profile' : 'Freelancer Profile'}
+                        </h2>
+                    </div>
+                    <div className="flex flex-1 sm:flex-none justify-end items-center gap-3">
+                        {saveError && <p className="text-sm text-red-600 hidden md:block animate-in fade-in">{saveError}</p>}
+                        {saveMessage && !saveError && <p className="text-sm text-green-600 hidden md:block animate-in fade-in">{saveMessage}</p>}
 
-                    {!isEditingProfile ? (
-                        <button
-                            type="button"
-                            onClick={() => setIsEditingProfile(true)}
-                            className="flex items-center justify-center w-full sm:w-auto gap-2 px-5 py-2 hover:bg-orange-50 text-orange-600 font-semibold rounded-xl border border-orange-200 transition-colors text-sm bg-white"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            Edit Profile
-                        </button>
-                    ) : (
-                        <div className="flex w-full sm:w-auto items-center gap-2">
+                        {!isEditingProfile ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setIsEditingProfile(false);
-                                    setSaveError(null);
-                                    setSaveMessage(null);
-                                }}
-                                className="flex-1 sm:flex-none py-2 px-5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm bg-white"
+                                onClick={() => setIsEditingProfile(true)}
+                                className="flex items-center justify-center w-full sm:w-auto gap-2 px-5 py-2 hover:bg-orange-50 text-orange-600 font-semibold rounded-xl border border-orange-200 transition-colors text-sm bg-white"
                             >
-                                Cancel
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Edit Profile
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => handleProfileSubmit()}
-                                disabled={saving || uploading}
-                                className="flex-1 sm:flex-none bg-orange-600 text-white font-semibold flex items-center justify-center gap-2 py-2 px-5 rounded-xl hover:bg-orange-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                                {saving ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="flex w-full sm:w-auto items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditingProfile(false);
+                                        setSaveError(null);
+                                        setSaveMessage(null);
+                                    }}
+                                    className="flex-1 sm:flex-none py-2 px-5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm bg-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleProfileSubmit()}
+                                    disabled={saving || uploading}
+                                    className="flex-1 sm:flex-none bg-orange-600 text-white font-semibold flex items-center justify-center gap-2 py-2 px-5 rounded-xl hover:bg-orange-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* Mobile error/success messages */}
-            {(saveError || saveMessage) && (
+            {/* Mobile error/success messages (profile save) */}
+            {viewMode !== 'resume' && (saveError || saveMessage) && (
                 <div className="md:hidden mb-6">
                     {saveError && <p className="text-sm text-center text-red-600 bg-red-50 p-2 rounded-lg">{saveError}</p>}
                     {saveMessage && !saveError && <p className="text-sm text-center text-green-600 bg-green-50 p-2 rounded-lg">{saveMessage}</p>}
@@ -2746,6 +2864,40 @@ const SettingsPage: React.FC = () => {
                                     )}
                                 </button>
                             )}
+                        </div>
+                    </SectionCard>
+                </div>
+            )}
+
+            {viewMode === 'resume' && (
+                <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <SectionCard
+                        title="Resume profile"
+                        description="Enter your resume. Saved to your account for export. Separate from your public user profile."
+                    >
+                        <div className="space-y-6">
+                            {resumeCloudMessage && (
+                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
+                                    {resumeCloudMessage}
+                                </div>
+                            )}
+                            {resumeCloudError && (
+                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+                                    {resumeCloudError}
+                                </div>
+                            )}
+                            <ResumeSettingsProfileForm form={resumeFullForm} setForm={setResumeFullForm} />
+
+                            <div className="flex flex-col sm:flex-row sm:justify-end pt-6 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    disabled={savingResumeCloud || !resumeFullFormHasMinimumProfile(resumeFullForm)}
+                                    onClick={handleSaveResumeProfileAndSettings}
+                                    className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {savingResumeCloud ? 'Saving…' : 'Save changes'}
+                                </button>
+                            </div>
                         </div>
                     </SectionCard>
                 </div>
