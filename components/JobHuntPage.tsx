@@ -14,7 +14,7 @@ import Pagination from './Pagination';
 import { fetchJobs, fetchSavedResumeSkillNames, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
 import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
-import { computeJobSkillMatchPercent } from '../lib/jobSkillMatch';
+import { buildCorpus, joinCandidateSkillText, scoreJob, type Corpus } from '../lib/matchScore';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
@@ -188,28 +188,47 @@ function matchBadgeColors(percent: number): {
   };
 }
 
-function JobMatchBadge({ percent }: { percent: number | null }) {
+function JobMatchBadge({
+  score,
+  matchedSkills,
+  missingSkills,
+}: {
+  score: number | null;
+  matchedSkills: string[];
+  missingSkills: string[];
+}) {
   const r = 7;
   const c = 2 * Math.PI * r;
-  const offset = percent != null ? c * (1 - percent / 100) : 0;
+  const offset = score != null ? c * (1 - score / 100) : 0;
 
-  if (percent === null) {
+  const detailTitle =
+    score == null
+      ? 'Add skills under Settings → Resume and save to see how roles match your profile'
+      : [
+          `TF-IDF cosine match vs this page of listings (${score}%).`,
+          matchedSkills.length ? `Resume skills found in job: ${matchedSkills.join(', ')}` : null,
+          missingSkills.length ? `Job skills not on resume: ${missingSkills.join(', ')}` : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+  if (score === null) {
     return (
       <span
         className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500"
-        title="Add skills under Settings → Resume and save to see how roles match your profile"
+        title={detailTitle}
       >
         No skills to match
       </span>
     );
   }
 
-  const { pill, track, arc } = matchBadgeColors(percent);
+  const { pill, track, arc } = matchBadgeColors(score);
 
   return (
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${pill}`}
-      title="Share of your resume skills found in this job’s description or required skills"
+      title={detailTitle}
     >
       <svg width={20} height={20} viewBox="0 0 20 20" className="shrink-0 -rotate-90" aria-hidden>
         <circle cx="10" cy="10" r={r} fill="none" stroke={track} strokeWidth="2.5" />
@@ -225,7 +244,7 @@ function JobMatchBadge({ percent }: { percent: number | null }) {
           strokeDashoffset={offset}
         />
       </svg>
-      {percent}% match
+      {score}% match
     </span>
   );
 }
@@ -296,7 +315,8 @@ interface JobDetailPanelProps {
   saved: boolean;
   onToggleSave: () => void;
   openApply: (job: JobListing) => void;
-  userSkillNames: string[];
+  candidateText: string;
+  corpus: Corpus;
 }
 
 function JobDetailPanel({
@@ -305,13 +325,14 @@ function JobDetailPanel({
   saved,
   onToggleSave,
   openApply,
-  userSkillNames,
+  candidateText,
+  corpus,
 }: JobDetailPanelProps) {
   const posted =
     relativePosted(job.scraped_at ?? job.created_at) ||
     formatJobDate(job.scraped_at ?? job.created_at);
   const desc = job.description?.trim() || '';
-  const matchPercent = computeJobSkillMatchPercent(userSkillNames, job);
+  const match = scoreJob(corpus, candidateText, job);
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="job-detail-title">
@@ -344,7 +365,11 @@ function JobDetailPanel({
               </div>
             </div>
             <div className="flex shrink-0 items-start gap-2">
-              <JobMatchBadge percent={matchPercent} />
+              <JobMatchBadge
+                score={match.score}
+                matchedSkills={match.matchedSkills}
+                missingSkills={match.missingSkills}
+              />
               <button
                 type="button"
                 onClick={onClose}
@@ -635,6 +660,16 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
       return true;
     });
   }, [jobs, queryTitle, queryLoc, selectedJobTypes, selectedExperience, selectedWorkModes]);
+
+  const candidateText = useMemo(() => joinCandidateSkillText(userSkillNames), [userSkillNames]);
+
+  const matchCorpus = useMemo(() => buildCorpus(filteredJobs), [filteredJobs]);
+
+  const corpusForDetail = useMemo(() => {
+    if (!detailSelection) return matchCorpus;
+    if (matchCorpus.jobs.includes(detailSelection.job)) return matchCorpus;
+    return buildCorpus([...filteredJobs, detailSelection.job]);
+  }, [detailSelection, filteredJobs, matchCorpus]);
 
   const runSearch = () => {
     setQueryTitle(titleDraft.trim());
@@ -1037,7 +1072,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                   const id = job.id || `job-${index}`;
                   const posted = relativePosted(job.scraped_at ?? job.created_at) || formatJobDate(job.scraped_at ?? job.created_at);
                   const desc = job.description?.trim() || '';
-                  const matchPercent = computeJobSkillMatchPercent(userSkillNames, job);
+                  const matchResult = scoreJob(matchCorpus, candidateText, job);
 
                   return (
                     <article
@@ -1075,7 +1110,11 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                               <p className="text-sm font-bold text-gray-900 sm:text-right">
                                 {job.salary?.trim() ? job.salary : 'Not disclosed'}
                               </p>
-                              <JobMatchBadge percent={matchPercent} />
+                              <JobMatchBadge
+                                score={matchResult.score}
+                                matchedSkills={matchResult.matchedSkills}
+                                missingSkills={matchResult.missingSkills}
+                              />
                             </div>
                           </div>
 
@@ -1181,7 +1220,8 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           saved={savedIds.has(detailSelection.saveId)}
           onToggleSave={() => void toggleSave(detailSelection.saveId)}
           openApply={openApply}
-          userSkillNames={userSkillNames}
+          candidateText={candidateText}
+          corpus={corpusForDetail}
         />
       ) : null}
     </>
