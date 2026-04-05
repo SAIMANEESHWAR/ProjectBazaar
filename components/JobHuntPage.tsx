@@ -15,6 +15,7 @@ import { fetchJobs, getJobHuntUserId, toggleJobSave } from '../services/buyerApi
 import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
+import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
 interface JobHuntPageProps {
   toggleSidebar?: () => void;
@@ -30,17 +31,29 @@ function formatJobDate(ts?: number): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Calendar-day distance from posting date to today (local): “Posted today”, “Posted N days ago” */
 function relativePosted(ts?: number): string {
   if (ts == null || Number.isNaN(ts)) return '';
   const ms = ts < 1e12 ? ts * 1000 : ts;
-  const d = new Date(ms);
-  if (Number.isNaN(d.getTime())) return '';
-  const diff = Date.now() - d.getTime();
-  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-  if (days <= 0) return 'Posted today';
-  if (days === 1) return 'Posted yesterday';
-  if (days < 7) return `Posted ${days} days ago`;
-  if (days < 30) return `Posted ${Math.floor(days / 7)} weeks ago`;
+  const posted = new Date(ms);
+  if (Number.isNaN(posted.getTime())) return '';
+
+  const postedDay = startOfLocalDay(posted);
+  const today = startOfLocalDay(new Date());
+  const diffDays = Math.round((today.getTime() - postedDay.getTime()) / 86400000);
+
+  if (diffDays < 0) {
+    return `Posted ${posted.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  if (diffDays === 0) return 'Posted today';
+  if (diffDays === 1) return 'Posted 1 day ago';
+  if (diffDays <= 999) {
+    return `Posted ${diffDays} days ago`;
+  }
   const label = formatJobDate(ts);
   return label ? `Posted ${label}` : '';
 }
@@ -599,85 +612,93 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0c1829] via-black to-black"
           aria-hidden
         />
-        <div className="pointer-events-none absolute -right-20 top-1/2 h-52 w-52 -translate-y-1/2 rounded-full bg-orange-500/25 blur-3xl sm:right-0" />
-        <div className="relative">
-          <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
-            {toggleSidebar ? (
+        <div className="pointer-events-none absolute -right-16 top-1/3 h-64 w-64 rounded-full bg-orange-500/20 blur-3xl sm:-right-8 lg:right-[8%] lg:top-1/2 lg:-translate-y-1/2" />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(200px,38%)] lg:items-end lg:gap-6 xl:gap-10">
+          <div className="min-w-0">
+            <div className="mb-4 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              {toggleSidebar ? (
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="mr-auto rounded-lg border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10 lg:hidden"
+                  aria-label="Toggle sidebar"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={toggleSidebar}
-                className="rounded-lg border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10 lg:hidden"
-                aria-label="Toggle sidebar"
+                onClick={() => void loadPage('refresh')}
+                disabled={isLoading || isRefreshing}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+                aria-label="Refresh listings from server"
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                <RefreshCw
+                  className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                  aria-hidden
+                />
+                Refresh
               </button>
-            ) : null}
-            <p className="min-w-0 flex-1 text-sm text-white/60">
-              Curated from major job boards — synced on a schedule.
-              {huntUserId ? (
-                <span className="mt-0.5 block text-xs text-white/45 sm:inline sm:before:content-['·_']">
-                  Saves sync to your account.
-                </span>
-              ) : null}
-            </p>
-            <button
-              type="button"
-              onClick={() => void loadPage('refresh')}
-              disabled={isLoading || isRefreshing}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
-              aria-label="Refresh listings from server"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
-                aria-hidden
-              />
-              Refresh
-            </button>
+            </div>
+
+            <div className="mb-5 max-w-xl sm:mb-6">
+              <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
+                Find Your Dream Job Here
+              </h1>
+              <p className="mt-2 text-xs text-white/55 sm:text-sm">
+                Search roles from top boards in one place — filter by location and keywords.
+              </p>
+            </div>
+
+            <div className="flex w-full max-w-2xl flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
+              <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:pl-1 sm:py-2">
+                <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+                <input
+                  type="search"
+                  placeholder="Job title or keyword"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+                />
+              </label>
+              <div className="hidden h-7 w-px shrink-0 self-center bg-gray-200 sm:block" />
+              <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:py-2">
+                <MapPin className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+                <input
+                  type="search"
+                  placeholder="Add country or city"
+                  value={locDraft}
+                  onChange={(e) => setLocDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={runSearch}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 sm:rounded-full sm:px-7 sm:py-2.5"
+              >
+                <Search className="h-4 w-4 shrink-0 opacity-95" aria-hidden />
+                Search
+              </button>
+            </div>
           </div>
 
-          <div className="mb-5 max-w-xl sm:mb-6">
-            <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
-              Find Your Dream Job Here
-            </h1>
-            <p className="mt-2 text-xs text-white/55 sm:text-sm">
-              Search roles from top boards in one place — filter by location and keywords.
-            </p>
-          </div>
-
-          <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
-            <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:pl-1 sm:py-2">
-              <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
-              <input
-                type="search"
-                placeholder="Job title or keyword"
-                value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-              />
-            </label>
-            <div className="hidden h-7 w-px shrink-0 self-center bg-gray-200 sm:block" />
-            <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:py-2">
-              <MapPin className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
-              <input
-                type="search"
-                placeholder="Add country or city"
-                value={locDraft}
-                onChange={(e) => setLocDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={runSearch}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-orange-600 sm:rounded-full sm:px-7 sm:py-2.5"
-            >
-              <Search className="h-4 w-4 shrink-0 opacity-95" aria-hidden />
-              Search
-            </button>
+          <div
+            className="relative flex justify-center lg:justify-end lg:pb-0"
+            aria-hidden
+          >
+            <img
+              src={jobHuntHeroImage}
+              alt=""
+              width={480}
+              height={480}
+              decoding="async"
+              className="h-auto w-full max-w-[260px] select-none object-contain object-bottom drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:max-w-[300px] lg:max-h-[min(340px,38vh)] lg:w-auto lg:max-w-[min(100%,400px)] xl:max-h-[min(380px,42vh)] xl:max-w-[440px]"
+            />
           </div>
         </div>
       </section>

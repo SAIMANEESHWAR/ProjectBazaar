@@ -5,6 +5,7 @@ import { usePremium, useAuth, useNavigation } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { useMessagesUnread } from '../context/MessagesUnreadContext';
 import { playNotification } from '../utils/sounds';
+import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
@@ -293,11 +294,20 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     setDashboardMode('jobHunt');
                     navigateTo('dashboard');
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
+                  className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
                 >
-                  <span>Job Hunt</span>
-                  <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  <span className="relative z-10 flex h-[13px] w-[11px] shrink-0 items-center justify-center">
+                    <PinkJobHuntStar className="h-[11px] w-[10px] animate-pink-star-shine" aria-hidden />
+                  </span>
+                  <span className="relative z-10">Job Hunt</span>
+                  <span className="relative z-10 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                     New
+                  </span>
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                  >
+                    <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
                   </span>
                 </button>
               )}
