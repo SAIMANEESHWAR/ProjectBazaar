@@ -612,15 +612,15 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0c1829] via-black to-black"
           aria-hidden
         />
-        <div className="pointer-events-none absolute -right-16 top-1/3 h-64 w-64 rounded-full bg-orange-500/20 blur-3xl sm:-right-8 lg:right-[8%] lg:top-1/2 lg:-translate-y-1/2" />
-        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(200px,38%)] lg:items-end lg:gap-6 xl:gap-10">
-          <div className="min-w-0">
-            <div className="mb-4 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <div className="pointer-events-none absolute right-0 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-orange-500/18 blur-3xl lg:right-[2%]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-start lg:gap-6 xl:gap-8">
+          <div className="min-w-0 w-full max-w-xl lg:max-w-[min(100%,28rem)] xl:max-w-[32rem] shrink-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2 sm:gap-3 lg:mb-4">
               {toggleSidebar ? (
                 <button
                   type="button"
                   onClick={toggleSidebar}
-                  className="mr-auto rounded-lg border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10 lg:hidden"
+                  className="rounded-lg border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10 lg:hidden"
                   aria-label="Toggle sidebar"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -628,11 +628,22 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
                   </svg>
                 </button>
               ) : null}
+            </div>
+
+            <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
+                  Find Your Dream Job Here
+                </h1>
+                <p className="mt-2 text-xs text-white/55 sm:text-sm">
+                  Search roles from top boards in one place — filter by location and keywords.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => void loadPage('refresh')}
                 disabled={isLoading || isRefreshing}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+                className="inline-flex shrink-0 self-start items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0.5 sm:gap-2 sm:px-3.5 sm:py-2 sm:text-sm"
                 aria-label="Refresh listings from server"
               >
                 <RefreshCw
@@ -643,16 +654,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               </button>
             </div>
 
-            <div className="mb-5 max-w-xl sm:mb-6">
-              <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Find Your Dream Job Here
-              </h1>
-              <p className="mt-2 text-xs text-white/55 sm:text-sm">
-                Search roles from top boards in one place — filter by location and keywords.
-              </p>
-            </div>
-
-            <div className="flex w-full max-w-2xl flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
+            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
               <label className="flex min-h-[40px] min-w-0 flex-1 cursor-text items-center gap-2.5 px-2.5 sm:min-h-0 sm:gap-3 sm:px-0 sm:pl-1 sm:py-2">
                 <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
                 <input
@@ -688,7 +690,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           </div>
 
           <div
-            className="relative flex justify-center lg:justify-end lg:pb-0"
+            className="relative flex w-full justify-center min-h-0 lg:min-w-0 lg:flex-1 lg:justify-end lg:pl-4"
             aria-hidden
           >
             <img
@@ -697,7 +699,7 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               width={480}
               height={480}
               decoding="async"
-              className="h-auto w-full max-w-[260px] select-none object-contain object-bottom drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:max-w-[300px] lg:max-h-[min(340px,38vh)] lg:w-auto lg:max-w-[min(100%,400px)] xl:max-h-[min(380px,42vh)] xl:max-w-[440px]"
+              className="h-auto w-full max-w-[220px] select-none object-contain object-bottom drop-shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:max-w-[260px] lg:max-h-[min(300px,36vh)] lg:w-auto lg:max-w-[min(320px,34vw)] xl:max-h-[min(340px,38vh)] xl:max-w-[360px]"
             />
           </div>
         </div>

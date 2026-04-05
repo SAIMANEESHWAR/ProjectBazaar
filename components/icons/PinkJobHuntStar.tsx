@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import { useId } from 'react';
 
 /** Two-star mark from pink_star.svg — gradients #CB5BB2 → #F3747B */
 export function PinkJobHuntStar({
