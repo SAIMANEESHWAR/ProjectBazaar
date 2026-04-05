@@ -630,28 +630,13 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               ) : null}
             </div>
 
-            <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
-                  Find Your Dream Job Here
-                </h1>
-                <p className="mt-2 text-xs text-white/55 sm:text-sm">
-                  Search roles from top boards in one place — filter by location and keywords.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void loadPage('refresh')}
-                disabled={isLoading || isRefreshing}
-                className="inline-flex shrink-0 self-start items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0.5 sm:gap-2 sm:px-3.5 sm:py-2 sm:text-sm"
-                aria-label="Refresh listings from server"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
-                  aria-hidden
-                />
-                Refresh
-              </button>
+            <div className="mb-4 sm:mb-5">
+              <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl lg:text-4xl">
+                Find Your Dream Job Here
+              </h1>
+              <p className="mt-2 text-xs text-white/55 sm:text-sm">
+                Search roles from top boards in one place — filter by location and keywords.
+              </p>
             </div>
 
             <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-1.5 shadow-2xl ring-1 ring-black/5 sm:flex-row sm:items-stretch sm:gap-0 sm:rounded-full sm:p-1 sm:pl-4 sm:pr-1 sm:shadow-xl">
@@ -775,9 +760,26 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
       {!isLoading && !error && jobs.length > 0 && (
         <>
           <header className="mb-6">
-            <h1 className="font-serif text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-              {resultsTitle}
-            </h1>
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="min-w-0 font-serif text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                {resultsTitle}
+              </h1>
+              <button
+                type="button"
+                onClick={() => void loadPage('refresh')}
+                disabled={isLoading || isRefreshing}
+                aria-label="Load latest jobs from the server"
+                aria-busy={isRefreshing}
+                className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-900 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-1 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+                title="Load the latest job listings from the server"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4 ${isRefreshing ? 'animate-spin' : ''}`}
+                  aria-hidden
+                />
+                <span className="whitespace-nowrap">Latest jobs</span>
+              </button>
+            </div>
             <p className="mt-2 text-sm text-gray-500">
               Showing{' '}
               <span className="font-semibold text-gray-800">{filteredJobs.length}</span> of{' '}
