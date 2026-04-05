@@ -203,8 +203,8 @@ export default function FAQWithSpiral() {
   // FAQ content (edit freely)
   const faqs = [
     {
-      q: "What is Project Bazaar?",
-      a: "Project Bazaar is a marketplace where you can buy and sell premium project templates, code, and digital products. Turn your academic and personal projects into real revenue.",
+      q: "What is CodeXCareer?",
+      a: "CodeXCareer is a marketplace where you can buy and sell premium project templates, code, and digital products. Turn your academic and personal projects into real revenue.",
     },
     {
       q: "How do I purchase a project?",
@@ -284,7 +284,7 @@ export default function FAQWithSpiral() {
 
         {/* Footer */}
         <footer className="mt-16 border-t border-gray-200 dark:border-white/10 pt-6 text-xs text-gray-500 dark:text-white/50">
-          © {new Date().getFullYear()} Project Bazaar — Discover. Build. Earn.
+          © {new Date().getFullYear()} CodeXCareer — Discover. Build. Earn.
         </footer>
       </div>
 

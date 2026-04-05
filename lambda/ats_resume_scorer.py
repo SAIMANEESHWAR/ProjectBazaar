@@ -572,7 +572,7 @@ def _call_openrouter(api_key, prompt, model=None):
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": OPENROUTER_HTTP_REFERER,
-            "X-Title": "ProjectBazaar ATS Scorer",
+            "X-Title": "CodeXCareer ATS Scorer",
         },
         method="POST",
     )

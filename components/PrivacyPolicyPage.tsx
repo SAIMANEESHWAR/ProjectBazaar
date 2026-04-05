@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigation } from '../App';
 
-const SITE_NAME = 'Project Bazaar';
+const SITE_NAME = 'CodeXCareer';
 const SITE_URL = 'https://projectbazaar.in';
 const SUPPORT_EMAIL = 'support@projectbazaar.com';
 const GRIEVANCE_EMAIL = 'grievance@projectbazaar.com';

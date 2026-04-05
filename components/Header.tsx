@@ -90,11 +90,11 @@ const Header: React.FC = () => {
             className="flex items-center justify-center w-9 h-9 shrink-0"
             aria-label="Go to homepage"
           >
-            <img src={ORCHIDS_LOGO} alt="ProjectBazaar" width={35} height={36} className="w-full h-full object-contain" />
+            <img src={ORCHIDS_LOGO} alt="CodeXCareer" width={35} height={36} className="w-full h-full object-contain" />
           </button>
           <div className={`w-px h-5 ${dividerColor} hidden sm:block`} />
           <span className={`text-base font-semibold tracking-tight hidden sm:inline font-sans ${logoTextColor}`}>
-            ProjectBazaar
+            CodeXCareer
           </span>
         </div>
 

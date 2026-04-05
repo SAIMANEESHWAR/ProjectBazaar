@@ -34,7 +34,6 @@ const NotFound: React.FC = () => {
           './lottiefiles/Error 404.json',
           './lottiefiles/Error%20404.json',
           '../lottiefiles/Error 404.json',
-          '/ProjectBazaar/lottiefiles/Error 404.json',
         ];
 
         for (const fetchPath of fetchPaths) {

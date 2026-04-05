@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
               <LogoIcon />
-              <span className="text-2xl md:text-3xl font-bold tracking-tight">ProjectBazaar</span>
+              <span className="text-2xl md:text-3xl font-bold tracking-tight">CodeXCareer</span>
             </div>
             <p className="text-base md:text-lg leading-relaxed text-[#666] max-w-[280px]">
               The ultimate marketplace for projects, ideas, and collaborations. Discover, build, and earn.
@@ -88,7 +88,7 @@ const Footer: React.FC = () => {
 
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-[#e8e6e1] flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-[#666]">
-          <p>© {new Date().getFullYear()} ProjectBazaar.</p>
+          <p>© {new Date().getFullYear()} CodeXCareer.</p>
           <p>All rights reserved.</p>
         </div>
       </div>
