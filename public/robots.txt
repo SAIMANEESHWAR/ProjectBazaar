@@ -1,4 +1,4 @@
-# robots.txt for Project Bazaar
+# robots.txt for CodeXCareer
 # https://projectbazaar.in
 
 User-agent: *

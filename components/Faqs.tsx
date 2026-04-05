@@ -4,8 +4,8 @@ import FaqItem from './FaqItem';
 const Faqs: React.FC = () => {
   const faqs = [
     {
-      question: 'What is Project Bazaar?',
-      answer: 'Project Bazaar is a marketplace where you can buy and sell premium project templates and code.'
+      question: 'What is CodeXCareer?',
+      answer: 'CodeXCareer is a marketplace where you can buy and sell premium project templates and code.'
     },
     {
       question: 'How do I purchase a project?',

@@ -118,7 +118,7 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack 
         key: paymentIntentResponse.key, // Razorpay key ID (required)
         amount: paymentIntentResponse.amount, // Amount in paise (required)
         currency: paymentIntentResponse.currency || 'INR', // Currency (required)
-        name: paymentIntentResponse.name || 'Project Bazaar', // Business name
+        name: paymentIntentResponse.name || 'CodeXCareer', // Business name
         description: paymentIntentResponse.description || `Purchase of ${cartProjects.length} project(s)`, // Order description
         order_id: paymentIntentResponse.razorpayOrderId, // IMPORTANT: Use razorpayOrderId, NOT orderId
         handler: function (response: any) {

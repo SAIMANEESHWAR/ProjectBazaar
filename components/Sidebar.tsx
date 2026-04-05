@@ -230,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     <div className={`flex h-16 shrink-0 items-center gap-2 border-b px-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}>
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                             <LogoIcon />
-                            <span className={`truncate text-lg font-bold transition-colors duration-300 ${isDark ? 'text-white' : ''}`}>ProjectBazaar</span>
+                            <span className={`truncate text-lg font-bold transition-colors duration-300 ${isDark ? 'text-white' : ''}`}>CodeXCareer</span>
                         </div>
                         <button
                             type="button"

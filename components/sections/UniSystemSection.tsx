@@ -70,7 +70,7 @@ const UniSystemSection: React.FC = () => {
           className="text-center mb-12 flex flex-col items-center gap-4"
         >
           <div className="inline-block px-4 py-1.5 rounded-full bg-gray-100 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#262626]">
-            <span className="text-gray-600 dark:text-[#a1a1a1] text-sm font-medium tracking-wide uppercase">Introducing ProjectBazaar</span>
+            <span className="text-gray-600 dark:text-[#a1a1a1] text-sm font-medium tracking-wide uppercase">Introducing CodeXCareer</span>
           </div>
           <h2 className="text-4xl md:text-5xl lg:text-[48px] font-bold text-gray-900 dark:text-white tracking-tight leading-[1.2] max-w-2xl mx-auto">
             The A-to-Z Platform for <span className="text-[#ff7a00]">High-Value</span> Projects & Talent
