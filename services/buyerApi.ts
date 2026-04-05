@@ -1426,9 +1426,15 @@ export const cachedFetchUserProfile = (userId: string): Promise<any> =>
     return data.success !== false ? (data.data || data.user || data) : null;
   }, USER_TTL);
 
-/** Call after mutations that change user data (purchase, cart, wishlist). */
-export const invalidateUserCache = (userId?: string) =>
-  invalidateCache(userId ? `user:${userId}` : 'user');
+/** Call after mutations that change user data (purchase, cart, wishlist, settings / profile photo). */
+export const invalidateUserCache = (userId?: string) => {
+  if (userId) {
+    invalidateCache(`user:${userId}`);
+    invalidateCache(`user-profile:${userId}`);
+  } else {
+    invalidateCache('user');
+  }
+};
 
 /** Call after project mutations (upload, edit, approve). */
 export const invalidateProjectCache = (projectId?: string) => {

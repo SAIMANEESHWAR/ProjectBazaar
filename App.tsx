@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
 import { DashboardProvider } from './context/DashboardContext';
 import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
+import PeerInterviewBackendSync from './components/PeerInterviewBackendSync';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
@@ -607,6 +608,7 @@ const App: React.FC = () => {
           <DashboardProvider>
             <PeerInterviewQueueProvider>
               <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
+                <PeerInterviewBackendSync />
                 <SocketProvider>
                   <NavigationContext.Provider value={{ page, navigateTo }}>
                     <AppContent />

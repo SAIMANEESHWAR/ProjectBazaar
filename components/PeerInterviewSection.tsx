@@ -27,12 +27,14 @@ import {
   type PeerTimezoneRegionId,
   labelForPeerCategory,
 } from '../data/peerInterviewMockData';
+import { getPeerSlotPresets, mergeSlotsWithTimezoneNote } from '../data/peerInterviewSlotPresets';
 import { useNavigation } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { usePeerInterviewQueue } from '../context/PeerInterviewQueueContext';
 import type { PeerConnectionOffer, PeerWaitlistEntry } from '../types/peerInterviewQueue';
 import { appendPeerConnectionOffer } from '../utils/peerInterviewQueueActions';
-import { syncPeerListingToBackend } from '../services/peerInterviewApi';
+import { cachedFetchUserProfile } from '../services/buyerApi';
+import { extractProfilePhotoUrl, syncPeerListingToBackend } from '../services/peerInterviewApi';
 
 type CategoryFilter = 'all' | PeerInterviewCategoryId;
 
@@ -166,7 +168,8 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   embedded = true,
 }) => {
   const myName = viewerDisplayName;
-  const { waitlist, setWaitlist } = usePeerInterviewQueue();
+  const { waitlist, setWaitlist, refreshWaitlistFromBackend, peerWaitlistBackendError } =
+    usePeerInterviewQueue();
   const { setActiveView } = useDashboard();
   const { navigateTo } = useNavigation();
 
@@ -197,7 +200,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   const [scheduleTimezone, setScheduleTimezone] = useState('');
 
   const [connectForId, setConnectForId] = useState<string | null>(null);
-  const [slotDraft, setSlotDraft] = useState(['Weekday evening IST', 'Sat 10–12', 'Sun flexible']);
+  const [slotDraft, setSlotDraft] = useState<string[]>(() => getPeerSlotPresets('ist'));
 
   const [profileDetailId, setProfileDetailId] = useState<string | null>(null);
 
@@ -294,18 +297,30 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     setScheduleRegion('ist');
     setScheduleTechRaw('');
     setScheduleTimezone('');
+    setSlotDraft(getPeerSlotPresets('ist'));
     setScheduleOpen(true);
   };
 
-  const addToWaitlistFromSchedule = () => {
+  const addToWaitlistFromSchedule = async () => {
     const skills = scheduleSkills.trim();
     const headline = scheduleHeadline.trim();
     if (!skills || !scheduleCategory || !headline) return;
     const techTags = parseTechInput(scheduleTechRaw);
     const id = `me-${Date.now()}`;
     const availabilityWindows = scheduleTimezone.trim()
-      ? [`${slotDraft[0] ?? 'Flexible'} · ${scheduleTimezone.trim()}`]
-      : [...slotDraft].filter(Boolean).slice(0, 3);
+      ? mergeSlotsWithTimezoneNote(slotDraft, scheduleTimezone.trim())
+      : [...slotDraft].filter(Boolean).slice(0, 5);
+
+    let listingAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(myName)}&size=256&background=0f172a&color=ffffff&bold=true`;
+    if (viewerUserId) {
+      try {
+        const prof = await cachedFetchUserProfile(viewerUserId);
+        const fromSettings = extractProfilePhotoUrl(prof);
+        if (fromSettings) listingAvatarUrl = fromSettings;
+      } catch {
+        /* keep fallback */
+      }
+    }
 
     const catLabel = labelForPeerCategory(scheduleCategory);
     const newEntry: PeerWaitlistEntry & { id: string } = {
@@ -340,11 +355,16 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
       techTags: techTags.length ? techTags : undefined,
       availabilityWindows,
       preferredLanguages: ['English'],
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(myName)}&size=256&background=0f172a&color=ffffff&bold=true`,
+      avatarUrl: listingAvatarUrl,
     };
     setWaitlist((prev) => [newEntry, ...prev.filter((p) => !p.isMine)]);
     if (viewerUserId) {
-      void syncPeerListingToBackend(viewerUserId, newEntry);
+      void (async () => {
+        const sync = await syncPeerListingToBackend(viewerUserId, newEntry);
+        if (sync.ok) {
+          await refreshWaitlistFromBackend(viewerUserId);
+        }
+      })();
     }
     goToMyRequestsDashboard();
     setScheduleOpen(false);
@@ -490,6 +510,22 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
 
   return (
     <div className={PAGE_BG}>
+      {peerWaitlistBackendError && viewerUserId && (
+        <div className="px-4 sm:px-5 pt-3">
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/40 px-3 py-2.5 flex flex-wrap items-center gap-2 justify-between">
+            <p className="text-xs text-amber-900 dark:text-amber-100 leading-snug min-w-0 flex-1">
+              Peer queue sync: {peerWaitlistBackendError}
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshWaitlistFromBackend(viewerUserId)}
+              className="shrink-0 text-xs font-bold text-amber-900 dark:text-amber-100 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
       <div className="sticky top-0 z-20 border-b border-gray-200/80 dark:border-gray-800 bg-gradient-to-b from-white via-slate-50/95 to-slate-50/90 dark:from-gray-950 dark:via-slate-950 dark:to-slate-950 backdrop-blur-sm">
         <div className="px-4 sm:px-5 pt-4 pb-3">
           <div className="flex items-start gap-3">
@@ -995,8 +1031,9 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Edit the default slots or add your own. The peer will see these on their request.
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+              Use clear day + time + timezone (e.g. <span className="font-medium">Tue 7–9 PM IST</span>). Your match
+              sees these on the request.
             </p>
             {slotDraft.map((s, i) => (
               <input
@@ -1008,6 +1045,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                   setSlotDraft(next);
                 }}
                 className="w-full mb-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                placeholder={`Proposed slot ${i + 1}`}
               />
             ))}
             <button type="button" onClick={() => sendConnect(connectForId)} className={`mt-2 w-full ${btnPrimary}`}>
@@ -1267,18 +1305,44 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm">
-                    <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
-                      <Globe className="h-4 w-4 text-[#f97316]" />
-                      Availability <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleTimezone}
-                      onChange={(e) => setScheduleTimezone(e.target.value)}
-                      placeholder="e.g. Weekday evenings IST, US mornings…"
-                      className={scheduleInput}
-                    />
+                  <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3 shadow-sm">
+                    <div>
+                      <p className={scheduleLabel}>
+                        <Clock className="h-4 w-4 text-[#f97316]" />
+                        Your windows
+                      </p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2 leading-relaxed">
+                        Defaults follow <span className="font-semibold text-gray-700 dark:text-gray-300">Region</span>{' '}
+                        above — edit freely. These are stored on your listing and help peers propose compatible times.
+                      </p>
+                      {slotDraft.map((s, i) => (
+                        <input
+                          key={i}
+                          type="text"
+                          value={s}
+                          onChange={(e) => {
+                            const next = [...slotDraft];
+                            next[i] = e.target.value;
+                            setSlotDraft(next);
+                          }}
+                          className={`${scheduleInput} mb-2`}
+                          placeholder={`Availability window ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
+                        <Globe className="h-4 w-4 text-[#f97316]" />
+                        Timezone note <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={scheduleTimezone}
+                        onChange={(e) => setScheduleTimezone(e.target.value)}
+                        placeholder="e.g. Asia/Kolkata or America/New_York — appended to each window for clarity"
+                        className={scheduleInput}
+                      />
+                    </div>
                   </div>
 
                   <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 px-2">

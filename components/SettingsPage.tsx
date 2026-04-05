@@ -19,6 +19,7 @@ import {
 import ResumeSettingsProfileForm from './ResumeSettingsProfileForm';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
+import { invalidateUserCache } from '../services/buyerApi';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -1417,6 +1418,7 @@ const SettingsPage: React.FC = () => {
                 setSaveMessage('Settings updated successfully.');
                 setPendingImageUrl(null);
                 setIsEditingProfile(false);
+                invalidateUserCache(userId);
 
                 // Update local state with returned data to ensure sync
                 const updatedUser = data.data || data.user;

@@ -54,7 +54,8 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
   const { userId } = useAuth();
   const { setActiveView } = useDashboard();
   const { navigateTo } = useNavigation();
-  const { waitlist, setWaitlist } = usePeerInterviewQueue();
+  const { waitlist, setWaitlist, refreshWaitlistFromBackend, peerWaitlistBackendError } =
+    usePeerInterviewQueue();
 
   const [membersModalListingId, setMembersModalListingId] = useState<string | null>(null);
 
@@ -175,6 +176,26 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
               Interview with peer
             </button>
           </div>
+
+          {peerWaitlistBackendError && userId && (
+            <div className="px-4 sm:px-5 pb-3">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/40 px-3 py-2.5 flex flex-wrap items-center gap-2 justify-between">
+                <p className="text-xs text-amber-900 dark:text-amber-100 leading-snug min-w-0 flex-1">
+                  Peer queue sync: {peerWaitlistBackendError}. Create a DynamoDB table{' '}
+                  <code className="text-[10px] bg-white/60 dark:bg-black/20 px-1 rounded">PeerInterview</code> (pk/sk
+                  strings) and set Lambda env{' '}
+                  <code className="text-[10px] bg-white/60 dark:bg-black/20 px-1 rounded">PEER_INTERVIEW_TABLE</code>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void refreshWaitlistFromBackend(userId)}
+                  className="shrink-0 text-xs font-bold text-amber-900 dark:text-amber-100 underline hover:no-underline"
+                >
+                  Retry load
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="px-4 sm:px-5 pt-2 pb-4">
             <div className="flex items-start gap-3">

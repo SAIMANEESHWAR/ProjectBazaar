@@ -4,6 +4,14 @@ Peer Interview API — AWS Lambda (Python 3.11+)
 DynamoDB single table, NO Global Secondary Indexes (only pk + sk).
   - pk / sk are the only keys; all access is Query/GetItem on those keys or Scan for public browse.
 
+Primary / sort keys (table-wide)
+  - Partition key attribute name: pk (String)
+  - Sort key attribute name: sk (String)
+  They are NOT only “your userId”. One table stores several entity shapes; userId appears
+  inside pk (e.g. OWNER#<userId>) and as attributes ownerUserId / fromUserId.
+  For photos and rich profile fields, store denormalized avatarUrl/displayName on the listing,
+  and/or load the Users API by ownerUserId.
+
 Entity layout
   1) Listing (your scheduled peer post)
        pk = OWNER#<ownerUserId>
@@ -19,7 +27,8 @@ Entity layout
        entityType = OUTBOUND
 
 Environment
-  PEER_INTERVIEW_TABLE  (default: PeerInterview)
+  PEER_INTERVIEW_TABLE  — must match your DynamoDB table name exactly (e.g. PEER_INTERVIEW_TABLE or PeerInterview).
+  Default below is PEER_INTERVIEW_TABLE to match a table created with that literal name.
 
 HTTP API (API Gateway HTTP API v2) — supports rawPath or path + httpMethod.
 Also accepts legacy JSON { "action": "...", ... } on POST body for flexibility.
@@ -41,7 +50,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import boto3
 from botocore.exceptions import ClientError
 
-TABLE_NAME = os.environ.get("PEER_INTERVIEW_TABLE", "PeerInterview")
+TABLE_NAME = os.environ.get("PEER_INTERVIEW_TABLE", "PEER_INTERVIEW_TABLE")
 
 _dynamodb = boto3.resource("dynamodb")
 _table = _dynamodb.Table(TABLE_NAME)
@@ -164,6 +173,7 @@ def handle_create_listing(body: Dict[str, Any], viewer: str) -> Dict[str, Any]:
         "availabilityWindows": body.get("availabilityWindows") or [],
         "queueIntent": body.get("queueIntent"),
         "bio": body.get("bio"),
+        "avatarUrl": body.get("avatarUrl"),
         "isPublic": body.get("isPublic", True),
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
@@ -179,21 +189,30 @@ def handle_create_listing(body: Dict[str, Any], viewer: str) -> Dict[str, Any]:
     return response(201, {"success": True, "data": strip_keys(item)})
 
 
+def _scan_all_with_filter(
+    filter_expression: str,
+    expression_values: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Paginated Scan; keeps FilterExpression on every page."""
+    scan_kw: Dict[str, Any] = {
+        "FilterExpression": filter_expression,
+        "ExpressionAttributeValues": expression_values,
+    }
+    out: List[Dict[str, Any]] = []
+    scan = _table.scan(**scan_kw)
+    out.extend(scan.get("Items", []))
+    while "LastEvaluatedKey" in scan:
+        scan = _table.scan(ExclusiveStartKey=scan["LastEvaluatedKey"], **scan_kw)
+        out.extend(scan.get("Items", []))
+    return out
+
+
 def handle_get_listing(listing_id: str) -> Dict[str, Any]:
-    # Need owner to query OWNER# — Scan by listingId (no GSI): acceptable for single-id lookup
     try:
-        scan = _table.scan(
-            FilterExpression="listingId = :lid AND entityType = :et",
-            ExpressionAttributeValues={":lid": listing_id, ":et": "LISTING"},
+        items = _scan_all_with_filter(
+            "listingId = :lid AND entityType = :et",
+            {":lid": listing_id, ":et": "LISTING"},
         )
-        items = scan.get("Items", [])
-        while "LastEvaluatedKey" in scan:
-            scan = _table.scan(
-                FilterExpression="listingId = :lid AND entityType = :et",
-                ExpressionAttributeValues={":lid": listing_id, ":et": "LISTING"},
-                ExclusiveStartKey=scan["LastEvaluatedKey"],
-            )
-            items.extend(scan.get("Items", []))
         if not items:
             return response(404, {"success": False, "error": "listing not found"})
         return response(200, {"success": True, "data": strip_keys(items[0])})
@@ -218,10 +237,7 @@ def handle_list_public(body: Dict[str, Any]) -> Dict[str, Any]:
     category = body.get("category")
     practice_mode = body.get("practiceMode", "peers")
     try:
-        scan = _table.scan(FilterExpression="entityType = :et", ExpressionAttributeValues={":et": "LISTING"})
-        items: List[Dict[str, Any]] = []
-        for chunk in _scan_all_pages(scan):
-            items.extend(chunk)
+        items = _scan_all_with_filter("entityType = :et", {":et": "LISTING"})
         out = []
         for it in items:
             if not it.get("isPublic", True):
@@ -234,17 +250,6 @@ def handle_list_public(body: Dict[str, Any]) -> Dict[str, Any]:
         return response(200, {"success": True, "data": out})
     except ClientError as e:
         return response(500, {"success": False, "error": str(e)})
-
-
-def _scan_all_pages(initial: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Flatten all Items from an initial Scan response and its continuations."""
-    out: List[Dict[str, Any]] = list(initial.get("Items", []))
-    key = initial.get("LastEvaluatedKey")
-    while key:
-        n = _table.scan(ExclusiveStartKey=key)
-        out.extend(n.get("Items", []))
-        key = n.get("LastEvaluatedKey")
-    return out
 
 
 def handle_update_listing(listing_id: str, body: Dict[str, Any], viewer: str) -> Dict[str, Any]:
@@ -268,6 +273,7 @@ def handle_update_listing(listing_id: str, body: Dict[str, Any], viewer: str) ->
         "availabilityWindows",
         "queueIntent",
         "bio",
+        "avatarUrl",
         "isPublic",
     ]
     updates = {k: body[k] for k in allowed if k in body}
@@ -326,20 +332,13 @@ def handle_delete_listing(listing_id: str, viewer: str) -> Dict[str, Any]:
 
 
 def _find_listing_and_pk(listing_id: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    scan = _table.scan(
-        FilterExpression="listingId = :lid AND entityType = :et",
-        ExpressionAttributeValues={":lid": listing_id, ":et": "LISTING"},
+    items = _scan_all_with_filter(
+        "listingId = :lid AND entityType = :et",
+        {":lid": listing_id, ":et": "LISTING"},
     )
-    for it in scan.get("Items", []):
+    if items:
+        it = items[0]
         return it, it.get("pk")
-    while "LastEvaluatedKey" in scan:
-        scan = _table.scan(
-            FilterExpression="listingId = :lid AND entityType = :et",
-            ExpressionAttributeValues={":lid": listing_id, ":et": "LISTING"},
-            ExclusiveStartKey=scan["LastEvaluatedKey"],
-        )
-        for it in scan.get("Items", []):
-            return it, it.get("pk")
     return None, None
 
 

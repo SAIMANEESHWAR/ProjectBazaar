@@ -11,6 +11,8 @@ export interface PeerConnectionOffer {
 }
 
 export interface PeerWaitlistEntry extends MockWaitlistEntry {
+  /** Listing owner — from API; use with profile fetch when you need fresh photo/details. */
+  ownerUserId?: string;
   isMine?: boolean;
   practiceMode?: 'peers' | 'friend';
   connections?: PeerConnectionOffer[];
