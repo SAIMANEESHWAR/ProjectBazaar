@@ -39,6 +39,7 @@ import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import LiveMockInterviewPage from './LiveMockInterviewPage';
 import LiveMockInterviewDashboard from './LiveMockInterviewDashboard';
+import PeerInterviewRequestsDashboard from './PeerInterviewRequestsDashboard';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
@@ -674,6 +675,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
                 return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview-dashboard':
                 return <LiveMockInterviewDashboard />;
             case 'coding-questions':
@@ -777,6 +780,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
                 return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview-dashboard':
                 return <LiveMockInterviewDashboard />;
             case 'coding-questions':
@@ -843,6 +848,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
     const renderJobHuntContent = () => {
         switch (activeView) {
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'job-hunt':
                 return <JobHuntPage toggleSidebar={toggleSidebar} />;
             default:
@@ -852,6 +859,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
     const renderPreparationContent = () => {
         switch (activeView) {
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'prep-hub':
                 return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
             case 'prep-interview-questions':
@@ -893,7 +902,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
 
     const isCodingQuestions = activeView === 'coding-questions';
     const isLiveMockInterview = activeView === 'live-mock-interview';
-    const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview;
+    const isPeerRequestsDashboard = activeView === 'live-peer-requests';
+    const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview || isPeerRequestsDashboard;
 
     const renderModeContent = () => {
         if (dashboardMode === 'jobHunt') return renderJobHuntContent();
@@ -1088,7 +1098,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     `}</style>
                     <div
                         className={
-                            activeView === 'live-mock-interview'
+                            activeView === 'live-mock-interview' || activeView === 'live-peer-requests'
                                 ? 'w-full max-w-none py-8'
                                 : 'container mx-auto px-6 py-8'
                         }

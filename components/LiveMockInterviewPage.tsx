@@ -57,6 +57,7 @@ import {
   playSpeakerTestTone,
 } from '../utils/liveInterviewMediaCheck';
 import interviewerFlowAnimation from '../lottiefiles/ai-animation-interviewer-Flow.json';
+import PeerInterviewSection from './PeerInterviewSection';
 import { ShimmerButton } from './ui/shimmer-button';
 import {
   evaluateInterviewWithProvider,
@@ -68,6 +69,7 @@ import {
 
 type FlowPhase = 'setup' | 'briefing' | 'prereq' | 'warming' | 'live' | 'results';
 type SetupTabId = 'role' | 'company' | 'jd' | 'custom';
+type LiveInterviewMode = 'ai' | 'peer';
 
 type PrereqItemStatus =
   | 'pending'
@@ -156,9 +158,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   toggleSidebar,
 }) => {
   const { navigateTo } = useNavigation();
-  const { isLoggedIn, userId } = useAuth();
+  const { isLoggedIn, userId, userEmail } = useAuth();
+  const peerViewerDisplayName = userEmail ? userEmail.split('@')[0] || 'You' : 'You';
   const { dashboardMode, setActiveView } = useDashboard();
 
+  const [liveInterviewMode, setLiveInterviewMode] = useState<LiveInterviewMode>('ai');
   const [phase, setPhase] = useState<FlowPhase>('setup');
   const [setupTab, setSetupTab] = useState<SetupTabId>('role');
   const [roleSearch, setRoleSearch] = useState('');
@@ -1809,23 +1813,51 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       )}
 
       <div className={`px-0 sm:px-0 ${mainInner}`}>
-        <div
-          className={`flex items-center justify-between gap-4 mb-6 ${phase === 'live' ? 'hidden' : ''}`}
-        >
-          <button
-            type="button"
-            onClick={goBack}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#f97316] transition-colors"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div
+            className="inline-flex rounded-full border border-gray-200 dark:border-gray-600 p-1 bg-gray-100/90 dark:bg-gray-900/90 shadow-inner"
+            role="tablist"
+            aria-label="Interview mode"
           >
-            <ChevronLeft className="w-4 h-4" aria-hidden />
-            {embedded
-              ? dashboardMode === 'preparation'
-                ? 'Back to prep hub'
-                : 'Back to dashboard'
-              : isLoggedIn
-                ? 'Dashboard'
-                : 'Home'}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={liveInterviewMode === 'ai'}
+              onClick={() => setLiveInterviewMode('ai')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                liveInterviewMode === 'ai'
+                  ? 'bg-white dark:bg-gray-800 text-[#f97316] shadow-sm ring-1 ring-orange-200/80 dark:ring-orange-900/50'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Interview with AI
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={liveInterviewMode === 'peer'}
+              onClick={() => setLiveInterviewMode('peer')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                liveInterviewMode === 'peer'
+                  ? 'bg-white dark:bg-gray-800 text-[#f97316] shadow-sm ring-1 ring-orange-200/80 dark:ring-orange-900/50'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Interview with peer
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 sm:max-w-xs sm:text-right">
+            {liveInterviewMode === 'ai'
+              ? 'Full mock session with AI voice & scoring.'
+              : 'Match with peers, share slots, and open a Meet link when you accept.'}
+          </p>
+        </div>
+
+        <div
+          className={`flex items-center justify-end gap-4 mb-6 ${
+            liveInterviewMode !== 'ai' || (phase === 'live' && liveInterviewMode === 'ai') ? 'hidden' : ''
+          }`}
+        >
           <button
             type="button"
             onClick={goResultsDashboard}
@@ -1835,6 +1867,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           </button>
         </div>
 
+        {liveInterviewMode === 'peer' ? (
+          <PeerInterviewSection
+            viewerDisplayName={peerViewerDisplayName}
+            viewerUserId={userId}
+            embedded={embedded}
+          />
+        ) : (
         <AnimatePresence mode="wait">
           {phase === 'setup' && (
             <motion.div
@@ -2922,6 +2961,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
     </>
   );
@@ -2949,13 +2989,15 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             >
               {isLoggedIn ? 'Dashboard' : 'Home'}
             </button>
-            <button
-              type="button"
-              onClick={goResultsDashboard}
-              className="font-medium text-[#f97316] hover:underline"
-            >
-              Results dashboard
-            </button>
+            {liveInterviewMode === 'ai' && (
+              <button
+                type="button"
+                onClick={goResultsDashboard}
+                className="font-medium text-[#f97316] hover:underline"
+              >
+                Results dashboard
+              </button>
+            )}
           </nav>
         </div>
       </header>

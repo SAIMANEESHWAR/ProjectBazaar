@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
 import { DashboardProvider } from './context/DashboardContext';
+import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
@@ -604,14 +605,16 @@ const App: React.FC = () => {
       <ThemeProvider page={page}>
         <PremiumProvider>
           <DashboardProvider>
-            <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
-              <SocketProvider>
-                <NavigationContext.Provider value={{ page, navigateTo }}>
-                  <AppContent />
-                  <CookieConsent />
-                </NavigationContext.Provider>
-              </SocketProvider>
-            </AuthContext.Provider>
+            <PeerInterviewQueueProvider>
+              <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
+                <SocketProvider>
+                  <NavigationContext.Provider value={{ page, navigateTo }}>
+                    <AppContent />
+                    <CookieConsent />
+                  </NavigationContext.Provider>
+                </SocketProvider>
+              </AuthContext.Provider>
+            </PeerInterviewQueueProvider>
           </DashboardProvider>
         </PremiumProvider>
       </ThemeProvider>
