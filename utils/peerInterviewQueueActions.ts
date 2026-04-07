@@ -46,7 +46,7 @@ export async function acceptPeerInterviewConnection(
       await sendFreelancerMessage(
         viewerUserId,
         otherUserId,
-        "Hi — I've accepted your peer interview request on ProjectBazaar. Let's coordinate here.",
+        "Hi — I've accepted your peer interview request on CodeXCareer. Let's coordinate here.",
       );
     } catch (e) {
       console.error('Peer accept: could not send intro message', e);

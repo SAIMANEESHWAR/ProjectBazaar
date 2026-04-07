@@ -2979,7 +2979,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             onClick={() => navigateTo('home')}
             className="text-base font-bold tracking-tight text-gray-900 dark:text-white hover:text-[#f97316] transition-colors"
           >
-            Project<span className="text-[#f97316]">Bazaar</span>
+            CodeX<span className="text-[#f97316]">Career</span>
           </button>
           <nav className="flex items-center gap-3 text-sm">
             <button

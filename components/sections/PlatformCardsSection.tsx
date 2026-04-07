@@ -8,7 +8,7 @@ const cards = [
     id: 'marketplace',
     title: 'Marketplace',
     description:
-      'One trusted place to discover, buy, and sell projects. Whether you\'re a student with a capstone to monetize or a team looking for production-ready solutions, ProjectBazaar connects supply and demand with clear listings, secure payments, and real reviews.',
+      'One trusted place to discover, buy, and sell projects. Whether you\'re a student with a capstone to monetize or a team looking for production-ready solutions, CodeXCareer connects supply and demand with clear listings, secure payments, and real reviews.',
     image: `${IMAGES_BASE}/platform-marketplace.avif`,
     imagePosition: 'right' as const,
     alignment: 'left' as const,

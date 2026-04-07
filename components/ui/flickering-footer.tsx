@@ -385,7 +385,7 @@ export const FlickeringFooter: React.FC = () => {
         <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
           <a href="#" className="flex items-center gap-2 group" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
             <Icons.logo className="size-8 [&_path]:fill-[#ff7a00]" />
-            <p className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-[#ff7a00] transition-colors">ProjectBazaar</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-[#ff7a00] transition-colors">CodeXCareer</p>
           </a>
           <p className="tracking-tight text-gray-600 dark:text-white/70 font-medium">
             {siteConfig.hero.description}

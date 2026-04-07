@@ -1151,7 +1151,7 @@ const SettingsPage: React.FC = () => {
     };
 
     // Navigate to seller dashboard with gitUrl and project name pre-filled
-    const uploadToProjectBazaar = (repoUrl: string, repoName: string) => {
+    const uploadToCodeXCareer = (repoUrl: string, repoName: string) => {
         // Store gitUrl and project name in localStorage for SellerDashboard to pick up
         localStorage.setItem('prefillGitUrl', repoUrl);
         localStorage.setItem('prefillProjectName', repoName);
@@ -1167,7 +1167,7 @@ const SettingsPage: React.FC = () => {
         const selectedRepo = repositories.find(repo => repo.id === selectedRepoId);
 
         if (selectedRepo) {
-            uploadToProjectBazaar(selectedRepo.html_url, selectedRepo.name);
+            uploadToCodeXCareer(selectedRepo.html_url, selectedRepo.name);
             // Clear selection after upload
             setSelectedRepoId(null);
         }
@@ -2398,7 +2398,7 @@ const SettingsPage: React.FC = () => {
                                                 </svg>
                                                 <div>
                                                     <h4 className="text-lg font-semibold text-gray-900">Upload</h4>
-                                                    <p className="text-xs text-gray-500 mt-0.5">Select your public repository to upload as a project in ProjectBazaar</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Select your public repository to upload as a project in CodeXCareer</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -2429,7 +2429,7 @@ const SettingsPage: React.FC = () => {
                                                     onClick={uploadSelectedRepo}
                                                     className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm hover:shadow-md"
                                                 >
-                                                    Upload to ProjectBazaar
+                                                    Upload to CodeXCareer
                                                 </button>
                                             </div>
                                         )}

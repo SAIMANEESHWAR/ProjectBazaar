@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigation, useAuth, useTheme } from '../App';
 import { Sun, Moon } from 'lucide-react';
 import { CTAArrowIcon } from './CTAArrowIcon';
-
-const ORCHIDS_LOGO = 'https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/0fea2819-e0b6-4ab2-b4ab-ab4c64535352-oma-mindly-framer-website/assets/svgs/VT9XchCjHXRPw0H08BPtEicHVVs-1.svg';
+import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,8 +25,6 @@ const Header: React.FC = () => {
   const navBg = 'rgba(255,255,255,0.97)';
   const navShadow = 'rgba(0,0,0,0.18) 0px 0.6px 0.6px -1.25px, rgba(0,0,0,0.16) 0px 2.3px 2.3px -2.5px, rgba(0,0,0,0.06) 0px 10px 10px -3.75px';
   const linkColor = 'text-black hover:text-[#ff7a00]';
-  const dividerColor = 'bg-[#E8E8E8]';
-  const logoTextColor = 'text-black';
 
   interface NavLink {
     name: string;
@@ -77,25 +74,27 @@ const Header: React.FC = () => {
       role="banner"
     >
       <div
-        className="pointer-events-auto flex items-center justify-between w-full h-[68px] px-4 rounded-[12px] backdrop-blur-[12px] transition-all duration-350"
+        className="pointer-events-auto flex h-[68px] w-full items-center justify-between overflow-visible px-4 rounded-[12px] backdrop-blur-[12px] transition-all duration-350"
         style={{
           backgroundColor: navBg,
           boxShadow: navShadow,
         }}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-4">
+        {/* Logo ~6× a ~22px-tall baseline (~132px); bar stays 68px via -my; pill overflow visible */}
+        <div className="relative z-[2] flex min-w-0 shrink-0 items-center">
           <button
             onClick={() => navigateTo('home')}
-            className="flex items-center justify-center w-9 h-9 shrink-0"
+            className="flex items-center p-0"
             aria-label="Go to homepage"
           >
-            <img src={ORCHIDS_LOGO} alt="ProjectBazaar" width={35} height={36} className="w-full h-full object-contain" />
+            <img
+              src={CODEXCAREER_LOGO_SRC}
+              alt="CodeXCareer — codexcareer, CODE • LEARN • LAUNCH"
+              width={960}
+              height={192}
+              className="pointer-events-none block h-[108px] w-auto max-w-[min(560px,88vw)] origin-left object-contain object-left -my-[20px] sm:h-[120px] sm:max-w-[min(640px,78vw)] sm:-my-[26px] md:h-[132px] md:max-w-[min(780px,58vw)] md:-my-[32px]"
+            />
           </button>
-          <div className={`w-px h-5 ${dividerColor} hidden sm:block`} />
-          <span className={`text-base font-semibold tracking-tight hidden sm:inline font-sans ${logoTextColor}`}>
-            ProjectBazaar
-          </span>
         </div>
 
         {/* Desktop Navigation */}

@@ -9,7 +9,7 @@ export default function HoverBorderGradientDemo() {
         className="dark:bg-black bg-white text-black dark:text-white flex items-center space-x-2"
       >
         <AceternityLogo />
-        <span>Project Bazaar · Job Hunt</span>
+        <span>CodeXCareer · Job Hunt</span>
       </HoverBorderGradient>
     </div>
   );
