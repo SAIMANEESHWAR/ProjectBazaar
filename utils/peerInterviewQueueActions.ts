@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { mockGoogleMeetLink } from '../data/peerInterviewMockData';
+import { patchPeerConnection } from '../services/peerInterviewApi';
 import { sendFreelancerMessage } from '../services/freelancerInteractionsApi';
 import type { PeerConnectionOffer, PeerWaitlistEntry } from '../types/peerInterviewQueue';
 
@@ -12,11 +13,21 @@ export async function acceptPeerInterviewConnection(
   onNavigateToPeerChat?: (otherUserId: string) => void,
   /** When false (default), meet link + chat unlock in UI; user opens Messages via Chat. */
   navigateToChatAfterAccept = false,
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   const entry = waitlist.find((w) => w.id === requestId);
   const conn = entry?.connections?.find((c) => c.id === connectionId);
   const otherUserId = conn?.fromUserId ?? null;
-  const link = mockGoogleMeetLink(`${requestId}-${connectionId}`);
+
+  let link: string;
+  if (viewerUserId) {
+    const api = await patchPeerConnection(viewerUserId, requestId, connectionId, { status: 'accept' });
+    if (!api.ok) {
+      return { ok: false, error: api.error ?? 'Could not accept request' };
+    }
+    link = api.meetLink ?? mockGoogleMeetLink(`${requestId}-${connectionId}`);
+  } else {
+    link = mockGoogleMeetLink(`${requestId}-${connectionId}`);
+  }
 
   setWaitlist((prev) =>
     prev.map((w) => {
@@ -45,6 +56,7 @@ export async function acceptPeerInterviewConnection(
   if (navigateToChatAfterAccept && otherUserId && onNavigateToPeerChat) {
     onNavigateToPeerChat(otherUserId);
   }
+  return { ok: true };
 }
 
 export function formatPeerRequestedAt(iso: string | undefined): string {
@@ -56,12 +68,3 @@ export function formatPeerRequestedAt(iso: string | undefined): string {
   }
 }
 
-export function appendPeerConnectionOffer(
-  setWaitlist: Dispatch<SetStateAction<PeerWaitlistEntry[]>>,
-  targetId: string,
-  offer: PeerConnectionOffer,
-): void {
-  setWaitlist((prev) =>
-    prev.map((w) => (w.id === targetId ? { ...w, connections: [...(w.connections ?? []), offer] } : w)),
-  );
-}

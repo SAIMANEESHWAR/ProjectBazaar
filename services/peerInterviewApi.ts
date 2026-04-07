@@ -106,18 +106,80 @@ export async function postPeerInterview<T = unknown>(
   }
 }
 
+function mapConnectionStatus(row: Record<string, unknown>): PeerConnectionOffer['status'] {
+  const s = String(row.status ?? '').toLowerCase();
+  if (s === 'accepted') return 'accepted';
+  if (s === 'rejected') return 'rejected';
+  if (s === 'cancelled' || s === 'canceled') return 'cancelled';
+  return 'pending';
+}
+
 function mapConnection(row: Record<string, unknown>): PeerConnectionOffer {
-  const st = row.status === 'accepted' ? 'accepted' : 'pending';
   const slots = Array.isArray(row.slots) ? (row.slots as unknown[]).map(String) : [];
   return {
     id: String(row.connectionId ?? row.id ?? ''),
     fromName: String(row.fromName ?? ''),
     slots,
-    status: st,
+    status: mapConnectionStatus(row),
     meetLink: typeof row.meetLink === 'string' ? row.meetLink : undefined,
     fromUserId: typeof row.fromUserId === 'string' ? row.fromUserId : undefined,
     requestedAt: typeof row.requestedAt === 'string' ? row.requestedAt : undefined,
   };
+}
+
+/** Outbound row (MY_OUTGOING) → same shape as a connection for merging onto a public listing card. */
+function mapOutboundToOffer(row: Record<string, unknown>, viewerId: string): PeerConnectionOffer {
+  const slots = Array.isArray(row.slots) ? (row.slots as unknown[]).map(String) : [];
+  return {
+    id: String(row.connectionId ?? row.id ?? ''),
+    fromName: String(row.fromName ?? 'You'),
+    slots,
+    status: mapConnectionStatus(row),
+    meetLink: typeof row.meetLink === 'string' ? row.meetLink : undefined,
+    fromUserId: viewerId,
+    requestedAt: typeof row.requestedAt === 'string' ? row.requestedAt : undefined,
+  };
+}
+
+async function fetchMyOutgoingRows(userId: string): Promise<Record<string, unknown>[]> {
+  const res = await postPeerInterview<ListPayload>(userId, {
+    action: 'MY_OUTGOING_REQUESTS',
+    userId,
+  });
+  if (!res.ok) return [];
+  const rows = (res.body?.data as unknown[]) ?? [];
+  return rows.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object');
+}
+
+function mergeOutgoingOntoEntries(
+  entries: PeerWaitlistEntry[],
+  viewerId: string,
+  outgoingRows: Record<string, unknown>[],
+): PeerWaitlistEntry[] {
+  const byListing = new Map<string, PeerConnectionOffer[]>();
+  for (const raw of outgoingRows) {
+    const lid = typeof raw.listingId === 'string' ? raw.listingId : '';
+    if (!lid) continue;
+    const offer = mapOutboundToOffer(raw, viewerId);
+    if (!offer.id) continue;
+    if (!byListing.has(lid)) byListing.set(lid, []);
+    byListing.get(lid)!.push(offer);
+  }
+  return entries.map((e) => {
+    if (e.isMine) return e;
+    const extra = byListing.get(e.id);
+    if (!extra?.length) return e;
+    const existing = e.connections ?? [];
+    const seen = new Set(existing.map((c) => c.id));
+    const merged = [...existing];
+    for (const o of extra) {
+      if (!seen.has(o.id)) {
+        merged.push(o);
+        seen.add(o.id);
+      }
+    }
+    return { ...e, connections: merged };
+  });
 }
 
 function mapListingRow(
@@ -266,7 +328,66 @@ export async function refreshPeerWaitlist(userId: string): Promise<{
   }
 
   const enriched = await enrichListingAvatarsFromProfiles(entries, userId);
-  return { entries: enriched };
+  const outgoingRows = await fetchMyOutgoingRows(userId);
+  const withOutgoing = mergeOutgoingOntoEntries(enriched, userId, outgoingRows);
+  return { entries: withOutgoing };
+}
+
+type MutationPayload = { success?: boolean; data?: Record<string, unknown> };
+
+export async function createPeerConnection(
+  userId: string,
+  listingId: string,
+  opts: { fromName: string; slots: string[] },
+): Promise<{ ok: boolean; error?: string; connectionId?: string }> {
+  const slots = opts.slots.map((s) => s.trim()).filter(Boolean);
+  if (!slots.length) {
+    return { ok: false, error: 'Select or enter at least one time slot' };
+  }
+  const res = await postPeerInterview<MutationPayload>(userId, {
+    action: 'CREATE_CONNECTION',
+    listingId,
+    fromName: opts.fromName,
+    slots,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+  const data = res.body?.data;
+  const cid =
+    data && typeof data.connectionId === 'string' ? data.connectionId : undefined;
+  return { ok: true, connectionId: cid };
+}
+
+export async function patchPeerConnection(
+  userId: string,
+  listingId: string,
+  connectionId: string,
+  body: { status: 'accept' | 'reject' | 'cancel'; meetLink?: string },
+): Promise<{ ok: boolean; error?: string; meetLink?: string }> {
+  const res = await postPeerInterview<MutationPayload>(userId, {
+    action: 'UPDATE_CONNECTION',
+    listingId,
+    connectionId,
+    status: body.status,
+    ...(body.meetLink ? { meetLink: body.meetLink } : {}),
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+  const data = res.body?.data;
+  const ml = data && typeof data.meetLink === 'string' ? data.meetLink : undefined;
+  return { ok: true, meetLink: ml };
+}
+
+export async function updatePeerListing(
+  userId: string,
+  listingId: string,
+  patch: Record<string, unknown>,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await postPeerInterview<MutationPayload>(userId, {
+    action: 'UPDATE_LISTING',
+    listingId,
+    ...patch,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true };
 }
 
 /** Maps local waitlist entry + optional Users-table profile to Lambda CREATE_LISTING body. */

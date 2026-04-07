@@ -4,6 +4,7 @@ Peer Interview API — AWS Lambda (Python 3.11+)
 DynamoDB single table, NO Global Secondary Indexes (only pk + sk).
   - pk / sk are the only keys; all access is Query/GetItem on those keys or Scan for public browse.
 
+
 Primary / sort keys (table-wide)
   - Partition key attribute name: pk (String)
   - Sort key attribute name: sk (String)
@@ -381,6 +382,7 @@ def handle_create_connection(listing_id: str, body: Dict[str, Any], viewer: str)
         "ownerUserId": owner,
         "fromUserId": viewer,
         "fromName": from_name,
+        "slots": slots,
         "status": "pending",
         "requestedAt": ts,
     }
@@ -459,12 +461,54 @@ def handle_patch_connection(listing_id: str, conn_id: str, body: Dict[str, Any],
         if fid:
             ob_key = {"pk": f"FROMUSER#{fid}", "sk": f"OUTBOUND#{listing_id}#{conn_id}"}
             try:
-                _table.update_item(
-                    Key=ob_key,
-                    UpdateExpression="SET #st = :st, updatedAt = :u",
-                    ExpressionAttributeNames={"#st": "status"},
-                    ExpressionAttributeValues={":st": new_status, ":u": ts},
-                )
+                if new_status == "accepted" and meet:
+                    _table.update_item(
+                        Key=ob_key,
+                        UpdateExpression="SET #st = :st, updatedAt = :u, meetLink = :ml",
+                        ExpressionAttributeNames={"#st": "status"},
+                        ExpressionAttributeValues={":st": new_status, ":u": ts, ":ml": meet},
+                    )
+                else:
+                    _table.update_item(
+                        Key=ob_key,
+                        UpdateExpression="SET #st = :st, updatedAt = :u",
+                        ExpressionAttributeNames={"#st": "status"},
+                        ExpressionAttributeValues={":st": new_status, ":u": ts},
+                    )
+            except ClientError:
+                pass
+        # Enforce one accepted member per listing: once one is accepted, auto-reject the rest.
+        if new_status == "accepted":
+            try:
+                others = _table.query(
+                    KeyConditionExpression="pk = :pk AND begins_with(sk, :p)",
+                    ExpressionAttributeValues={":pk": f"LISTING#{listing_id}", ":p": "CONN#"},
+                ).get("Items", [])
+                for other in others:
+                    other_cid = str(other.get("connectionId") or "")
+                    if not other_cid or other_cid == conn_id:
+                        continue
+                    other_status = str(other.get("status") or "").lower()
+                    if other_status != "pending":
+                        continue
+                    other_key = {"pk": f"LISTING#{listing_id}", "sk": f"CONN#{other_cid}"}
+                    _table.update_item(
+                        Key=other_key,
+                        UpdateExpression="SET #st = :st, updatedAt = :u",
+                        ExpressionAttributeNames={"#st": "status"},
+                        ExpressionAttributeValues={":st": "rejected", ":u": ts},
+                    )
+                    other_fid = other.get("fromUserId")
+                    if other_fid:
+                        try:
+                            _table.update_item(
+                                Key={"pk": f"FROMUSER#{other_fid}", "sk": f"OUTBOUND#{listing_id}#{other_cid}"},
+                                UpdateExpression="SET #st = :st, updatedAt = :u",
+                                ExpressionAttributeNames={"#st": "status"},
+                                ExpressionAttributeValues={":st": "rejected", ":u": ts},
+                            )
+                        except ClientError:
+                            pass
             except ClientError:
                 pass
         return response(200, {"success": True, "data": strip_keys(out_item)})

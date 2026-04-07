@@ -30,6 +30,12 @@ import {
 import type { PeerConnectionOffer } from '../types/peerInterviewQueue';
 
 type IncomingRow = PeerConnectionOffer & { listingId: string; listingTitle: string };
+type OutgoingRow = PeerConnectionOffer & {
+  listingId: string;
+  listingTitle: string;
+  ownerUserId?: string;
+  ownerName: string;
+};
 
 function regionShort(id: PeerTimezoneRegionId | undefined): string {
   if (!id) return '—';
@@ -58,6 +64,9 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     usePeerInterviewQueue();
 
   const [membersModalListingId, setMembersModalListingId] = useState<string | null>(null);
+  const [peerActionError, setPeerActionError] = useState<string | null>(null);
+  const [highlightOutgoing, setHighlightOutgoing] = useState(false);
+  const [historyOnly, setHistoryOnly] = useState(false);
 
   const modalListing = useMemo(
     () => (membersModalListingId ? waitlist.find((w) => w.id === membersModalListingId) ?? null : null),
@@ -83,6 +92,30 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [membersModalListingId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void refreshWaitlistFromBackend(userId);
+    const timer = window.setInterval(() => {
+      void refreshWaitlistFromBackend(userId);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [userId, refreshWaitlistFromBackend]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const focus = sessionStorage.getItem('bazaar_peer_requests_focus');
+    if (focus !== 'outgoing' && focus !== 'outgoing-only') return;
+    sessionStorage.removeItem('bazaar_peer_requests_focus');
+    if (focus === 'outgoing-only') setHistoryOnly(true);
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById('peer-outgoing-history');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setHighlightOutgoing(true);
+      window.setTimeout(() => setHighlightOutgoing(false), 1800);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleNavigateToPeerChat = useCallback(
     (otherUserId: string) => {
@@ -111,6 +144,27 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
   }, [waitlist]);
 
   const myListings = useMemo(() => waitlist.filter((w) => w.isMine), [waitlist]);
+  const outgoingRequests = useMemo(() => {
+    if (!userId) return [] as OutgoingRow[];
+    const rows: OutgoingRow[] = [];
+    for (const w of waitlist) {
+      if (w.isMine) continue;
+      const listingTitle = w.practiceGoal ?? w.displayName;
+      const ownerName = w.displayName;
+      for (const c of w.connections ?? []) {
+        if (c.fromUserId !== userId) continue;
+        rows.push({
+          ...c,
+          listingId: w.id,
+          listingTitle,
+          ownerUserId: w.ownerUserId,
+          ownerName,
+        });
+      }
+    }
+    rows.sort((a, b) => new Date(b.requestedAt ?? 0).getTime() - new Date(a.requestedAt ?? 0).getTime());
+    return rows;
+  }, [userId, waitlist]);
 
   const stats = useMemo(() => {
     const pending = incomingRequests.filter((r) => r.status === 'pending').length;
@@ -125,8 +179,16 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     };
   }, [incomingRequests, myListings.length]);
 
-  const onAccept = (listingId: string, connectionId: string) => {
-    void acceptPeerInterviewConnection(
+  const outgoingStats = useMemo(() => {
+    const pending = outgoingRequests.filter((r) => r.status === 'pending').length;
+    const accepted = outgoingRequests.filter((r) => r.status === 'accepted').length;
+    const rejected = outgoingRequests.filter((r) => r.status === 'rejected' || r.status === 'cancelled').length;
+    return { total: outgoingRequests.length, pending, accepted, rejected };
+  }, [outgoingRequests]);
+
+  const onAccept = async (listingId: string, connectionId: string) => {
+    setPeerActionError(null);
+    const r = await acceptPeerInterviewConnection(
       waitlist,
       setWaitlist,
       listingId,
@@ -134,6 +196,11 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
       userId,
       handleNavigateToPeerChat,
     );
+    if (!r.ok) {
+      setPeerActionError(r.error ?? 'Accept failed');
+      return;
+    }
+    if (userId) await refreshWaitlistFromBackend(userId);
   };
 
   const openChat = (otherUserId: string | undefined) => {
@@ -159,23 +226,28 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
             )}
             <button
               type="button"
-              onClick={() => setActiveView('dashboard')}
-              className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#f97316] dark:hover:text-orange-400 transition-colors"
+              onClick={() => setActiveView('live-mock-interview')}
+              className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#f97316] dark:hover:text-orange-400 transition-colors sm:ml-0"
             >
               <ChevronLeft className="w-4 h-4 shrink-0 opacity-80" strokeWidth={2} />
-              Back to dashboard
-            </button>
-            <span className="hidden sm:inline text-gray-300 dark:text-gray-600" aria-hidden>
-              ·
-            </span>
-            <button
-              type="button"
-              onClick={() => setActiveView('live-mock-interview')}
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#f97316] dark:hover:text-orange-400 transition-colors sm:ml-0"
-            >
-              Interview with peer
+              Back to interview with peer
             </button>
           </div>
+
+          {peerActionError && (
+            <div className="px-4 sm:px-5 pb-2">
+              <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50/90 dark:bg-red-950/30 px-3 py-2 text-xs text-red-800 dark:text-red-200 flex flex-wrap items-center justify-between gap-2">
+                <span>{peerActionError}</span>
+                <button
+                  type="button"
+                  onClick={() => setPeerActionError(null)}
+                  className="font-bold underline shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           {peerWaitlistBackendError && userId && (
             <div className="px-4 sm:px-5 pb-3">
@@ -210,11 +282,20 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                   </span>
                 </div>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                  Peer connection inbox
+                  {historyOnly ? 'Sent request history' : 'Peer connection inbox'}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-1 max-w-2xl">
-                  Same queue as <span className="font-semibold text-gray-800 dark:text-gray-200">Interview with peer</span>
-                  — see who reached out, when, and accept to unlock Meet and Messages.
+                  {historyOnly ? (
+                    <>
+                      Requests where you clicked <span className="font-semibold text-gray-800 dark:text-gray-200">Connect</span>
+                      . Track status and open chat/meet after acceptance.
+                    </>
+                  ) : (
+                    <>
+                      Same queue as <span className="font-semibold text-gray-800 dark:text-gray-200">Interview with peer</span>
+                      — see who reached out, when, and accept to unlock Meet and Messages.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -222,12 +303,20 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
 
           <div className="px-4 sm:px-5 pb-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-              {[
-                { label: 'Incoming', value: stats.total, sub: 'Total requests', icon: Inbox },
-                { label: 'Awaiting you', value: stats.pending, sub: 'Your decision', icon: Clock },
-                { label: 'Accepted', value: stats.accepted, sub: 'Unlocked', icon: CheckCircle2 },
-                { label: 'Listings', value: stats.listings, sub: `${stats.totalSlots} slot lines`, icon: Users },
-              ].map((card) => (
+              {(historyOnly
+                ? [
+                    { label: 'Sent', value: outgoingStats.total, sub: 'Total requests', icon: MessageCircle },
+                    { label: 'Pending', value: outgoingStats.pending, sub: 'Awaiting host', icon: Clock },
+                    { label: 'Accepted', value: outgoingStats.accepted, sub: 'Meet/Chat ready', icon: CheckCircle2 },
+                    { label: 'Rejected', value: outgoingStats.rejected, sub: 'Not selected', icon: X },
+                  ]
+                : [
+                    { label: 'Incoming', value: stats.total, sub: 'Total requests', icon: Inbox },
+                    { label: 'Awaiting you', value: stats.pending, sub: 'Your decision', icon: Clock },
+                    { label: 'Accepted', value: stats.accepted, sub: 'Unlocked', icon: CheckCircle2 },
+                    { label: 'Listings', value: stats.listings, sub: `${stats.totalSlots} slot lines`, icon: Users },
+                  ]
+              ).map((card) => (
                 <div
                   key={card.label}
                   className="rounded-2xl border border-gray-200/90 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-3 sm:px-4 sm:py-3.5 shadow-sm"
@@ -251,6 +340,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
         </div>
 
         <div className="px-4 sm:px-5 py-5 sm:py-6">
+          {!historyOnly && (
           <div className="w-full max-w-none space-y-3">
             <h2 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
               <Inbox className="w-4 h-4 text-[#f97316]" strokeWidth={2} />
@@ -336,13 +426,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                                   View members
                                 </button>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveView('live-mock-interview')}
-                                  className="inline-flex justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-3 py-2 text-[10px] font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap"
-                                >
-                                  Peer queue
-                                </button>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">—</span>
                               )}
                             </td>
                           </tr>
@@ -354,6 +438,122 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
               </div>
             </div>
           </div>
+          )}
+
+          {historyOnly && (
+          <div
+            id="peer-outgoing-history"
+            className={`w-full max-w-none space-y-3 mt-0 rounded-2xl transition-colors ${
+              highlightOutgoing ? 'bg-orange-50/50 dark:bg-orange-950/10 p-2 sm:p-3 -mx-2 sm:-mx-3' : ''
+            }`}
+          >
+            <h2 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-[#f97316]" strokeWidth={2} />
+              Your sent request history
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+              Requests where you clicked <span className="font-semibold text-gray-700 dark:text-gray-300">Connect</span>.
+              Track pending/accepted/rejected, and open chat or meet when accepted.
+            </p>
+            <div className="rounded-2xl border border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden ring-1 ring-orange-100/60 dark:ring-orange-950/40">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left border-collapse">
+                  <thead>
+                    <tr>
+                      <th className={thBase}>Requested to</th>
+                      <th className={thBase}>Listing</th>
+                      <th className={thBase}>Your slot</th>
+                      <th className={thBase}>Status</th>
+                      <th className={`${thBase} min-w-[11rem]`}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outgoingRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-xs text-gray-500 dark:text-gray-400">
+                          You have not sent any connect requests yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      outgoingRequests.map((r) => (
+                        <tr
+                          key={`${r.listingId}-${r.id}`}
+                          className="hover:bg-orange-50/40 dark:hover:bg-orange-950/10 transition-colors border-b border-gray-100 dark:border-gray-800/80"
+                        >
+                          <td className={tdBase}>
+                            <p className="font-semibold text-gray-900 dark:text-white">{r.ownerName}</p>
+                          </td>
+                          <td className={tdBase}>
+                            <p className="font-medium text-gray-800 dark:text-gray-100">{r.listingTitle}</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                              {formatPeerRequestedAt(r.requestedAt)}
+                            </p>
+                          </td>
+                          <td className={tdBase}>
+                            <p className="text-[11px] text-gray-700 dark:text-gray-300 leading-snug">
+                              {r.slots?.length ? r.slots.join(' · ') : '—'}
+                            </p>
+                          </td>
+                          <td className={tdBase}>
+                            {r.status === 'accepted' ? (
+                              <span className="inline-flex items-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                Accepted
+                              </span>
+                            ) : r.status === 'rejected' ? (
+                              <span className="inline-flex items-center rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                                Rejected
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2 py-1 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                Pending
+                              </span>
+                            )}
+                          </td>
+                          <td className={tdBase}>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {r.status === 'accepted' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={!r.ownerUserId}
+                                    onClick={() => openChat(r.ownerUserId)}
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 px-2.5 py-1.5 text-[10px] font-bold hover:bg-orange-100/80 dark:hover:bg-orange-950/45 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                                    Chat
+                                  </button>
+                                  {r.meetLink ? (
+                                    <a
+                                      href={r.meetLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                      <Link2 className="w-3.5 h-3.5 shrink-0" />
+                                      Meet
+                                    </a>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">Meet pending…</span>
+                                  )}
+                                </>
+                              ) : r.status === 'rejected' ? (
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                  Not selected by host
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">Waiting for host response</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          )}
         </div>
       </div>
 
@@ -410,6 +610,9 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                         <th className={thBase} scope="col">
                           Member
                         </th>
+                        <th className={`${thBase} min-w-[8rem]`} scope="col">
+                          Their slot
+                        </th>
                         <th className={thBase} scope="col">
                           Requested
                         </th>
@@ -419,16 +622,19 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                       </tr>
                     </thead>
                     <tbody>
-                      {modalConnections.map((c) => {
+                      {(() => {
+                        const acceptedConnectionId =
+                          modalConnections.find((x) => x.status === 'accepted')?.id ?? null;
+                        return modalConnections.map((c) => {
                         const initials = c.fromName
                           .split(/\s+/)
                           .map((p) => p[0])
                           .join('')
                           .slice(0, 2)
                           .toUpperCase();
-                        const canAccept = c.status === 'pending';
+                        const canAccept = c.status === 'pending' && !acceptedConnectionId;
                         const canChat = c.status === 'accepted' && !!c.fromUserId;
-                        const showPostAcceptActions = c.status === 'accepted';
+                        const showPostAcceptActions = c.status === 'accepted' && c.id === acceptedConnectionId;
                         return (
                           <tr
                             key={c.id}
@@ -444,6 +650,11 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                                 </p>
                               </div>
                             </td>
+                            <td className="px-3 py-3 align-middle text-gray-600 dark:text-gray-300 max-w-[14rem]">
+                              <p className="text-[11px] leading-snug line-clamp-3">
+                                {c.slots?.length ? c.slots.join(' · ') : '—'}
+                              </p>
+                            </td>
                             <td className="px-3 py-3 align-middle whitespace-nowrap text-gray-600 dark:text-gray-300">
                               <span className="inline-flex items-center gap-1">
                                 <Calendar className="w-3.5 h-3.5 text-[#f97316] shrink-0" />
@@ -453,20 +664,24 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                             <td className="px-3 py-3 align-middle">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 {c.status === 'pending' && (
-                                  <button
-                                    type="button"
-                                    disabled={!canAccept}
-                                    title={`Accept ${c.fromName} — meet link and chat appear after.`}
-                                    onClick={() => {
-                                      if (modalListing && canAccept) {
-                                        void onAccept(modalListing.id, c.id);
-                                      }
-                                    }}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide hover:bg-gray-800 dark:hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
-                                    Accept
-                                  </button>
+                                  canAccept ? (
+                                    <button
+                                      type="button"
+                                      disabled={!canAccept}
+                                      title={`Accept ${c.fromName} — meet link and chat appear after.`}
+                                      onClick={() => {
+                                        if (modalListing && canAccept) void onAccept(modalListing.id, c.id);
+                                      }}
+                                      className="inline-flex items-center justify-center gap-1 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide hover:bg-gray-800 dark:hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                                      Accept
+                                    </button>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                                      Not selected
+                                    </span>
+                                  )
                                 )}
                                 {showPostAcceptActions && (
                                   <>
@@ -501,11 +716,17 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                                     )}
                                   </>
                                 )}
+                                {c.status === 'rejected' && (
+                                  <span className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                                    Rejected
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </tr>
                         );
-                      })}
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>

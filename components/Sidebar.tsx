@@ -75,7 +75,6 @@ const buyerNavItems = [
     { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
     { name: 'Mock Assessment', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
     { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
-    { name: 'Peer match requests', view: 'live-peer-requests' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
@@ -142,7 +141,6 @@ const jobHuntNavItems = [
 const sellerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
     { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
-    { name: 'Peer match requests', view: 'live-peer-requests' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Post Project Bid', view: 'post-project' as DashboardView, icon: PostProjectIcon },
     { name: 'My Bids', view: 'my-bids' as DashboardView, icon: MyBidsIcon },
     { name: 'My Projects', view: 'my-projects' as DashboardView, icon: ProjectsIcon },

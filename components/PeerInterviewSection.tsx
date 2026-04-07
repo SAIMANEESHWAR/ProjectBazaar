@@ -32,9 +32,13 @@ import { useNavigation } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import { usePeerInterviewQueue } from '../context/PeerInterviewQueueContext';
 import type { PeerConnectionOffer, PeerWaitlistEntry } from '../types/peerInterviewQueue';
-import { appendPeerConnectionOffer } from '../utils/peerInterviewQueueActions';
 import { cachedFetchUserProfile } from '../services/buyerApi';
-import { extractProfilePhotoUrl, syncPeerListingToBackend } from '../services/peerInterviewApi';
+import {
+  createPeerConnection,
+  extractProfilePhotoUrl,
+  syncPeerListingToBackend,
+  updatePeerListing,
+} from '../services/peerInterviewApi';
 
 type CategoryFilter = 'all' | PeerInterviewCategoryId;
 
@@ -180,7 +184,13 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     }
   };
 
-  const [peerScope, setPeerScope] = useState<'all' | 'others'>('all');
+  const goToSentHistory = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('bazaar_peer_requests_focus', 'outgoing-only');
+    }
+    goToMyRequestsDashboard();
+  };
+
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [experienceFilter, setExperienceFilter] = useState<'all' | PeerExperienceLevelId>('all');
   const [regionFilter, setRegionFilter] = useState<'all' | PeerTimezoneRegionId>('all');
@@ -200,7 +210,18 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   const [scheduleTimezone, setScheduleTimezone] = useState('');
 
   const [connectForId, setConnectForId] = useState<string | null>(null);
+  const [connectHasWindows, setConnectHasWindows] = useState(false);
+  const [connectSelectedWindow, setConnectSelectedWindow] = useState<string | null>(null);
+  const [connectUseCustomTime, setConnectUseCustomTime] = useState(false);
+  const [connectProposedSlots, setConnectProposedSlots] = useState<string[]>(['', '', '']);
+  const [connectSubmitting, setConnectSubmitting] = useState(false);
+  const [connectSubmitError, setConnectSubmitError] = useState<string | null>(null);
   const [slotDraft, setSlotDraft] = useState<string[]>(() => getPeerSlotPresets('ist'));
+
+  const [editWindowsForId, setEditWindowsForId] = useState<string | null>(null);
+  const [editWindowsLines, setEditWindowsLines] = useState<string[]>(['', '', '']);
+  const [editWindowsSaving, setEditWindowsSaving] = useState(false);
+  const [editWindowsError, setEditWindowsError] = useState<string | null>(null);
 
   const [profileDetailId, setProfileDetailId] = useState<string | null>(null);
 
@@ -208,6 +229,96 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     () => (profileDetailId ? waitlist.find((w) => w.id === profileDetailId) ?? null : null),
     [profileDetailId, waitlist],
   );
+
+  const connectTarget = useMemo(
+    () => (connectForId ? waitlist.find((w) => w.id === connectForId) ?? null : null),
+    [connectForId, waitlist],
+  );
+
+  const openConnect = (listingId: string) => {
+    const target = waitlist.find((w) => w.id === listingId);
+    const wins = (target?.availabilityWindows ?? []).map((w) => w.trim()).filter(Boolean);
+    setConnectHasWindows(wins.length > 0);
+    setConnectSelectedWindow(wins[0] ?? null);
+    setConnectUseCustomTime(false);
+    setConnectProposedSlots(['', '', '']);
+    setConnectSubmitError(null);
+    setConnectForId(listingId);
+  };
+
+  const closeConnectModal = () => {
+    setConnectForId(null);
+    setConnectSubmitError(null);
+  };
+
+  const getConnectSlotsForSend = (): string[] => {
+    if (connectHasWindows && !connectUseCustomTime && connectSelectedWindow?.trim()) {
+      return [connectSelectedWindow.trim()];
+    }
+    return connectProposedSlots.map((s) => s.trim()).filter(Boolean);
+  };
+
+  const sendConnectRequest = async () => {
+    const targetId = connectForId;
+    if (!targetId) return;
+    const slots = getConnectSlotsForSend();
+    if (!slots.length) {
+      setConnectSubmitError(
+        connectHasWindows && !connectUseCustomTime
+          ? 'Select one of their availability windows.'
+          : 'Enter at least one proposed time (day, time, timezone).',
+      );
+      return;
+    }
+    setConnectSubmitError(null);
+    if (!viewerUserId) {
+      setConnectSubmitError('Sign in to send a connection request.');
+      return;
+    }
+    setConnectSubmitting(true);
+    try {
+      const r = await createPeerConnection(viewerUserId, targetId, { fromName: myName, slots });
+      if (!r.ok) {
+        setConnectSubmitError(r.error ?? 'Request failed');
+        return;
+      }
+      await refreshWaitlistFromBackend(viewerUserId);
+      closeConnectModal();
+    } finally {
+      setConnectSubmitting(false);
+    }
+  };
+
+  const openEditWindows = (listingId: string) => {
+    const e = waitlist.find((w) => w.id === listingId);
+    const base = (e?.availabilityWindows ?? []).filter(Boolean);
+    const lines = [...base, '', '', ''].slice(0, 3).map((x) => String(x));
+    setEditWindowsLines(lines);
+    setEditWindowsError(null);
+    setEditWindowsForId(listingId);
+  };
+
+  const saveEditWindows = async () => {
+    if (!editWindowsForId || !viewerUserId) return;
+    const windows = editWindowsLines.map((s) => s.trim()).filter(Boolean);
+    if (!windows.length) {
+      setEditWindowsError('Add at least one availability window.');
+      return;
+    }
+    setEditWindowsSaving(true);
+    setEditWindowsError(null);
+    try {
+      const r = await updatePeerListing(viewerUserId, editWindowsForId, { availabilityWindows: windows });
+      if (!r.ok) {
+        setEditWindowsError(r.error ?? 'Save failed');
+        return;
+      }
+      await refreshWaitlistFromBackend(viewerUserId);
+      setEditWindowsForId(null);
+    } finally {
+      setEditWindowsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!profileDetailId) return;
@@ -218,8 +329,16 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [profileDetailId]);
 
+  useEffect(() => {
+    if (!viewerUserId) return;
+    void refreshWaitlistFromBackend(viewerUserId);
+    const timer = window.setInterval(() => {
+      void refreshWaitlistFromBackend(viewerUserId);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [viewerUserId, refreshWaitlistFromBackend]);
+
   const clearFilters = () => {
-    setPeerScope('all');
     setCategoryFilter('all');
     setExperienceFilter('all');
     setRegionFilter('all');
@@ -230,7 +349,8 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return waitlist.filter((w) => {
-      if (peerScope === 'others' && w.isMine) return false;
+      // Peer queue should show only other members' listings.
+      if (w.isMine) return false;
       if (categoryFilter !== 'all' && w.category !== categoryFilter) return false;
       if (experienceFilter !== 'all' && w.experienceLevel !== experienceFilter) return false;
       if (regionFilter !== 'all' && w.timezoneRegion !== regionFilter) return false;
@@ -262,7 +382,6 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     });
   }, [
     waitlist,
-    peerScope,
     categoryFilter,
     experienceFilter,
     regionFilter,
@@ -376,20 +495,6 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     setScheduleTimezone('');
   };
 
-  const sendConnect = (targetId: string) => {
-    const fromName = myName;
-    const offer: PeerConnectionOffer = {
-      id: `co-${Date.now()}`,
-      fromName,
-      slots: [...slotDraft].filter(Boolean),
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      fromUserId: viewerUserId ?? undefined,
-    };
-    appendPeerConnectionOffer(setWaitlist, targetId, offer);
-    setConnectForId(null);
-  };
-
   const scheduleTitle =
     scheduleStep === 1
       ? 'Pick your interview track'
@@ -399,30 +504,18 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
 
   const scheduleStepLabels = ['Interview type', 'Format', 'Your details'] as const;
 
-  const filterExcludedAll = waitlist.length > 0 && filtered.length === 0;
+  const otherPeerCount = waitlist.filter((w) => !w.isMine).length;
+  const filterExcludedAll = otherPeerCount > 0 && filtered.length === 0;
 
   const renderFilters = (compact: boolean) => (
     <div
       className={
-        compact ? 'space-y-3' : 'grid grid-cols-2 md:grid-cols-3 min-[1200px]:grid-cols-7 gap-3 w-full min-w-0'
+        compact ? 'space-y-3' : 'grid grid-cols-2 md:grid-cols-3 min-[1200px]:grid-cols-6 gap-3 w-full min-w-0'
       }
     >
       <div className="min-w-0">
         <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
-          Peers
-        </label>
-        <select
-          value={peerScope}
-          onChange={(e) => setPeerScope(e.target.value as 'all' | 'others')}
-          className={SELECT}
-        >
-          <option value="all">Everyone in queue</option>
-          <option value="others">Hide my listing</option>
-        </select>
-      </div>
-      <div className="min-w-0">
-        <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
-          Interview type
+          Request type
         </label>
         <select
           value={categoryFilter}
@@ -474,7 +567,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
       </div>
       <div className="min-w-0">
         <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
-          Tech focus
+          Skill focus
         </label>
         <select
           value={techFilter}
@@ -491,14 +584,14 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
       </div>
       <div className="min-w-0 col-span-2 md:col-span-3 min-[1200px]:col-span-2">
         <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
-          Search
+          Quick search
         </label>
         <div className="relative">
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Name, goal, skills, company, tags…"
+            placeholder="Name, request goal, skills, tags..."
             className={`${SELECT} pl-8`}
             autoComplete="off"
           />
@@ -546,7 +639,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
 
         <div className="lg:hidden px-4 sm:px-5 pb-4 pt-1 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Filters</h3>
+            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Request filters</h3>
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               <button
                 type="button"
@@ -567,6 +660,13 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                     {incomingRequests.length > 9 ? '9+' : incomingRequests.length}
                   </span>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={goToSentHistory}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-[11px] font-bold px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+              >
+                History
               </button>
               <button
                 type="button"
@@ -583,7 +683,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
 
         <div className="hidden lg:block px-4 sm:px-5 pb-4 pt-1 w-full min-w-0">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Filters</h3>
+            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Request filters</h3>
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               <button
                 type="button"
@@ -604,6 +704,13 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                     {incomingRequests.length > 9 ? '9+' : incomingRequests.length}
                   </span>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={goToSentHistory}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-[11px] font-bold px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+              >
+                History
               </button>
               <button
                 type="button"
@@ -624,12 +731,12 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
           {filtered.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 px-4 py-8 text-center">
               <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                {filterExcludedAll ? 'No matching peers' : 'Queue is empty'}
+                {filterExcludedAll ? 'No matching peers' : 'Be the first — ready to interview'}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 {filterExcludedAll
                   ? 'Try Reset or broaden interview type, region, or tech filters.'
-                  : 'Schedule an interview to list yourself so others can find you.'}
+                  : 'No requests yet. Start now and become the first person available for a peer interview.'}
               </p>
               <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 mt-2">
                 <button
@@ -764,7 +871,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                       {!entry.isMine && (
                         <button
                           type="button"
-                          onClick={() => setConnectForId(entry.id)}
+                          onClick={() => openConnect(entry.id)}
                           className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2.5 sm:py-3 text-xs font-bold uppercase tracking-wide hover:bg-gray-800 dark:hover:bg-white shadow-md transition-colors"
                         >
                           <UserPlus2 className="h-4 w-4 shrink-0" />
@@ -772,16 +879,26 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                         </button>
                       )}
                       {entry.isMine && (
-                        <button
-                          type="button"
-                          onClick={goToMyRequestsDashboard}
-                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/35 px-3 py-2.5 sm:py-3 text-[11px] font-bold text-orange-800 dark:text-orange-200 hover:bg-orange-100/90 dark:hover:bg-orange-950/55 transition-colors"
-                        >
-                          <Inbox className="h-4 w-4 shrink-0 opacity-90" />
-                          {(entry.connections ?? []).length > 0
-                            ? `My requests (${(entry.connections ?? []).length})`
-                            : 'My requests'}
-                        </button>
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => openEditWindows(entry.id)}
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 sm:py-2.5 text-[10px] font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Clock className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                            Edit windows
+                          </button>
+                          <button
+                            type="button"
+                            onClick={goToMyRequestsDashboard}
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/35 px-3 py-2.5 sm:py-3 text-[11px] font-bold text-orange-800 dark:text-orange-200 hover:bg-orange-100/90 dark:hover:bg-orange-950/55 transition-colors"
+                          >
+                            <Inbox className="h-4 w-4 shrink-0 opacity-90" />
+                            {(entry.connections ?? []).length > 0
+                              ? `My requests (${(entry.connections ?? []).length})`
+                              : 'My requests'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1005,7 +1122,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
                   type="button"
                   onClick={() => {
                     setProfileDetailId(null);
-                    setConnectForId(profileDetailEntry.id);
+                    openConnect(profileDetailEntry.id);
                   }}
                   className="flex-1 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 py-2.5 text-sm font-bold"
                 >
@@ -1017,39 +1134,146 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
         </div>
       )}
 
-      {connectForId && (
+      {connectForId && connectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 max-w-md w-full p-6 shadow-xl">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Propose time slots</h3>
+              <div className="min-w-0 pr-2">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Connect</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                  {connectTarget.displayName} — pick a time that works for both of you.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setConnectForId(null)}
+                onClick={closeConnectModal}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {connectHasWindows ? (
+              <div className="space-y-3 mb-3">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                  Select one of their availability windows
+                </p>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {(connectTarget.availabilityWindows ?? [])
+                    .map((w) => w.trim())
+                    .filter(Boolean)
+                    .map((win) => (
+                      <label
+                        key={win}
+                        className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer text-sm ${
+                          !connectUseCustomTime && connectSelectedWindow === win
+                            ? 'border-orange-400 bg-orange-50/80 dark:bg-orange-950/30 dark:border-orange-700'
+                            : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/80'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="connect-window"
+                          className="mt-1"
+                          checked={!connectUseCustomTime && connectSelectedWindow === win}
+                          onChange={() => {
+                            setConnectUseCustomTime(false);
+                            setConnectSelectedWindow(win);
+                          }}
+                        />
+                        <span className="text-gray-800 dark:text-gray-200 leading-snug">{win}</span>
+                      </label>
+                    ))}
+                </div>
+                <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={connectUseCustomTime}
+                    onChange={(e) => setConnectUseCustomTime(e.target.checked)}
+                  />
+                  Propose a different time instead
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+                They have not listed windows yet — propose up to three options (day, time, timezone).
+              </p>
+            )}
+
+            {(connectUseCustomTime || !connectHasWindows) && (
+              <div className="mb-3 space-y-2">
+                {connectProposedSlots.map((s, i) => (
+                  <input
+                    key={i}
+                    value={s}
+                    onChange={(e) => {
+                      const next = [...connectProposedSlots];
+                      next[i] = e.target.value;
+                      setConnectProposedSlots(next);
+                    }}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    placeholder={`Proposed slot ${i + 1} (e.g. Tue 7–9 PM IST)`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {connectSubmitError && (
+              <p className="text-xs text-red-600 dark:text-red-400 mb-2">{connectSubmitError}</p>
+            )}
+            <button
+              type="button"
+              disabled={connectSubmitting}
+              onClick={() => void sendConnectRequest()}
+              className={`mt-1 w-full ${btnPrimary}`}
+            >
+              {connectSubmitting ? 'Sending…' : 'Send connection request'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editWindowsForId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 max-w-md w-full p-6 shadow-xl">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Your windows</h3>
+              <button
+                type="button"
+                onClick={() => setEditWindowsForId(null)}
                 className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-              Use clear day + time + timezone (e.g. <span className="font-medium">Tue 7–9 PM IST</span>). Your match
-              sees these on the request.
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Saved on your listing. Peers use these to pick a slot when they connect.
             </p>
-            {slotDraft.map((s, i) => (
+            {editWindowsLines.map((line, i) => (
               <input
                 key={i}
-                value={s}
+                value={line}
                 onChange={(e) => {
-                  const next = [...slotDraft];
+                  const next = [...editWindowsLines];
                   next[i] = e.target.value;
-                  setSlotDraft(next);
+                  setEditWindowsLines(next);
                 }}
-                className="w-full mb-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                placeholder={`Proposed slot ${i + 1}`}
+                className="w-full mb-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm"
+                placeholder={`Window ${i + 1}`}
               />
             ))}
-            <button type="button" onClick={() => sendConnect(connectForId)} className={`mt-2 w-full ${btnPrimary}`}>
-              Send connection request
+            {editWindowsError && (
+              <p className="text-xs text-red-600 dark:text-red-400 mb-2">{editWindowsError}</p>
+            )}
+            <button
+              type="button"
+              disabled={editWindowsSaving}
+              onClick={() => void saveEditWindows()}
+              className={`mt-2 w-full ${btnPrimary}`}
+            >
+              {editWindowsSaving ? 'Saving…' : 'Save to server'}
             </button>
           </div>
         </div>

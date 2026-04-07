@@ -4,7 +4,7 @@ export interface PeerConnectionOffer {
   id: string;
   fromName: string;
   slots: string[];
-  status: 'pending' | 'accepted';
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
   meetLink?: string;
   fromUserId?: string;
   requestedAt?: string;
