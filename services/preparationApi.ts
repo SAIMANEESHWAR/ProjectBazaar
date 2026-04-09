@@ -9,6 +9,7 @@
  */
 
 import { cachedFetch, invalidateCache } from "../lib/apiCache";
+import { buildAuthHeaders } from "../lib/authSession";
 
 // ── Endpoints ──────────────────────────────────────────────
 const PREP_ADMIN_ENDPOINT =
@@ -138,7 +139,7 @@ async function adminRequest<T = unknown>(
   try {
     const res = await fetch(PREP_ADMIN_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ action, ...body }),
     });
     return await res.json();
@@ -161,7 +162,7 @@ async function userRequest<T = unknown>(
   try {
     const res = await fetch(PREP_USER_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ action, ...body }),
     });
     return await res.json();

@@ -18,6 +18,8 @@ from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
+from auth_context import merge_body_with_cognito_identity
+
 # Initialize DynamoDB
 dynamodb = boto3.resource('dynamodb')
 users_table = dynamodb.Table('Users')
@@ -529,6 +531,8 @@ def lambda_handler(event, context):
             # Default action for GET is to get all freelancers
             if not body.get('action'):
                 body['action'] = 'GET_ALL_FREELANCERS'
+        
+        merge_body_with_cognito_identity(event, body)
         
         # Route to appropriate handler based on action
         action = body.get('action', '').upper()

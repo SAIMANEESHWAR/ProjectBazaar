@@ -1,0 +1,85 @@
+# Cognito OTP API (secret hash in Lambda only). Routes match Vite dev proxy:
+#   /api/auth/* → VITE_API_GATEWAY_URL with /api stripped → /auth/*
+#
+# Optional local: sam build -t sam-auth-otp.yaml && sam local start-api -t sam-auth-otp.yaml --port 3000
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ProjectBazaar — Cognito OTP (send / verify) for app clients with secret
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.12
+
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Default: ''
+  CognitoClientId:
+    Type: String
+    Default: ''
+  CognitoClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+  CognitoRegion:
+    Type: String
+    Default: ''
+  AllowedOrigin:
+    Type: String
+    Default: 'http://localhost:5173'
+
+Resources:
+  AuthOtpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - POST
+          - OPTIONS
+
+  AuthOtpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: auth_otp_handler.lambda_handler
+      CodeUri: ../lambda/
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          COGNITO_CLIENT_ID: !Ref CognitoClientId
+          COGNITO_CLIENT_SECRET: !Ref CognitoClientSecret
+          COGNITO_REGION: !Ref CognitoRegion
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+                - cognito-idp:RespondToAuthChallenge
+              Resource: '*'
+      Events:
+        SendOtp:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthOtpApi
+            Path: /auth/send-otp
+            Method: POST
+        VerifyOtp:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AuthOtpApi
+            Path: /auth/verify-otp
+            Method: POST
+
+Outputs:
+  AuthOtpApiUrl:
+    Description: Base URL for POST /auth/send-otp and /auth/verify-otp
+    Value: !GetAtt AuthOtpApi.ApiEndpoint

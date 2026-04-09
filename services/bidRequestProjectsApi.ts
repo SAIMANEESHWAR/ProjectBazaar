@@ -5,6 +5,7 @@
 
 import type { BrowseProject } from '../types/browse';
 import { cachedFetch, invalidateCache } from '../lib/apiCache';
+import { buildAuthHeaders } from '../lib/authSession';
 
 // API Endpoint for Bid Request Projects Lambda
 const BID_REQUEST_PROJECTS_API_ENDPOINT = 'https://ai0hb6211e.execute-api.ap-south-2.amazonaws.com/default/bid_request_projects_handle';
@@ -102,9 +103,9 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
   try {
     const response = await fetch(BID_REQUEST_PROJECTS_API_ENDPOINT, {
       method: 'POST',
-      headers: {
+      headers: buildAuthHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({
         action,
         ...body,

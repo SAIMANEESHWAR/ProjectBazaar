@@ -2,6 +2,7 @@
  * API service for buyer actions (like, cart, purchase)
  */
 import { cachedFetch, invalidateCache } from '../lib/apiCache';
+import { buildAuthHeaders } from '../lib/authSession';
 
 const LAMBDA_ENDPOINT = 'https://tcladht447.execute-api.ap-south-2.amazonaws.com/default/Like_Addtocart_purcaseproject_for_Buyer';
 export const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -13,6 +14,8 @@ const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-
 const FETCH_HACKATHONS_ENDPOINT = 'https://zv6v6bsuie.execute-api.ap-south-2.amazonaws.com/default/get_hackathons_details';
 // Course purchase Lambda endpoint
 const COURSE_PURCHASE_ENDPOINT = 'https://ukcbl5e5p7.execute-api.ap-south-2.amazonaws.com/default/course_purchase_handler';
+
+const jsonAuthHeaders = (): HeadersInit => buildAuthHeaders({ 'Content-Type': 'application/json' });
 
 export interface CartItem {
   projectId: string;
@@ -89,9 +92,7 @@ export const fetchUserData = async (userId: string): Promise<UserData | null> =>
   try {
     const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         userId: userId,
       }),
@@ -138,9 +139,7 @@ const updateProjectCounters = async (projectId: string, increments: Record<strin
   try {
     await fetch(UPDATE_PROJECT_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         projectId,
         increments,
@@ -159,9 +158,7 @@ export const likeProject = async (userId: string, projectId: string): Promise<Ap
   try {
     const response = await fetch(LAMBDA_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'LIKE_PROJECT',
         userId,
@@ -197,9 +194,7 @@ export const unlikeProject = async (userId: string, projectId: string): Promise<
   try {
     const response = await fetch(LAMBDA_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'UNLIKE_PROJECT',
         userId,
@@ -235,9 +230,7 @@ export const addToCart = async (userId: string, projectId: string): Promise<ApiR
   try {
     const response = await fetch(LAMBDA_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'ADD_TO_CART',
         userId,
@@ -272,9 +265,7 @@ export const removeFromCart = async (userId: string, projectId: string): Promise
   try {
     const response = await fetch(LAMBDA_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'REMOVE_FROM_CART',
         userId,
@@ -315,9 +306,7 @@ export const purchaseProject = async (
   try {
     const response = await fetch(LAMBDA_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'PURCHASE_PROJECT',
         userId,
@@ -347,9 +336,7 @@ export const fetchProjectDetails = async (projectId: string): Promise<ProjectDet
   try {
     const response = await fetch(GET_PROJECT_DETAILS_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         projectId: projectId,
       }),
@@ -380,9 +367,7 @@ export const fetchUserDetailsWithProjects = async (userId: string): Promise<{ us
     // Try POST method first (as per fetchUserData pattern)
     const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         userId: userId,
       }),
@@ -455,9 +440,7 @@ export const reportProject = async (reportData: ReportProjectRequest): Promise<R
   try {
     const response = await fetch(REPORT_PROJECT_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify(reportData),
     });
 
@@ -515,9 +498,7 @@ export const createPaymentIntent = async (
   try {
     const response = await fetch(CREATE_PAYMENT_INTENT_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         userId: request.userId,
         projectIds: request.projectIds,
@@ -679,9 +660,7 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
     // Try GET first, fallback to POST if needed
     const response = await fetch(FETCH_HACKATHONS_ENDPOINT, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
     });
 
     // Handle non-OK responses (4xx, 5xx)
@@ -923,9 +902,7 @@ export const createCourseOrder = async (
   try {
     const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'CREATE_COURSE_ORDER',
         ...request,
@@ -962,9 +939,7 @@ export const verifyCoursePayment = async (
   try {
     const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'COURSE_PAYMENT_WEBHOOK',
         ...request,
@@ -1002,9 +977,7 @@ export const enrollFreeCourse = async (
   try {
     const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'ENROLL_FREE_COURSE',
         userId,
@@ -1042,9 +1015,7 @@ export const getPurchasedCourses = async (
   try {
     const response = await fetch(COURSE_PURCHASE_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({
         action: 'GET_PURCHASED_COURSES',
         userId,
@@ -1087,7 +1058,9 @@ export const cachedFetchProjectDetails = (projectId: string): Promise<ProjectDet
 
 export const cachedFetchAllProjects = (): Promise<any> =>
   cachedFetch('all-projects', async () => {
-    const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+    const response = await fetch(GET_ALL_PROJECTS_ENDPOINT, {
+      headers: jsonAuthHeaders(),
+    });
     if (!response.ok) throw new Error(`Failed to fetch projects: ${response.statusText}`);
     return response.json();
   }, ALL_PROJECTS_TTL);
@@ -1096,7 +1069,7 @@ export const cachedFetchUserProfile = (userId: string): Promise<any> =>
   cachedFetch(`user-profile:${userId}`, async () => {
     const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({ userId }),
     });
     if (!response.ok) throw new Error('Failed to fetch user profile');

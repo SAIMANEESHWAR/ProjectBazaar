@@ -401,7 +401,7 @@ describe('PlaceBidModal Edge Cases', () => {
 
     const proposalInput = screen.getByPlaceholderText(/what makes you the best candidate/i);
     const proposalWithSpaces = '   ' + 'A'.repeat(110) + '   ';
-    await userEvent.type(proposalInput, proposalWithSpaces);
+    fireEvent.change(proposalInput, { target: { value: proposalWithSpaces } });
 
     const submitButton = screen.getByRole('button', { name: /submit bid/i });
     await userEvent.click(submitButton);

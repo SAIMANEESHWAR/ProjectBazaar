@@ -9,6 +9,8 @@ import SkipNav from './components/SkipNav';
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
 import Hero from './components/Hero';
+import { clearAuthSession, getAuthProvider, setAuthSession, type AuthProvider } from './lib/authSession';
+import { logoutCognitoIfActive } from './lib/cognitoOtpAuth';
 
 // -- Lazy-loaded route components --
 const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
@@ -65,7 +67,8 @@ interface AuthContextType {
   userId: string | null;
   userEmail: string | null;
   userRole: UserRole | null;
-  login: (userId: string, email: string, role?: UserRole) => void;
+  authProvider: AuthProvider;
+  login: (userId: string, email: string, role?: UserRole, provider?: AuthProvider) => void;
   logout: () => void;
 }
 
@@ -371,6 +374,7 @@ const App: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [authProvider, setAuthProvider] = useState<AuthProvider>('legacy');
 
   // Handle URL-based routing and 404 detection
   useEffect(() => {
@@ -507,6 +511,7 @@ const App: React.FC = () => {
           setUserId(userData.userId);
           setUserEmail(userData.email);
           setUserRole(role);
+          setAuthProvider(getAuthProvider());
           setIsLoggedIn(true);
 
           // Only auto-navigate if we're on home page or auth page
@@ -566,14 +571,15 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const login = (id: string, email: string, role: UserRole = 'user') => {
+  const login = (id: string, email: string, role: UserRole = 'user', provider: AuthProvider = 'legacy') => {
     setUserId(id);
     setUserEmail(email);
     setUserRole(role);
+    setAuthProvider(provider);
     setIsLoggedIn(true);
 
     // Store auth session in localStorage
-    localStorage.setItem('authSession', 'true');
+    setAuthSession(provider);
 
     if (role === 'admin') {
       navigateTo('admin');
@@ -585,14 +591,18 @@ const App: React.FC = () => {
   };
 
   const logout = () => {
+    if (authProvider === 'cognito') {
+      void logoutCognitoIfActive();
+    }
     setUserId(null);
     setUserEmail(null);
     setUserRole(null);
+    setAuthProvider('legacy');
     setIsLoggedIn(false);
 
     // Clear auth and session data
     localStorage.removeItem('userData');
-    localStorage.removeItem('authSession');
+    clearAuthSession();
     localStorage.removeItem('currentPage');
     sessionStorage.clear();
 
@@ -604,7 +614,7 @@ const App: React.FC = () => {
       <ThemeProvider page={page}>
         <PremiumProvider>
           <DashboardProvider>
-            <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
+            <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, authProvider, login, logout }}>
               <SocketProvider>
                 <NavigationContext.Provider value={{ page, navigateTo }}>
                   <AppContent />

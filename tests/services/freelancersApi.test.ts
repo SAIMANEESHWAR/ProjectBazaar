@@ -7,6 +7,7 @@ import {
   getAvailableSkills,
   getAvailableCountries,
 } from '../../services/freelancersApi';
+import { invalidateCache } from '../../lib/apiCache';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -14,6 +15,7 @@ global.fetch = mockFetch;
 
 describe('Freelancers API', () => {
   beforeEach(() => {
+    invalidateCache('freelancers');
     vi.clearAllMocks();
   });
 

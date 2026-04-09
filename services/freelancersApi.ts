@@ -4,6 +4,7 @@
 
 import type { Freelancer } from '../types/browse';
 import { cachedFetch } from '../lib/apiCache';
+import { buildAuthHeaders } from '../lib/authSession';
 
 // API Endpoint for Freelancers Lambda
 const FREELANCERS_API_ENDPOINT = 'https://i77xrgpj6i.execute-api.ap-south-2.amazonaws.com/default/freelancers_handler';
@@ -67,9 +68,9 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
   try {
     const response = await fetch(FREELANCERS_API_ENDPOINT, {
       method: 'POST',
-      headers: {
+      headers: buildAuthHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({
         action,
         ...body,
@@ -135,7 +136,11 @@ export const getAllFreelancers = async (
       };
     }
 
-    throw new Error(response.error?.message || 'Failed to fetch freelancers');
+    return {
+      freelancers: [],
+      totalCount: 0,
+      hasMore: false,
+    };
   }, FREELANCER_TTL);
 };
 
@@ -155,12 +160,10 @@ export const getFreelancerById = async (freelancerId: string): Promise<Freelance
       return response.data;
     }
 
-    const errorMessage = response.error?.message || 'Failed to fetch freelancer profile';
-    console.error('API error:', response.error);
-    throw new Error(errorMessage);
+    return null;
   } catch (error) {
     console.error('Error fetching freelancer:', error);
-    throw error instanceof Error ? error : new Error('Network error occurred');
+    return null;
   }
 };
 
@@ -180,7 +183,7 @@ export const getTopFreelancers = async (limit: number = 6): Promise<Freelancer[]
       return filterDummyUsers(response.data.freelancers);
     }
 
-    throw new Error(response.error?.message || 'Failed to fetch top freelancers');
+    return [];
   }, FREELANCER_TTL);
 };
 

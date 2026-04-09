@@ -1,5 +1,9 @@
 import React, { useState, ChangeEvent, FormEvent, ReactNode, useEffect } from 'react';
 import { useNavigation, useAuth } from '../App';
+import { decodeJwtPayload } from '@/lib/jwt';
+import { getCognitoConfigError, isOtpAuthEnabled, requestOtpCode, verifyOtpCode } from '@/lib/cognitoOtpAuth';
+import { setAuthSession } from '@/lib/authSession';
+import { bootstrapCognitoUser } from '@/services/userBootstrap';
 import {
   Ripple,
   AuthTabs,
@@ -8,7 +12,9 @@ import {
 
 type FieldType = 'text' | 'email' | 'password';
 
-const API_ENDPOINT = 'https://xlxus7dr78.execute-api.ap-south-2.amazonaws.com/User_login_signup';
+const API_ENDPOINT =
+  import.meta.env.VITE_LEGACY_AUTH_ENDPOINT ??
+  'https://xlxus7dr78.execute-api.ap-south-2.amazonaws.com/User_login_signup';
 
 type AuthMode = 'login' | 'signup';
 
@@ -31,6 +37,8 @@ interface ApiResponse {
     deletedUntil?: string;
   };
 }
+
+type OtpStage = 'request' | 'verify';
 
 interface OrbitIcon {
   component: () => ReactNode;
@@ -228,21 +236,27 @@ const PasswordStrengthIndicator: React.FC<{ password: string }> = ({ password })
 const AuthPage: React.FC = () => {
   const { navigateTo } = useNavigation();
   const { login } = useAuth();
+  const otpEnabled = isOtpAuthEnabled();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [formData, setFormData] = useState({
     email: '',
     phoneNumber: '',
     password: '',
     confirmPassword: '',
+    otpCode: '',
   });
   const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otpStage, setOtpStage] = useState<OtpStage>('request');
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
 
   const isLogin = authMode === 'login';
 
   // Clear error when switching between login and signup
   useEffect(() => {
     setError(null);
+    setOtpMessage(null);
+    setOtpStage('request');
   }, [authMode]);
 
   const handleSignup = async () => {
@@ -345,9 +359,103 @@ const AuthPage: React.FC = () => {
     }
   };
 
+  const getOtpChannel = (): 'email' | 'sms' => (authMode === 'login' ? 'email' : 'sms');
+  const getOtpIdentifier = () => (authMode === 'login' ? formData.email : formData.phoneNumber);
+
+  const handleSendOtp = async () => {
+    setLoading(true);
+    setError(null);
+    setOtpMessage(null);
+    try {
+      const channel = getOtpChannel();
+      const identifier = getOtpIdentifier().trim();
+      const configError = getCognitoConfigError();
+      if (configError) {
+        setError(`${configError}. Configure OTP env vars and restart dev server.`);
+        return;
+      }
+      if (!identifier) {
+        setError(channel === 'email' ? 'Email is required.' : 'Phone number is required.');
+        return;
+      }
+      await requestOtpCode(channel, identifier);
+      setOtpStage('verify');
+      setOtpMessage(channel === 'email' ? 'OTP sent to your email.' : 'OTP sent to your phone via SMS.');
+    } catch (err) {
+      console.error('OTP send error:', err);
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg || 'Unable to send OTP right now. Please retry in a few minutes.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    setError(null);
+    setOtpMessage(null);
+    try {
+      if (!formData.otpCode.trim()) {
+        setError('Please enter OTP code.');
+        return;
+      }
+
+      const out = await verifyOtpCode(formData.otpCode);
+      if (!out.success) {
+        setError('Additional challenge is required. Please request OTP again.');
+        return;
+      }
+
+      const payload = out.idToken ? decodeJwtPayload(out.idToken) : null;
+      const boot = await bootstrapCognitoUser();
+      const userId = String(
+        boot?.userId ||
+          payload?.sub ||
+          payload?.email ||
+          payload?.phone_number ||
+          getOtpIdentifier()
+      );
+      const email = String(
+        boot?.email ||
+          payload?.email ||
+          formData.email ||
+          `${userId}@projectbazaar.local`
+      );
+      const role =
+        boot?.role ||
+        (payload?.['custom:role'] === 'admin' ? 'admin' : 'user');
+      const userData = {
+        userId,
+        email,
+        role,
+      };
+      localStorage.setItem('userData', JSON.stringify(userData));
+      setAuthSession('cognito', {
+        idToken: out.idToken,
+        accessToken: out.accessToken,
+      });
+      login(userId, email, role, 'cognito');
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      setError('Invalid or expired OTP. Please retry.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setOtpMessage(null);
+
+    if (otpEnabled) {
+      if (otpStage === 'request') {
+        await handleSendOtp();
+      } else {
+        await handleVerifyOtp();
+      }
+      return;
+    }
 
     if (isLogin) {
       if (!formData.email || !formData.password) {
@@ -382,14 +490,59 @@ const AuthPage: React.FC = () => {
   const toggleAuthMode = () => {
     setAuthMode(isLogin ? 'signup' : 'login');
     setError(null);
+    setOtpMessage(null);
+    setOtpStage('request');
     // Clear form fields when switching modes
     setFormData({
       email: '',
       phoneNumber: '',
       password: '',
       confirmPassword: '',
+      otpCode: '',
     });
   };
+
+  const otpRequestFields: Array<{
+    label: string;
+    required: boolean;
+    type: FieldType;
+    placeholder: string;
+    onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    helperComponent?: ReactNode;
+  }> = [
+      isLogin
+        ? {
+          label: 'Email',
+          required: true,
+          type: 'email',
+          placeholder: 'Enter your email address',
+          onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'email'),
+        }
+        : {
+          label: 'PhoneNumber',
+          required: true,
+          type: 'text',
+          placeholder: 'Enter phone number in E.164 (e.g., +919876543210)',
+          onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'phoneNumber'),
+        },
+    ];
+
+  const otpVerifyFields: Array<{
+    label: string;
+    required: boolean;
+    type: FieldType;
+    placeholder: string;
+    onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+    helperComponent?: ReactNode;
+  }> = [
+      {
+        label: 'OTPCode',
+        required: true,
+        type: 'text',
+        placeholder: 'Enter the 6-digit OTP',
+        onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'otpCode'),
+      },
+    ];
 
   const loginFields: Array<{
     label: string;
@@ -461,12 +614,24 @@ const AuthPage: React.FC = () => {
       },
     ];
 
-  const formFields = {
-    header: isLogin ? 'Welcome back' : 'Create an account',
-    subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
-    fields: isLogin ? loginFields : signupFields,
-    submitButton: isLogin ? 'Sign in' : 'Sign up',
-  };
+  const formFields = otpEnabled
+    ? {
+      header: isLogin ? 'Email OTP Sign in' : 'SMS OTP Sign in',
+      subHeader:
+        otpStage === 'request'
+          ? isLogin
+            ? 'Enter your email and we will send an OTP'
+            : 'Enter your phone number and we will send an OTP via SMS'
+          : 'Enter the OTP code to continue',
+      fields: otpStage === 'request' ? otpRequestFields : otpVerifyFields,
+      submitButton: otpStage === 'request' ? 'Send OTP' : 'Verify OTP',
+    }
+    : {
+      header: isLogin ? 'Welcome back' : 'Create an account',
+      subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
+      fields: isLogin ? loginFields : signupFields,
+      submitButton: isLogin ? 'Sign in' : 'Sign up',
+    };
 
   return (
     <section className='flex max-lg:justify-center h-screen overflow-hidden relative bg-black'>
@@ -516,19 +681,68 @@ const AuthPage: React.FC = () => {
         </button>
 
         <div className='w-full max-w-md flex flex-col items-center px-2 sm:px-0 max-h-full overflow-hidden'>
+          {otpEnabled && (
+            <div className='w-full mb-3 grid grid-cols-2 gap-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  setAuthMode('login');
+                  setOtpStage('request');
+                  setError(null);
+                  setOtpMessage(null);
+                  setFormData((prev) => ({ ...prev, otpCode: '' }));
+                }}
+                className={`h-10 rounded-md border text-sm transition-colors ${
+                  authMode === 'login'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-black/40 border-gray-700 text-gray-300 hover:bg-black/60'
+                }`}
+              >
+                Email OTP
+              </button>
+              <button
+                type='button'
+                onClick={() => {
+                  setAuthMode('signup');
+                  setOtpStage('request');
+                  setError(null);
+                  setOtpMessage(null);
+                  setFormData((prev) => ({ ...prev, otpCode: '' }));
+                }}
+                className={`h-10 rounded-md border text-sm transition-colors ${
+                  authMode === 'signup'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-black/40 border-gray-700 text-gray-300 hover:bg-black/60'
+                }`}
+              >
+                SMS OTP
+              </button>
+            </div>
+          )}
           <div className='w-full flex-shrink-0' key={authMode}>
             <AuthTabs
               formFields={formFields}
               goTo={() => { }}
               handleSubmit={handleSubmit}
-              accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
-              onAccountToggle={toggleAuthMode}
+              accountToggleText={
+                otpEnabled
+                  ? undefined
+                  : isLogin
+                    ? "Don't have an account yet? Sign up"
+                    : "Already have an account? Log in"
+              }
+              onAccountToggle={otpEnabled ? undefined : toggleAuthMode}
             />
           </div>
 
           {error && (
             <div className='mt-2 sm:mt-3 p-2 sm:p-3 bg-red-900/30 border border-red-500/50 rounded-lg max-w-md w-full flex-shrink-0'>
               <p className='text-xs sm:text-sm text-red-300 break-words'>{error}</p>
+            </div>
+          )}
+          {otpMessage && (
+            <div className='mt-2 sm:mt-3 p-2 sm:p-3 bg-green-900/30 border border-green-500/50 rounded-lg max-w-md w-full flex-shrink-0'>
+              <p className='text-xs sm:text-sm text-green-200 break-words'>{otpMessage}</p>
             </div>
           )}
         </div>

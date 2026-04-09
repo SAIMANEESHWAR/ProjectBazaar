@@ -5,6 +5,7 @@
 
 import type { Bid, BidFormData } from '../types/bids';
 import { incrementBidCount, decrementBidCount } from './bidRequestProjectsApi';
+import { buildAuthHeaders } from '../lib/authSession';
 
 // API Endpoint for Bids Lambda
 const BIDS_API_ENDPOINT = 'https://3bi4qyp5r3.execute-api.ap-south-2.amazonaws.com/default/bids_handler';
@@ -40,9 +41,9 @@ async function apiRequest<T>(action: string, body: Record<string, unknown>): Pro
   try {
     const response = await fetch(BIDS_API_ENDPOINT, {
       method: 'POST',
-      headers: {
+      headers: buildAuthHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({
         action,
         ...body,
@@ -127,18 +128,16 @@ export const getBidsByProjectIdAsync = async (projectId: string): Promise<Bid[]>
 
   try {
     const response = await apiRequest<BidsData>('GET_BIDS_BY_PROJECT', { projectId });
-    
+
     if (response.success && response.data) {
       return response.data.bids;
     }
-    
-    // API returned error - throw to allow caller to handle
-    const errorMessage = response.error?.message || 'Failed to fetch bids';
-    console.error('API error:', response.error);
-    throw new Error(errorMessage);
+
+    console.warn('API error fetching project bids, falling back to localStorage:', response.error);
+    return getBidsByProjectId(projectId);
   } catch (error) {
-    console.error('Error fetching bids by project:', error);
-    throw error instanceof Error ? error : new Error('Network error occurred');
+    console.warn('Error fetching bids by project, falling back to localStorage:', error);
+    return getBidsByProjectId(projectId);
   }
 };
 

@@ -26,6 +26,12 @@ from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 from decimal import Decimal
 
+from auth_context import (
+    enforce_body_field,
+    get_canonical_app_user_id,
+    merge_body_with_cognito_identity,
+)
+
 # Initialize DynamoDB
 dynamodb = boto3.resource('dynamodb')
 interactions_table = dynamodb.Table('FreelancerInteractions')
@@ -441,8 +447,24 @@ def lambda_handler(event, context):
         if event.get('httpMethod') == 'GET':
             query_params = event.get('queryStringParameters') or {}
             body = {**body, **query_params}
-            
+        
+        merge_body_with_cognito_identity(event, body)
+        uid = get_canonical_app_user_id(event)
         action = body.get('action', '').upper()
+        if uid and action in ('SEND_MESSAGE', 'SEND_INVITATION'):
+            err = enforce_body_field(body, 'senderId', uid)
+            if err:
+                return response(
+                    403,
+                    {'success': False, 'error': {'code': 'FORBIDDEN', 'message': err}},
+                )
+        if uid and action == 'ADD_REVIEW':
+            err = enforce_body_field(body, 'reviewerId', uid)
+            if err:
+                return response(
+                    403,
+                    {'success': False, 'error': {'code': 'FORBIDDEN', 'message': err}},
+                )
         
         handlers = {
             'SEND_MESSAGE': handle_send_message,

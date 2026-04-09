@@ -21,6 +21,7 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
   const [proposal, setProposal] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [mounted, setMounted] = useState(false);
+  const proposalTrimmedLength = proposal.trim().length;
 
   useEffect(() => {
     setMounted(true);
@@ -199,8 +200,8 @@ const PlaceBidModal: React.FC<PlaceBidModalProps> = ({ project, onClose, onSubmi
               <label className="block text-sm font-semibold text-gray-900 dark:text-gray-100">
                 Describe your proposal (minimum 100 characters)
               </label>
-              <span className={`text-xs ${proposal.length >= 100 ? 'text-green-600' : 'text-gray-500'}`}>
-                {proposal.length}/100
+              <span className={`text-xs ${proposalTrimmedLength >= 100 ? 'text-green-600' : 'text-gray-500'}`}>
+                {proposalTrimmedLength}/100
               </span>
             </div>
             <textarea

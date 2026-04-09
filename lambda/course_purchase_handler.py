@@ -18,6 +18,11 @@ import urllib.error
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Any, Optional
+from auth_context import (
+    enforce_body_field,
+    get_canonical_app_user_id,
+    merge_body_with_cognito_identity,
+)
 
 # =========================
 # CONFIG
@@ -94,6 +99,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 body = event["body"]
         
         action = body.get("action", "")
+        merge_body_with_cognito_identity(event, body)
+        uid = get_canonical_app_user_id(event)
+        if uid and action in ("CREATE_COURSE_ORDER", "GET_PURCHASED_COURSES", "ENROLL_FREE_COURSE"):
+            err = enforce_body_field(body, "userId", uid)
+            if err:
+                return create_response(403, {}, error=err)
         print(f"Received action: {action}")
         
         # Route to appropriate handler

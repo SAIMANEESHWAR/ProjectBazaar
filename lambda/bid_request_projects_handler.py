@@ -25,6 +25,12 @@ from datetime import datetime
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
+from auth_context import (
+    enforce_body_field,
+    get_canonical_app_user_id,
+    merge_body_with_cognito_identity,
+)
+
 # Initialize DynamoDB
 dynamodb = boto3.resource('dynamodb')
 bid_request_projects_table = dynamodb.Table('BidRequestProjects')
@@ -643,8 +649,28 @@ def lambda_handler(event, context):
         if event.get('body'):
             body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
         
+        merge_body_with_cognito_identity(event, body)
+
         # Get action from body or query params
         action = body.get('action') or event.get('queryStringParameters', {}).get('action', '')
+
+        uid = get_canonical_app_user_id(event)
+        if uid and action in (
+            'CREATE_PROJECT',
+            'GET_PROJECTS_BY_BUYER',
+            'UPDATE_PROJECT',
+            'UPDATE_PROJECT_STATUS',
+            'DELETE_PROJECT',
+        ):
+            err = enforce_body_field(body, 'buyerId', uid)
+            if err:
+                return response(
+                    403,
+                    {
+                        'success': False,
+                        'error': {'code': 'FORBIDDEN', 'message': err},
+                    },
+                )
         
         # Route to appropriate handler
         handlers = {

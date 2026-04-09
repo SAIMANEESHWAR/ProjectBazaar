@@ -7,6 +7,7 @@ import {
   updateBidRequestProjectStatus,
   deleteBidRequestProject,
   incrementBidCount,
+  invalidateBidRequestCache,
 } from '../../services/bidRequestProjectsApi';
 
 // Mock fetch globally
@@ -15,6 +16,7 @@ global.fetch = mockFetch;
 
 describe('Bid Request Projects API', () => {
   beforeEach(() => {
+    invalidateBidRequestCache();
     vi.clearAllMocks();
   });
 

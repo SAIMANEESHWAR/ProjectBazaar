@@ -1,0 +1,43 @@
+# Example: HTTP API (API Gateway v2) JWT authorizer for Amazon Cognito User Pools.
+# Attach routes or $default route integration after deploying this stack.
+# Replace parameter defaults with your pool ID and app client ID (public client, no secret).
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HTTP API + Cognito JWT authorizer (reference for ProjectBazaar)
+
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Description: e.g. ap-south-2_xxxx
+  CognitoAppClientId:
+    Type: String
+    Description: Public app client ID (no client secret)
+
+Resources:
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: projectbazaar-http-api
+      ProtocolType: HTTP
+      Description: Reference template — add routes and Lambda integrations in console or IaC
+
+  CognitoJwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      Name: cognito-jwt
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoAppClientId
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+
+Outputs:
+  HttpApiId:
+    Description: HTTP API ID
+    Value: !Ref HttpApi
+  AuthorizerId:
+    Description: JWT authorizer ID
+    Value: !Ref CognitoJwtAuthorizer

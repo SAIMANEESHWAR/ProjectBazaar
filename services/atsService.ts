@@ -4,6 +4,7 @@
  */
 
 import type { ResumeInfo } from '../context/ResumeInfoContext';
+import { buildAuthHeaders } from '../lib/authSession';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 
@@ -47,7 +48,7 @@ export interface AtsResult {
 export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
   const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ action: 'getLlmKeysStatus', userId }),
   });
   const data = await res.json();
@@ -67,7 +68,7 @@ export async function getAtsScore(
 ): Promise<{ success: boolean; atsResult?: AtsResult; message?: string }> {
   const res = await fetch(ATS_SCORER_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       userId,
       resumeText,

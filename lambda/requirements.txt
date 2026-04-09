@@ -5,6 +5,10 @@
 pdfplumber>=0.10.0
 PyPDF2>=3.0.0
 
+# Cognito ID token verification (user_bootstrap_handler)
+PyJWT>=2.8.0
+cryptography>=42.0.0
+
 # Note: This Lambda includes a basic PDF extractor using Python's built-in zlib
 # that works without any external dependencies as a final fallback.
 #

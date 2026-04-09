@@ -360,6 +360,15 @@ def _header(event, *names):
     return None
 
 
+def _authorizer_user_id(event):
+    ctx = event.get("requestContext") or {}
+    auth = ctx.get("authorizer") or {}
+    claims = (auth.get("jwt") or {}).get("claims") or auth.get("claims") or {}
+    if not isinstance(claims, dict):
+        return None
+    return claims.get("sub") or claims.get("custom:userId") or claims.get("username")
+
+
 def handle_create(event, table):
     body = parse_body(event)
     if body is None:
@@ -371,6 +380,7 @@ def handle_create(event, table):
 
     identity = {
         "userId": _header(event, "x-user-id")
+        or _authorizer_user_id(event)
         or body.get("authorUserId")
         or body.get("authorId"),
         "userName": _header(event, "x-user-name") or body.get("authorName"),
@@ -408,7 +418,7 @@ def handle_get_one(post_id, table, event):
     row = res.get("Item")
     if not row:
         return response(404, {"error": "Not found"})
-    viewer = (_header(event, "x-user-id") or "").strip()
+    viewer = (_header(event, "x-user-id") or _authorizer_user_id(event) or "").strip()
     return response(200, {"post": fix_public_shape(row, viewer or None)})
 
 
@@ -462,7 +472,7 @@ def handle_list(event, table):
 
     items.sort(key=lambda x: str(x.get("createdAt") or ""), reverse=True)
     page = items[offset : offset + limit]
-    viewer = (_header(event, "x-user-id") or "").strip()
+    viewer = (_header(event, "x-user-id") or _authorizer_user_id(event) or "").strip()
     posts = [fix_public_shape(i, viewer or None) for i in page]
 
     next_tok = None
@@ -489,7 +499,7 @@ def handle_patch(post_id, event, table):
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     if action == "upvote":
-        uid = (_header(event, "x-user-id") or "").strip()
+        uid = (_header(event, "x-user-id") or _authorizer_user_id(event) or "").strip()
         if not uid:
             return response(
                 400,
@@ -539,7 +549,7 @@ def handle_patch(post_id, event, table):
             ExpressionAttributeValues={":empty": [], ":c": [comment], ":u": now},
             ReturnValues="ALL_NEW",
         )
-        voter = (_header(event, "x-user-id") or "").strip()
+        voter = (_header(event, "x-user-id") or _authorizer_user_id(event) or "").strip()
         return response(
             200,
             {

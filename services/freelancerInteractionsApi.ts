@@ -1,3 +1,5 @@
+import { buildAuthHeaders } from '../lib/authSession';
+
 // Replace string with actual deployed API Endpoint once deployed
 const FREELANCER_INTERACTIONS_API_ENDPOINT = 'https://eprkn8kyxf.execute-api.ap-south-2.amazonaws.com/default/freelancer_interactions_handler';
 
@@ -29,9 +31,9 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
     try {
         const response = await fetch(FREELANCER_INTERACTIONS_API_ENDPOINT, {
             method: 'POST',
-            headers: {
+            headers: buildAuthHeaders({
                 'Content-Type': 'application/json',
-            },
+            }),
             body: JSON.stringify({
                 action,
                 ...body,
