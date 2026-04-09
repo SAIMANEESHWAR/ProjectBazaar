@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { mockGoogleMeetLink } from '../data/peerInterviewMockData';
 import { patchPeerConnection } from '../services/peerInterviewApi';
 import { sendFreelancerMessage } from '../services/freelancerInteractionsApi';
-import type { PeerConnectionOffer, PeerWaitlistEntry } from '../types/peerInterviewQueue';
+import type { PeerWaitlistEntry } from '../types/peerInterviewQueue';
 
 export async function acceptPeerInterviewConnection(
   waitlist: PeerWaitlistEntry[],
