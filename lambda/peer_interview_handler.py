@@ -350,6 +350,17 @@ def handle_create_connection(listing_id: str, body: Dict[str, Any], viewer: str)
     listing, _ = _find_listing_and_pk(listing_id)
     if not listing:
         return response(404, {"success": False, "error": "listing not found"})
+    if not listing.get("isPublic", True):
+        return response(409, {"success": False, "error": "listing is closed for new connections"})
+    try:
+        existing = _table.query(
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :p)",
+            ExpressionAttributeValues={":pk": f"LISTING#{listing_id}", ":p": "CONN#"},
+        ).get("Items", [])
+        if any(str(i.get("status") or "").lower() == "accepted" for i in existing):
+            return response(409, {"success": False, "error": "listing already has an accepted member"})
+    except ClientError as e:
+        return response(500, {"success": False, "error": str(e)})
     owner = listing.get("ownerUserId")
     if owner == viewer:
         return response(400, {"success": False, "error": "cannot connect to own listing"})
@@ -380,6 +391,8 @@ def handle_create_connection(listing_id: str, body: Dict[str, Any], viewer: str)
         "listingId": listing_id,
         "connectionId": conn_id,
         "ownerUserId": owner,
+        "ownerName": listing.get("displayName"),
+        "listingTitle": listing.get("practiceGoal") or listing.get("displayName"),
         "fromUserId": viewer,
         "fromName": from_name,
         "slots": slots,
@@ -509,6 +522,15 @@ def handle_patch_connection(listing_id: str, conn_id: str, body: Dict[str, Any],
                             )
                         except ClientError:
                             pass
+            except ClientError:
+                pass
+            # Hide listing from public queue after a successful match.
+            try:
+                _table.update_item(
+                    Key={"pk": listing["pk"], "sk": listing["sk"]},
+                    UpdateExpression="SET isPublic = :p, updatedAt = :u",
+                    ExpressionAttributeValues={":p": False, ":u": ts},
+                )
             except ClientError:
                 pass
         return response(200, {"success": True, "data": strip_keys(out_item)})

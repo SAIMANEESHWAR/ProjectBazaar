@@ -165,7 +165,7 @@ function mergeOutgoingOntoEntries(
     if (!byListing.has(lid)) byListing.set(lid, []);
     byListing.get(lid)!.push(offer);
   }
-  return entries.map((e) => {
+  const mapped = entries.map((e) => {
     if (e.isMine) return e;
     const extra = byListing.get(e.id);
     if (!extra?.length) return e;
@@ -180,6 +180,36 @@ function mergeOutgoingOntoEntries(
     }
     return { ...e, connections: merged };
   });
+  const seenListingIds = new Set(mapped.map((e) => e.id));
+  for (const raw of outgoingRows) {
+    const lid = typeof raw.listingId === 'string' ? raw.listingId : '';
+    if (!lid || seenListingIds.has(lid)) continue;
+    const conn = mapOutboundToOffer(raw, viewerId);
+    if (!conn.id) continue;
+    const displayName =
+      typeof raw.ownerName === 'string' && raw.ownerName.trim() ? raw.ownerName : 'Peer';
+    const listingTitle =
+      typeof raw.listingTitle === 'string' && raw.listingTitle.trim()
+        ? raw.listingTitle
+        : `Request to ${displayName}`;
+    mapped.push({
+      id: lid,
+      displayName,
+      category: 'behavioral',
+      skills: 'Peer request',
+      waitingSince:
+        typeof conn.requestedAt === 'string' && conn.requestedAt
+          ? `Requested ${conn.requestedAt.slice(0, 10)}`
+          : 'Requested',
+      isMine: false,
+      practiceMode: 'peers',
+      practiceGoal: listingTitle,
+      connections: [conn],
+      ownerUserId: typeof raw.ownerUserId === 'string' ? raw.ownerUserId : undefined,
+    });
+    seenListingIds.add(lid);
+  }
+  return mapped;
 }
 
 function mapListingRow(
