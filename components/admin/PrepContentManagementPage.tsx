@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { editor as MonacoEditor } from "monaco-editor";
 import {
   interviewQuestions,
@@ -11,6 +12,7 @@ import {
   handwrittenNotes,
   roadmaps,
   positionResources,
+  type JobPortal,
 } from "../../data/preparationMockData";
 import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
 import { DiagramData } from "../../data/systemDesignData";
@@ -263,6 +265,266 @@ const CardShell: React.FC<{
   </div>
 );
 
+const JOB_PORTAL_CATEGORIES = [
+  "General",
+  "Networking",
+  "Research",
+  "Startups",
+  "Internships",
+  "Competitions",
+  "Tech",
+] as const;
+const JOB_PORTAL_REGIONS = ["India", "Global"] as const;
+
+interface JobPortalModalProps {
+  item: JobPortal | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    name: string;
+    logo: string;
+    description: string;
+    url: string;
+    category: string;
+    region: string;
+    isFavorite: boolean;
+    isApplied: boolean;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const JobPortalModal: React.FC<JobPortalModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const [name, setName] = useState("");
+  const [logo, setLogo] = useState("");
+  const [description, setDescription] = useState("");
+  const [url, setUrl] = useState("");
+  const [category, setCategory] = useState<string>("General");
+  const [region, setRegion] = useState<string>("India");
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setName(item.name);
+      setLogo(item.logo);
+      setDescription(item.description);
+      setUrl(item.url);
+      setCategory(item.category || "General");
+      setRegion(item.region || "India");
+      setIsFavorite(item.isFavorite);
+      setIsApplied(item.isApplied);
+    } else {
+      setName("");
+      setLogo("");
+      setDescription("");
+      setUrl("");
+      setCategory("General");
+      setRegion("India");
+      setIsFavorite(false);
+      setIsApplied(false);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Name is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      name: trimmed,
+      logo: logo.trim(),
+      description: description.trim(),
+      url: url.trim(),
+      category,
+      region,
+      isFavorite,
+      isApplied,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby="jp-modal-title"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id="jp-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit job portal" : "Add job portal"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g. Naukri"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Logo URL
+            </label>
+            <input
+              type="url"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="https://…"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-y"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Website URL
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="https://…"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                {JOB_PORTAL_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Region
+              </label>
+              <select
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                {JOB_PORTAL_REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 pt-1">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              />
+              Default favorite
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isApplied}
+                onChange={(e) => setIsApplied(e.target.checked)}
+                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              />
+              Default applied
+            </label>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add portal"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // ─── SD Question Add / Edit Modal ────────────────────────────────────────────
 interface SDQuestionModalProps {
   designType: "hld" | "lld";
@@ -479,7 +741,7 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -803,6 +1065,12 @@ const PrepContentManagementPage: React.FC = () => {
   const [oopsData, setOopsData] = useState(oopsConcepts);
   const [langData, setLangData] = useState(languageConcepts);
 
+  const [jpModal, setJpModal] = useState<{
+    open: boolean;
+    item: JobPortal | null;
+  }>({ open: false, item: null });
+  const [jpSaving, setJpSaving] = useState(false);
+
   // SD modal state
   const [sdModal, setSdModal] = useState<{
     open: boolean;
@@ -872,6 +1140,52 @@ const PrepContentManagementPage: React.FC = () => {
 
   const triggerEdit = (name: string) => {
     showToast(`Editing "${name}" — editor modal coming soon`, "info");
+  };
+
+  const handleJobPortalSave = async (form: {
+    id?: string;
+    name: string;
+    logo: string;
+    description: string;
+    url: string;
+    category: string;
+    region: string;
+    isFavorite: boolean;
+    isApplied: boolean;
+  }) => {
+    setJpSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "job_portals",
+      { ...form } as Record<string, unknown>,
+    );
+    setJpSaving(false);
+    if (item) {
+      const saved = item as unknown as JobPortal;
+      const merged: JobPortal = {
+        ...saved,
+        isFavorite: form.isFavorite,
+        isApplied: form.isApplied,
+        logo: String(saved.logo || form.logo),
+        name: String(saved.name || form.name),
+        description: String(saved.description ?? form.description),
+        url: String(saved.url ?? form.url),
+        category: String(saved.category || form.category),
+        region: String(saved.region || form.region),
+      };
+      const isEdit = !!form.id;
+      setJpData((prev) =>
+        isEdit
+          ? prev.map((p) => (p.id === merged.id ? merged : p))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.name}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setJpModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
   };
 
   // SD-specific: open delete confirmation modal
@@ -1533,6 +1847,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Portal"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setJpModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1549,7 +1864,7 @@ const PrepContentManagementPage: React.FC = () => {
                     </div>
                     <ActionBtns
                       name={portal.name}
-                      onEdit={() => triggerEdit(portal.name)}
+                      onEdit={() => setJpModal({ open: true, item: portal })}
                       onDelete={() =>
                         confirmDelete(portal.name, portal.id, setJpData)
                       }
@@ -1608,7 +1923,7 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={portal.name}
-                          onEdit={() => triggerEdit(portal.name)}
+                          onEdit={() => setJpModal({ open: true, item: portal })}
                           onDelete={() =>
                             confirmDelete(portal.name, portal.id, setJpData)
                           }
@@ -1622,6 +1937,21 @@ const PrepContentManagementPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* ─── Job portal add/edit modal (portal: above admin header/sidebar stacking) ─── */}
+      {jpModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <JobPortalModal
+            item={jpModal.item}
+            saving={jpSaving}
+            onSave={handleJobPortalSave}
+            onClose={() => {
+              if (!jpSaving) setJpModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
 
       {/* ─── Notes ─── */}
       {activeTab === "notes" && (
@@ -2593,55 +2923,61 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── SD Add/Edit Modal ─── */}
-      {sdModal.open && (
-        <SDQuestionModal
-          designType={sdModal.designType}
-          item={sdModal.item ?? null}
-          saving={sdSaving}
-          onSave={handleSdSave}
-          onClose={() =>
-            setSdModal({ open: false, designType: sdModal.designType })
-          }
-        />
-      )}
+      {/* ─── SD Add/Edit Modal (portal: above admin header/sidebar stacking) ─── */}
+      {sdModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <SDQuestionModal
+            designType={sdModal.designType}
+            item={sdModal.item ?? null}
+            saving={sdSaving}
+            onSave={handleSdSave}
+            onClose={() =>
+              setSdModal({ open: false, designType: sdModal.designType })
+            }
+          />,
+          document.body,
+        )}
 
       {/* ─── Delete Confirmation Modal ─── */}
-      {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete Question
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete{" "}
-              <span className="font-medium text-gray-900">
-                "{deleteModal.name}"
-              </span>
-              ? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteModal(null)}
-                disabled={deleteLoading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSdDeleteConfirm}
-                disabled={deleteLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {deleteLoading && (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                Delete
-              </button>
+      {deleteModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Delete Question
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Are you sure you want to delete{" "}
+                <span className="font-medium text-gray-900">
+                  "{deleteModal.name}"
+                </span>
+                ? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeleteModal(null)}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSdDeleteConfirm}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleteLoading && (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
