@@ -13,6 +13,7 @@ import {
   roadmaps,
   positionResources,
   type JobPortal,
+  type ColdDMTemplate,
 } from "../../data/preparationMockData";
 import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
 import { DiagramData } from "../../data/systemDesignData";
@@ -276,6 +277,27 @@ const JOB_PORTAL_CATEGORIES = [
 ] as const;
 const JOB_PORTAL_REGIONS = ["India", "Global"] as const;
 
+/** Suggested cold DM categories (datalist); any custom string is allowed. */
+const COLD_DM_CATEGORY_SUGGESTIONS = [
+  "BTech Freshers",
+  "Internships",
+  "Referral",
+  "Networking",
+  "Professionals",
+  "Startups",
+  "Freelance",
+  "Skill Showcase",
+  "Follow-up",
+  "Feedback",
+  "Career Change",
+  "Remote Work",
+  "Relocation",
+  "Return to Work",
+  "Mentorship",
+  "Internal Mobility",
+  "Contract-to-Hire",
+] as const;
+
 interface JobPortalModalProps {
   item: JobPortal | null;
   saving: boolean;
@@ -517,6 +539,196 @@ const JobPortalModal: React.FC<JobPortalModalProps> = ({
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               )}
               {item ? "Save changes" : "Add portal"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface ColdDMModalProps {
+  item: ColdDMTemplate | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    content: string;
+    category: string;
+    isCopied: boolean;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const ColdDMModal: React.FC<ColdDMModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const categoryListId = React.useId();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setContent(item.content);
+      setCategory(item.category || "");
+      setIsCopied(item.isCopied);
+    } else {
+      setTitle("");
+      setContent("");
+      setCategory("BTech Freshers");
+      setIsCopied(false);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      return;
+    }
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      setError("Message content is required.");
+      return;
+    }
+    const trimmedCat = category.trim();
+    if (!trimmedCat) {
+      setError("Category is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: trimmedTitle,
+      content: trimmedContent,
+      category: trimmedCat,
+      isCopied,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby="cold-dm-modal-title"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id="cold-dm-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit cold DM template" : "Add cold DM template"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g. BTech Fresher - Formal Introduction"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Category
+            </label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              list={categoryListId}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="Pick or type a category"
+            />
+            <datalist id={categoryListId}>
+              {COLD_DM_CATEGORY_SUGGESTIONS.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Message body
+            </label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={14}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-y font-mono leading-relaxed"
+              placeholder="Use [Name], [Company], etc. as placeholders."
+            />
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isCopied}
+              onChange={(e) => setIsCopied(e.target.checked)}
+              className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+            />
+            Mark as default copied (UI hint for learners)
+          </label>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add template"}
             </button>
           </div>
         </form>
@@ -1071,6 +1283,12 @@ const PrepContentManagementPage: React.FC = () => {
   }>({ open: false, item: null });
   const [jpSaving, setJpSaving] = useState(false);
 
+  const [dmModal, setDmModal] = useState<{
+    open: boolean;
+    item: ColdDMTemplate | null;
+  }>({ open: false, item: null });
+  const [dmSaving, setDmSaving] = useState(false);
+
   // SD modal state
   const [sdModal, setSdModal] = useState<{
     open: boolean;
@@ -1183,6 +1401,44 @@ const PrepContentManagementPage: React.FC = () => {
         "success",
       );
       setJpModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleColdDMSave = async (form: {
+    id?: string;
+    title: string;
+    content: string;
+    category: string;
+    isCopied: boolean;
+  }) => {
+    setDmSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "cold_dm_templates",
+      { ...form } as Record<string, unknown>,
+    );
+    setDmSaving(false);
+    if (item) {
+      const saved = item as unknown as ColdDMTemplate;
+      const merged: ColdDMTemplate = {
+        ...saved,
+        isCopied: form.isCopied,
+        title: String(saved.title || form.title),
+        content: String(saved.content ?? form.content),
+        category: String(saved.category || form.category),
+      };
+      const isEdit = !!form.id;
+      setDmData((prev) =>
+        isEdit
+          ? prev.map((d) => (d.id === merged.id ? merged : d))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setDmModal({ open: false, item: null });
     } else {
       showToast("Save failed. Check the admin API or try again.", "info");
     }
@@ -1763,6 +2019,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Template"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setDmModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1774,7 +2031,7 @@ const PrepContentManagementPage: React.FC = () => {
                     </span>
                     <ActionBtns
                       name={dm.title}
-                      onEdit={() => triggerEdit(dm.title)}
+                      onEdit={() => setDmModal({ open: true, item: dm })}
                       onDelete={() => confirmDelete(dm.title, dm.id, setDmData)}
                     />
                   </div>
@@ -1823,7 +2080,7 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={dm.title}
-                          onEdit={() => triggerEdit(dm.title)}
+                          onEdit={() => setDmModal({ open: true, item: dm })}
                           onDelete={() =>
                             confirmDelete(dm.title, dm.id, setDmData)
                           }
@@ -1948,6 +2205,21 @@ const PrepContentManagementPage: React.FC = () => {
             onSave={handleJobPortalSave}
             onClose={() => {
               if (!jpSaving) setJpModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Cold DM add/edit modal (portal: above admin header/sidebar stacking) ─── */}
+      {dmModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ColdDMModal
+            item={dmModal.item}
+            saving={dmSaving}
+            onSave={handleColdDMSave}
+            onClose={() => {
+              if (!dmSaving) setDmModal({ open: false, item: null });
             }}
           />,
           document.body,
