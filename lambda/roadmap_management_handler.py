@@ -178,9 +178,9 @@ def handle_save_roadmap(event_body: Dict):
     Supports duration-specific roadmaps via 'programDuration' and 'weeks'.
     """
     try:
-        category_id = event_body.get('categoryId')
-        category_name = event_body.get('categoryName', '')
-        icon = event_body.get('icon', '📚')
+        category_id = (event_body.get('categoryId') or '').strip()
+        category_name = (event_body.get('categoryName') or '').strip()
+        icon = (event_body.get('icon') or '📚').strip()
         weeks = event_body.get('weeks', [])
         program_duration = event_body.get('programDuration') # e.g., "8", "4", "3"
         

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { useNavigation } from '../App';
+import { CTAArrowIcon } from './CTAArrowIcon';
 
 const TYPEWRITER_PHRASES = [
   'Sell your capstone project and earn real revenue',
@@ -84,21 +85,25 @@ const Hero: React.FC = () => {
   return (
     <header
       ref={ref}
-      className="relative w-full overflow-hidden bg-[#0a0a0a] pt-32 pb-20 md:pt-40 md:pb-32"
+      className="relative w-full overflow-hidden bg-[#f5f5f5] dark:bg-[#0a0a0a] pt-32 pb-20 md:pt-40 md:pb-32 transition-colors duration-300"
     >
       {/* Background grid parallax */}
       <motion.div style={{ y: bgY }} className="absolute inset-0 z-0 pointer-events-none">
         <div
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-10 dark:opacity-0 transition-opacity duration-300"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
             backgroundSize: '60px 60px',
             backgroundPosition: 'center top',
           }}
         />
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[#ff7a001a] blur-[120px]" />
-        <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#ffffff05] blur-[100px]" />
-        <div className="absolute bottom-[-20%] left-[20%] w-[70%] h-[50%] bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent z-10" />
+        <div
+          className="absolute inset-0 opacity-0 dark:opacity-10 transition-opacity duration-300"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, backgroundSize: '60px 60px', backgroundPosition: 'center top' }}
+        />
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[#ff7a0015] dark:bg-[#ff7a001a] blur-[120px]" />
+        <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-black/5 dark:bg-[#ffffff05] blur-[100px]" />
+        <div className="absolute bottom-[-20%] left-[20%] w-[70%] h-[50%] bg-gradient-to-t from-[#f5f5f5] dark:from-[#0a0a0a] via-transparent to-transparent z-10" />
       </motion.div>
 
       <div className="landing-container relative z-10 flex flex-col items-center">
@@ -110,11 +115,11 @@ const Hero: React.FC = () => {
           custom={0}
           className="mb-8 flex items-center justify-center"
         >
-          <div className="flex items-center gap-0 border border-white/10 rounded-lg overflow-hidden">
-            <div className="bg-[#1a1a1a] px-4 py-2 text-[14px] font-medium text-white/80 whitespace-nowrap font-sans">
+          <div className="flex items-center gap-0 border border-gray-200 dark:border-white/10 rounded-lg overflow-hidden">
+            <div className="bg-gray-200/80 dark:bg-[#1a1a1a] px-4 py-2 text-[14px] font-medium text-gray-700 dark:text-white/80 whitespace-nowrap font-sans">
               Limited time offer ends in
             </div>
-            <div className="bg-white px-4 py-2 text-[14px] font-bold text-black font-mono tabular-nums font-sans">
+            <div className="bg-white dark:bg-white px-4 py-2 text-[14px] font-bold text-black font-mono tabular-nums font-sans">
               {Pad(d)} : {Pad(h)} : {Pad(m)} : {Pad(s)}
             </div>
           </div>
@@ -128,7 +133,7 @@ const Hero: React.FC = () => {
           custom={1}
           className="max-w-[1000px] text-center mb-10"
         >
-          <h1 className="text-[44px] md:text-[72px] lg:text-[80px] font-extrabold leading-[1.08] tracking-tight text-white font-sans">
+          <h1 className="text-[44px] md:text-[72px] lg:text-[80px] font-extrabold leading-[1.08] tracking-tight text-gray-900 dark:text-white font-sans">
             Discover. Build. &{' '}
             <span className="orange-gradient-text italic">Earn.</span>
           </h1>
@@ -142,8 +147,8 @@ const Hero: React.FC = () => {
           custom={2}
           className="w-full max-w-[680px] mb-12"
         >
-          <div className="glass-panel border border-white/10 rounded-[16px] p-6 bg-[#1a1a1a]/40 shadow-2xl">
-            <div className="text-white/90 text-lg md:text-xl font-medium mb-8 min-h-[56px] flex items-start font-sans">
+          <div className="rounded-[16px] p-6 shadow-2xl bg-white/80 dark:glass-panel border border-gray-200/80 dark:border-white/10 dark:bg-[#1a1a1a]/40 backdrop-blur-[12px]">
+            <div className="text-gray-800 dark:text-white/90 text-lg md:text-xl font-medium mb-8 min-h-[56px] flex items-start font-sans">
               <span>{text}</span>
               <motion.span
                 animate={{ opacity: [1, 0] }}
@@ -151,8 +156,8 @@ const Hero: React.FC = () => {
                 className="inline-block w-[3px] h-[24px] bg-[#ff7a00] ml-1 mt-1 flex-shrink-0"
               />
             </div>
-            <div className="flex items-center justify-between pt-4 border-t border-white/5">
-              <button type="button" className="flex items-center gap-2 text-white/40 hover:text-white/60 transition-colors text-sm font-medium font-sans">
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-white/5">
+              <button type="button" className="flex items-center gap-2 text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/60 transition-colors text-sm font-medium font-sans">
                 <span className="text-xl">+</span>
                 <div className="flex items-center gap-1.5">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -164,14 +169,14 @@ const Hero: React.FC = () => {
                 </div>
               </button>
               <div className="flex items-center gap-3">
-                <button type="button" className="p-2 rounded-full hover:bg-white/5 transition-colors cursor-pointer text-white/40">
+                <button type="button" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer text-gray-500 dark:text-white/40">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                     <line x1="12" y1="19" x2="12" y2="22" />
                   </svg>
                 </button>
-                <button type="button" className="p-2 rounded-full bg-white/5 text-white/60">
+                <button type="button" className="p-2 rounded-full bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-white/60">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
                     <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
@@ -199,13 +204,7 @@ const Hero: React.FC = () => {
           >
             <span>Join now — it&apos;s free</span>
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center ml-4 group-hover:scale-110 transition-transform">
-              <img
-                src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/0fea2819-e0b6-4ab2-b4ab-ab4c64535352-oma-mindly-framer-website/assets/svgs/U0c022TYy3iR6YjbwbyxOaDRsk-2.svg"
-                alt=""
-                width={16}
-                height={14}
-                className="w-4 h-[14px] object-contain"
-              />
+              <CTAArrowIcon className="w-4 h-[14px] object-contain" />
             </div>
           </motion.button>
 
@@ -217,20 +216,20 @@ const Hero: React.FC = () => {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.7 + i * 0.08 }}
-                  className="w-10 h-10 rounded-full border-2 border-[#1a1a1a] overflow-hidden relative"
+                  className="w-10 h-10 rounded-full border-2 border-gray-200 dark:border-[#1a1a1a] overflow-hidden relative"
                 >
                   <img src={src} alt="" className="w-full h-full object-cover" />
                 </motion.div>
               ))}
             </div>
             <div className="relative">
-              <p className="text-[#a1a1a1] uppercase text-[12px] font-bold tracking-widest leading-tight w-[200px] font-sans">
+              <p className="text-gray-500 dark:text-[#a1a1a1] uppercase text-[12px] font-bold tracking-widest leading-tight w-[200px] font-sans">
                 2k+ creators are already ahead of you.
               </p>
-              <div className="absolute top-1/2 left-[-60px] transform -translate-y-1/2 rotate-[-10deg] hidden md:block opacity-40">
-                <svg width="45" height="32" viewBox="0 0 45 32" fill="none">
-                  <path d="M1 31C5 25 10 10 44 1" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M38 6L44 1L37 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <div className="absolute top-1/2 left-[-60px] transform -translate-y-1/2 rotate-[-10deg] hidden md:block opacity-40 text-gray-400 dark:text-white">
+                <svg width="45" height="32" viewBox="0 0 45 32" fill="none" className="stroke-current">
+                  <path d="M1 31C5 25 10 10 44 1" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M38 6L44 1L37 1.5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
@@ -255,7 +254,7 @@ const Hero: React.FC = () => {
               ],
             }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="relative aspect-video rounded-[24px] overflow-hidden border border-white/10 group"
+            className="relative aspect-video rounded-[24px] overflow-hidden border border-gray-200 dark:border-white/10 group"
           >
             <img
               src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=675&fit=crop"

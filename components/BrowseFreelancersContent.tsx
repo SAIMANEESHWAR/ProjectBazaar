@@ -3,11 +3,16 @@ import Pagination from './Pagination';
 import OrangeCheckbox from './OrangeCheckbox';
 import type { Freelancer } from '../types/browse';
 import type { BrowseProject } from '../types/browse';
-import { getAllFreelancers, searchFreelancers, getAvailableSkills, getAvailableCountries } from '../services/freelancersApi';
+import { getAllFreelancers, searchFreelancers, getAvailableFilters } from '../services/freelancersApi';
 import { getBidRequestProjectsByBuyer } from '../services/bidRequestProjectsApi';
-import { GET_USER_DETAILS_ENDPOINT } from '../services/buyerApi';
+import { sendFreelancerMessage, sendFreelancerInvitation } from '../services/freelancerInteractionsApi';
+import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useAuth } from '../App';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
+import Lottie from 'lottie-react';
+import noFreelancerUsersAnimation from '../lottiefiles/no_freelancer_users.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
+import { useSocket } from '../context/SocketContext';
 
 type SortOption = 'most-relevant' | 'highest-rated' | 'lowest-price';
 
@@ -17,11 +22,13 @@ interface BrowseFreelancersContentProps {
 
 export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> = () => {
   const { userId } = useAuth();
+  const { socket, isConnected, subscribe } = useSocket();
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [hourlyRateRange, setHourlyRateRange] = useState<[number, number]>([10, 100]);
+  const [dynamicMaxRate, setDynamicMaxRate] = useState<number>(500);
+  const [hourlyRateRange, setHourlyRateRange] = useState<[number, number]>([0, 500]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [availableSkills, setAvailableSkills] = useState<string[]>([]);
@@ -31,9 +38,9 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    hourlyRate: true,
-    skills: true,
-    country: true
+    hourlyRate: false,
+    skills: false,
+    country: false
   });
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -49,17 +56,11 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   const [selectedInviteProjectId, setSelectedInviteProjectId] = useState('');
   const [loadingUserProjects, setLoadingUserProjects] = useState(false);
 
-  // Fetch user profile (name, profile image) from Get_user_Details_by_his_Id
+  // Fetch user profile using shared cache (deduplicated across components)
   const fetchUserProfile = useCallback(async (freelancerId: string) => {
     try {
-      const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: freelancerId }),
-      });
-      const data = await response.json();
-      const user = data.data || data.user || data;
-      if (!user || data.success === false) return undefined;
+      const user = await cachedFetchUserProfile(freelancerId);
+      if (!user) return undefined;
       const profilePicture =
         user.profilePictureUrl ??
         user.profilePicture ??
@@ -87,10 +88,10 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
             prev.map((f) =>
               f.id === id
                 ? {
-                    ...f,
-                    ...(profile!.profileImage && { profileImage: profile.profileImage }),
-                    ...(profile!.name && { name: profile!.name }),
-                  }
+                  ...f,
+                  ...(profile!.profileImage && { profileImage: profile.profileImage }),
+                  ...(profile!.name && { name: profile!.name }),
+                }
                 : f
             )
           );
@@ -105,8 +106,12 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
       setIsLoading(true);
       setError(null);
       try {
-        const { freelancers: data } = await getAllFreelancers(100, 0);
+        const { freelancers: data, maxHourlyRate } = await getAllFreelancers(100, 0);
         setFreelancers(data);
+        if (maxHourlyRate) {
+          setDynamicMaxRate(maxHourlyRate);
+          setHourlyRateRange([0, maxHourlyRate]);
+        }
         enrichFreelancersWithProfiles(data);
       } catch (err) {
         console.error('Error fetching freelancers:', err);
@@ -123,10 +128,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const [skills, countries] = await Promise.all([
-          getAvailableSkills(),
-          getAvailableCountries()
-        ]);
+        const { skills, countries } = await getAvailableFilters();
         setAvailableSkills(skills);
         setAvailableCountries(countries);
       } catch (err) {
@@ -136,14 +138,27 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     fetchMetadata();
   }, []);
 
+  // Socket event listeners example
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const unsubscribe = subscribe('new_invitation', (data) => {
+      console.log('Real-time invitation received:', data);
+      // You can trigger a toast or update local state here
+    });
+
+    return () => unsubscribe();
+  }, [socket, isConnected, subscribe]);
+
   // Search with API when filters change significantly
   useEffect(() => {
     const searchWithFilters = async () => {
       // If no filters are active, fetch all freelancers
-      if (!searchQuery && selectedSkills.length === 0 && !selectedCountry && hourlyRateRange[0] === 10 && hourlyRateRange[1] === 100) {
+      if (!searchQuery && selectedSkills.length === 0 && !selectedCountry && hourlyRateRange[0] === 0 && (hourlyRateRange[1] === dynamicMaxRate || hourlyRateRange[1] === 5000)) {
         try {
-          const { freelancers: data } = await getAllFreelancers(100, 0);
+          const { freelancers: data, maxHourlyRate } = await getAllFreelancers(100, 0, false);
           setFreelancers(data);
+          if (maxHourlyRate) setDynamicMaxRate(maxHourlyRate);
           enrichFreelancersWithProfiles(data);
         } catch (err) {
           console.error('Error fetching all freelancers:', err);
@@ -152,7 +167,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
       }
 
       try {
-        const { freelancers: results } = await searchFreelancers({
+        const { freelancers: results, maxHourlyRate } = await searchFreelancers({
           query: searchQuery,
           skills: selectedSkills,
           country: selectedCountry,
@@ -161,6 +176,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
           limit: 100,
         });
         setFreelancers(results);
+        if (maxHourlyRate) setDynamicMaxRate(maxHourlyRate);
         enrichFreelancersWithProfiles(results);
       } catch (err) {
         console.error('Error searching freelancers:', err);
@@ -253,7 +269,7 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
   }, [isFilterOpen]);
 
   const clearFilters = () => {
-    setHourlyRateRange([10, 100]);
+    setHourlyRateRange([0, dynamicMaxRate]);
     setSelectedSkills([]);
     setSelectedCountry('');
     setSearchQuery('');
@@ -305,19 +321,28 @@ export const BrowseFreelancersContent: React.FC<BrowseFreelancersContentProps> =
     const selectedProject = userProjects.find((p) => p.id === selectedInviteProjectId);
     setIsSending(true);
     try {
-      // Simulate API call - in production, this would call a notification/messaging API with projectId
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!userId) {
+        alert('Please login to invite freelancers to bid');
+        return;
+      }
+
+      await sendFreelancerInvitation(
+        userId,
+        selectedFreelancer.id,
+        selectedProject?.id || '',
+        inviteMessage
+      );
 
       // Log the invitation (in production, save to database with selectedInviteProjectId)
-      console.log('Invitation sent to:', selectedFreelancer.name, 'Project:', selectedProject?.title, 'Message:', inviteMessage);
+      console.log('Invitation sent to:', selectedFreelancer.name, 'Project:', selectedProject?.title);
 
       setSendSuccess(`Invitation sent to ${selectedFreelancer.name}!`);
       setTimeout(() => {
-setShowInviteModal(false);
-                  setSelectedFreelancer(null);
-                  setSelectedInviteProjectId('');
-                  setInviteMessage('');
-                  setSendSuccess(null);
+        setShowInviteModal(false);
+        setSelectedFreelancer(null);
+        setSelectedInviteProjectId('');
+        setInviteMessage('');
+        setSendSuccess(null);
       }, 2000);
     } catch (err) {
       console.error('Error sending invite:', err);
@@ -333,11 +358,19 @@ setShowInviteModal(false);
 
     setIsSending(true);
     try {
-      // Simulate API call - in production, this would call a messaging API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!userId) {
+        alert('Please login to send a message');
+        return;
+      }
+
+      await sendFreelancerMessage(
+        userId,
+        selectedFreelancer.id,
+        contactMessage
+      );
 
       // Log the message (in production, save to database)
-      console.log('Message sent to:', selectedFreelancer.name, 'Message:', contactMessage);
+      console.log('Message sent to:', selectedFreelancer.name);
 
       setSendSuccess(`Message sent to ${selectedFreelancer.name}!`);
       setTimeout(() => {
@@ -354,7 +387,7 @@ setShowInviteModal(false);
     }
   };
 
-  const hasActiveFilters = selectedSkills.length > 0 || selectedCountry !== '' || hourlyRateRange[0] > 10 || hourlyRateRange[1] < 100;
+  const hasActiveFilters = selectedSkills.length > 0 || selectedCountry !== '' || hourlyRateRange[0] > 0 || hourlyRateRange[1] < dynamicMaxRate;
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
@@ -363,9 +396,9 @@ setShowInviteModal(false);
     }));
   };
 
-  // Calculate slider percentages (range: 10-100, so 90 total)
-  const minPercent = ((hourlyRateRange[0] - 10) / 90) * 100;
-  const maxPercent = ((hourlyRateRange[1] - 10) / 90) * 100;
+  // Calculate slider percentages (range: 0 to dynamicMaxRate)
+  const minPercent = (hourlyRateRange[0] / dynamicMaxRate) * 100;
+  const maxPercent = (hourlyRateRange[1] / dynamicMaxRate) * 100;
 
   const StarIcon = ({ filled }: { filled: boolean }) => (
     <svg
@@ -387,69 +420,11 @@ setShowInviteModal(false);
     );
   };
 
-  // Loading state - Skeleton cards
+  // Loading state - Skeleton dashboard
   if (isLoading) {
     return (
-      <div>
-        {/* Search Bar Skeleton */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <div className="w-full h-[42px] bg-gray-200 rounded-lg animate-pulse"></div>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Filter Sidebar Skeleton */}
-          <div className="lg:w-80">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
-              <div className="h-6 bg-gray-200 rounded w-24 mb-6 animate-pulse"></div>
-              <div className="space-y-4">
-                <div className="h-10 bg-gray-200 rounded-xl animate-pulse"></div>
-                <div className="h-10 bg-gray-200 rounded-xl animate-pulse"></div>
-                <div className="h-10 bg-gray-200 rounded-xl animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Skeleton Grid */}
-          <div className="flex-1">
-            <div className="h-5 bg-gray-200 rounded w-40 mb-4 animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse">
-                  {/* Header */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gray-200"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-16"></div>
-                    </div>
-                  </div>
-                  {/* Rating */}
-                  <div className="flex gap-2 mb-3 pb-3 border-b border-gray-100">
-                    <div className="h-4 bg-gray-200 rounded w-20"></div>
-                    <div className="h-4 bg-gray-200 rounded w-16"></div>
-                  </div>
-                  {/* Rate */}
-                  <div className="h-6 bg-gray-200 rounded w-20 mb-3"></div>
-                  {/* Location */}
-                  <div className="h-4 bg-gray-200 rounded w-32 mb-3"></div>
-                  {/* Skills */}
-                  <div className="flex gap-2 mb-4">
-                    <div className="h-6 bg-gray-200 rounded-md w-16"></div>
-                    <div className="h-6 bg-gray-200 rounded-md w-20"></div>
-                    <div className="h-6 bg-gray-200 rounded-md w-14"></div>
-                  </div>
-                  {/* Buttons */}
-                  <div className="flex gap-2">
-                    <div className="flex-1 h-9 bg-gray-200 rounded-lg"></div>
-                    <div className="flex-1 h-9 bg-gray-200 rounded-lg"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="space-y-8">
+        <SkeletonDashboard />
       </div>
     );
   }
@@ -515,7 +490,8 @@ setShowInviteModal(false);
           </button>
 
           {/* Filter Sidebar - same content as BrowseFreelancers but without Header/Footer wrapper */}
-          <div className={`${isFilterOpen ? 'block' : 'hidden'} lg:block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg h-fit lg:sticky lg:top-4 z-10 transition-all duration-300`}>
+          {/* Filter Sidebar - same content as BrowseFreelancers but without Header/Footer wrapper */}
+          <div className={`${isFilterOpen ? 'block' : 'hidden'} lg:block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg h-fit lg:sticky lg:top-4 z-10 transition-all duration-300 max-h-[calc(100vh-2rem)] overflow-y-auto`}>
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Filters</h3>
               {hasActiveFilters && (
@@ -556,7 +532,7 @@ setShowInviteModal(false);
                 className="w-full flex items-center justify-between mb-3 group"
               >
                 <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 cursor-pointer">
-                  Hourly Rate: <span className="text-orange-500 font-semibold">${hourlyRateRange[0]}</span> - <span className="text-orange-500 font-semibold">${hourlyRateRange[1]}</span>
+                  Hourly Rate: <span className="text-orange-500 font-semibold">₹{hourlyRateRange[0]}</span> - <span className="text-orange-500 font-semibold">₹{hourlyRateRange[1]}</span>
                 </label>
                 <svg
                   className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${expandedSections.hourlyRate ? 'rotate-180' : ''}`}
@@ -577,16 +553,16 @@ setShowInviteModal(false);
                     ></div>
                     <input
                       type="range"
-                      min={10}
-                      max={100}
+                      min={0}
+                      max={dynamicMaxRate}
                       value={hourlyRateRange[0]}
                       onChange={(e) => setHourlyRateRange([Number(e.target.value), hourlyRateRange[1]])}
                       className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-30 pointer-events-none"
                     />
                     <input
                       type="range"
-                      min={10}
-                      max={100}
+                      min={0}
+                      max={dynamicMaxRate}
                       value={hourlyRateRange[1]}
                       onChange={(e) => setHourlyRateRange([hourlyRateRange[0], Number(e.target.value)])}
                       className="absolute top-0 left-0 w-full h-8 bg-transparent appearance-none cursor-pointer z-20 pointer-events-none"
@@ -621,11 +597,11 @@ setShowInviteModal(false);
                       <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min</label>
                       <input
                         type="number"
-                        min={10}
-                        max={100}
+                        min={0}
+                        max={dynamicMaxRate}
                         value={hourlyRateRange[0]}
                         onChange={(e) => {
-                          const val = Math.max(10, Math.min(100, Number(e.target.value)));
+                          const val = Math.max(0, Math.min(dynamicMaxRate, Number(e.target.value)));
                           setHourlyRateRange([val, hourlyRateRange[1]]);
                         }}
                         className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm"
@@ -635,11 +611,11 @@ setShowInviteModal(false);
                       <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max</label>
                       <input
                         type="number"
-                        min={10}
-                        max={100}
+                        min={0}
+                        max={dynamicMaxRate}
                         value={hourlyRateRange[1]}
                         onChange={(e) => {
-                          const val = Math.max(10, Math.min(100, Number(e.target.value)));
+                          const val = Math.max(0, Math.min(dynamicMaxRate, Number(e.target.value)));
                           setHourlyRateRange([hourlyRateRange[0], val]);
                         }}
                         className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-gray-100 text-sm"
@@ -727,7 +703,7 @@ setShowInviteModal(false);
                 {paginatedFreelancers.map((freelancer) => (
                   <div
                     key={freelancer.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-300 group"
+                    className="flex flex-col h-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-300 group"
                   >
                     {/* Header Section */}
                     <div className="flex items-start gap-3 mb-4">
@@ -783,29 +759,31 @@ setShowInviteModal(false);
                     </div>
 
                     {/* Rating and Success Rate */}
-                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
-                      <div className="flex items-center gap-1">
-                        {renderStars(freelancer.rating)}
-                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 ml-0.5">
-                          {freelancer.rating}
+                    {freelancer.reviewsCount > 0 && (
+                      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-1">
+                          {renderStars(freelancer.rating)}
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 ml-0.5">
+                            {freelancer.rating}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {freelancer.reviewsCount} reviews
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                          {freelancer.successRate}% Success
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        {freelancer.reviewsCount} reviews
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                        {freelancer.successRate}% Success
-                      </span>
-                    </div>
+                    )}
 
                     {/* Hourly Rate */}
                     <div className="mb-3">
                       <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        ${freelancer.hourlyRate}
+                        ₹{freelancer.hourlyRate}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">/{freelancer.currency}/hr</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">/hr</span>
                     </div>
 
                     {/* Location */}
@@ -835,7 +813,7 @@ setShowInviteModal(false);
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-2">
+                    <div className="mt-auto flex flex-col gap-2">
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleInviteToBid(freelancer)}
@@ -845,7 +823,7 @@ setShowInviteModal(false);
                         </button>
                         <button
                           onClick={() => handleContact(freelancer)}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
                         >
                           Contact
                         </button>
@@ -854,6 +832,7 @@ setShowInviteModal(false);
                         href={`/freelancer?p=${encodeURIComponent(btoa(unescape(encodeURIComponent(freelancer.id))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''))}`}
                         onClick={(e) => {
                           e.preventDefault();
+                          localStorage.setItem('activeView', 'freelancers');
                           const enc = btoa(unescape(encodeURIComponent(freelancer.id))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
                           window.location.href = `/freelancer?p=${encodeURIComponent(enc)}`;
                         }}
@@ -881,10 +860,10 @@ setShowInviteModal(false);
               )}
             </>
           ) : (
-            <div className="text-center py-16 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl">
-              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="text-center py-16 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl flex flex-col items-center justify-center">
+              <div className="w-64 h-64 mb-4">
+                <Lottie animationData={noFreelancerUsersAnimation} loop={true} />
+              </div>
               <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">No freelancers found</p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
                 Try adjusting your filters or search query
@@ -1087,7 +1066,7 @@ setShowInviteModal(false);
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">@{selectedFreelancer.username}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">${selectedFreelancer.hourlyRate}/hr</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">₹{selectedFreelancer.hourlyRate}/hr</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">•</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">{selectedFreelancer.location.city}, {selectedFreelancer.location.country}</span>
                 </div>

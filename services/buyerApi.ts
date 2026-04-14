@@ -1,10 +1,12 @@
 /**
  * API service for buyer actions (like, cart, purchase)
  */
+import { cachedFetch, invalidateCache } from '../lib/apiCache';
 
 const LAMBDA_ENDPOINT = 'https://tcladht447.execute-api.ap-south-2.amazonaws.com/default/Like_Addtocart_purcaseproject_for_Buyer';
 export const GET_USER_DETAILS_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
 const GET_PROJECT_DETAILS_ENDPOINT = 'https://8y8bbugmbd.execute-api.ap-south-2.amazonaws.com/default/Get_project_details_by_projectId';
+export const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
 const REPORT_PROJECT_ENDPOINT = 'https://r6tuhoyrr2.execute-api.ap-south-2.amazonaws.com/default/Report_projects_by_buyerId';
 const UPDATE_PROJECT_ENDPOINT = 'https://dihvjwfsk0.execute-api.ap-south-2.amazonaws.com/default/Update_projectDetils_and_likescounts_by_projectId';
 const CREATE_PAYMENT_INTENT_ENDPOINT = 'https://cuzvm2pbdl.execute-api.ap-south-2.amazonaws.com/default/create_payment_intent';
@@ -59,6 +61,7 @@ export interface ProjectDetails {
   category: string;
   tags: string[];
   thumbnailUrl: string;
+  images?: string[];
   sellerId: string;
   sellerEmail: string;
   status: string;
@@ -93,13 +96,13 @@ export const fetchUserData = async (userId: string): Promise<UserData | null> =>
         userId: userId,
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch user data: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.success && data.data) {
       return {
         userId: data.data.userId || userId,
@@ -120,7 +123,7 @@ export const fetchUserData = async (userId: string): Promise<UserData | null> =>
         createdBy: data.data.createdBy,
       };
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching user data:', error);
@@ -167,7 +170,7 @@ export const likeProject = async (userId: string, projectId: string): Promise<Ap
     });
 
     const data = await response.json();
-    
+
     // If user table update succeeded, also update project table
     if (data.success) {
       await updateProjectCounters(projectId, {
@@ -175,7 +178,7 @@ export const likeProject = async (userId: string, projectId: string): Promise<Ap
         wishlistCount: 1,
       });
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error liking project:', error);
@@ -205,7 +208,7 @@ export const unlikeProject = async (userId: string, projectId: string): Promise<
     });
 
     const data = await response.json();
-    
+
     // If user table update succeeded, also update project table
     if (data.success) {
       await updateProjectCounters(projectId, {
@@ -213,7 +216,7 @@ export const unlikeProject = async (userId: string, projectId: string): Promise<
         wishlistCount: -1,
       });
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error unliking project:', error);
@@ -243,14 +246,14 @@ export const addToCart = async (userId: string, projectId: string): Promise<ApiR
     });
 
     const data = await response.json();
-    
+
     // If user table update succeeded, also update project table
     if (data.success) {
       await updateProjectCounters(projectId, {
         cartCount: 1,
       });
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -280,14 +283,14 @@ export const removeFromCart = async (userId: string, projectId: string): Promise
     });
 
     const data = await response.json();
-    
+
     // If user table update succeeded, also update project table
     if (data.success) {
       await updateProjectCounters(projectId, {
         cartCount: -1,
       });
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error removing from cart:', error);
@@ -351,17 +354,17 @@ export const fetchProjectDetails = async (projectId: string): Promise<ProjectDet
         projectId: projectId,
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch project details: ${response.statusText}`);
     }
-    
+
     const data: ProjectDetailsResponse = await response.json();
-    
+
     if (data.success && data.data) {
       return data.data;
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching project details:', error);
@@ -384,18 +387,18 @@ export const fetchUserDetailsWithProjects = async (userId: string): Promise<{ us
         userId: userId,
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch user details: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       // Handle different response structures
       const userData = data.data || data.user || {};
       const projectsData = data.projects || data.data?.projects || [];
-      
+
       const user: UserData = {
         userId: userData.userId || userId,
         email: userData.email,
@@ -414,12 +417,12 @@ export const fetchUserDetailsWithProjects = async (userId: string): Promise<{ us
         loginCount: userData.loginCount,
         createdBy: userData.createdBy,
       };
-      
+
       const projects: ProjectDetails[] = Array.isArray(projectsData) ? projectsData : [];
-      
+
       return { user, projects };
     }
-    
+
     return { user: null, projects: [] };
   } catch (error) {
     console.error('Error fetching user details with projects:', error);
@@ -459,7 +462,7 @@ export const reportProject = async (reportData: ReportProjectRequest): Promise<R
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -467,7 +470,7 @@ export const reportProject = async (reportData: ReportProjectRequest): Promise<R
         message: data.message,
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error reporting project:', error);
@@ -524,7 +527,7 @@ export const createPaymentIntent = async (
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -532,7 +535,7 @@ export const createPaymentIntent = async (
         message: data.message,
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error creating payment intent:', error);
@@ -608,10 +611,10 @@ const extractNameFromUrl = (url: string): string => {
   try {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname;
-    
+
     // Extract from path segments
     const segments = pathname.split('/').filter(s => s);
-    
+
     // For unstop.com, usually the last segment before the ID is the name
     if (url.includes('unstop.com')) {
       const hackathonsIndex = segments.indexOf('hackathons');
@@ -620,28 +623,28 @@ const extractNameFromUrl = (url: string): string => {
         const namePart = segments[hackathonsIndex + 1];
         // Remove the ID at the end if present
         const nameWithoutId = namePart.replace(/-\d+$/, '');
-        return nameWithoutId.split('-').map(word => 
+        return nameWithoutId.split('-').map(word =>
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
       }
     }
-    
+
     // For devfolio.co, usually subdomain or path
     if (url.includes('devfolio.co')) {
       const subdomain = urlObj.hostname.split('.')[0];
       if (subdomain && subdomain !== 'www' && subdomain !== 'devfolio') {
-        return subdomain.split('-').map(word => 
+        return subdomain.split('-').map(word =>
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
       }
       // Use pathname as fallback
       if (segments.length > 0) {
-        return segments[segments.length - 1].split('-').map(word => 
+        return segments[segments.length - 1].split('-').map(word =>
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
       }
     }
-    
+
     // Fallback: use hostname
     return urlObj.hostname;
   } catch {
@@ -655,7 +658,7 @@ const mapApiResponseToHackathon = (apiData: HackathonApiResponse): Hackathon => 
     'online': 'Online',
     'offline': 'Offline',
   };
-  
+
   return {
     id: apiData.PK,
     name: extractNameFromUrl(apiData.post_link),
@@ -685,7 +688,7 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
     if (!response.ok) {
       let errorData: any = {};
       let errorMessage = '';
-      
+
       try {
         const responseText = await response.text();
         if (responseText) {
@@ -700,26 +703,26 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
         // If response body cannot be read
         errorMessage = '';
       }
-      
+
       // Determine error message based on status code and response
       if (response.status === 500) {
-        errorMessage = errorData.message || errorData.error?.message || errorMessage || 
+        errorMessage = errorData.message || errorData.error?.message || errorMessage ||
           'Server error: The hackathons service is currently unavailable. Please check Lambda configuration and try again later.';
       } else if (response.status === 404) {
         errorMessage = 'Hackathons endpoint not found. Please check the API configuration.';
       } else if (response.status === 403) {
         errorMessage = 'Access forbidden. Please check API permissions.';
       } else {
-        errorMessage = errorData.message || errorData.error?.message || errorData.error || errorMessage || 
+        errorMessage = errorData.message || errorData.error?.message || errorData.error || errorMessage ||
           `Failed to fetch hackathons: ${response.status} ${response.statusText}`;
       }
-      
+
       return {
         success: false,
         error: {
-          code: response.status === 500 ? 'SERVER_ERROR' : 
-                response.status === 404 ? 'NOT_FOUND' : 
-                response.status === 403 ? 'FORBIDDEN' : 'FETCH_ERROR',
+          code: response.status === 500 ? 'SERVER_ERROR' :
+            response.status === 404 ? 'NOT_FOUND' :
+              response.status === 403 ? 'FORBIDDEN' : 'FETCH_ERROR',
           message: errorMessage,
         },
       };
@@ -738,26 +741,26 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
         },
       };
     }
-    
+
     // Handle error response
     if (data.success === false || data.error) {
       return {
         success: false,
-        error: typeof data.error === 'string' 
+        error: typeof data.error === 'string'
           ? { code: 'API_ERROR', message: data.error }
           : (data.error || {
-              code: 'API_ERROR',
-              message: data.message || 'Failed to fetch hackathons',
-            }),
+            code: 'API_ERROR',
+            message: data.message || 'Failed to fetch hackathons',
+          }),
       };
     }
-    
+
     // Handle API response format: { hackathons: [...], count: N } or { success: true, data: { hackathons: [...], count: N } }
-    
+
     // Check if response has nested data structure
     let hackathonsArray: HackathonApiResponse[] = [];
     let count = 0;
-    
+
     if (data.success === true && data.data) {
       // Nested structure: { success: true, data: { hackathons: [...], count: N } }
       hackathonsArray = Array.isArray(data.data.hackathons) ? data.data.hackathons : [];
@@ -771,11 +774,11 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
       hackathonsArray = data;
       count = data.length;
     }
-    
+
     // Map API response to frontend format
     if (hackathonsArray.length > 0) {
       const mappedHackathons: Hackathon[] = hackathonsArray.map(mapApiResponseToHackathon);
-      
+
       return {
         success: true,
         message: data.message || 'Hackathons fetched successfully',
@@ -785,7 +788,7 @@ export const fetchHackathons = async (_urls?: string[]): Promise<FetchHackathons
         },
       };
     }
-    
+
     // If we can't parse the structure, return error
     return {
       success: false,
@@ -930,7 +933,7 @@ export const createCourseOrder = async (
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -938,7 +941,7 @@ export const createCourseOrder = async (
         message: data.message,
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error creating course order:', error);
@@ -969,7 +972,7 @@ export const verifyCoursePayment = async (
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -977,7 +980,7 @@ export const verifyCoursePayment = async (
         message: data.message,
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error verifying course payment:', error);
@@ -1010,7 +1013,7 @@ export const enrollFreeCourse = async (
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
@@ -1018,7 +1021,7 @@ export const enrollFreeCourse = async (
         message: data.message,
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error enrolling in free course:', error);
@@ -1049,14 +1052,14 @@ export const getPurchasedCourses = async (
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
         error: data.error || 'Failed to fetch purchased courses',
       };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error fetching purchased courses:', error);
@@ -1067,3 +1070,46 @@ export const getPurchasedCourses = async (
   }
 };
 
+
+// ── Cached API wrappers ──────────────────────────────────────────────
+// These deduplicate in-flight requests and cache responses with a TTL,
+// so multiple components mounting simultaneously share a single fetch.
+
+const USER_TTL = 60_000;      // 1 min
+const PROJECT_TTL = 90_000;   // 1.5 min
+const ALL_PROJECTS_TTL = 120_000; // 2 min
+
+export const cachedFetchUserData = (userId: string): Promise<UserData | null> =>
+  cachedFetch(`user:${userId}`, () => fetchUserData(userId), USER_TTL);
+
+export const cachedFetchProjectDetails = (projectId: string): Promise<ProjectDetails | null> =>
+  cachedFetch(`project:${projectId}`, () => fetchProjectDetails(projectId), PROJECT_TTL);
+
+export const cachedFetchAllProjects = (): Promise<any> =>
+  cachedFetch('all-projects', async () => {
+    const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+    if (!response.ok) throw new Error(`Failed to fetch projects: ${response.statusText}`);
+    return response.json();
+  }, ALL_PROJECTS_TTL);
+
+export const cachedFetchUserProfile = (userId: string): Promise<any> =>
+  cachedFetch(`user-profile:${userId}`, async () => {
+    const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) throw new Error('Failed to fetch user profile');
+    const data = await response.json();
+    return data.success !== false ? (data.data || data.user || data) : null;
+  }, USER_TTL);
+
+/** Call after mutations that change user data (purchase, cart, wishlist). */
+export const invalidateUserCache = (userId?: string) =>
+  invalidateCache(userId ? `user:${userId}` : 'user');
+
+/** Call after project mutations (upload, edit, approve). */
+export const invalidateProjectCache = (projectId?: string) => {
+  invalidateCache('all-projects');
+  if (projectId) invalidateCache(`project:${projectId}`);
+};

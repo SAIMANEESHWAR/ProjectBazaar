@@ -2,11 +2,11 @@ import React, { useState, createContext, useContext, ReactNode, useEffect, useCa
 import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
-import { fetchUserData, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem } from '../services/buyerApi';
+import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
+import { cachedFetchUserData, cachedFetchUserProfile, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem, invalidateUserCache } from '../services/buyerApi';
 
-const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
-
-export type DashboardView = 'dashboard' | 'purchases' | 'wishlist' | 'cart' | 'analytics' | 'settings' | 'my-projects' | 'earnings' | 'payouts' | 'project-details' | 'seller-profile' | 'help-center' | 'courses' | 'course-details' | 'hackathons' | 'build-portfolio' | 'build-resume' | 'my-courses' | 'career-guidance' | 'mock-assessment' | 'coding-questions' | 'post-project';
+// Re-export DashboardView for compatibility
+export type { DashboardView } from '../context/DashboardContext';
 
 interface WishlistContextType {
     wishlist: string[];
@@ -15,13 +15,14 @@ interface WishlistContextType {
     refreshWishlist: () => Promise<void>;
     isLoading: boolean;
 }
+// ... (keep context definitions)
 
 // Default wishlist context value (allows BuyerProjectCard to work outside DashboardPage)
 const defaultWishlistContext: WishlistContextType = {
     wishlist: [],
-    toggleWishlist: () => {},
+    toggleWishlist: () => { },
     isInWishlist: () => false,
-    refreshWishlist: async () => {},
+    refreshWishlist: async () => { },
     isLoading: false,
 };
 
@@ -44,11 +45,11 @@ interface CartContextType {
 // Default cart context value
 const defaultCartContext: CartContextType = {
     cart: [],
-    addToCart: () => {},
-    removeFromCart: () => {},
+    addToCart: () => { },
+    removeFromCart: () => { },
     isInCart: () => false,
     cartCount: 0,
-    refreshCart: async () => {},
+    refreshCart: async () => { },
     isLoading: false,
 };
 
@@ -72,7 +73,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode; userId: string | 
         }
 
         setIsLoading(true);
-        const userData = await fetchUserData(userId);
+        const userData = await cachedFetchUserData(userId);
         if (userData && userData.wishlist) {
             setWishlist(userData.wishlist);
         } else {
@@ -94,9 +95,9 @@ export const WishlistProvider: React.FC<{ children: ReactNode; userId: string | 
         if (!userId) return;
 
         const isLiked = wishlist.includes(projectId);
-        
+
         // Optimistic update
-        setWishlist(prev => 
+        setWishlist(prev =>
             isLiked
                 ? prev.filter(id => id !== projectId)
                 : [...prev, projectId]
@@ -109,9 +110,10 @@ export const WishlistProvider: React.FC<{ children: ReactNode; userId: string | 
             } else {
                 await likeProject(userId, projectId);
             }
+            if (userId) invalidateUserCache(userId);
         } catch (error) {
             // Revert on error
-            setWishlist(prev => 
+            setWishlist(prev =>
                 isLiked
                     ? [...prev, projectId]
                     : prev.filter(id => id !== projectId)
@@ -144,15 +146,32 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
         }
 
         setIsLoading(true);
-        const userData = await fetchUserData(userId);
-        if (userData && userData.cart) {
-            setCartItems(userData.cart);
-            setCart(userData.cart.map(item => item.projectId));
-        } else {
+        try {
+            const userData = await cachedFetchUserData(userId);
+            if (userData && userData.cart) {
+                // Handle both string[] and CartItem[] formats
+                const cartData = Array.isArray(userData.cart) ? userData.cart : [];
+                const cartIds = cartData.map(item => 
+                    typeof item === 'string' ? item : item.projectId
+                );
+                const cartItemsData = cartData.map(item => 
+                    typeof item === 'string' 
+                        ? { projectId: item, addedAt: new Date().toISOString() }
+                        : item
+                );
+                setCartItems(cartItemsData);
+                setCart(cartIds);
+            } else {
+                setCart([]);
+                setCartItems([]);
+            }
+        } catch (error) {
+            console.error('Error loading cart:', error);
             setCart([]);
             setCartItems([]);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }, [userId]);
 
     // Fetch cart from API on mount and when userId changes
@@ -179,16 +198,19 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
         // Sync with API
         try {
             const result = await apiAddToCart(userId, projectId);
-            if (!result.success) {
-                // Revert on error
+            if (result.success) {
+                invalidateUserCache(userId);
+            } else {
                 setCart(prev => prev.filter(id => id !== projectId));
                 setCartItems(prev => prev.filter(item => item.projectId !== projectId));
+                console.error('Failed to add to cart:', result.error || 'Unknown error');
             }
         } catch (error) {
             // Revert on error
             setCart(prev => prev.filter(id => id !== projectId));
             setCartItems(prev => prev.filter(item => item.projectId !== projectId));
             console.error('Error adding to cart:', error);
+            throw error; // Re-throw to allow caller to handle
         }
     };
 
@@ -202,22 +224,17 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
         // Sync with API
         try {
             const result = await apiRemoveFromCart(userId, projectId);
-            if (!result.success) {
-                // Revert on error - reload from API
-                const userData = await fetchUserData(userId);
-                if (userData && userData.cart) {
-                    setCartItems(userData.cart);
-                    setCart(userData.cart.map(item => item.projectId));
-                }
+            if (result.success) {
+                invalidateUserCache(userId);
+            } else {
+                console.error('Failed to remove from cart:', result.error || 'Unknown error');
+                await loadCart();
             }
         } catch (error) {
             // Revert on error - reload from API
-            const userData = await fetchUserData(userId);
-            if (userData && userData.cart) {
-                setCartItems(userData.cart);
-                setCart(userData.cart.map(item => item.projectId));
-            }
             console.error('Error removing from cart:', error);
+            await loadCart(); // Use loadCart to properly handle data format
+            throw error; // Re-throw to allow caller to handle
         }
     };
 
@@ -251,7 +268,7 @@ const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose }) => {
     if (!isVisible) return null;
 
     return (
-        <div 
+        <div
             className="fixed top-4 right-4 z-50 transition-all duration-300 ease-out"
             style={{
                 animation: 'slideInRight 0.3s ease-out',
@@ -293,27 +310,13 @@ const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose }) => {
 
 const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
-    // Dashboard page defaults to buyer mode
-    const [dashboardMode, setDashboardMode] = useState<'buyer' | 'seller'>('buyer');
-    const [activeView, setActiveView] = useState<DashboardView>('dashboard');
+    // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
     const [showWelcomeToast, setShowWelcomeToast] = useState(false);
     const [userName, setUserName] = useState<string>('');
 
-    // Close sidebar on mobile when clicking a nav item
-    const handleNavClick = (view: DashboardView) => {
-        setActiveView(view);
-        // Close sidebar on mobile after navigation
-        if (window.innerWidth < 1024) {
-            setIsSidebarOpen(false);
-        }
-    };
 
-    const handleSetDashboardMode = (mode: 'buyer' | 'seller') => {
-        setDashboardMode(mode);
-        setActiveView('dashboard');
-    };
 
     // Fetch user name and show welcome toast on mount
     useEffect(() => {
@@ -325,18 +328,8 @@ const DashboardPage: React.FC = () => {
             }
 
             try {
-                // Fetch user details to get name
-                const response = await fetch(GET_USER_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ userId }),
-                });
+                const user = await cachedFetchUserProfile(userId);
 
-                const data = await response.json();
-                const user = data.data || data.user || data;
-                
                 if (user) {
                     const name = user.fullName || user.name || userEmail?.split('@')[0] || 'User';
                     setUserName(name);
@@ -360,43 +353,38 @@ const DashboardPage: React.FC = () => {
     return (
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
+                <MessagesUnreadProvider userId={userId}>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
-                {/* Welcome Toast */}
-                <Toast
-                    message={`Welcome, ${userName}!`}
-                    isVisible={showWelcomeToast}
-                    onClose={() => setShowWelcomeToast(false)}
-                />
-                {/* Overlay for mobile */}
-                {isSidebarOpen && (
-                    <div 
-                        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-                        onClick={() => setIsSidebarOpen(false)}
-                    ></div>
-                )}
-                
-                <Sidebar 
-                    dashboardMode={dashboardMode} 
-                    activeView={activeView}
-                    setActiveView={handleNavClick}
-                    isOpen={isSidebarOpen}
-                    isCollapsed={isSidebarCollapsed}
-                    onClose={() => setIsSidebarOpen(false)}
-                    onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                    onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                />
-                
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    <DashboardContent 
-                        dashboardMode={dashboardMode} 
-                        setDashboardMode={handleSetDashboardMode}
-                        activeView={activeView}
-                        isSidebarOpen={isSidebarOpen}
-                        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                        setActiveView={setActiveView}
+                    {/* Welcome Toast */}
+                    <Toast
+                        message={`Welcome, ${userName}!`}
+                        isVisible={showWelcomeToast}
+                        onClose={() => setShowWelcomeToast(false)}
                     />
+                    {/* Overlay for mobile */}
+                    {isSidebarOpen && (
+                        <div
+                            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                            onClick={() => setIsSidebarOpen(false)}
+                        ></div>
+                    )}
+
+                    <Sidebar
+                        isOpen={isSidebarOpen}
+                        isCollapsed={isSidebarCollapsed}
+                        onClose={() => setIsSidebarOpen(false)}
+                        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                        onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    />
+
+                    <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
+                        <DashboardContent
+                            isSidebarOpen={isSidebarOpen}
+                            toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                        />
+                    </div>
                 </div>
-            </div>
+                </MessagesUnreadProvider>
             </CartProvider>
         </WishlistProvider>
     );

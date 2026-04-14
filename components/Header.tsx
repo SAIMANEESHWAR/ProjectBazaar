@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigation, useAuth, useTheme } from '../App';
 import { Sun, Moon } from 'lucide-react';
+import { CTAArrowIcon } from './CTAArrowIcon';
 
 const ORCHIDS_LOGO = 'https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/0fea2819-e0b6-4ab2-b4ab-ab4c64535352-oma-mindly-framer-website/assets/svgs/VT9XchCjHXRPw0H08BPtEicHVVs-1.svg';
-const ORCHIDS_ARROW = 'https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/0fea2819-e0b6-4ab2-b4ab-ab4c64535352-oma-mindly-framer-website/assets/svgs/U0c022TYy3iR6YjbwbyxOaDRsk-2.svg';
 
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { navigateTo } = useNavigation();
   const { isLoggedIn, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, isLanding } = useTheme();
 
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isOpen) setIsOpen(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, handleEscape]);
+
+  // Navbar stays white in both light and dark mode
   const navBg = 'rgba(255,255,255,0.97)';
   const navShadow = 'rgba(0,0,0,0.18) 0px 0.6px 0.6px -1.25px, rgba(0,0,0,0.16) 0px 2.3px 2.3px -2.5px, rgba(0,0,0,0.06) 0px 10px 10px -3.75px';
   const linkColor = 'text-black hover:text-[#ff7a00]';
@@ -23,23 +35,25 @@ const Header: React.FC = () => {
     highlight?: boolean;
   }
 
+  // Helper: scroll to section, navigating to home first if needed
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Not on home page — navigate first, then scroll after render
+      navigateTo('home');
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    }
+  };
+
   const navLinks: NavLink[] = [
-    { name: 'Curriculum', onClick: () => {
-      const element = document.getElementById('curriculum');
-      if (element) element.scrollIntoView({ behavior: 'smooth' });
-    }},
-    { name: 'Reviews', onClick: () => {
-      const element = document.getElementById('reviews');
-      if (element) element.scrollIntoView({ behavior: 'smooth' });
-    }},
-    { name: 'Pricing', onClick: () => {
-      const element = document.getElementById('pricing');
-      if (element) element.scrollIntoView({ behavior: 'smooth' });
-    }},
-    { name: 'Why us', onClick: () => {
-      const element = document.getElementById('why-choose-us');
-      if (element) element.scrollIntoView({ behavior: 'smooth' });
-    }},
+    { name: 'Curriculum', onClick: () => scrollToSection('curriculum') },
+    { name: 'Reviews', onClick: () => scrollToSection('reviews') },
+    { name: 'Pricing', onClick: () => scrollToSection('pricing') },
+    { name: 'Why us', onClick: () => scrollToSection('why-choose-us') },
     { name: 'FAQs', onClick: () => navigateTo('faq') },
   ];
 
@@ -53,13 +67,16 @@ const Header: React.FC = () => {
     >
       <span className="mr-2">{children}</span>
       <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-        <img src={ORCHIDS_ARROW} alt="" width={16} height={14} className="w-3 h-[10px] object-contain" />
+        <CTAArrowIcon className="w-3 h-[10px] object-contain" />
       </span>
     </button>
   );
 
   return (
-    <header className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[800px] px-4 pt-6 pointer-events-none">
+    <header
+      className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[960px] px-4 pt-6 pointer-events-none"
+      role="banner"
+    >
       <div
         className="pointer-events-auto flex items-center justify-between w-full h-[68px] px-4 rounded-[12px] backdrop-blur-[12px] transition-all duration-350"
         style={{
@@ -83,27 +100,30 @@ const Header: React.FC = () => {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6 px-4 font-sans">
+        <nav className="hidden md:flex items-center gap-6 px-4 font-sans" aria-label="Main navigation">
           {navLinks.map((link) => (
             <button
               key={link.name}
               onClick={link.onClick}
               className={linkClass}
+              type="button"
             >
               {link.name}
             </button>
           ))}
         </nav>
 
-        {/* Desktop: Theme + Auth */}
+        {/* Desktop: Theme (landing only) + Auth */}
         <div className="hidden md:flex items-center gap-3">
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full transition-colors text-black/60 hover:text-black hover:bg-black/5"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          {isLanding && (
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full transition-colors text-black/60 hover:text-black hover:bg-black/5"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          )}
           {isLoggedIn ? (
             <>
               <button onClick={() => navigateTo('dashboard')} className={linkClass}>
@@ -111,7 +131,8 @@ const Header: React.FC = () => {
               </button>
               <button
                 onClick={logout}
-                className="h-[42px] px-5 rounded-full text-sm font-semibold transition-all bg-black/5 hover:bg-black/10 text-black"
+                className="h-[42px] px-5 rounded-full text-sm font-semibold transition-all border border-black/15 text-black hover:bg-black/5 hover:border-black/25"
+                aria-label="Log out"
               >
                 Logout
               </button>
@@ -126,19 +147,24 @@ const Header: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile: Theme + Menu toggle */}
+        {/* Mobile: Theme (landing only) + Menu toggle */}
         <div className="md:hidden flex items-center gap-1">
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full text-black/70"
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          {isLanding && (
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full text-black/70"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          )}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg focus:outline-none text-black"
-            aria-label="Toggle menu"
+            className="p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff7a00] focus:ring-offset-2 text-black"
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isOpen}
+            aria-controls="mobile-nav"
+            type="button"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -152,10 +178,15 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - white in both themes to match navbar */}
       {isOpen && (
-        <div className="md:hidden mt-3 rounded-[12px] p-6 shadow-xl backdrop-blur-[12px] bg-white border border-black/5">
-          <nav className="flex flex-col items-center gap-4 font-sans">
+        <div
+          id="mobile-nav"
+          className="md:hidden mt-3 rounded-[12px] p-6 shadow-xl backdrop-blur-[12px] border bg-white border-black/5"
+          role="dialog"
+          aria-label="Mobile navigation"
+        >
+          <nav className="flex flex-col items-center gap-4 font-sans" aria-label="Mobile navigation">
             {navLinks.map((link) => (
               <button
                 key={link.name}
@@ -179,7 +210,8 @@ const Header: React.FC = () => {
                 </button>
                 <button
                   onClick={() => { logout(); setIsOpen(false); }}
-                  className="w-full font-semibold py-3 px-6 rounded-full bg-black/5 hover:bg-black/10 text-black"
+                  className="w-full font-semibold py-3 px-6 rounded-full border border-black/15 text-black hover:bg-black/5"
+                  aria-label="Log out"
                 >
                   Logout
                 </button>
@@ -198,7 +230,7 @@ const Header: React.FC = () => {
                 >
                   Join Now
                   <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                    <img src={ORCHIDS_ARROW} alt="" width={12} height={10} className="w-3 h-[10px] object-contain" />
+                    <CTAArrowIcon className="w-3 h-[10px] object-contain" />
                   </span>
                 </button>
               </>

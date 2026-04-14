@@ -64,6 +64,9 @@ export default {
         marquee: "marquee var(--duration, 30s) linear infinite",
         "marquee-reverse": "marquee-reverse var(--duration, 30s) linear infinite",
         progress: "progress 2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+        "shimmer-slide":
+          "shimmer-slide var(--speed, 3s) ease-in-out infinite alternate",
+        "spin-around": "spin-around calc(var(--speed, 3s) * 2) linear infinite",
       },
       keyframes: {
         progress: {
@@ -90,7 +93,16 @@ export default {
         },
         "marquee-reverse": {
           to: { transform: "translateX(50%)" }
-        }
+        },
+        "shimmer-slide": {
+          to: { transform: "translateX(55%)" },
+        },
+        "spin-around": {
+          "0%": { transform: "translateZ(0) rotate(0)" },
+          "15%, 35%": { transform: "translateZ(0) rotate(90deg)" },
+          "65%, 85%": { transform: "translateZ(0) rotate(270deg)" },
+          "100%": { transform: "translateZ(0) rotate(360deg)" },
+        },
       },
     },
   },

@@ -18,7 +18,7 @@ ALLOWED_CATEGORIES = {
 }
 
 OWNER_EDITABLE_FIELDS = {
-    "title", "description", "category", "tags",
+    "title", "description", "category", "tags", "features",
     "price", "originalPrice",
     "youtubeVideoUrl", "documentationUrl"
 }

@@ -3,6 +3,7 @@
  */
 
 import type { Freelancer } from '../types/browse';
+import { cachedFetch } from '../lib/apiCache';
 
 // API Endpoint for Freelancers Lambda
 const FREELANCERS_API_ENDPOINT = 'https://i77xrgpj6i.execute-api.ap-south-2.amazonaws.com/default/freelancers_handler';
@@ -25,6 +26,18 @@ interface FreelancersData {
   count: number;
   totalCount: number;
   hasMore: boolean;
+  maxHourlyRate?: number;
+}
+
+export interface SearchFilters {
+  [key: string]: unknown;
+  query?: string;
+  skills?: string[];
+  country?: string;
+  minHourlyRate?: number;
+  maxHourlyRate?: number;
+  limit?: number;
+  offset?: number;
 }
 
 interface FreelancerProfile extends Freelancer {
@@ -80,20 +93,23 @@ async function apiRequest<T>(action: string, body: Record<string, unknown> = {})
 // Flag to control whether to use mock data (set to false for production)
 const USE_MOCK_DATA = false;
 
+const FREELANCER_TTL = 90_000; // 1.5 min
+
+const filterDummyUsers = (freelancers: Freelancer[]): Freelancer[] =>
+  freelancers.filter(
+    (f) => !f.email?.endsWith('@projectbazaar.com') &&
+      !['John Smith', 'Sarah Johnson', 'Mike Chen', 'Emma Wilson', 'David Kumar', 'Lisa Anderson'].includes(f.name)
+  );
+
 /**
- * Get all freelancers with optional pagination
- * @param limit - Maximum number of freelancers to return
- * @param offset - Offset for pagination
- * @param includeAll - If true, includes all active users (not just sellers/freelancers)
+ * Get all freelancers with optional pagination (cached + deduplicated).
  */
 export const getAllFreelancers = async (
-  limit: number = 50, 
+  limit: number = 50,
   offset: number = 0,
-  includeAll: boolean = true  // Default to true to show all users
-): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean }> => {
-  // If using mock data, return it directly
+  includeAll: boolean = true
+): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean; maxHourlyRate?: number }> => {
   if (USE_MOCK_DATA) {
-    console.log('Using mock freelancer data');
     return {
       freelancers: freelancersData as Freelancer[],
       totalCount: freelancersData.length,
@@ -101,38 +117,26 @@ export const getAllFreelancers = async (
     };
   }
 
-  try {
-    const response = await apiRequest<FreelancersData>('GET_ALL_FREELANCERS', { 
-      limit, 
+  const cacheKey = `freelancers:all:${limit}:${offset}:${includeAll}`;
+  return cachedFetch(cacheKey, async () => {
+    const response = await apiRequest<FreelancersData>('GET_ALL_FREELANCERS', {
+      limit,
       offset,
-      includeAll 
+      includeAll
     });
-    
+
     if (response.success && response.data) {
-      // Return real data from API (even if empty)
+      const filteredFreelancers = filterDummyUsers(response.data.freelancers);
       return {
-        freelancers: response.data.freelancers,
-        totalCount: response.data.totalCount,
+        freelancers: filteredFreelancers,
+        totalCount: response.data.totalCount - (response.data.freelancers.length - filteredFreelancers.length),
         hasMore: response.data.hasMore,
+        maxHourlyRate: response.data.maxHourlyRate,
       };
     }
-    
-    // API returned error - return empty list (no mock fallback)
-    console.error('API error, returning empty list:', response.error);
-    return {
-      freelancers: [],
-      totalCount: 0,
-      hasMore: false,
-    };
-  } catch (error) {
-    console.error('Error fetching freelancers:', error);
-    // Network error - return empty list (no mock fallback)
-    return {
-      freelancers: [],
-      totalCount: 0,
-      hasMore: false,
-    };
-  }
+
+    throw new Error(response.error?.message || 'Failed to fetch freelancers');
+  }, FREELANCER_TTL);
 };
 
 /**
@@ -146,15 +150,17 @@ export const getFreelancerById = async (freelancerId: string): Promise<Freelance
 
   try {
     const response = await apiRequest<FreelancerProfile>('GET_FREELANCER_BY_ID', { freelancerId });
-    
+
     if (response.success && response.data) {
       return response.data;
     }
-    
-    return null;
+
+    const errorMessage = response.error?.message || 'Failed to fetch freelancer profile';
+    console.error('API error:', response.error);
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error fetching freelancer:', error);
-    return null;
+    throw error instanceof Error ? error : new Error('Network error occurred');
   }
 };
 
@@ -167,141 +173,129 @@ export const getTopFreelancers = async (limit: number = 6): Promise<Freelancer[]
     return sorted.slice(0, limit);
   }
 
-  try {
+  return cachedFetch(`freelancers:top:${limit}`, async () => {
     const response = await apiRequest<FreelancersData>('GET_TOP_FREELANCERS', { limit });
-    
+
     if (response.success && response.data) {
-      return response.data.freelancers;
+      return filterDummyUsers(response.data.freelancers);
     }
-    
-    return [];
-  } catch (error) {
-    console.error('Error fetching top freelancers:', error);
-    return [];
-  }
+
+    throw new Error(response.error?.message || 'Failed to fetch top freelancers');
+  }, FREELANCER_TTL);
 };
 
 /**
  * Search freelancers by various criteria
  */
-export const searchFreelancers = async (params: {
-  query?: string;
-  skills?: string[];
-  country?: string;
-  minHourlyRate?: number;
-  maxHourlyRate?: number;
-  limit?: number;
-  offset?: number;
-}): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean }> => {
+export const searchFreelancers = async (
+  filters: SearchFilters
+): Promise<{ freelancers: Freelancer[]; totalCount: number; hasMore: boolean; maxHourlyRate?: number }> => {
   if (USE_MOCK_DATA) {
     // Filter mock data locally
     let filtered = [...(freelancersData as Freelancer[])];
-    
-    if (params.query) {
-      const query = params.query.toLowerCase();
-      filtered = filtered.filter(f => 
+
+    if (filters.query) {
+      const query = filters.query.toLowerCase();
+      filtered = filtered.filter(f =>
         f.name.toLowerCase().includes(query) ||
         f.username.toLowerCase().includes(query) ||
         f.skills.some(s => s.toLowerCase().includes(query))
       );
     }
-    
-    if (params.skills && params.skills.length > 0) {
-      filtered = filtered.filter(f => 
-        params.skills!.some(skill => 
-          f.skills.some(s => s.toLowerCase() === skill.toLowerCase())
+
+    if (filters.skills && filters.skills.length > 0) {
+      filtered = filtered.filter(f =>
+        filters.skills!.some((skill: string) =>
+          f.skills.some((s: string) => s.toLowerCase() === skill.toLowerCase())
         )
       );
     }
-    
-    if (params.country) {
-      filtered = filtered.filter(f => 
-        f.location.country.toLowerCase() === params.country!.toLowerCase()
+
+    if (filters.country) {
+      filtered = filtered.filter(f =>
+        f.location.country.toLowerCase() === filters.country!.toLowerCase()
       );
     }
-    
-    if (params.minHourlyRate !== undefined) {
-      filtered = filtered.filter(f => f.hourlyRate >= params.minHourlyRate!);
+
+    if (filters.minHourlyRate !== undefined) {
+      filtered = filtered.filter(f => f.hourlyRate >= filters.minHourlyRate!);
     }
-    
-    if (params.maxHourlyRate !== undefined) {
-      filtered = filtered.filter(f => f.hourlyRate <= params.maxHourlyRate!);
+
+    if (filters.maxHourlyRate !== undefined) {
+      filtered = filtered.filter(f => f.hourlyRate <= filters.maxHourlyRate!);
     }
-    
-    const offset = params.offset || 0;
-    const limit = params.limit || 50;
-    
+
+    const offset = filters.offset || 0;
+    const limit = filters.limit || 50;
+
     return {
       freelancers: filtered.slice(offset, offset + limit),
       totalCount: filtered.length,
       hasMore: offset + limit < filtered.length,
+      maxHourlyRate: undefined, // Mock data doesn't provide this, so set to undefined
     };
   }
 
   try {
-    const response = await apiRequest<FreelancersData>('SEARCH_FREELANCERS', params);
-    
+    const response = await apiRequest<FreelancersData>('SEARCH_FREELANCERS', filters);
+
     if (response.success && response.data) {
+      const filteredResults = response.data.freelancers.filter(
+        (f) => !f.email?.endsWith('@projectbazaar.com') &&
+          !['John Smith', 'Sarah Johnson', 'Mike Chen', 'Emma Wilson', 'David Kumar', 'Lisa Anderson'].includes(f.name)
+      );
+
       return {
-        freelancers: response.data.freelancers,
-        totalCount: response.data.totalCount,
+        freelancers: filteredResults,
+        totalCount: response.data.totalCount - (response.data.freelancers.length - filteredResults.length),
         hasMore: response.data.hasMore,
+        maxHourlyRate: response.data.maxHourlyRate,
       };
     }
-    
-    return {
-      freelancers: [],
-      totalCount: 0,
-      hasMore: false,
-    };
+
+    const errorMessage = response.error?.message || 'Failed to search freelancers';
+    console.error('API error:', response.error);
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error searching freelancers:', error);
-    return {
-      freelancers: [],
-      totalCount: 0,
-      hasMore: false,
-    };
+    throw error instanceof Error ? error : new Error('Network error occurred');
   }
 };
 
 /**
- * Get unique skills from all freelancers
+ * Get skills AND countries in a single cached call (avoids 2 extra getAllFreelancers calls).
  */
+export const getAvailableFilters = async (): Promise<{ skills: string[]; countries: string[] }> => {
+  if (USE_MOCK_DATA) {
+    const skillsSet = new Set<string>();
+    const countriesSet = new Set<string>();
+    (freelancersData as Freelancer[]).forEach(f => {
+      f.skills.forEach(skill => skillsSet.add(skill));
+      countriesSet.add(f.location.country);
+    });
+    return { skills: Array.from(skillsSet).sort(), countries: Array.from(countriesSet).sort() };
+  }
+
+  return cachedFetch('freelancers:filters', async () => {
+    const { freelancers } = await getAllFreelancers(1000, 0);
+    const skillsSet = new Set<string>();
+    const countriesSet = new Set<string>();
+    freelancers.forEach(f => {
+      f.skills?.forEach(skill => skillsSet.add(skill));
+      if (f.location?.country) countriesSet.add(f.location.country);
+    });
+    return { skills: Array.from(skillsSet).sort(), countries: Array.from(countriesSet).sort() };
+  }, FREELANCER_TTL);
+};
+
+/** @deprecated Use getAvailableFilters() instead to avoid duplicate API calls */
 export const getAvailableSkills = async (): Promise<string[]> => {
-  if (USE_MOCK_DATA) {
-    const skillsSet = new Set<string>();
-    (freelancersData as Freelancer[]).forEach(f => f.skills.forEach(skill => skillsSet.add(skill)));
-    return Array.from(skillsSet).sort();
-  }
-
-  try {
-    const { freelancers } = await getAllFreelancers(1000, 0);
-    const skillsSet = new Set<string>();
-    freelancers.forEach(f => f.skills?.forEach(skill => skillsSet.add(skill)));
-    return Array.from(skillsSet).sort();
-  } catch (error) {
-    console.error('Error fetching skills:', error);
-    return [];
-  }
+  const { skills } = await getAvailableFilters();
+  return skills;
 };
 
-/**
- * Get unique countries from all freelancers
- */
+/** @deprecated Use getAvailableFilters() instead to avoid duplicate API calls */
 export const getAvailableCountries = async (): Promise<string[]> => {
-  if (USE_MOCK_DATA) {
-    const countriesSet = new Set<string>();
-    (freelancersData as Freelancer[]).forEach(f => countriesSet.add(f.location.country));
-    return Array.from(countriesSet).sort();
-  }
-
-  try {
-    const { freelancers } = await getAllFreelancers(1000, 0);
-    const countriesSet = new Set<string>();
-    freelancers.forEach(f => f.location?.country && countriesSet.add(f.location.country));
-    return Array.from(countriesSet).sort();
-  } catch (error) {
-    console.error('Error fetching countries:', error);
-    return [];
-  }
+  const { countries } = await getAvailableFilters();
+  return countries;
 };

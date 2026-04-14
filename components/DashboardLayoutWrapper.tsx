@@ -10,7 +10,8 @@ interface DashboardLayoutWrapperProps {
 
 /**
  * Wraps a page (e.g. FreelancerProfilePage) with the same sidebar layout as the dashboard
- * so the sidebar is visible. Sidebar nav clicks navigate back to dashboard.
+ * so the sidebar is visible. Sidebar uses DashboardContext so Buyer/Seller mode is
+ * maintained across all components.
  */
 const DashboardLayoutWrapper: React.FC<DashboardLayoutWrapperProps> = ({ children }) => {
   const { userId } = useAuth();
@@ -35,7 +36,6 @@ const DashboardLayoutWrapper: React.FC<DashboardLayoutWrapperProps> = ({ childre
             />
           )}
           <Sidebar
-            dashboardMode="buyer"
             activeView="dashboard"
             setActiveView={handleNavClick}
             isOpen={isSidebarOpen}

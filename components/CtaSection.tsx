@@ -10,7 +10,7 @@ const CtaSection: React.FC = () => {
         <h2 className="text-4xl font-bold text-white mb-4">Ready to Get Started?</h2>
         <p className="text-xl text-orange-100 mb-8">Join thousands of developers building amazing projects</p>
         <button
-          onClick={() => navigateTo('auth')}
+          onClick={() => navigateTo('browseProjects')}
           className="px-8 py-4 bg-white text-orange-600 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors"
         >
           Get Started Now

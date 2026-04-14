@@ -14,7 +14,9 @@ import MockAssessmentsManagementPage from './MockAssessmentsManagementPage';
 import CareerContentManagementPage from './CareerContentManagementPage';
 import RoadmapManagementPage from './RoadmapManagementPage';
 import PlacementPrepManagementPage from './PlacementPrepManagementPage';
+import PrepContentManagementPage from './PrepContentManagementPage';
 import type { BuyerProject } from '../BuyerProjectCard';
+
 
 interface AdminProject extends BuyerProject {
     status: 'pending' | 'in-review' | 'active' | 'disabled' | 'rejected';
@@ -67,9 +69,11 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'career-guidance': 'Career Guidance Content',
         'roadmap-management': 'Roadmap Management',
         'placement-prep': 'Placement Preparation Management',
+        'prep-content': 'Preparation Content Management',
         'user-profile': selectedUser ? `${selectedUser.name}'s Profile` : 'User Profile',
         'admin-project-details': selectedProject ? `Project: ${selectedProject.title}` : 'Project Details',
         'admin-report-details': 'Report Details',
+        'prep-mode': 'Preparation Mode',
     };
 
     const handleViewUser = (user: { id: string; name: string; email: string }) => {
@@ -131,10 +135,10 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
     };
 
     const handleProjectStatusChange = (projectId: string, newStatus: AdminProject['status']) => {
-        setUserProjects(userProjects.map((p: AdminProject) => 
+        setUserProjects(userProjects.map((p: AdminProject) =>
             p.id === projectId ? { ...p, status: newStatus } : p
         ));
-        setAllProjects(allProjects.map((p: AdminProject) => 
+        setAllProjects(allProjects.map((p: AdminProject) =>
             p.id === projectId ? { ...p, status: newStatus } : p
         ));
         if (selectedProject && selectedProject.id === projectId) {
@@ -143,31 +147,9 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
     };
 
     const handleViewProjectDetails = (project: AdminProject) => {
-        // Extend project with additional details if needed
-        const extendedProject: AdminProject = {
-            ...project,
-            likes: project.likes || Math.floor(Math.random() * 500) + 50,
-            purchases: project.purchases || Math.floor(Math.random() * 200) + 10,
-            demoVideoUrl: project.demoVideoUrl || 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-            features: project.features || [
-                'Real-time collaboration',
-                'Live code editing',
-                'Integrated chat system',
-                'Drawing/paint board',
-                'Multiple user support',
-                'Code sharing capabilities'
-            ],
-            images: project.images || [
-                project.imageUrl,
-                'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop',
-            ],
-            githubUrl: project.githubUrl || `https://github.com/${project.sellerName.toLowerCase().replace(' ', '-')}/${project.title.toLowerCase().replace(' ', '-')}`,
-            liveDemoUrl: project.liveDemoUrl || `https://${project.title.toLowerCase().replace(' ', '-')}.demo.com`,
-            documentationUrl: project.documentationUrl || `https://docs.${project.title.toLowerCase().replace(' ', '-')}.com`,
-            supportInfo: project.supportInfo || 'For any questions or support regarding this project, please contact the seller directly through their profile or email.',
-        };
-        setSelectedProject(extendedProject);
+        // Pass project as-is - AdminProjectDetailsPage will fetch full details from API
+        // No mock/static data should be added here
+        setSelectedProject(project);
         setActiveView('admin-project-details');
     };
 
@@ -192,7 +174,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
             {/* Content */}
             <div ref={contentScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
                 {activeView === 'project-management' && (
-                    <ProjectManagementPage 
+                    <ProjectManagementPage
                         onViewUser={handleViewUser}
                         onViewProjectDetails={handleViewProjectDetails}
                     />
@@ -220,7 +202,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                     />
                 )}
                 {activeView === 'fraud-management' && (
-                    <FraudManagementPage 
+                    <FraudManagementPage
                         onViewReport={(report) => {
                             setSelectedReport(report);
                             setActiveView('admin-report-details');
@@ -250,7 +232,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                     />
                 )}
                 {activeView === 'user-management' && (
-                    <UserManagementPage 
+                    <UserManagementPage
                         onViewUser={handleViewUser}
                     />
                 )}
@@ -262,6 +244,8 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'career-guidance' && <CareerContentManagementPage />}
                 {activeView === 'roadmap-management' && <RoadmapManagementPage />}
                 {activeView === 'placement-prep' && <PlacementPrepManagementPage />}
+                {activeView === 'prep-content' && <PrepContentManagementPage />}
+                {activeView === 'prep-mode' && <PrepContentManagementPage />}
             </div>
         </div>
     );

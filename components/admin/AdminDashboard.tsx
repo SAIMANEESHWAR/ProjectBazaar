@@ -14,9 +14,11 @@ export type AdminView =
     | 'career-guidance'
     | 'roadmap-management'
     | 'placement-prep'
+    | 'prep-content'
     | 'user-profile'
     | 'admin-project-details'
-    | 'admin-report-details';
+    | 'admin-report-details'
+    | 'prep-mode';
 
 const AdminDashboard: React.FC = () => {
     const [activeView, setActiveView] = useState<AdminView>('project-management');

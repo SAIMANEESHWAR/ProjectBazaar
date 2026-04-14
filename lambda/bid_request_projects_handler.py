@@ -142,6 +142,16 @@ def handle_get_all_projects(body):
         result = bid_request_projects_table.scan(**scan_params)
         projects = result.get('Items', [])
         
+        # Calculate max budget for dynamic filters
+        max_budget = 0
+        for p in projects:
+            p_max = float(p.get('budgetMax', 0))
+            if p_max > max_budget:
+                max_budget = p_max
+        
+        if max_budget == 0:
+            max_budget = 50000
+        
         # Sort by createdAt (newest first)
         projects.sort(key=lambda x: x.get('createdAt', ''), reverse=True)
         
@@ -153,7 +163,8 @@ def handle_get_all_projects(body):
             "success": True,
             "data": {
                 "projects": projects,
-                "count": len(projects)
+                "count": len(projects),
+                "maxBudget": max_budget
             }
         })
     except Exception as e:

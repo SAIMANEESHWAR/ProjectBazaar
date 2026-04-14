@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { Plus, Check, ArrowRight } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { useNavigation } from '../../App';
+import { CTAArrowIcon } from '../CTAArrowIcon';
 
 interface Step {
   id: string;
@@ -34,7 +35,7 @@ const CurriculumSection: React.FC = () => {
   const toggleStep = (id: string) => setOpenStep(openStep === id ? null : id);
 
   return (
-    <section id="curriculum" className="relative py-24 md:py-32 bg-[#f2f0e9] text-[#1a1a1a] overflow-hidden">
+    <section id="curriculum" className="relative py-24 md:py-32 bg-[#f2f0e9] dark:bg-[#0f0f0f] text-[#1a1a1a] dark:text-gray-200 overflow-hidden transition-colors duration-300">
       <div ref={ref} className="landing-container">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -42,7 +43,7 @@ const CurriculumSection: React.FC = () => {
           transition={{ duration: 0.65 }}
           className="text-center mb-14 md:mb-16"
         >
-          <p className="text-[#a1a1a1] text-sm font-medium uppercase tracking-wider mb-4">How it works</p>
+          <p className="text-gray-500 dark:text-[#a1a1a1] text-sm font-medium uppercase tracking-wider mb-4">How it works</p>
           <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight">
             From idea to <span className="text-[#ff7a00]">revenue</span> in a few steps
           </h2>
@@ -56,22 +57,22 @@ const CurriculumSection: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5, delay: 0.1 + i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="bg-white rounded-2xl border border-[#e8e8e8] overflow-hidden"
+                className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#e8e8e8] dark:border-[#262626] overflow-hidden transition-colors duration-300"
               >
                 <button
                   onClick={() => toggleStep(step.id)}
-                  className="w-full flex items-center justify-between p-6 text-left hover:bg-[#faf9f6] transition-colors"
+                  className="w-full flex items-center justify-between p-6 text-left hover:bg-[#faf9f6] dark:hover:bg-[#222] transition-colors"
                 >
                   <div className="flex flex-col">
-                    <span className="text-lg font-semibold text-[#1a1a1a]">{step.title}</span>
-                    <span className="text-sm text-[#a1a1a1] mt-1">{step.number}</span>
+                    <span className="text-lg font-semibold text-[#1a1a1a] dark:text-white">{step.title}</span>
+                    <span className="text-sm text-[#a1a1a1] dark:text-gray-400 mt-1">{step.number}</span>
                   </div>
                   <motion.div
                     animate={{ rotate: openStep === step.id ? 45 : 0 }}
                     transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="p-2 rounded-full border border-[#e8e8e8] flex-shrink-0"
+                    className="p-2 rounded-full border border-[#e8e8e8] dark:border-[#333] flex-shrink-0"
                   >
-                    <Plus className="w-5 h-5 text-[#1a1a1a]" />
+                    <Plus className="w-5 h-5 text-[#1a1a1a] dark:text-gray-300" />
                   </motion.div>
                 </button>
                 <AnimatePresence initial={false}>
@@ -85,7 +86,7 @@ const CurriculumSection: React.FC = () => {
                       className="overflow-hidden"
                     >
                       <div className="px-6 pb-6">
-                        <p className="text-[#a1a1a1] text-base leading-relaxed">{step.content}</p>
+                        <p className="text-gray-600 dark:text-[#a1a1a1] text-base leading-relaxed">{step.content}</p>
                       </div>
                     </motion.div>
                   )}
@@ -100,7 +101,7 @@ const CurriculumSection: React.FC = () => {
             transition={{ duration: 0.65, delay: 0.3 }}
             className="lg:col-span-5"
           >
-            <div className="bg-[#0a0a0a] rounded-[24px] p-8 text-white relative overflow-hidden shadow-2xl">
+            <div className="bg-gray-900 dark:bg-[#0a0a0a] rounded-[24px] p-8 text-white relative overflow-hidden shadow-2xl transition-colors duration-300">
               <div className="absolute top-[-20%] right-[-20%] w-[200px] h-[200px] bg-[#ff7a00] opacity-20 blur-[80px]" />
               <div className="relative z-10">
                 <div className="inline-block bg-[#ff7a00] px-3 py-1 rounded-full text-xs font-bold mb-6">
@@ -144,7 +145,7 @@ const CurriculumSection: React.FC = () => {
                 >
                   <span className="ml-4">Get started free</span>
                   <span className="w-10 h-10 rounded-full bg-white flex items-center justify-center transition-transform group-hover:translate-x-1">
-                    <ArrowRight className="w-5 h-5 text-[#ff7a00]" />
+                    <CTAArrowIcon className="w-5 h-5 object-contain" />
                   </span>
                 </motion.button>
               </div>
@@ -162,12 +163,12 @@ const CurriculumSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="mt-20 pt-10 border-t border-dashed border-[#e8e8e8]"
+          className="mt-20 pt-10 border-t border-dashed border-[#e8e8e8] dark:border-[#333]"
         >
-          <p className="text-center text-[#a1a1a1] text-sm font-medium mb-8">Trusted by teams</p>
+          <p className="text-center text-[#a1a1a1] dark:text-gray-400 text-sm font-medium mb-8">Trusted by teams</p>
           <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6 opacity-60">
             {partners.map((p, idx) => (
-              <span key={idx} className="text-lg font-semibold text-[#1a1a1a]">{p.name}</span>
+              <span key={idx} className="text-lg font-semibold text-[#1a1a1a] dark:text-gray-300">{p.name}</span>
             ))}
           </div>
         </motion.div>

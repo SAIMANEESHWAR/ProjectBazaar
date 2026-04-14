@@ -52,7 +52,7 @@ const TestimonialsSection: React.FC = () => {
   const dragRef = useRef<HTMLDivElement>(null);
 
   return (
-    <section id="reviews" ref={sectionRef} className="bg-[#f2f1ee] py-24 md:py-32 overflow-hidden">
+    <section id="reviews" ref={sectionRef} className="bg-[#f2f1ee] dark:bg-[#0f0f0f] py-24 md:py-32 overflow-hidden transition-colors duration-300">
       <div className="max-w-[1200px] mx-auto px-5 mb-12 md:mb-16">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -60,8 +60,8 @@ const TestimonialsSection: React.FC = () => {
           transition={{ duration: 0.65 }}
           className="text-center"
         >
-          <p className="text-[#a1a1a1] uppercase tracking-widest text-sm font-semibold mb-4">Testimonials</p>
-          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold text-[#1a1a1a] leading-[1.1] tracking-tight">
+          <p className="text-[#a1a1a1] dark:text-gray-400 uppercase tracking-widest text-sm font-semibold mb-4">Testimonials</p>
+          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold text-[#1a1a1a] dark:text-gray-100 leading-[1.1] tracking-tight">
             Real People. <span className="text-[#ff7a00]">Real Results.</span>
           </h2>
         </motion.div>
@@ -88,16 +88,16 @@ const TestimonialsSection: React.FC = () => {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.55, delay: 0.15 + i * 0.1 }}
               whileHover={{ y: -6, transition: { duration: 0.25 } }}
-              className="w-[340px] md:w-[380px] bg-white rounded-[24px] p-8 shadow-sm border border-[#e8e8e8] flex-shrink-0"
+              className="w-[340px] md:w-[380px] bg-white dark:bg-[#1a1a1a] rounded-[24px] p-8 shadow-sm border border-[#e8e8e8] dark:border-[#262626] flex-shrink-0 transition-colors duration-300"
             >
               <div className="flex justify-between items-start mb-8">
                 <div className="flex gap-4">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[#f2f1ee]">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[#f2f1ee] dark:border-[#333]">
                     <img src={t.avatar} alt={t.name} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h4 className="text-[#1a1a1a] font-bold text-lg leading-tight">{t.name}</h4>
-                    <p className="text-[#a1a1a1] text-xs mt-1 font-medium">{t.role}</p>
+                    <h4 className="text-[#1a1a1a] dark:text-white font-bold text-lg leading-tight">{t.name}</h4>
+                    <p className="text-[#a1a1a1] dark:text-gray-400 text-xs mt-1 font-medium">{t.role}</p>
                     <div className="mt-2 flex items-center gap-1">
                       {[...Array(5)].map((_, si) => (
                         <svg key={si} width="12" height="12" viewBox="0 0 24 24" fill="#ff7a00">
@@ -111,14 +111,14 @@ const TestimonialsSection: React.FC = () => {
               </div>
 
               <div className="mb-6">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-[#a1a1a1] mb-3">Before</div>
-                <div className="border-b border-dashed border-[#e8e8e8] pb-6">
-                  <p className="text-[#444] text-sm leading-relaxed italic">{t.before}</p>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[#a1a1a1] dark:text-gray-400 mb-3">Before</div>
+                <div className="border-b border-dashed border-[#e8e8e8] dark:border-[#333] pb-6">
+                  <p className="text-[#444] dark:text-gray-300 text-sm leading-relaxed italic">{t.before}</p>
                 </div>
               </div>
 
-              <div className="bg-[#1a1a1a] rounded-2xl p-6">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-[#a1a1a1] mb-3 opacity-60">After</div>
+              <div className="bg-[#1a1a1a] dark:bg-[#262626] rounded-2xl p-6">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[#a1a1a1] dark:text-gray-400 mb-3 opacity-60">After</div>
                 <p className="text-white text-sm leading-relaxed font-medium">{t.after}</p>
               </div>
             </motion.div>
@@ -130,7 +130,7 @@ const TestimonialsSection: React.FC = () => {
         initial={{ opacity: 0 }}
         animate={inView ? { opacity: 1 } : {}}
         transition={{ delay: 0.8 }}
-        className="flex items-center justify-center gap-3 mt-10 text-[#a1a1a1] text-sm"
+        className="flex items-center justify-center gap-3 mt-10 text-[#a1a1a1] dark:text-gray-400 text-sm"
       >
         <MoveLeft size={16} />
         <span>Drag to explore</span>

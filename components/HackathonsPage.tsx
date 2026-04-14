@@ -5,6 +5,7 @@ import HackathonsFilters from './HackathonsFilters';
 import HackathonsFeatured from './HackathonsFeatured';
 import Pagination from './Pagination';
 import { fetchHackathons } from '../services/buyerApi';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 import {
   Tooltip,
   TooltipContent,
@@ -176,7 +177,6 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
               </svg>
             </button>
           )}
-          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 tracking-tight">Discover Hackathons</h1>
         </div>
         <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Find and participate in exciting hackathons from top platforms</p>
       </div>
@@ -308,9 +308,8 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
         <div className="lg:col-span-6">
           {/* Loading State */}
           {isLoading && (
-            <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mb-4"></div>
-              <p className="text-gray-600 font-medium">Loading hackathons...</p>
+            <div className="space-y-8">
+              <SkeletonDashboard />
             </div>
           )}
 

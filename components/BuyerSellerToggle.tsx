@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Upload, 
@@ -20,6 +20,7 @@ import {
   Users
 } from "lucide-react";
 import { useNavigation } from "../App";
+import { useDashboard } from "../context/DashboardContext";
 
 type Mode = "buyer" | "seller";
 
@@ -240,9 +241,10 @@ const BenefitCard: React.FC<{ benefit: Benefit; index: number; mode: Mode }> = (
 };
 
 const BuyerSellerToggle: React.FC = () => {
-  const [mode, setMode] = useState<Mode>("buyer");
+  const { dashboardMode, setDashboardMode: setMode } = useDashboard();
   const { navigateTo } = useNavigation();
 
+  const mode: Mode = dashboardMode === 'preparation' ? 'buyer' : dashboardMode;
   const steps = mode === "buyer" ? buyerSteps : sellerSteps;
   const benefits = mode === "buyer" ? buyerBenefits : sellerBenefits;
 

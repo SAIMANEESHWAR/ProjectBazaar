@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "motion/react";
-import { 
-  Rocket, 
-  Check, 
+import {
+  Rocket,
+  Check,
   ArrowRight,
   Zap,
   Shield,
@@ -23,12 +23,12 @@ const SellerCta: React.FC = () => {
     <section className="relative py-24 overflow-hidden">
       {/* Background with gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500" />
-      
+
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -left-20 -top-20 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px]" />
         <div className="absolute -right-20 -bottom-20 w-[500px] h-[500px] bg-orange-900/30 rounded-full blur-[120px]" />
-        
+
         {/* Floating shapes */}
         <motion.div
           animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }}
@@ -94,7 +94,7 @@ const SellerCta: React.FC = () => {
             className="flex flex-wrap justify-center gap-6 mb-10"
           >
             {benefits.map((benefit, index) => (
-              <div 
+              <div
                 key={index}
                 className="flex items-center gap-2 text-white/90"
               >
@@ -114,14 +114,14 @@ const SellerCta: React.FC = () => {
             viewport={{ once: true }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-            <button 
-              onClick={() => navigateTo('auth')}
+            <button
+              onClick={() => navigateTo('browseProjects')}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-orange-600 font-bold rounded-full transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 group"
             >
               Start Selling Today
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button 
+            <button
               onClick={() => {
                 const element = document.getElementById('how-it-works-seller');
                 if (element) element.scrollIntoView({ behavior: 'smooth' });

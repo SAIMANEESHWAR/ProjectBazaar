@@ -1,13 +1,53 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { DashboardView } from './DashboardPage';
 import { useCart, useWishlist } from './DashboardPage';
-import { usePremium, useAuth } from '../App';
+import { usePremium, useAuth, useNavigation } from '../App';
+import { useDashboard } from '../context/DashboardContext';
+import { useMessagesUnread } from '../context/MessagesUnreadContext';
+import { playNotification } from '../utils/sounds';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
 
 const MARK_ALL_READ_API =
   'https://pnhs6gk3u3.execute-api.ap-south-2.amazonaws.com/default/mark_all_notifications_read';
+
+/** Persist "mark all read" per user so refresh still shows read until backend catches up. */
+const readIdsStorageKey = (userId: string) => `pb_notif_read_ids_${userId}`;
+const MAX_STORED_READ_IDS = 3000;
+
+function loadClientReadIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(readIdsStorageKey(userId));
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown[];
+    return new Set(arr.map((id) => String(id)));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistMarkedReadIds(userId: string, notificationIds: string[]) {
+  const merged = loadClientReadIds(userId);
+  notificationIds.forEach((id) => merged.add(String(id)));
+  const list = [...merged];
+  const capped =
+    list.length > MAX_STORED_READ_IDS
+      ? list.slice(-MAX_STORED_READ_IDS)
+      : list;
+  localStorage.setItem(readIdsStorageKey(userId), JSON.stringify(capped));
+}
+
+function applyClientReadState<T extends { notificationId?: string | number; isRead?: boolean }>(
+  userId: string,
+  items: T[]
+): T[] {
+  const readIds = loadClientReadIds(userId);
+  return items.map((n) => ({
+    ...n,
+    isRead: Boolean(n.isRead) || readIds.has(String(n.notificationId)),
+  }));
+}
 
 const ToggleButton = ({
   text,
@@ -28,18 +68,11 @@ const ToggleButton = ({
     {text}
   </button>
 );
-
 interface DashboardHeaderProps {
-  dashboardMode: 'buyer' | 'seller';
-  setDashboardMode: (mode: 'buyer' | 'seller') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  activeView: DashboardView;
-  setActiveView: (view: DashboardView) => void;
   buyerProjectView: 'all' | 'activated' | 'disabled';
   setBuyerProjectView: (view: 'all' | 'activated' | 'disabled') => void;
-  browseView?: 'all' | 'freelancers' | 'projects';
-  setBrowseView?: (view: 'all' | 'freelancers' | 'projects') => void;
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
 }
@@ -54,6 +87,7 @@ const viewTitles: Record<DashboardView, string> = {
   courses: 'Courses',
   hackathons: 'Hackathons',
   'my-projects': 'My Projects',
+  'my-bids': 'My Bids',
   'my-courses': 'Purchased Courses',
   earnings: 'Earnings',
   payouts: 'Payouts',
@@ -64,24 +98,47 @@ const viewTitles: Record<DashboardView, string> = {
   'build-portfolio': 'Build Portfolio',
   'build-resume': 'AI Resume Builder',
   'career-guidance': 'Career Guidance Hub',
+  'company-posts': 'Company Posts',
   'mock-assessment': 'Mock Assessments',
+  'live-mock-interview': 'Live AI Interview',
   'coding-questions': 'Coding Interview Questions',
   'post-project': 'Post Project Bid',
+  projects: 'Projects',
+  messages: 'Messages',
+  freelancers: 'Freelancers',
+  'profile-settings': 'Profile Settings',
+  'edit-project': 'Edit Project',
+  notifications: 'Notifications',
+  'freelancer-profile': 'Freelancer Profile',
+  'prep-hub': 'Preparation Hub',
+  'prep-interview-questions': 'Interview Questions',
+  'prep-dsa': 'DSA Problems',
+  'prep-quizzes': 'Quizzes',
+  'prep-cold-dms': 'Cold DMs & Emails',
+  'prep-collections': 'Collections',
+  'prep-mass-recruitment': 'Mass Recruitment',
+  'prep-job-portals': 'Job Portals',
+  'prep-notes': 'Handwritten Notes',
+  'prep-roadmaps': 'Roadmaps',
+  'prep-position-resources': 'Position Resources',
+  'prep-system-design': 'System Design',
+  'prep-hld': 'High Level Design',
+  'prep-lld': 'Low Level Design',
+  'prep-fundamentals': 'Fundamentals',
+  'prep-language': 'Language Fundamentals',
+  'prep-oops': 'OOPs Concepts',
+  'prep-activity': 'My Activity',
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  dashboardMode,
-  setDashboardMode,
   searchQuery,
   setSearchQuery,
-  activeView,
-  setActiveView,
   buyerProjectView,
   setBuyerProjectView,
-  browseView,
-  setBrowseView,
   toggleSidebar,
 }) => {
+  const { dashboardMode, setDashboardMode, activeView, setActiveView, browseView, setBrowseView } = useDashboard();
+  const { navigateTo } = useNavigation();
   const title = viewTitles[activeView] || 'Dashboard';
   const isBuyerDashboard =
     activeView === 'dashboard' && dashboardMode === 'buyer';
@@ -90,7 +147,13 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const { userId } = useAuth();
   const { cartCount } = useCart();
   const { wishlist } = useWishlist();
+  const { unreadMessageCount } = useMessagesUnread();
   const wishlistCount = wishlist.length;
+
+  const handleSetDashboardMode = (mode: 'buyer' | 'seller') => {
+    setDashboardMode(mode);
+    navigateTo(mode === 'buyer' ? 'dashboard' : 'seller');
+  };
 
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -98,6 +161,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   const notificationRef = useRef<HTMLDivElement>(null);
+  const previousNotificationUnreadRef = useRef<number | null>(null);
 
   // ---------------- FETCH NOTIFICATIONS ----------------
   const fetchNotifications = async () => {
@@ -115,8 +179,17 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       const data = await res.json();
 
       if (data.success) {
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        const merged = applyClientReadState(userId, data.notifications || []);
+        const newUnread = merged.filter((n) => !n.isRead).length;
+        if (
+          previousNotificationUnreadRef.current !== null &&
+          newUnread > previousNotificationUnreadRef.current
+        ) {
+          playNotification();
+        }
+        previousNotificationUnreadRef.current = newUnread;
+        setNotifications(merged);
+        setUnreadCount(newUnread);
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);
@@ -129,13 +202,19 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const markAllAsRead = async () => {
     if (!userId) return;
 
+    const ids = notifications.map((n) => String(n.notificationId));
+    persistMarkedReadIds(userId, ids);
+
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+    previousNotificationUnreadRef.current = 0;
+
     try {
       await fetch(MARK_ALL_READ_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
-
     } catch (err) {
       console.error('Failed to mark notifications as read', err);
     }
@@ -183,7 +262,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <div>
+    <div className="mb-8">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <button
@@ -275,6 +354,27 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </div>
           )}
 
+          {/* 💬 MESSAGES */}
+          <div className="relative group">
+            <button
+              onClick={() => setActiveView('messages')}
+              className={`relative p-2 rounded-xl transition-colors ${activeView === 'messages' ? 'bg-orange-500 text-white' : 'hover:bg-orange-50 text-gray-600'}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {unreadMessageCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                  {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                </span>
+              )}
+            </button>
+            <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+              Messages
+              <div className="absolute bottom-full right-4 border-4 border-transparent border-b-gray-900"></div>
+            </div>
+          </div>
+
           {/* 🔔 NOTIFICATIONS */}
           <div className="relative" ref={notificationRef}>
             <button
@@ -348,10 +448,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             )}
           </div>
 
-          {/* MODE SWITCH */}
+          {/* MODE SWITCH - use context so Buyer/Seller is maintained across all components */}
           <div className="flex bg-orange-50 rounded-lg p-1">
             <button
-              onClick={() => setDashboardMode('buyer')}
+              onClick={() => handleSetDashboardMode('buyer')}
               className={`px-3 py-1 rounded ${dashboardMode === 'buyer'
                 ? 'bg-orange-500 text-white'
                 : ''
@@ -360,7 +460,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               Buyer
             </button>
             <button
-              onClick={() => setDashboardMode('seller')}
+              onClick={() => handleSetDashboardMode('seller')}
               className={`px-3 py-1 rounded ${dashboardMode === 'seller'
                 ? 'bg-orange-500 text-white'
                 : ''
@@ -408,14 +508,23 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             />
           </div>
 
-          {/* Hide search bar when Projects tab is active (BrowseProjectsContent has its own search bar) */}
           {browseView !== 'projects' && (
-            <input
-              className="border px-4 py-2 rounded-lg"
-              placeholder="Search projects..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                className="border px-4 py-2 pl-10 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <svg
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           )}
         </div>
       )}

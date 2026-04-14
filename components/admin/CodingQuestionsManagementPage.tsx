@@ -158,7 +158,7 @@ const CodingQuestionsManagementPage: React.FC = () => {
   const [viewingQuestion, setViewingQuestion] = useState<CodingQuestion | null>(null);
   const [_activeTab, _setActiveTab] = useState<'details' | 'testcases' | 'code' | 'preview'>('details');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  
+
   // API Key Management State
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyConfig, setApiKeyConfig] = useState<APIKeyConfig>({
@@ -171,7 +171,7 @@ const CodingQuestionsManagementPage: React.FC = () => {
   // ========================================
   // API Functions for Coding Questions
   // ========================================
-  
+
   // Fetch all questions from API
   const fetchQuestions = async () => {
     setIsLoading(true);
@@ -181,13 +181,13 @@ const CodingQuestionsManagementPage: React.FC = () => {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch questions: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.data?.questions) {
         // Map API response to our interface (questionId -> id)
         const mappedQuestions = data.data.questions.map((q: any) => ({
@@ -220,10 +220,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
           ...question
         })
       });
-      
+
       const data = await response.json();
       console.log('Create question response:', data);
-      
+
       if (data.success) {
         // Refresh the questions list
         await fetchQuestions();
@@ -246,16 +246,16 @@ const CodingQuestionsManagementPage: React.FC = () => {
       const response = await fetch(CODING_QUESTIONS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'update',
-          questionId, 
-          ...updates 
+          questionId,
+          ...updates
         })
       });
-      
+
       const data = await response.json();
       console.log('Update question response:', data);
-      
+
       if (data.success) {
         await fetchQuestions();
         return { success: true, data: data.data };
@@ -276,15 +276,15 @@ const CodingQuestionsManagementPage: React.FC = () => {
       const response = await fetch(CODING_QUESTIONS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'delete',
-          questionId 
+          questionId
         })
       });
-      
+
       const data = await response.json();
       console.log('Delete question response:', data);
-      
+
       if (data.success) {
         await fetchQuestions();
         return { success: true };
@@ -303,15 +303,15 @@ const CodingQuestionsManagementPage: React.FC = () => {
       const response = await fetch(CODING_QUESTIONS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: 'update_status',
           questionId,
           status: newStatus
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         await fetchQuestions();
         return { success: true };
@@ -354,14 +354,14 @@ const CodingQuestionsManagementPage: React.FC = () => {
       localStorage.setItem('ai_api_config', JSON.stringify(config));
       setApiKeyConfig(config);
       setIsApiKeyConfigured(!!(config.geminiKey || config.groqKey));
-      
+
       // Optionally save to Lambda for persistence
       // await fetch(API_KEY_LAMBDA_ENDPOINT, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify({ action: 'save', config })
       // });
-      
+
       return true;
     } catch (error) {
       console.error('Failed to save API key config:', error);
@@ -394,7 +394,7 @@ const CodingQuestionsManagementPage: React.FC = () => {
   const handleToggleStatus = async (id: string) => {
     const question = questions.find(q => q.id === id);
     if (!question) return;
-    
+
     const newStatus = question.status === 'published' ? 'archived' : 'published';
     const result = await updateQuestionStatus(id, newStatus);
     if (!result.success) {
@@ -434,7 +434,7 @@ const CodingQuestionsManagementPage: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <span className="text-amber-700">{apiError}</span>
-          <button 
+          <button
             onClick={fetchQuestions}
             className="ml-auto px-3 py-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-sm"
           >
@@ -543,9 +543,8 @@ const CodingQuestionsManagementPage: React.FC = () => {
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'table' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'table' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                 title="Table View"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -554,9 +553,8 @@ const CodingQuestionsManagementPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === 'grid' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`p-2 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                 title="Grid View"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -568,11 +566,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
             {/* Action Buttons */}
             <button
               onClick={() => setShowApiKeyModal(true)}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                isApiKeyConfigured 
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
-                  : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 animate-pulse'
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${isApiKeyConfigured
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 animate-pulse'
+                }`}
               title={isApiKeyConfigured ? 'API Keys Configured' : 'Configure API Keys'}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -591,7 +588,7 @@ const CodingQuestionsManagementPage: React.FC = () => {
               className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-colors flex items-center gap-2 shadow-md"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
               </svg>
               Generate with AI
             </button>
@@ -644,11 +641,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
                       <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{question.topic}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                        question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
                         question.difficulty === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                          'bg-red-100 text-red-700'
+                        }`}>
                         {question.difficulty}
                       </span>
                     </td>
@@ -676,11 +672,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
                     <td className="px-6 py-4">
                       <button
                         onClick={() => handleToggleStatus(question.id)}
-                        className={`px-2 py-1 text-xs rounded-full font-medium ${
-                          question.status === 'published' ? 'bg-green-100 text-green-700' :
+                        className={`px-2 py-1 text-xs rounded-full font-medium ${question.status === 'published' ? 'bg-green-100 text-green-700' :
                           question.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}
+                            'bg-gray-100 text-gray-700'
+                          }`}
                       >
                         {question.status}
                       </button>
@@ -746,12 +741,11 @@ const CodingQuestionsManagementPage: React.FC = () => {
                   className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                 >
                   {/* Card Header */}
-                  <div className={`h-2 ${
-                    question.difficulty === 'Easy' ? 'bg-green-500' :
+                  <div className={`h-2 ${question.difficulty === 'Easy' ? 'bg-green-500' :
                     question.difficulty === 'Medium' ? 'bg-orange-500' :
-                    'bg-red-500'
-                  }`} />
-                  
+                      'bg-red-500'
+                    }`} />
+
                   <div className="p-5">
                     {/* Title & Status */}
                     <div className="flex items-start justify-between mb-3">
@@ -763,11 +757,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleToggleStatus(question.id)}
-                        className={`px-2 py-0.5 text-xs rounded-full font-medium ml-2 flex-shrink-0 ${
-                          question.status === 'published' ? 'bg-green-100 text-green-700' :
+                        className={`px-2 py-0.5 text-xs rounded-full font-medium ml-2 flex-shrink-0 ${question.status === 'published' ? 'bg-green-100 text-green-700' :
                           question.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}
+                            'bg-gray-100 text-gray-700'
+                          }`}
                       >
                         {question.status}
                       </button>
@@ -780,11 +773,10 @@ const CodingQuestionsManagementPage: React.FC = () => {
 
                     {/* Tags */}
                     <div className="flex flex-wrap items-center gap-2 mb-4">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
                         question.difficulty === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                          'bg-red-100 text-red-700'
+                        }`}>
                         {question.difficulty}
                       </span>
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
@@ -1010,7 +1002,7 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({ question, onClose
       return;
     }
 
-    const companyNames = aiCompanies.map(id => 
+    const companyNames = aiCompanies.map(id =>
       companies.find(c => c.id === id)?.name || id
     ).join(', ');
 
@@ -1057,6 +1049,7 @@ Please generate a complete coding interview question in the following JSON forma
     "cpp": "class Solution {\\npublic:\\n    ReturnType solution(ParamType params) {\\n        // Your code here\\n    }\\n};",
     "typescript": "function solution(params: ParamType): ReturnType {\\n    // Your code here\\n}"
   },
+  "solution": "Here is an example solution. You can provide Python code or a conceptual explanation.",
   "avgTime": 30
 }
 
@@ -1064,7 +1057,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
 
     try {
       let response;
-      
+
       if (apiKeyConfig.provider === 'gemini') {
         response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyConfig.geminiKey}`,
@@ -1120,7 +1113,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
       }
 
       const data = await response.json();
-      
+
       // Extract text based on provider
       let generatedText;
       if (apiKeyConfig.provider === 'gemini') {
@@ -1159,6 +1152,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
           cpp: parsed.starterCode?.cpp || 'class Solution {\n};',
           typescript: parsed.starterCode?.typescript || 'function solution(): void {\n}',
         },
+        solution: parsed.solution || '',
         avgTime: parsed.avgTime || 30,
         status: 'draft',
       });
@@ -1206,11 +1200,10 @@ Return ONLY the JSON object, no additional text or markdown.`;
               <span className="text-sm text-gray-600 mr-2">Create with:</span>
               <button
                 onClick={() => setEntryMode('manual')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                  entryMode === 'manual'
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${entryMode === 'manual'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1219,14 +1212,13 @@ Return ONLY the JSON object, no additional text or markdown.`;
               </button>
               <button
                 onClick={() => setEntryMode('ai')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                  entryMode === 'ai'
-                    ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${entryMode === 'ai'
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                  }`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                 </svg>
                 AI Generate
               </button>
@@ -1242,7 +1234,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
               <div className="text-center mb-6">
                 <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4">
                   <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">Generate with Gemini AI</h3>
@@ -1302,11 +1294,10 @@ Return ONLY the JSON object, no additional text or markdown.`;
                           setAiCompanies([...aiCompanies, company.id]);
                         }
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                        aiCompanies.includes(company.id)
-                          ? 'bg-purple-500 text-white border-purple-500'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-purple-500'
-                      }`}
+                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${aiCompanies.includes(company.id)
+                        ? 'bg-purple-500 text-white border-purple-500'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-purple-500'
+                        }`}
                     >
                       {company.name}
                     </button>
@@ -1368,17 +1359,16 @@ Return ONLY the JSON object, no additional text or markdown.`;
           <>
             <div className="px-6 border-b border-gray-200">
               <div className="flex gap-4">
-                {(['details', 'testcases', 'code'] as const).map(tab => (
+                {(['details', 'testcases', 'code', 'solution'] as const).map(tab => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
-                      activeTab === tab
-                        ? 'border-orange-500 text-orange-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
+                    onClick={() => setActiveTab(tab as any)}
+                    className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === tab
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      }`}
                   >
-                    {tab === 'details' ? 'Question Details' : tab === 'testcases' ? 'Test Cases' : 'Starter Code'}
+                    {tab === 'details' ? 'Question Details' : tab === 'testcases' ? 'Test Cases' : tab === 'solution' ? 'Solution' : 'Starter Code'}
                   </button>
                 ))}
               </div>
@@ -1412,421 +1402,437 @@ Return ONLY the JSON object, no additional text or markdown.`;
                     />
                   </div>
 
-              {/* Row: Difficulty, Topic, Avg Time */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty *</label>
-                  <select
-                    value={formData.difficulty || 'Easy'}
-                    onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as DifficultyLevel })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Topic *</label>
-                  <select
-                    value={formData.topic || 'Arrays'}
-                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  >
-                    {topics.map(topic => (
-                      <option key={topic} value={topic}>{topic}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Avg Time (mins)</label>
-                  <input
-                    type="number"
-                    value={formData.avgTime || 30}
-                    onChange={(e) => setFormData({ ...formData, avgTime: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-              </div>
-
-              {/* Companies */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Companies Asked In</label>
-                <div className="flex flex-wrap gap-2">
-                  {companies.map(company => (
-                    <button
-                      key={company.id}
-                      onClick={() => {
-                        const current = formData.companies || [];
-                        if (current.includes(company.id)) {
-                          setFormData({ ...formData, companies: current.filter(c => c !== company.id) });
-                        } else {
-                          setFormData({ ...formData, companies: [...current, company.id] });
-                        }
-                      }}
-                      className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                        (formData.companies || []).includes(company.id)
-                          ? 'bg-orange-500 text-white border-orange-500'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-orange-500'
-                      }`}
-                    >
-                      {company.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Input/Output Format */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Input Format</label>
-                  <textarea
-                    value={formData.inputFormat || ''}
-                    onChange={(e) => setFormData({ ...formData, inputFormat: e.target.value })}
-                    rows={2}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="Describe input format..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Output Format</label>
-                  <textarea
-                    value={formData.outputFormat || ''}
-                    onChange={(e) => setFormData({ ...formData, outputFormat: e.target.value })}
-                    rows={2}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="Describe output format..."
-                  />
-                </div>
-              </div>
-
-              {/* Constraints */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Constraints</label>
-                {(formData.constraints || ['']).map((constraint, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={constraint}
-                      onChange={(e) => {
-                        const newConstraints = [...(formData.constraints || [''])];
-                        newConstraints[idx] = e.target.value;
-                        setFormData({ ...formData, constraints: newConstraints });
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      placeholder="e.g., 1 <= nums.length <= 10^4"
-                    />
-                    <button
-                      onClick={() => {
-                        const newConstraints = (formData.constraints || ['']).filter((_, i) => i !== idx);
-                        setFormData({ ...formData, constraints: newConstraints.length ? newConstraints : [''] });
-                      }}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setFormData({ ...formData, constraints: [...(formData.constraints || []), ''] })}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  + Add Constraint
-                </button>
-              </div>
-
-              {/* Examples */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Examples</label>
-                {(formData.examples || [{ input: '', output: '', explanation: '' }]).map((example, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-4 mb-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium text-gray-700">Example {idx + 1}</span>
-                      <button
-                        onClick={() => {
-                          const newExamples = (formData.examples || []).filter((_, i) => i !== idx);
-                          setFormData({ ...formData, examples: newExamples.length ? newExamples : [{ input: '', output: '', explanation: '' }] });
-                        }}
-                        className="text-red-500 hover:text-red-700"
+                  {/* Row: Difficulty, Topic, Avg Time */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty *</label>
+                      <select
+                        value={formData.difficulty || 'Easy'}
+                        onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as DifficultyLevel })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
                       >
-                        Remove
-                      </button>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                      </select>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500">Input</label>
-                        <textarea
-                          value={example.input}
-                          onChange={(e) => {
-                            const newExamples = [...(formData.examples || [])];
-                            newExamples[idx] = { ...newExamples[idx], input: e.target.value };
-                            setFormData({ ...formData, examples: newExamples });
-                          }}
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Output</label>
-                        <textarea
-                          value={example.output}
-                          onChange={(e) => {
-                            const newExamples = [...(formData.examples || [])];
-                            newExamples[idx] = { ...newExamples[idx], output: e.target.value };
-                            setFormData({ ...formData, examples: newExamples });
-                          }}
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Topic *</label>
+                      <select
+                        value={formData.topic || 'Arrays'}
+                        onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      >
+                        {topics.map(topic => (
+                          <option key={topic} value={topic}>{topic}</option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="mt-2">
-                      <label className="text-xs text-gray-500">Explanation</label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Avg Time (mins)</label>
                       <input
-                        type="text"
-                        value={example.explanation}
-                        onChange={(e) => {
-                          const newExamples = [...(formData.examples || [])];
-                          newExamples[idx] = { ...newExamples[idx], explanation: e.target.value };
-                          setFormData({ ...formData, examples: newExamples });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                        type="number"
+                        value={formData.avgTime || 30}
+                        onChange={(e) => setFormData({ ...formData, avgTime: parseInt(e.target.value) })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
-                ))}
-                <button
-                  onClick={() => setFormData({ ...formData, examples: [...(formData.examples || []), { input: '', output: '', explanation: '' }] })}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  + Add Example
-                </button>
-              </div>
 
-              {/* Hints */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hints</label>
-                {(formData.hints || ['']).map((hint, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={hint}
-                      onChange={(e) => {
-                        const newHints = [...(formData.hints || [''])];
-                        newHints[idx] = e.target.value;
-                        setFormData({ ...formData, hints: newHints });
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
-                      placeholder="Add a hint..."
-                    />
-                    <button
-                      onClick={() => {
-                        const newHints = (formData.hints || ['']).filter((_, i) => i !== idx);
-                        setFormData({ ...formData, hints: newHints.length ? newHints : [''] });
-                      }}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setFormData({ ...formData, hints: [...(formData.hints || []), ''] })}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  + Add Hint
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'testcases' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">Test Cases</h3>
-                <button
-                  onClick={() => {
-                    const newTestCase: TestCase = {
-                      id: Date.now().toString(),
-                      input: '',
-                      expectedOutput: '',
-                      isHidden: false,
-                    };
-                    setFormData({ ...formData, testCases: [...(formData.testCases || []), newTestCase] });
-                  }}
-                  className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600"
-                >
-                  + Add Test Case
-                </button>
-              </div>
-
-              {(formData.testCases || []).map((testCase, idx) => (
-                <div key={testCase.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-gray-700">Test Case {idx + 1}</span>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={testCase.isHidden}
-                          onChange={(e) => {
-                            const newTestCases = [...(formData.testCases || [])];
-                            newTestCases[idx] = { ...newTestCases[idx], isHidden: e.target.checked };
-                            setFormData({ ...formData, testCases: newTestCases });
+                  {/* Companies */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Companies Asked In</label>
+                    <div className="flex flex-wrap gap-2">
+                      {companies.map(company => (
+                        <button
+                          key={company.id}
+                          onClick={() => {
+                            const current = formData.companies || [];
+                            if (current.includes(company.id)) {
+                              setFormData({ ...formData, companies: current.filter(c => c !== company.id) });
+                            } else {
+                              setFormData({ ...formData, companies: [...current, company.id] });
+                            }
                           }}
-                          className="rounded text-orange-500 focus:ring-orange-500"
-                        />
-                        <span className="text-gray-600">Hidden</span>
-                      </label>
+                          className={`px-3 py-1 text-sm rounded-full border transition-colors ${(formData.companies || []).includes(company.id)
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-orange-500'
+                            }`}
+                        >
+                          {company.name}
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      onClick={() => {
-                        const newTestCases = (formData.testCases || []).filter((_, i) => i !== idx);
-                        setFormData({ ...formData, testCases: newTestCases });
-                      }}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      Remove
-                    </button>
                   </div>
+
+                  {/* Input/Output Format */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Input</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Input Format</label>
                       <textarea
-                        value={testCase.input}
-                        onChange={(e) => {
-                          const newTestCases = [...(formData.testCases || [])];
-                          newTestCases[idx] = { ...newTestCases[idx], input: e.target.value };
-                          setFormData({ ...formData, testCases: newTestCases });
-                        }}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500"
-                        placeholder="Enter input..."
+                        value={formData.inputFormat || ''}
+                        onChange={(e) => setFormData({ ...formData, inputFormat: e.target.value })}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        placeholder="Describe input format..."
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Expected Output</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Output Format</label>
                       <textarea
-                        value={testCase.expectedOutput}
-                        onChange={(e) => {
-                          const newTestCases = [...(formData.testCases || [])];
-                          newTestCases[idx] = { ...newTestCases[idx], expectedOutput: e.target.value };
-                          setFormData({ ...formData, testCases: newTestCases });
-                        }}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500"
-                        placeholder="Expected output..."
+                        value={formData.outputFormat || ''}
+                        onChange={(e) => setFormData({ ...formData, outputFormat: e.target.value })}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        placeholder="Describe output format..."
                       />
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <label className="text-xs text-gray-500 mb-1 block">Explanation (optional)</label>
-                    <input
-                      type="text"
-                      value={testCase.explanation || ''}
-                      onChange={(e) => {
-                        const newTestCases = [...(formData.testCases || [])];
-                        newTestCases[idx] = { ...newTestCases[idx], explanation: e.target.value };
-                        setFormData({ ...formData, testCases: newTestCases });
-                      }}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                      placeholder="Explain this test case..."
-                    />
+
+                  {/* Constraints */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Constraints</label>
+                    {(formData.constraints || ['']).map((constraint, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={constraint}
+                          onChange={(e) => {
+                            const newConstraints = [...(formData.constraints || [''])];
+                            newConstraints[idx] = e.target.value;
+                            setFormData({ ...formData, constraints: newConstraints });
+                          }}
+                          className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
+                          placeholder="e.g., 1 <= nums.length <= 10^4"
+                        />
+                        <button
+                          onClick={() => {
+                            const newConstraints = (formData.constraints || ['']).filter((_, i) => i !== idx);
+                            setFormData({ ...formData, constraints: newConstraints.length ? newConstraints : [''] });
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setFormData({ ...formData, constraints: [...(formData.constraints || []), ''] })}
+                      className="text-sm text-orange-600 hover:text-orange-700"
+                    >
+                      + Add Constraint
+                    </button>
+                  </div>
+
+                  {/* Examples */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Examples</label>
+                    {(formData.examples || [{ input: '', output: '', explanation: '' }]).map((example, idx) => (
+                      <div key={idx} className="border border-gray-200 rounded-lg p-4 mb-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium text-gray-700">Example {idx + 1}</span>
+                          <button
+                            onClick={() => {
+                              const newExamples = (formData.examples || []).filter((_, i) => i !== idx);
+                              setFormData({ ...formData, examples: newExamples.length ? newExamples : [{ input: '', output: '', explanation: '' }] });
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500">Input</label>
+                            <textarea
+                              value={example.input}
+                              onChange={(e) => {
+                                const newExamples = [...(formData.examples || [])];
+                                newExamples[idx] = { ...newExamples[idx], input: e.target.value };
+                                setFormData({ ...formData, examples: newExamples });
+                              }}
+                              rows={2}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Output</label>
+                            <textarea
+                              value={example.output}
+                              onChange={(e) => {
+                                const newExamples = [...(formData.examples || [])];
+                                newExamples[idx] = { ...newExamples[idx], output: e.target.value };
+                                setFormData({ ...formData, examples: newExamples });
+                              }}
+                              rows={2}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <label className="text-xs text-gray-500">Explanation</label>
+                          <input
+                            type="text"
+                            value={example.explanation}
+                            onChange={(e) => {
+                              const newExamples = [...(formData.examples || [])];
+                              newExamples[idx] = { ...newExamples[idx], explanation: e.target.value };
+                              setFormData({ ...formData, examples: newExamples });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setFormData({ ...formData, examples: [...(formData.examples || []), { input: '', output: '', explanation: '' }] })}
+                      className="text-sm text-orange-600 hover:text-orange-700"
+                    >
+                      + Add Example
+                    </button>
+                  </div>
+
+                  {/* Hints */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hints</label>
+                    {(formData.hints || ['']).map((hint, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={hint}
+                          onChange={(e) => {
+                            const newHints = [...(formData.hints || [''])];
+                            newHints[idx] = e.target.value;
+                            setFormData({ ...formData, hints: newHints });
+                          }}
+                          className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500"
+                          placeholder="Add a hint..."
+                        />
+                        <button
+                          onClick={() => {
+                            const newHints = (formData.hints || ['']).filter((_, i) => i !== idx);
+                            setFormData({ ...formData, hints: newHints.length ? newHints : [''] });
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setFormData({ ...formData, hints: [...(formData.hints || []), ''] })}
+                      className="text-sm text-orange-600 hover:text-orange-700"
+                    >
+                      + Add Hint
+                    </button>
                   </div>
                 </div>
-              ))}
+              )}
 
-              {(formData.testCases || []).length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No test cases added yet. Click "Add Test Case" to create one.
+              {activeTab === 'testcases' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">Test Cases</h3>
+                    <button
+                      onClick={() => {
+                        const newTestCase: TestCase = {
+                          id: Date.now().toString(),
+                          input: '',
+                          expectedOutput: '',
+                          isHidden: false,
+                        };
+                        setFormData({ ...formData, testCases: [...(formData.testCases || []), newTestCase] });
+                      }}
+                      className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600"
+                    >
+                      + Add Test Case
+                    </button>
+                  </div>
+
+                  {(formData.testCases || []).map((testCase, idx) => (
+                    <div key={testCase.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-gray-700">Test Case {idx + 1}</span>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={testCase.isHidden}
+                              onChange={(e) => {
+                                const newTestCases = [...(formData.testCases || [])];
+                                newTestCases[idx] = { ...newTestCases[idx], isHidden: e.target.checked };
+                                setFormData({ ...formData, testCases: newTestCases });
+                              }}
+                              className="rounded text-orange-500 focus:ring-orange-500"
+                            />
+                            <span className="text-gray-600">Hidden</span>
+                          </label>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newTestCases = (formData.testCases || []).filter((_, i) => i !== idx);
+                            setFormData({ ...formData, testCases: newTestCases });
+                          }}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Input</label>
+                          <textarea
+                            value={testCase.input}
+                            onChange={(e) => {
+                              const newTestCases = [...(formData.testCases || [])];
+                              newTestCases[idx] = { ...newTestCases[idx], input: e.target.value };
+                              setFormData({ ...formData, testCases: newTestCases });
+                            }}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500"
+                            placeholder="Enter input..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Expected Output</label>
+                          <textarea
+                            value={testCase.expectedOutput}
+                            onChange={(e) => {
+                              const newTestCases = [...(formData.testCases || [])];
+                              newTestCases[idx] = { ...newTestCases[idx], expectedOutput: e.target.value };
+                              setFormData({ ...formData, testCases: newTestCases });
+                            }}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500"
+                            placeholder="Expected output..."
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-xs text-gray-500 mb-1 block">Explanation (optional)</label>
+                        <input
+                          type="text"
+                          value={testCase.explanation || ''}
+                          onChange={(e) => {
+                            const newTestCases = [...(formData.testCases || [])];
+                            newTestCases[idx] = { ...newTestCases[idx], explanation: e.target.value };
+                            setFormData({ ...formData, testCases: newTestCases });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                          placeholder="Explain this test case..."
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {(formData.testCases || []).length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No test cases added yet. Click "Add Test Case" to create one.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'code' && (
+                <div className="space-y-6">
+                  <h3 className="font-medium text-gray-900">Starter Code Templates</h3>
+
+                  {(['python', 'javascript', 'java', 'cpp', 'typescript'] as const).map(lang => (
+                    <div key={lang} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                        <span className="font-medium text-gray-700 capitalize">{lang === 'cpp' ? 'C++' : lang}</span>
+                      </div>
+                      <textarea
+                        value={formData.starterCode?.[lang] || ''}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            starterCode: {
+                              ...formData.starterCode!,
+                              [lang]: e.target.value,
+                            },
+                          });
+                        }}
+                        rows={8}
+                        className="w-full px-4 py-3 font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                        placeholder={`Enter ${lang} starter code...`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'solution' as any && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                    <h3 className="font-medium text-gray-900">Reference Solution</h3>
+                    <p className="text-xs text-gray-500">Provide the optimal solution or algorithmic explanation.</p>
+                  </div>
+                  <textarea
+                    value={formData.solution || ''}
+                    onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
+                    rows={15}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                    placeholder="Provide the complete reference solution or thorough explanation here..."
+                  />
                 </div>
               )}
             </div>
-          )}
 
-          {activeTab === 'code' && (
-            <div className="space-y-6">
-              <h3 className="font-medium text-gray-900">Starter Code Templates</h3>
-              
-              {(['python', 'javascript', 'java', 'cpp', 'typescript'] as const).map(lang => (
-                <div key={lang} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-                    <span className="font-medium text-gray-700 capitalize">{lang === 'cpp' ? 'C++' : lang}</span>
-                  </div>
-                  <textarea
-                    value={formData.starterCode?.[lang] || ''}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        starterCode: {
-                          ...formData.starterCode!,
-                          [lang]: e.target.value,
-                        },
-                      });
-                    }}
-                    rows={8}
-                    className="w-full px-4 py-3 font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                    placeholder={`Enter ${lang} starter code...`}
-                  />
+            {/* Footer - Only show for manual mode */}
+            {(entryMode === 'manual' || question) && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div>
+                  <label className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Status:</span>
+                    <select
+                      value={formData.status || 'draft'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' | 'archived' })}
+                      className="px-3 py-1 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </label>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                  >
+                    {question ? 'Update Question' : 'Create Question'}
+                  </button>
+                </div>
+              </div>
+            )}
 
-        {/* Footer - Only show for manual mode */}
-        {(entryMode === 'manual' || question) && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div>
-              <label className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Status:</span>
-                <select
-                  value={formData.status || 'draft'}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' | 'archived' })}
-                  className="px-3 py-1 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+            {/* Footer for AI mode - just cancel button */}
+            {entryMode === 'ai' && !question && (
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-              >
-                {question ? 'Update Question' : 'Create Question'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Footer for AI mode - just cancel button */}
-        {entryMode === 'ai' && !question && (
-          <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+                  Cancel
+                </button>
+              </div>
+            )}
           </>
-        )}
-      </div>
-    </div>
+        )
+        }
+      </div >
+    </div >
   );
 };
 
@@ -1912,7 +1918,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
 
     try {
       let response;
-      
+
       if (apiKeyConfig.provider === 'gemini') {
         // Gemini API call
         response = await fetch(
@@ -1972,7 +1978,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
       }
 
       const data = await response.json();
-      
+
       // Extract text based on provider
       let generatedText;
       if (apiKeyConfig.provider === 'gemini') {
@@ -1993,7 +1999,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
         .trim();
 
       const parsed = JSON.parse(cleanedJson);
-      
+
       const question: CodingQuestion = {
         id: Date.now().toString(),
         title: parsed.title || 'Untitled Question',
@@ -2042,7 +2048,7 @@ Return ONLY the JSON object, no additional text or markdown.`;
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
               </svg>
             </div>
             <div>
@@ -2161,11 +2167,10 @@ Return ONLY the JSON object, no additional text or markdown.`;
                   <div>
                     <h4 className="text-xl font-bold text-gray-900">{generatedQuestion.title}</h4>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        generatedQuestion.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${generatedQuestion.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
                         generatedQuestion.difficulty === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                          'bg-red-100 text-red-700'
+                        }`}>
                         {generatedQuestion.difficulty}
                       </span>
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
@@ -2347,16 +2352,15 @@ const ApiKeySettingsModal: React.FC<ApiKeySettingsModalProps> = ({ config, onClo
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setProvider('gemini')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  provider === 'gemini'
-                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`p-4 rounded-xl border-2 transition-all ${provider === 'gemini'
+                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
               >
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                     <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                     </svg>
                   </div>
                   <span className={`font-semibold ${provider === 'gemini' ? 'text-blue-700' : 'text-gray-700'}`}>
@@ -2368,11 +2372,10 @@ const ApiKeySettingsModal: React.FC<ApiKeySettingsModalProps> = ({ config, onClo
 
               <button
                 onClick={() => setProvider('groq')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  provider === 'groq'
-                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`p-4 rounded-xl border-2 transition-all ${provider === 'groq'
+                  ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
               >
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
@@ -2406,9 +2409,8 @@ const ApiKeySettingsModal: React.FC<ApiKeySettingsModalProps> = ({ config, onClo
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  provider === 'gemini' ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${provider === 'gemini' ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200'
+                  }`}
               />
               <button
                 type="button"
@@ -2448,9 +2450,8 @@ const ApiKeySettingsModal: React.FC<ApiKeySettingsModalProps> = ({ config, onClo
                 value={groqKey}
                 onChange={(e) => setGroqKey(e.target.value)}
                 placeholder="gsk_..."
-                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${
-                  provider === 'groq' ? 'border-orange-300 bg-orange-50/30' : 'border-gray-200'
-                }`}
+                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${provider === 'groq' ? 'border-orange-300 bg-orange-50/30' : 'border-gray-200'
+                  }`}
               />
               <button
                 type="button"
@@ -2555,19 +2556,17 @@ const ViewQuestionModal: React.FC<ViewQuestionModalProps> = ({ question, onClose
           <div>
             <h2 className="text-xl font-bold text-gray-900">{question.title}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
+              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${question.difficulty === 'Easy' ? 'bg-green-100 text-green-700' :
                 question.difficulty === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                'bg-red-100 text-red-700'
-              }`}>
+                  'bg-red-100 text-red-700'
+                }`}>
                 {question.difficulty}
               </span>
               <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">{question.topic}</span>
-              <span className={`px-2 py-0.5 text-xs rounded-full ${
-                question.status === 'published' ? 'bg-green-100 text-green-700' :
+              <span className={`px-2 py-0.5 text-xs rounded-full ${question.status === 'published' ? 'bg-green-100 text-green-700' :
                 question.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-gray-100 text-gray-700'
-              }`}>
+                  'bg-gray-100 text-gray-700'
+                }`}>
                 {question.status}
               </span>
             </div>
@@ -2593,11 +2592,10 @@ const ViewQuestionModal: React.FC<ViewQuestionModalProps> = ({ question, onClose
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${activeTab === tab
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 {tab === 'description' ? 'Description' : tab === 'testcases' ? 'Test Cases' : 'Starter Code'}
               </button>

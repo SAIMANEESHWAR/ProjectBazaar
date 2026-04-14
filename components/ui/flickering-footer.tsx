@@ -1,8 +1,9 @@
-import { ChevronRightIcon } from "@radix-ui/react-icons";
 import { ClassValue, clsx } from "clsx";
+import { CTAArrowIcon } from "../CTAArrowIcon";
 import * as Color from "color-bits";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import { useNavigation } from "../../App";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -356,12 +357,12 @@ export const siteConfig = {
       ],
     },
     {
-      title: "Resources",
+      title: "Legal",
       links: [
-        { id: 9, title: "FAQs", url: "#" },
-        { id: 10, title: "Careers", url: "#" },
-        { id: 11, title: "Newsletters", url: "#" },
-        { id: 12, title: "More", url: "#" },
+        { id: 9, title: "Privacy Policy", url: "/privacy" },
+        { id: 10, title: "Terms of Service", url: "/terms" },
+        { id: 11, title: "FAQs", url: "/faq" },
+        { id: 12, title: "Cookie Settings", url: "#cookie-settings" },
       ],
     },
   ],
@@ -377,28 +378,19 @@ function scrollToId(id: string) {
 
 export const FlickeringFooter: React.FC = () => {
   const tablet = useMediaQuery("(max-width: 1024px)");
+  const { navigateTo } = useNavigation();
 
   return (
-    <footer id="footer" className="w-full pb-0 bg-[#0a0a0a]">
+    <footer id="footer" className="w-full pb-0 bg-gray-100 dark:bg-[#0a0a0a] transition-colors duration-300">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between p-10">
         <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
           <a href="#" className="flex items-center gap-2 group" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
             <Icons.logo className="size-8 [&_path]:fill-[#ff7a00]" />
-            <p className="text-xl font-semibold text-white group-hover:text-[#ff7a00] transition-colors">ProjectBazaar</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-[#ff7a00] transition-colors">ProjectBazaar</p>
           </a>
-          <p className="tracking-tight text-white/70 font-medium">
+          <p className="tracking-tight text-gray-600 dark:text-white/70 font-medium">
             {siteConfig.hero.description}
           </p>
-          <div className="flex items-center gap-2 dark:hidden">
-            <Icons.soc2 className="size-12" />
-            <Icons.hipaa className="size-12" />
-            <Icons.gdpr className="size-12" />
-          </div>
-          <div className="dark:flex items-center gap-2 hidden">
-            <Icons.soc2Dark className="size-12" />
-            <Icons.hipaaDark className="size-12" />
-            <Icons.gdprDark className="size-12" />
-          </div>
         </div>
         <div className="pt-5 md:w-1/2">
           <div className="flex flex-col items-start justify-start md:flex-row md:items-center md:justify-between gap-y-5 lg:pl-10">
@@ -408,13 +400,22 @@ export const FlickeringFooter: React.FC = () => {
                 {column.links.map((link) => (
                   <li
                     key={link.id}
-                    className="group inline-flex cursor-pointer items-center justify-start gap-1 text-[15px]/snug text-white/80 hover:text-white transition-colors"
+                    className="group inline-flex cursor-pointer items-center justify-start gap-1 text-[15px]/snug text-gray-700 dark:text-white/80 hover:text-gray-900 dark:hover:text-white transition-colors"
                   >
                     <a
                       href={link.url}
                       onClick={(e) => {
-                        if (link.url.startsWith("#")) {
-                          e.preventDefault();
+                        e.preventDefault();
+                        if (link.url === '#cookie-settings') {
+                          localStorage.removeItem('cookieConsent');
+                          window.location.reload();
+                        } else if (link.url === '/privacy') {
+                          navigateTo('privacy');
+                        } else if (link.url === '/terms') {
+                          navigateTo('terms');
+                        } else if (link.url === '/faq') {
+                          navigateTo('faq');
+                        } else if (link.url.startsWith("#")) {
                           scrollToId(link.url);
                         }
                       }}
@@ -422,8 +423,8 @@ export const FlickeringFooter: React.FC = () => {
                     >
                       {link.title}
                     </a>
-                    <div className="flex size-4 items-center justify-center border border-white/30 rounded translate-x-0 transform opacity-0 transition-all duration-300 ease-out group-hover:translate-x-1 group-hover:opacity-100 group-hover:border-[#ff7a00]">
-                      <ChevronRightIcon className="h-4 w-4 text-[#ff7a00]" />
+                    <div className="flex size-4 items-center justify-center border border-gray-400 dark:border-white/30 rounded translate-x-0 transform opacity-0 transition-all duration-300 ease-out group-hover:translate-x-1 group-hover:opacity-100 group-hover:border-[#ff7a00]">
+                      <CTAArrowIcon className="h-4 w-4 object-contain" />
                     </div>
                   </li>
                 ))}
@@ -433,7 +434,7 @@ export const FlickeringFooter: React.FC = () => {
         </div>
       </div>
       <div className="w-full h-48 md:h-64 relative mt-24 z-0">
-        <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-[#0a0a0a]" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-gray-100 dark:to-[#0a0a0a]" />
         <div className="absolute inset-0 mx-6">
           <FlickeringGrid
             text={tablet ? "Footer" : "Discover. Build. Earn."}

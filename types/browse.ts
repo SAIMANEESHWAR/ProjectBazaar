@@ -3,6 +3,7 @@ export interface Freelancer {
   profileImage: string;
   name: string;
   username: string;
+  email?: string;
   isVerified: boolean;
   rating: number;
   reviewsCount: number;

@@ -233,6 +233,188 @@ def toggle_bookmark(user_id, question_id):
 
 
 # ========================================
+# TOGGLE LIKE
+# ========================================
+def toggle_like(user_id, question_id):
+    """
+    Toggle like status for a question. 
+    Also removes dislike if it exists.
+    """
+    if not user_id or not question_id:
+        return response(400, {
+            "success": False,
+            "error": {"code": "VALIDATION_ERROR", "message": "User ID and Question ID are required"}
+        })
+    
+    try:
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        
+        # Get current status
+        result = progress_table.get_item(
+            Key={"userId": user_id, "questionId": question_id}
+        )
+        
+        current_liked = False
+        if 'Item' in result:
+            current_liked = result['Item'].get('isLiked', False)
+        
+        new_liked = not current_liked
+        
+        # Update like status, and ensure dislike is false if we are liking
+        update_expr = "SET isLiked = :liked, updatedAt = :updatedAt"
+        expr_values = {
+            ':liked': new_liked,
+            ':updatedAt': timestamp
+        }
+        
+        if new_liked:
+            update_expr += ", isDisliked = :disliked"
+            expr_values[':disliked'] = False
+            
+        progress_table.update_item(
+            Key={"userId": user_id, "questionId": question_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_values
+        )
+        
+        # We also need to update the actual question's like/dislike counts
+        # This is a bit complex since it's in another table, but we'll try our best
+        try:
+            questions_table = dynamodb.Table('CodingQuestions')
+            
+            # If we liked, increment likes. If we unliked, decrement likes.
+            if new_liked:
+                questions_table.update_item(
+                    Key={"questionId": question_id},
+                    UpdateExpression="SET likes = if_not_exists(likes, :zero) + :one",
+                    ExpressionAttributeValues={":zero": 0, ":one": 1}
+                )
+                # If they previously disliked it, we should decrement dislikes
+                # We assume they did if 'isDisliked' was true, but we don't have that info easily.
+                # Let's simplify and just let the frontend handle the exact counts, or do it securely here.
+                if 'Item' in result and result['Item'].get('isDisliked', False):
+                    questions_table.update_item(
+                        Key={"questionId": question_id},
+                        UpdateExpression="SET dislikes = if_not_exists(dislikes, :zero) - :one",
+                        ExpressionAttributeValues={":zero": 0, ":one": 1}
+                    )
+            else:
+                questions_table.update_item(
+                    Key={"questionId": question_id},
+                    UpdateExpression="SET likes = if_not_exists(likes, :start) - :one",
+                    ExpressionAttributeValues={":start": 1, ":one": 1}
+                )
+        except Exception as e:
+            print(f"Error updating question counts: {str(e)}")
+            # Non-fatal, return success anyway
+        
+        return response(200, {
+            "success": True,
+            "message": f"Like {'added' if new_liked else 'removed'}",
+            "data": {
+                "isLiked": new_liked,
+                "isDisliked": False if new_liked else result.get('Item', {}).get('isDisliked', False),
+                "questionId": question_id
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error toggling like: {str(e)}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "INTERNAL_ERROR", "message": "Failed to toggle like"}
+        })
+
+
+# ========================================
+# TOGGLE DISLIKE
+# ========================================
+def toggle_dislike(user_id, question_id):
+    """
+    Toggle dislike status for a question.
+    Also removes like if it exists.
+    """
+    if not user_id or not question_id:
+        return response(400, {
+            "success": False,
+            "error": {"code": "VALIDATION_ERROR", "message": "User ID and Question ID are required"}
+        })
+    
+    try:
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        
+        # Get current status
+        result = progress_table.get_item(
+            Key={"userId": user_id, "questionId": question_id}
+        )
+        
+        current_disliked = False
+        if 'Item' in result:
+            current_disliked = result['Item'].get('isDisliked', False)
+        
+        new_disliked = not current_disliked
+        
+        # Update dislike status, and ensure like is false if we are disliking
+        update_expr = "SET isDisliked = :disliked, updatedAt = :updatedAt"
+        expr_values = {
+            ':disliked': new_disliked,
+            ':updatedAt': timestamp
+        }
+        
+        if new_disliked:
+            update_expr += ", isLiked = :liked"
+            expr_values[':liked'] = False
+            
+        progress_table.update_item(
+            Key={"userId": user_id, "questionId": question_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_values
+        )
+        
+        # Update counts
+        try:
+            questions_table = dynamodb.Table('CodingQuestions')
+            
+            if new_disliked:
+                questions_table.update_item(
+                    Key={"questionId": question_id},
+                    UpdateExpression="SET dislikes = if_not_exists(dislikes, :zero) + :one",
+                    ExpressionAttributeValues={":zero": 0, ":one": 1}
+                )
+                if 'Item' in result and result['Item'].get('isLiked', False):
+                    questions_table.update_item(
+                        Key={"questionId": question_id},
+                        UpdateExpression="SET likes = if_not_exists(likes, :start) - :one",
+                        ExpressionAttributeValues={":start": 1, ":one": 1}
+                    )
+            else:
+                questions_table.update_item(
+                    Key={"questionId": question_id},
+                    UpdateExpression="SET dislikes = if_not_exists(dislikes, :start) - :one",
+                    ExpressionAttributeValues={":start": 1, ":one": 1}
+                )
+        except Exception as e:
+            print(f"Error updating question counts: {str(e)}")
+        
+        return response(200, {
+            "success": True,
+            "message": f"Dislike {'added' if new_disliked else 'removed'}",
+            "data": {
+                "isDisliked": new_disliked,
+                "isLiked": False if new_disliked else result.get('Item', {}).get('isLiked', False),
+                "questionId": question_id
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error toggling dislike: {str(e)}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "INTERNAL_ERROR", "message": "Failed to toggle dislike"}
+        })
+
+
+# ========================================
 # RECORD SUBMISSION
 # ========================================
 def record_submission(user_id, question_id, submission_data):
@@ -532,6 +714,14 @@ def lambda_handler(event, context):
         # Toggle bookmark
         if action == 'toggle_bookmark':
             return toggle_bookmark(user_id, question_id)
+            
+        # Toggle like
+        if action == 'toggle_like':
+            return toggle_like(user_id, question_id)
+            
+        # Toggle dislike
+        if action == 'toggle_dislike':
+            return toggle_dislike(user_id, question_id)
         
         # Record submission
         if action == 'submit':
@@ -630,12 +820,14 @@ AWS SETUP INSTRUCTIONS
 DATA SCHEMA
 ========================================
 
-UserQuestionProgress:
+ UserQuestionProgress:
 {
     "userId": "user123",           // Partition Key
     "questionId": "q1",            // Sort Key
     "status": "solved",            // unsolved, attempted, solved
     "isBookmarked": true,
+    "isLiked": true,               // New field
+    "isDisliked": false,           // New field
     "attempts": 5,
     "lastAttemptAt": "2025-01-20T10:30:00Z",
     "solvedAt": "2025-01-20T10:35:00Z",

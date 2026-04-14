@@ -132,11 +132,13 @@ export const getBidsByProjectIdAsync = async (projectId: string): Promise<Bid[]>
       return response.data.bids;
     }
     
-    // Fallback to localStorage
-    return getBidsByProjectId(projectId);
+    // API returned error - throw to allow caller to handle
+    const errorMessage = response.error?.message || 'Failed to fetch bids';
+    console.error('API error:', response.error);
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error fetching bids by project:', error);
-    return getBidsByProjectId(projectId);
+    throw error instanceof Error ? error : new Error('Network error occurred');
   }
 };
 
@@ -163,9 +165,11 @@ export const getBidsByFreelancerIdAsync = async (freelancerId: string): Promise<
       return response.data.bids;
     }
     
+    // If the API fails (e.g. missing DynamoDB GSI), fall back to localStorage
+    console.warn('API error fetching freelancer bids, falling back to localStorage:', response.error);
     return getBidsByFreelancerId(freelancerId);
   } catch (error) {
-    console.error('Error fetching bids by freelancer:', error);
+    console.warn('Error fetching bids by freelancer, falling back to localStorage:', error);
     return getBidsByFreelancerId(freelancerId);
   }
 };
@@ -377,9 +381,10 @@ export const hasFreelancerBidOnProjectAsync = async (
       return response.data.hasBid;
     }
 
+    console.warn('API error checking existing bid, falling back to localStorage:', response.error);
     return hasFreelancerBidOnProject(freelancerId, projectId);
   } catch (error) {
-    console.error('Error checking existing bid:', error);
+    console.warn('Error checking existing bid, falling back to localStorage:', error);
     return hasFreelancerBidOnProject(freelancerId, projectId);
   }
 };
@@ -406,13 +411,14 @@ export const getFreelancerBidOnProjectAsync = async (
   try {
     const response = await apiRequest<CheckBidData>('CHECK_EXISTING_BID', { freelancerId, projectId });
 
-    if (response.success && response.data && response.data.hasBid) {
-      return response.data.bid;
+    if (response.success && response.data) {
+      return response.data.hasBid ? response.data.bid : null;
     }
 
+    console.warn('API error getting freelancer bid, falling back to localStorage:', response.error);
     return getFreelancerBidOnProject(freelancerId, projectId);
   } catch (error) {
-    console.error('Error getting freelancer bid:', error);
+    console.warn('Error getting freelancer bid, falling back to localStorage:', error);
     return getFreelancerBidOnProject(freelancerId, projectId);
   }
 };

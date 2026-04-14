@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import PlacementPrepSection, { PlacementPhase } from './PlacementPrepSection';
 import { useAuth } from '../App';
-import careerGuidanceAnimation from '../lottiefiles/career_guidance_animation.json';
 import guidanceIconAnimation from '../lottiefiles/guidance.json';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import robotLoadingAnimation from '../lottiefiles/Robot Futuristic Ai animated.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 
 // ============================================
 // TYPES & INTERFACES
@@ -564,6 +564,7 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     // State for viewing completed course details
     const [completedCourseDetails, setCompletedCourseDetails] = useState<any>(null);
     const [isLoadingCompletedCourse, setIsLoadingCompletedCourse] = useState(false);
+    const [expandedQuestionIndex, setExpandedQuestionIndex] = useState<number | null>(null);
 
     // Fetch full completed course details from backend
     const fetchCompletedCourseDetails = async () => {
@@ -1447,152 +1448,182 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     // Render based on current step
     if (roadmapStep === 'analysis') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
-                <div className="w-full">
-                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-7xl mx-auto min-h-[500px] transition-all duration-300">
+            <div className="min-h-screen w-full -m-6 -mt-8 -mb-8 pt-6 pb-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-6xl mx-auto">
+                    <div className="w-full transition-all duration-300">
                         {isGeneratingRoadmap ? (
-                            <div className="flex flex-col items-center justify-center min-h-[400px] animate-fadeIn">
-                                <div className="w-64 h-64 sm:w-80 sm:h-80 mb-6">
+                            <div className="flex flex-col items-center justify-center min-h-[600px] animate-fadeIn">
+                                <div className="w-64 h-64 sm:w-80 sm:h-80 mb-8">
                                     <Lottie
                                         animationData={robotLoadingAnimation}
                                         loop
                                         className="w-full h-full"
                                     />
                                 </div>
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 text-center">Crafting Your Roadmap...</h2>
-                                <p className="text-gray-600 text-center max-w-lg mb-8">
+                                <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 text-center">Crafting Your Roadmap...</h2>
+                                <p className="text-gray-600 text-center max-w-lg mb-10 text-lg">
                                     Our AI is analyzing industry trends to build a personalized {selectedWeeks}-week {categories.find(c => c.id === selectedCategory)?.name} learning path just for you.
                                 </p>
-                                <div className="w-64 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="w-72 h-2 bg-gray-100 rounded-full overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 animate-progress w-full origin-left-right"></div>
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                <div className="text-center mb-8">
-                                    <h2 className="text-3xl font-bold text-gray-900 mb-3">Select Your Career Path</h2>
-                                    <p className="text-gray-600">Choose a category and set your learning duration to generate a personalized roadmap</p>
+                            <div className="space-y-8">
+                                {/* Header Section */}
+                                <div className="text-center space-y-2">
+                                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-700">Select Your Career Path</h2>
+                                    <p className="text-sm text-gray-500 max-w-2xl mx-auto">
+                                        Choose a category and set your learning duration to generate a personalized roadmap
+                                    </p>
                                 </div>
 
                                 {roadmapError && (
-                                    <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                                        {roadmapError}
-                                        <button onClick={() => setRoadmapError(null)} className="ml-2 font-bold">×</button>
+                                    <div className="max-w-2xl mx-auto bg-red-50 border-l-4 border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-center justify-between">
+                                        <p className="text-sm font-medium">{roadmapError}</p>
+                                        <button onClick={() => setRoadmapError(null)} className="ml-4 text-red-700 hover:text-red-900 font-bold text-xl">×</button>
                                     </div>
                                 )}
 
-                                <div className="space-y-8">
-                                    {/* Category Selection */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-4">
-                                            Select Category *
-                                            <span className="text-xs font-normal text-gray-500 ml-2">
-                                                ({categories.length} {categories.length === 1 ? 'category' : 'categories'} available from API)
-                                            </span>
+                                {/* Category Selection Section */}
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-base font-semibold text-gray-900">
+                                            Select Category <span className="text-red-500">*</span>
                                         </label>
-                                        {categories.length === 0 ? (
-                                            <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-xl">
-                                                <div className="text-4xl mb-3">📚</div>
-                                                <p className="font-semibold mb-2">No categories available</p>
-                                                <p className="text-sm">Please add categories in admin dashboard.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                                {categories.map((category) => (
-                                                    <button
-                                                        key={category.id}
-                                                        onClick={() => handleCategorySelect(category.id)}
-                                                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${selectedCategory === category.id
-                                                            ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                            : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                                            }`}
-                                                    >
-                                                        <div className="text-3xl mb-2">{category.icon}</div>
-                                                        <div className="text-sm font-semibold text-gray-900">{category.name}</div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <span className="text-xs text-gray-500 font-medium">
+                                            {categories.length} {categories.length === 1 ? 'category' : 'categories'} available
+                                        </span>
                                     </div>
-
-                                    {/* Week Plan Selection */}
-                                    <div className="space-y-4">
-                                        <label className="block text-sm font-semibold text-gray-700">
-                                            Select Program Duration *
-                                            <span className="text-xs font-normal text-gray-500 ml-2">
-                                                (How many weeks of learning do you want?)
-                                            </span>
-                                        </label>
-                                        <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                            {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
+                                    
+                                    {categories.length === 0 ? (
+                                        <div className="text-center py-16 text-gray-500 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50">
+                                            <div className="text-6xl mb-4">📚</div>
+                                            <p className="font-semibold text-lg mb-2">No categories available</p>
+                                            <p className="text-sm">Please add categories in admin dashboard.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                            {categories.map((category) => (
                                                 <button
-                                                    key={weekNum}
-                                                    onClick={() => setSelectedWeeks(weekNum)}
-                                                    className={`py-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${selectedWeeks === weekNum
-                                                        ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
-                                                        : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
+                                                    key={category.id}
+                                                    onClick={() => handleCategorySelect(category.id)}
+                                                    className={`group relative p-6 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${selectedCategory === category.id
+                                                        ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg shadow-orange-500/20 scale-105'
+                                                        : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50 hover:shadow-md'
                                                         }`}
                                                 >
-                                                    <span className={`text-lg font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                        {weekNum}
-                                                    </span>
-                                                    <span className="text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Week{weekNum > 1 ? 's' : ''}</span>
+                                                    <div className="text-4xl mb-3 text-center">{category.icon}</div>
+                                                    <div className={`text-sm font-semibold text-center ${selectedCategory === category.id ? 'text-orange-700' : 'text-gray-900'}`}>
+                                                        {category.name}
+                                                    </div>
+                                                    {selectedCategory === category.id && (
+                                                        <div className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>
-                                        <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex items-center gap-3">
+                                    )}
+                                </div>
+
+                                {/* Week Plan Selection Section */}
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-base font-semibold text-gray-900">
+                                            Select Program Duration <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className="text-xs text-gray-500 font-medium">
+                                            Choose your learning timeline
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8].map((weekNum) => (
+                                            <button
+                                                key={weekNum}
+                                                onClick={() => setSelectedWeeks(weekNum)}
+                                                className={`relative py-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 transform hover:scale-105 ${selectedWeeks === weekNum
+                                                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg shadow-orange-500/20 scale-105'
+                                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50 hover:shadow-md'
+                                                    }`}
+                                            >
+                                                <span className={`text-2xl font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-700'}`}>
+                                                    {weekNum}
+                                                </span>
+                                                <span className={`text-[10px] uppercase tracking-wider font-bold ${selectedWeeks === weekNum ? 'text-orange-600' : 'text-gray-500'}`}>
+                                                    Week{weekNum > 1 ? 's' : ''}
+                                                </span>
+                                                {selectedWeeks === weekNum && (
+                                                    <div className="absolute top-1 right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                                                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-l-4 border-orange-400 rounded-xl p-4 flex items-start gap-4">
+                                        <div className="flex-shrink-0 w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                                             <span className="text-xl">🎯</span>
-                                            <p className="text-xs text-orange-800 leading-relaxed">
-                                                You've selected a <span className="font-bold">{selectedWeeks}-week plan</span>.
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm text-orange-900 leading-relaxed">
+                                                You've selected a <span className="font-bold text-orange-700">{selectedWeeks}-week plan</span>.
                                                 We'll fetch the industry-aligned curriculum for this specific duration.
                                             </p>
                                         </div>
                                     </div>
-
-                                    {/* Action Buttons - Aligned & Compact */}
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-                                        <button
-                                            onClick={handleGenerateRoadmap}
-                                            disabled={!selectedCategory || isGeneratingRoadmap}
-                                            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                        >
-                                            {isGeneratingRoadmap ? (
-                                                <span className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                    Generating...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <span>Start Learning</span>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                                    </svg>
-                                                </>
-                                            )}
-                                        </button>
-
-                                        <button
-                                            onClick={fetchCompletedCourseDetails}
-                                            disabled={!selectedCategory || isLoadingCompletedCourse}
-                                            className="px-6 py-3 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center gap-2"
-                                        >
-                                            {isLoadingCompletedCourse ? (
-                                                <span className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                                                    Loading...
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                    </svg>
-                                                    <span>View Completed</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
                                 </div>
-                            </>
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 border-t border-gray-200">
+                                    <button
+                                        onClick={handleGenerateRoadmap}
+                                        disabled={!selectedCategory || isGeneratingRoadmap}
+                                        className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-base shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        {isGeneratingRoadmap ? (
+                                            <span className="flex items-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generating...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <span>Start Learning</span>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                </svg>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        onClick={fetchCompletedCourseDetails}
+                                        disabled={!selectedCategory || isLoadingCompletedCourse}
+                                        className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        {isLoadingCompletedCourse ? (
+                                            <span className="flex items-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                                                Loading...
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <span>View Completed</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -1605,51 +1636,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         if (isGeneratingRoadmap) {
             return (
                 <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
-                    <div className="w-full max-w-7xl mx-auto">
-                        {/* Skeleton Header */}
-                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 mb-6 animate-pulse">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <div className="h-8 bg-gray-200 rounded-lg w-64 mb-2"></div>
-                                    <div className="h-4 bg-gray-100 rounded w-48"></div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="h-8 bg-orange-100 rounded w-16 mb-1 ml-auto"></div>
-                                    <div className="h-3 bg-gray-100 rounded w-24"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Skeleton Weeks */}
-                        <div className="grid gap-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white border-2 border-gray-100 rounded-xl p-6 animate-pulse">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-gray-200"></div>
-                                            <div>
-                                                <div className="h-6 bg-gray-200 rounded w-32 mb-2"></div>
-                                                <div className="h-4 bg-gray-100 rounded w-24"></div>
-                                            </div>
-                                        </div>
-                                        <div className="w-24 h-10 bg-gray-200 rounded-lg"></div>
-                                    </div>
-                                    <div className="ml-16 space-y-6">
-                                        <div className="h-4 bg-gray-100 rounded w-1/3 mb-4"></div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-4">
-                                                <div className="p-4 bg-gray-50 rounded-2xl h-32"></div>
-                                                <div className="p-4 bg-gray-50 rounded-2xl h-32"></div>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <div className="p-4 bg-gray-50 rounded-2xl h-24"></div>
-                                                <div className="p-4 bg-gray-50 rounded-2xl h-40"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="w-full max-w-7xl mx-auto space-y-8">
+                        <SkeletonDashboard />
                     </div>
                 </div>
             );
@@ -1688,6 +1676,10 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
         }
 
         const allWeeksCompleted = roadmapData.weeks.every(w => w.isCompleted && w.quizCompleted);
+        
+        // Separate completed and incomplete weeks
+        const completedWeeks = roadmapData.weeks.filter(w => w.isCompleted && w.quizCompleted);
+        const incompleteWeeks = roadmapData.weeks.filter(w => !(w.isCompleted && w.quizCompleted));
 
         return (
             <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8 w-full">
@@ -1714,7 +1706,24 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                         <span className="font-medium">Back to Roadmap Selection</span>
                     </button>
 
-                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 mb-6">
+                    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 mb-6 relative">
+                        {/* View Completed Button - Top Right Small */}
+                        <button
+                            onClick={fetchCompletedCourseDetails}
+                            disabled={!selectedCategory || isLoadingCompletedCourse}
+                            className="absolute top-4 right-4 px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                            {isLoadingCompletedCourse ? (
+                                <div className="w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                <>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>View Completed</span>
+                                </>
+                            )}
+                        </button>
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-3xl font-bold text-gray-900">{roadmapData.careerGoal} Roadmap</h2>
@@ -1722,11 +1731,57 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-bold text-orange-600">
-                                    {roadmapData.weeks.filter(w => w.isCompleted).length}/{roadmapData.totalWeeks}
+                                    {completedWeeks.length}/{roadmapData.totalWeeks}
                                 </div>
                                 <div className="text-sm text-gray-600">Weeks Completed</div>
                             </div>
                         </div>
+
+                        {/* Completed Weeks Section - Display at Top */}
+                        {completedWeeks.length > 0 && (
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg border-2 border-green-200 p-6 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Completed Weeks</h3>
+                                            <p className="text-sm text-gray-600">You've successfully completed {completedWeeks.length} {completedWeeks.length === 1 ? 'week' : 'weeks'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-2xl font-bold text-green-600">{completedWeeks.length}</div>
+                                        <div className="text-xs text-gray-600">Completed</div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    {completedWeeks
+                                        .sort((a, b) => a.weekNumber - b.weekNumber)
+                                        .map((week) => (
+                                        <button
+                                            key={week.weekNumber}
+                                            onClick={() => fetchCompletedWeekDetails(week.weekNumber)}
+                                            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-green-300 rounded-xl hover:bg-green-50 hover:border-green-400 hover:shadow-md transition-all group"
+                                        >
+                                            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-semibold text-gray-900 group-hover:text-green-700">Week {week.weekNumber}</div>
+                                                {week.quizScore !== undefined && (
+                                                    <div className="text-xs text-green-600 font-medium">{week.quizScore}% Score</div>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Completed Week Details Modal - Premium Design */}
                         {selectedCompletedWeek && (
@@ -1887,23 +1942,34 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                             </div>
                         )}
 
-                        <div className="grid gap-4">
-                            {roadmapData.weeks.map((week, idx) => (
-                                <div
-                                    key={idx}
-                                    onClick={() => {
-                                        // Only allow clicking on completed weeks to view details
-                                        if (week.isCompleted && week.quizCompleted) {
-                                            fetchCompletedWeekDetails(week.weekNumber);
-                                        }
-                                    }}
-                                    className={`border-2 rounded-xl p-6 transition-all ${week.isCompleted && week.quizCompleted
-                                        ? 'border-green-500 bg-green-50 cursor-pointer hover:shadow-lg hover:scale-[1.01]'
-                                        : week.isCompleted
-                                            ? 'border-orange-500 bg-orange-50'
-                                            : 'border-gray-200 bg-white'
-                                        }`}
-                                >
+                        {/* Roadmap Content */}
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+                            {/* All Weeks Section */}
+                            {incompleteWeeks.length > 0 && (
+                                <>
+                                    <div className="mb-4">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-4">Remaining Weeks</h3>
+                                    </div>
+                                    <div className="grid gap-4">
+                                        {/* Show only incomplete weeks in the main list (completed weeks shown at top) */}
+                                        {incompleteWeeks
+                                            .sort((a, b) => a.weekNumber - b.weekNumber)
+                                            .map((week) => (
+                                        <div
+                                            key={week.weekNumber}
+                                            onClick={() => {
+                                                // Only allow clicking on completed weeks to view details
+                                                if (week.isCompleted && week.quizCompleted) {
+                                                    fetchCompletedWeekDetails(week.weekNumber);
+                                                }
+                                            }}
+                                            className={`border-2 rounded-xl p-6 transition-all ${week.isCompleted && week.quizCompleted
+                                                ? 'border-green-500 bg-green-50 cursor-pointer hover:shadow-lg hover:scale-[1.01]'
+                                                : week.isCompleted
+                                                    ? 'border-orange-500 bg-orange-50'
+                                                    : 'border-gray-200 bg-white'
+                                                }`}
+                                        >
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${week.isCompleted && week.quizCompleted
@@ -1946,8 +2012,8 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 
                                                     if (hasQuiz) {
                                                         // Mark as reading completed, will need to take quiz
-                                                        const updatedWeeks = roadmapData.weeks.map((w, i) =>
-                                                            i === idx ? { ...w, isCompleted: true } : w
+                                                        const updatedWeeks = roadmapData.weeks.map((w) =>
+                                                            w.weekNumber === week.weekNumber ? { ...w, isCompleted: true } : w
                                                         );
                                                         setRoadmapData({ ...roadmapData, weeks: updatedWeeks });
                                                     } else {
@@ -2062,7 +2128,17 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {incompleteWeeks.length === 0 && completedWeeks.length > 0 && (
+                                    <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+                                        <div className="text-6xl mb-4">🎉</div>
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-2">All Weeks Completed!</h3>
+                                        <p className="text-gray-600 mb-6">You've successfully completed all weeks in this roadmap.</p>
+                                    </div>
+                                )}
                         </div>
 
                         {allWeeksCompleted && (
@@ -2257,286 +2333,506 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
     if (roadmapStep === 'completed-view' && completedCourseDetails) {
         const courseDetails = completedCourseDetails;
 
-        // Calculate analytics
-        const totalWeeks = courseDetails.weeksDetails?.length || 0;
-        const avgScore = courseDetails.finalScore || 100;
-        const totalTopics = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.mainTopics?.length || 0), 0) || 0;
-        const totalQuestions = courseDetails.weeksDetails?.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0) || 0;
+        // Filter to only show completed weeks for the selected category and duration
+        const completedWeeks = courseDetails.weeksDetails?.filter((w: any) => 
+            w.isCompleted === true && w.quizCompleted === true
+        ) || [];
 
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 -m-6 -mt-8 -mb-8 p-0">
-                {/* Full Width Container - No max-width constraint */}
-                <div className="w-full">
-                    {/* Hero Header with Back Button */}
-                    <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-8 py-6 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-black/10"></div>
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+        // Calculate analytics based on completed weeks only
+        const totalWeeks = completedWeeks.length;
+        const avgScore = courseDetails.finalScore || 0;
+        const totalQuestions = completedWeeks.reduce((acc: number, w: any) => acc + (w.quiz?.length || 0), 0);
+        
+        // Calculate correct/incorrect answers from completed weeks only
+        let correctAnswers = 0;
+        let incorrectAnswers = 0;
+        const allQuestions: any[] = [];
+        
+        completedWeeks.forEach((week: any) => {
+            if (week.quiz && week.quiz.length > 0) {
+                week.quiz.forEach((q: any, qIdx: number) => {
+                    const questionData = {
+                        weekNumber: week.weekNumber,
+                        questionIndex: qIdx,
+                        question: q.question,
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        userAnswer: q.userAnswer,
+                        points: 30,
+                        isCorrect: q.userAnswer !== undefined && q.userAnswer === q.correctAnswer
+                    };
+                    allQuestions.push(questionData);
+                    if (questionData.isCorrect) {
+                        correctAnswers++;
+                    } else {
+                        incorrectAnswers++;
+                    }
+                });
+            }
+        });
+        
+        // Calculate duration (estimate based on weeks or use actual if available)
+        const durationMinutes = courseDetails.totalDurationMinutes || totalWeeks * 20; // Default 20 minutes per week
+        
+        // Calculate accuracy
+        const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
 
-                        <div className="relative z-10">
+        // If no completed weeks found for this category and duration, show message
+        if (completedWeeks.length === 0) {
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8">
+                    <div className="max-w-7xl mx-auto space-y-6">
+                        {/* Back Button */}
+                        <button
+                            onClick={() => {
+                                setRoadmapStep('analysis');
+                                setCompletedCourseDetails(null);
+                            }}
+                            className="mb-4 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            <span className="font-medium">Back</span>
+                        </button>
+
+                        {/* No Completed Weeks Message */}
+                        <div className="bg-white rounded-2xl p-12 shadow-xl border border-gray-200 text-center">
+                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-3">No Completed Weeks Found</h2>
+                            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                                You haven't completed any weeks for <strong>{courseDetails.categoryName || 'this category'}</strong> with a <strong>{courseDetails.duration || selectedWeeks}-week</strong> duration yet.
+                            </p>
                             <button
                                 onClick={() => {
                                     setRoadmapStep('analysis');
                                     setCompletedCourseDetails(null);
                                 }}
-                                className="mb-4 flex items-center gap-2 px-4 py-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-all backdrop-blur-sm"
+                                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
-                                <span className="font-semibold">Back to Selection</span>
+                                Start Learning
                             </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="flex items-center gap-4 mb-2">
-                                        <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-                                            <span className="text-4xl">🎓</span>
-                                        </div>
-                                        <div>
-                                            <h1 className="text-4xl font-black text-white">{courseDetails.categoryName}</h1>
-                                            <p className="text-white/80 text-lg mt-1">{courseDetails.duration}-Week Program • Completed ✓</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="inline-block bg-white/20 backdrop-blur-md rounded-3xl px-8 py-6 border-4 border-white/30">
-                                        <div className="text-7xl font-black text-white drop-shadow-lg">{avgScore}%</div>
-                                        <div className="text-white/90 text-lg font-semibold mt-1">Overall Score</div>
-                                    </div>
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 -m-6 -mt-8 -mb-8 p-8">
+                <div className="max-w-7xl mx-auto space-y-6">
+                    {/* Back Button */}
+                    <button
+                        onClick={() => {
+                            // Ensure roadmapData exists before navigating back
+                            if (!roadmapData && completedCourseDetails) {
+                                // Reconstruct roadmapData from completedCourseDetails - only include completed weeks
+                                const reconstructedRoadmap: RoadmapData = {
+                                    careerGoal: completedCourseDetails.categoryName || '',
+                                    totalWeeks: completedWeeks.length, // Use only completed weeks count
+                                    weeks: completedWeeks.map((w: any) => ({
+                                        weekNumber: w.weekNumber,
+                                        mainTopics: w.mainTopics || [],
+                                        subtopics: w.subtopics || [],
+                                        practicalTasks: w.practicalTasks || [],
+                                        miniProject: w.miniProject || '',
+                                        roadmap: w.roadmap || '',
+                                        resources: w.resources || [],
+                                        quiz: w.quiz || [],
+                                        isCompleted: w.isCompleted || false,
+                                        quizCompleted: w.quizCompleted || false,
+                                        quizScore: w.quizScore,
+                                        completedAt: w.completedAt
+                                    })),
+                                    createdAt: completedCourseDetails.createdAt || new Date().toISOString()
+                                };
+                                setRoadmapData(reconstructedRoadmap);
+                            }
+                            setRoadmapStep('roadmap');
+                            setCompletedCourseDetails(null);
+                        }}
+                        className="mb-4 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span className="font-medium">Back to Roadmap</span>
+                    </button>
+
+                    {/* Top Performance Summary Card - Light Background */}
+                    <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-200">
+                        <div className="flex flex-wrap items-center justify-between gap-6 mb-6">
+                            {/* Score Circle */}
+                            <div className="flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-purple-600 to-orange-600 border-4 border-gray-200">
+                                <div className="text-center">
+                                    <div className="text-4xl font-black text-white">{avgScore}%</div>
+                                    <div className="text-xs font-bold text-white/90 uppercase tracking-wider mt-1">SCORE</div>
                                 </div>
                             </div>
+
+                            {/* Metrics Boxes */}
+                            <div className="flex flex-wrap gap-4 flex-1">
+                                {/* Correct Answers */}
+                                <div className="flex-1 min-w-[150px] bg-white rounded-xl p-4 shadow-lg">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <div className="text-2xl font-bold text-gray-900">{correctAnswers}</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-gray-600">Correct</div>
+                                </div>
+
+                                {/* Incorrect Answers */}
+                                <div className="flex-1 min-w-[150px] bg-white rounded-xl p-4 shadow-lg">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </div>
+                                        <div className="text-2xl font-bold text-gray-900">{incorrectAnswers}</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-gray-600">Incorrect</div>
+                                </div>
+
+                                {/* Duration */}
+                                <div className="flex-1 min-w-[150px] bg-white rounded-xl p-4 shadow-lg">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div className="text-2xl font-bold text-gray-900">{Math.round(durationMinutes)}</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-gray-600">Minutes Duration</div>
+                                </div>
+
+                                {/* Accuracy */}
+                                <div className="flex-1 min-w-[150px] bg-white rounded-xl p-4 shadow-lg">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                        </div>
+                                        <div className="text-2xl font-bold text-gray-900">{accuracy}%</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-gray-600">Accuracy</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Keep Practicing Button */}
+                        <div className="text-center">
+                            <button
+                                onClick={() => {
+                                    // Ensure roadmapData exists before navigating back
+                                    if (!roadmapData && completedCourseDetails) {
+                                        // Reconstruct roadmapData from completedCourseDetails - only include completed weeks
+                                        const reconstructedRoadmap: RoadmapData = {
+                                            careerGoal: completedCourseDetails.categoryName || '',
+                                            totalWeeks: completedWeeks.length, // Use only completed weeks count
+                                            weeks: completedWeeks.map((w: any) => ({
+                                                weekNumber: w.weekNumber,
+                                                mainTopics: w.mainTopics || [],
+                                                subtopics: w.subtopics || [],
+                                                practicalTasks: w.practicalTasks || [],
+                                                miniProject: w.miniProject || '',
+                                                roadmap: w.roadmap || '',
+                                                resources: w.resources || [],
+                                                quiz: w.quiz || [],
+                                                isCompleted: w.isCompleted || false,
+                                                quizCompleted: w.quizCompleted || false,
+                                                quizScore: w.quizScore,
+                                                completedAt: w.completedAt
+                                            })),
+                                            createdAt: completedCourseDetails.createdAt || new Date().toISOString()
+                                        };
+                                        setRoadmapData(reconstructedRoadmap);
+                                    }
+                                    setRoadmapStep('roadmap');
+                                    setCompletedCourseDetails(null);
+                                }}
+                                className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 mx-auto"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Keep Practicing!
+                            </button>
                         </div>
                     </div>
 
-                    {/* Analytics Dashboard */}
-                    <div className="px-8 py-8 bg-white">
-                        {/* Key Metrics Grid */}
-                        <div className="grid grid-cols-4 gap-6 mb-8">
-                            {/* Total Weeks */}
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-6 border-2 border-blue-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    {/* Bottom Section - Question Results, Topic Analysis, Performance Stats */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Question Results Card - Left Side */}
+                        <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                         </svg>
                                     </div>
-                                </div>
-                                <div className="text-4xl font-black text-gray-900 mb-1">{totalWeeks}</div>
-                                <div className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Weeks Completed</div>
-                            </div>
-
-                            {/* Total Topics */}
-                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Question Results</h3>
+                                        <p className="text-sm text-gray-500">Click on a question to see details</p>
                                     </div>
                                 </div>
-                                <div className="text-4xl font-black text-gray-900 mb-1">{totalTopics}</div>
-                                <div className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Topics Mastered</div>
-                            </div>
-
-                            {/* Total Questions */}
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-amber-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                                        </svg>
-                                    </div>
+                                <div className="text-sm font-bold text-gray-600">
+                                    {correctAnswers}/{totalQuestions}
                                 </div>
-                                <div className="text-4xl font-black text-gray-900 mb-1">{totalQuestions}</div>
-                                <div className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Questions Solved</div>
                             </div>
 
-                            {/* Accuracy */}
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                                {allQuestions.map((q, idx) => {
+                                    const isExpanded = expandedQuestionIndex === idx;
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden transition-all"
+                                        >
+                                            {/* Question Header - Clickable */}
+                                            <div
+                                                onClick={() => setExpandedQuestionIndex(isExpanded ? null : idx)}
+                                                className="flex items-center justify-between p-4 hover:bg-gray-100 transition-all cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                                                        q.isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                                                    }`}>
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium text-gray-900">
+                                                            {courseDetails.categoryName?.substring(0, 3) || 'SDE'} {q.question}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-semibold text-gray-600">
+                                                        {q.isCorrect ? q.points : 0}/{q.points} points
+                                                    </span>
+                                                    {!q.isCorrect && (
+                                                        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    )}
+                                                    {q.isCorrect && (
+                                                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                    <svg 
+                                                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Content */}
+                                            {isExpanded && (
+                                                <div className="px-4 pb-4 border-t border-gray-200 bg-white">
+                                                    <div className="pt-4 space-y-3">
+                                                        {/* Full Question */}
+                                                        <div className="mb-4">
+                                                            <p className="text-base font-semibold text-gray-900 mb-3">{q.question}</p>
+                                                        </div>
+
+                                                        {/* Options */}
+                                                        <div className="space-y-2">
+                                                            {q.options.map((option: string, optIdx: number) => {
+                                                                const isCorrect = optIdx === q.correctAnswer;
+                                                                const isUserChoice = q.userAnswer !== undefined && optIdx === q.userAnswer;
+                                                                const isWrongChoice = isUserChoice && !isCorrect;
+
+                                                                return (
+                                                                    <div
+                                                                        key={optIdx}
+                                                                        className={`p-3 rounded-lg border-2 transition-all ${
+                                                                            isCorrect
+                                                                                ? 'bg-green-50 border-green-500'
+                                                                                : isWrongChoice
+                                                                                ? 'bg-red-50 border-red-500'
+                                                                                : 'bg-gray-50 border-gray-200'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                                                    isCorrect
+                                                                                        ? 'bg-green-500 text-white'
+                                                                                        : isWrongChoice
+                                                                                        ? 'bg-red-500 text-white'
+                                                                                        : 'bg-gray-300 text-gray-600'
+                                                                                }`}>
+                                                                                    {String.fromCharCode(65 + optIdx)}
+                                                                                </span>
+                                                                                <span className={`font-medium ${
+                                                                                    isCorrect
+                                                                                        ? 'text-green-900'
+                                                                                        : isWrongChoice
+                                                                                        ? 'text-red-900'
+                                                                                        : 'text-gray-700'
+                                                                                }`}>
+                                                                                    {option}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                {isCorrect && (
+                                                                                    <span className="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded">
+                                                                                        Correct Answer
+                                                                                    </span>
+                                                                                )}
+                                                                                {isUserChoice && !isCorrect && (
+                                                                                    <span className="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
+                                                                                        Your Answer
+                                                                                    </span>
+                                                                                )}
+                                                                                {isUserChoice && isCorrect && (
+                                                                                    <span className="px-2 py-1 bg-blue-500 text-white text-xs font-bold rounded">
+                                                                                        Your Answer
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Explanation/Summary */}
+                                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                            <div className="flex items-start gap-2">
+                                                                <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                </svg>
+                                                                <div>
+                                                                    <p className="text-sm font-semibold text-blue-900">
+                                                                        {q.isCorrect ? (
+                                                                            <>✓ You answered correctly! You earned {q.points} points.</>
+                                                                        ) : (
+                                                                            <>✗ Incorrect. The correct answer is option {String.fromCharCode(65 + q.correctAnswer)}. You earned 0 points.</>
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {allQuestions.length === 0 && (
+                                    <div className="text-center py-8 text-gray-500">
+                                        No questions available
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Right Side - Topic Analysis and Performance Stats */}
+                        <div className="space-y-6">
+                            {/* Completed Weeks Card */}
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Completed Weeks</h3>
                                 </div>
-                                <div className="text-4xl font-black text-green-600 mb-1">{avgScore}%</div>
-                                <div className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Avg Accuracy</div>
-                            </div>
-                        </div>
-
-                        {/* Certificate Showcase */}
-                        {courseDetails.certificate && (
-                            <div className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 rounded-3xl p-8 mb-8 border-2 border-amber-200 relative overflow-hidden">
-                                {/* Decorative elements */}
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-300/20 rounded-full -translate-y-16 translate-x-16"></div>
-                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-orange-300/20 rounded-full translate-y-20 -translate-x-20"></div>
-
-                                <div className="relative z-10 flex items-center justify-between">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 via-amber-400 to-orange-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-orange-500/30 animate-pulse">
-                                            <span className="text-5xl">🏆</span>
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <h3 className="text-3xl font-black text-gray-900">Certificate Earned!</h3>
-                                                <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full uppercase tracking-wider">Verified</span>
+                                <div className="space-y-2">
+                                    {completedWeeks.length > 0 ? (
+                                        <>
+                                            <div className="text-sm text-gray-600 mb-3">
+                                                You have completed <strong>{completedWeeks.length}</strong> {completedWeeks.length === 1 ? 'week' : 'weeks'}:
                                             </div>
-                                            <p className="text-gray-700 text-lg mb-1">Issued on <span className="font-bold">{courseDetails.certificate.issuedDate}</span></p>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-sm text-gray-600">Verification Code:</span>
-                                                <span className="px-4 py-2 bg-white/80 backdrop-blur-sm border-2 border-amber-300 rounded-lg font-mono font-bold text-gray-900 shadow-sm">
-                                                    {courseDetails.certificate.verificationCode}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setCertificate({
-                                                name: courseDetails.certificate.userName,
-                                                career: courseDetails.certificate.categoryName,
-                                                score: courseDetails.certificate.score,
-                                                date: courseDetails.certificate.issuedDate,
-                                                certificateId: courseDetails.certificate.certificateId,
-                                                verificationCode: courseDetails.certificate.verificationCode
-                                            });
-                                            setRoadmapStep('evaluation');
-                                        }}
-                                        className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-purple-500/30 hover:shadow-2xl hover:shadow-purple-500/40 hover:-translate-y-1 transition-all flex items-center gap-3"
-                                    >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        View Certificate
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Weekly Breakdown Section Title */}
-                        <div className="mb-6">
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">📅 Weekly Progress Breakdown</h2>
-                            <p className="text-gray-600">Detailed view of your week-by-week performance and achievements</p>
-                        </div>
-
-                        {/* Weeks Grid */}
-                        <div className="grid grid-cols-1 gap-6">
-                            {courseDetails.weeksDetails && courseDetails.weeksDetails.map((week: any, idx: number) => (
-                                <div key={idx} className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all">
-                                    {/* Week Header with Gradient */}
-                                    <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-8 py-5 relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-black/5"></div>
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-
-                                        <div className="relative z-10 flex items-center justify-between">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white font-black text-2xl border-2 border-white/30">
-                                                    {week.weekNumber}
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-2xl font-black text-white mb-1">Week {week.weekNumber}</h3>
-                                                    <p className="text-white/80 text-sm font-medium">
-                                                        {week.completedAt ? new Date(week.completedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }) : 'Completed'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="inline-block bg-white/20 backdrop-blur-md rounded-2xl px-6 py-3 border-2 border-white/30">
-                                                    <div className="text-4xl font-black text-white drop-shadow-lg">{week.quizScore || 100}%</div>
-                                                    <div className="text-white/90 text-sm font-semibold">Quiz Score</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Week Content */}
-                                    <div className="p-8">
-                                        {/* Topics Grid */}
-                                        <div className="mb-8">
-                                            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                <span className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
-                                                    📚
-                                                </span>
-                                                Topics Mastered ({week.mainTopics?.length || 0})
-                                            </h4>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {week.mainTopics?.map((topic: string, i: number) => (
-                                                    <div key={i} className="px-4 py-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 text-blue-800 rounded-xl text-sm font-semibold hover:shadow-md transition-all">
-                                                        {topic}
+                                            <div className="flex flex-wrap gap-2">
+                                                {completedWeeks.map((week: any) => (
+                                                    <div
+                                                        key={week.weekNumber}
+                                                        className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"
+                                                    >
+                                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        <span className="text-sm font-semibold text-green-900">Week {week.weekNumber}</span>
+                                                        {week.quizScore !== undefined && (
+                                                            <span className="text-xs text-green-700">({week.quizScore}%)</span>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-sm text-gray-500 text-center py-4">
+                                            No completed weeks
                                         </div>
+                                    )}
+                                </div>
+                            </div>
 
-                                        {/* Mini Project */}
-                                        {week.miniProject && (
-                                            <div className="mb-8 p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-200 relative overflow-hidden">
-                                                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-300/20 rounded-full -translate-y-12 translate-x-12"></div>
-                                                <div className="relative z-10">
-                                                    <h4 className="text-lg font-bold text-amber-900 mb-3 flex items-center gap-3">
-                                                        <span className="text-2xl">💼</span>
-                                                        <span>Project Completed</span>
-                                                    </h4>
-                                                    <p className="text-amber-800 font-medium leading-relaxed">{week.miniProject}</p>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Quiz Questions & Answers */}
-                                        {week.quiz && week.quiz.length > 0 && (
-                                            <div>
-                                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                    <span className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
-                                                        ✅
-                                                    </span>
-                                                    Quiz Questions & Answers ({week.quiz.length} Questions)
-                                                </h4>
-                                                <div className="space-y-6">
-                                                    {week.quiz.map((q: any, qIdx: number) => (
-                                                        <div key={qIdx} className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-200 hover:border-indigo-200 transition-all">
-                                                            <div className="flex gap-4 mb-4">
-                                                                <span className="flex-shrink-0 w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-sm">
-                                                                    {qIdx + 1}
-                                                                </span>
-                                                                <p className="font-bold text-gray-900 text-lg flex-1">{q.question}</p>
-                                                            </div>
-                                                            <div className="space-y-3 ml-12">
-                                                                {q.options.map((opt: string, oIdx: number) => (
-                                                                    <div
-                                                                        key={oIdx}
-                                                                        className={`px-5 py-3 rounded-xl transition-all ${oIdx === q.correctAnswer
-                                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-3 border-green-500 shadow-md'
-                                                                            : 'bg-white border-2 border-gray-200'
-                                                                            }`}
-                                                                    >
-                                                                        <div className="flex items-center justify-between">
-                                                                            <span className={`font-medium ${oIdx === q.correctAnswer ? 'text-green-900' : 'text-gray-700'
-                                                                                }`}>
-                                                                                {opt}
-                                                                            </span>
-                                                                            {oIdx === q.correctAnswer && (
-                                                                                <span className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded-full text-sm font-bold">
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                                                    </svg>
-                                                                                    Correct
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                            {/* Topic Analysis Card */}
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Topic Analysis</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <span className="font-semibold text-gray-900">{courseDetails.categoryName || 'SDE'}</span>
+                                        <span className="text-red-600 font-bold">{correctAnswers}/{totalQuestions}</span>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Performance Stats Card */}
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-900">Performance Stats</h3>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-gray-50 rounded-lg">
+                                        <div className="text-sm text-gray-600 mb-1">Questions Attempted</div>
+                                        <div className="text-lg font-bold text-gray-900">{totalQuestions}/{totalQuestions}</div>
+                                    </div>
+                                    <div className="p-3 bg-gray-50 rounded-lg">
+                                        <div className="text-sm text-gray-600 mb-1">Accuracy Rate</div>
+                                        <div className="text-lg font-bold text-gray-900">{accuracy}%</div>
+                                    </div>
+                                    <div className="p-3 bg-gray-50 rounded-lg">
+                                        <div className="text-sm text-gray-600 mb-1">Time Taken</div>
+                                        <div className="text-lg font-bold text-gray-900">{Math.round(durationMinutes)} Minutes</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2703,122 +2999,6 @@ const RoadmapFeature: React.FC<RoadmapFeatureProps> = ({
 // ============================================
 
 // ============================================
-// COUNT-UP ANIMATION COMPONENT
-// ============================================
-
-interface CountUpProps {
-    end: number;
-    duration?: number;
-    prefix?: string;
-    suffix?: string;
-    decimals?: number;
-}
-
-const CountUp: React.FC<CountUpProps> = ({ end, duration = 2000, prefix = '', suffix = '', decimals = 0 }) => {
-    const [count, setCount] = useState(0);
-
-    useEffect(() => {
-        let startTime: number | null = null;
-        let animationFrame: number;
-
-        const animate = (timestamp: number) => {
-            if (!startTime) startTime = timestamp;
-            const progress = Math.min((timestamp - startTime) / duration, 1);
-
-            // Easing function for smooth animation (easeOutCubic)
-            const easedProgress = 1 - Math.pow(1 - progress, 3);
-
-            setCount(easedProgress * end);
-
-            if (progress < 1) {
-                animationFrame = requestAnimationFrame(animate);
-            } else {
-                setCount(end);
-            }
-        };
-
-        animationFrame = requestAnimationFrame(animate);
-
-        return () => {
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-            }
-        };
-    }, [end, duration]);
-
-    const displayValue = decimals > 0 ? count.toFixed(decimals) : Math.floor(count);
-
-    return <>{prefix}{displayValue}{suffix}</>;
-};
-
-// ============================================
-// CAREER STATISTICS CALCULATOR
-// ============================================
-
-interface CareerStats {
-    hotCareers: number;
-    maxSalary: number;
-    avgGrowth: number;
-    companiesHiring: number;
-}
-
-const calculateCareerStats = (careers: TrendingCareer[]): CareerStats => {
-    if (!careers || careers.length === 0) {
-        return {
-            hotCareers: 0,
-            maxSalary: 0,
-            avgGrowth: 0,
-            companiesHiring: 0
-        };
-    }
-
-    // Count hot careers (Very High demand)
-    const hotCareers = careers.filter(c => c.demand === 'Very High').length;
-
-    // Extract max salary
-    let maxSalary = 0;
-    careers.forEach(career => {
-        // Parse salary string like "₹8-25 LPA" or "₹5-18 LPA"
-        const match = career.avgSalary.match(/₹(\d+)-(\d+)/);
-        if (match) {
-            const higherSalary = parseInt(match[2]);
-            if (higherSalary > maxSalary) {
-                maxSalary = higherSalary;
-            }
-        }
-    });
-
-    // Calculate average growth
-    let totalGrowth = 0;
-    let growthCount = 0;
-    careers.forEach(career => {
-        // Parse growth string like "+40%" or "+25%"
-        const match = career.growth.match(/\+(\d+)/);
-        if (match) {
-            totalGrowth += parseInt(match[1]);
-            growthCount++;
-        }
-    });
-    const avgGrowth = growthCount > 0 ? Math.round(totalGrowth / growthCount) : 0;
-
-    // Count unique companies
-    const uniqueCompanies = new Set<string>();
-    careers.forEach(career => {
-        career.companies.forEach(company => {
-            uniqueCompanies.add(company);
-        });
-    });
-    const companiesHiring = uniqueCompanies.size;
-
-    return {
-        hotCareers,
-        maxSalary,
-        avgGrowth,
-        companiesHiring
-    };
-};
-
-// ============================================
 // TRENDING CAREERS COMPONENT
 // ============================================
 
@@ -2828,45 +3008,14 @@ interface TrendingCareersSectionProps {
 }
 
 const TrendingCareersSection: React.FC<TrendingCareersSectionProps> = ({ careers, onExploreRoadmap }) => {
-    // Calculate dynamic statistics from API-fetched careers data
-    const stats = calculateCareerStats(careers);
-
     return (
         <div className="space-y-6">
-            {/* Header Stats - Dynamic from API data */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.hotCareers} suffix="+" />
-                    </div>
-                    <div className="text-sm opacity-90">Hot Careers</div>
-                </div>
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.maxSalary} prefix="₹" suffix="L+" />
-                    </div>
-                    <div className="text-sm opacity-90">Max Salary</div>
-                </div>
-                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.avgGrowth} suffix="%" />
-                    </div>
-                    <div className="text-sm opacity-90">Avg Growth</div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-4 text-center">
-                    <div className="text-3xl font-bold">
-                        <CountUp end={stats.companiesHiring} suffix="+" />
-                    </div>
-                    <div className="text-sm opacity-90">Companies Hiring</div>
-                </div>
-            </div>
-
             {/* Career Cards */}
-            <div className="grid md:grid-cols-2 gap-5 items-start">
+            <div className="grid md:grid-cols-2 gap-5 items-start w-full">
                 {careers.map((career, idx) => (
                     <div
                         key={idx}
-                        className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
+                        className="group bg-white rounded-2xl p-5 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                     >
                         {/* Header */}
                         <div className="flex items-start justify-between gap-3 mb-3">
@@ -2990,20 +3139,14 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">💡 B.Tech Project Ideas</h2>
-                <p className="text-gray-600">Stand out with impressive projects that showcase your skills</p>
-            </div>
-
             {/* Filter */}
-            <div className="flex justify-center gap-2 mb-6">
+            <div className="flex justify-start gap-2 mb-6">
                 {['all', 'Beginner', 'Intermediate', 'Advanced'].map(level => (
                     <button
                         key={level}
                         onClick={() => setFilterDifficulty(level)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all ${filterDifficulty === level
-                            ? 'bg-orange-500 text-white'
+                        className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-300 ${filterDifficulty === level
+                            ? 'bg-orange-500 text-white shadow-md'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
@@ -3036,8 +3179,8 @@ const ProjectIdeasSection: React.FC<ProjectIdeasSectionProps> = ({ ideas }) => {
                 <div className="grid md:grid-cols-2 gap-5 items-start">
                     {filteredProjects.map((project, idx) => (
                         <div
-                            key={idx}
-                            className="group bg-white border border-gray-200 rounded-2xl p-5 transition-all duration-300 hover:border-orange-400 hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
+                            key={`${project.title}-${filterDifficulty}-${idx}`}
+                            className="group bg-white rounded-2xl p-5 transition-all duration-500 ease-in-out hover:shadow-2xl hover:shadow-orange-500/15 hover:z-10 relative"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between gap-3 mb-3">
@@ -3467,66 +3610,52 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                {/* Header */}
-                <div className="mb-6 sm:mb-8">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-3">
-                            {/* Mobile Menu Button */}
-                            {toggleSidebar && (
-                                <button
-                                    onClick={toggleSidebar}
-                                    className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                    aria-label="Toggle sidebar"
-                                >
-                                    <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                    </svg>
-                                </button>
-                            )}
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                <Lottie
-                                    animationData={guidanceIconAnimation}
-                                    loop
-                                    className="w-10 h-10 sm:w-12 sm:h-12"
-                                />
-                            </div>
-                            <div className="min-w-0">
-                                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">Career Guidance Hub</h1>
-                                <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
-                            </div>
-                        </div>
-                        <div className="w-full sm:w-auto max-w-[320px] sm:max-w-[280px] h-[160px] sm:h-[140px] flex items-center justify-center flex-shrink-0">
+            <div className="w-full px-4 py-6">
+                {/* Header and Tab Navigation - Side by Side */}
+                <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    {/* Header - Left Column */}
+                    <div className="flex items-center gap-3">
+                        {/* Mobile Menu Button */}
+                        {toggleSidebar && (
+                            <button
+                                onClick={toggleSidebar}
+                                className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                aria-label="Toggle sidebar"
+                            >
+                                <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        )}
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <Lottie
-                                animationData={careerGuidanceAnimation}
+                                animationData={guidanceIconAnimation}
                                 loop
-                                className="w-full h-full"
+                                className="w-10 h-10 sm:w-12 sm:h-12"
                             />
                         </div>
+                        <div className="min-w-0">
+                            <p className="text-sm sm:text-base text-gray-600 truncate">For B.Tech Students & Fresh Graduates</p>
+                        </div>
                     </div>
-                    <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl">
-                        <p className="text-xs sm:text-sm text-gray-700">
-                            🎓 <span className="font-semibold">Designed for Engineering Students:</span> Discover trending tech careers, prepare for campus placements, find project ideas, and build your career roadmap.
-                        </p>
-                    </div>
-                </div>
 
-                {/* Tab Navigation */}
-                <div className="mb-8 flex justify-center">
-                    <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
-                                    ? 'bg-white text-orange-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                                    }`}
-                            >
-                                {tab.icon}
-                                <span className="hidden sm:inline">{tab.label}</span>
-                            </button>
-                        ))}
+                    {/* Tab Navigation - Right Column */}
+                    <div className="flex justify-end">
+                        <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-5 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
+                                        ? 'bg-white text-orange-600 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    {tab.icon}
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -3534,13 +3663,10 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                 <div>
                     {/* Trending Careers Tab */}
                     {activeTab === 'trending' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="text-center">
-                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                        <p className="text-sm text-gray-600">Loading trending careers...</p>
-                                    </div>
+                                <div className="space-y-8">
+                                    <SkeletonDashboard />
                                 </div>
                             ) : (
                                 <TrendingCareersSection
@@ -3555,16 +3681,13 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
                     {/* Placement Prep Tab */}
                     {activeTab === 'placement' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="text-center">
-                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                        <p className="text-sm text-gray-600">Loading placement preparation data...</p>
-                                    </div>
+                                <div className="space-y-8">
+                                    <SkeletonDashboard />
                                 </div>
                             ) : placementPhasesData.length === 0 ? (
-                                <div className="text-center py-12">
+                                <div className="text-center py-16">
                                     <div className="text-6xl mb-4">📚</div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-2">No Placement Data Available</h3>
                                     <p className="text-gray-600">Placement preparation content will appear here once it's added by the admin.</p>
@@ -3577,13 +3700,10 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
 
                     {/* Project Ideas Tab */}
                     {activeTab === 'projects' && (
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                        <div className="w-full">
                             {isLoadingData ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="text-center">
-                                        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-                                        <p className="text-sm text-gray-600">Loading project ideas...</p>
-                                    </div>
+                                <div className="space-y-8">
+                                    <SkeletonDashboard />
                                 </div>
                             ) : (
                                 <ProjectIdeasSection ideas={projectIdeasData} />
@@ -3622,48 +3742,6 @@ const CareerGuidancePage: React.FC<CareerGuidancePageProps> = ({ toggleSidebar }
                     )}
                 </div>
 
-                {/* Features */}
-                <div className="mt-12">
-                    <h3 className="text-center text-lg font-semibold text-gray-900 mb-6">🚀 Everything You Need for Career Success</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        {[
-                            { icon: <TrendingIcon />, title: "Trending Careers", desc: "Hot jobs & salaries" },
-                            { icon: <RoadmapIcon />, title: "Learning Roadmap", desc: "Step-by-step guide" },
-                            { icon: <PlacementIcon />, title: "Placement Prep", desc: "DSA & interviews" },
-                            { icon: <ProjectIcon />, title: "Project Ideas", desc: "Build your portfolio" },
-                        ].map((feature, idx) => (
-                            <div key={idx} className="text-center p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-orange-200 transition-all cursor-pointer" onClick={() => setActiveTab(idx === 0 ? 'trending' : idx === 1 ? 'roadmap' : idx === 2 ? 'placement' : 'projects')}>
-                                <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    {feature.icon}
-                                </div>
-                                <h3 className="font-semibold text-gray-900 text-sm mb-1">{feature.title}</h3>
-                                <p className="text-xs text-gray-500">{feature.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Stats for credibility */}
-                    <div className="mt-8 p-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl text-white">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                            <div>
-                                <div className="text-3xl font-bold text-orange-400">10K+</div>
-                                <div className="text-sm text-gray-400">Students Guided</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-bold text-green-400">95%</div>
-                                <div className="text-sm text-gray-400">Placement Rate</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-bold text-blue-400">500+</div>
-                                <div className="text-sm text-gray-400">Partner Companies</div>
-                            </div>
-                            <div>
-                                <div className="text-3xl font-bold text-purple-400">₹12L</div>
-                                <div className="text-sm text-gray-400">Avg Package</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );

@@ -9,10 +9,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Facebook, Instagram, Linkedin, Moon, Send, Sun, Twitter } from "lucide-react"
-import { useTheme } from "../../App"
+import { useTheme, useNavigation } from "../../App"
 
 function Footerdemo() {
   const { theme, toggleTheme } = useTheme()
+  const { navigateTo } = useNavigation()
   const isDarkMode = theme === 'dark'
 
   const handleThemeToggle = () => {
@@ -146,18 +147,24 @@ function Footerdemo() {
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t pt-8 text-center md:flex-row">
           <p className="text-sm text-muted-foreground">
-            © 2024 Project Bazaar. All rights reserved.
+            © {new Date().getFullYear()} Project Bazaar. All rights reserved.
           </p>
           <nav className="flex gap-4 text-sm">
-            <a href="#" className="transition-colors hover:text-primary">
+            <button onClick={() => navigateTo('privacy')} className="transition-colors hover:text-primary">
               Privacy Policy
-            </a>
-            <a href="#" className="transition-colors hover:text-primary">
+            </button>
+            <button onClick={() => navigateTo('terms')} className="transition-colors hover:text-primary">
               Terms of Service
-            </a>
-            <a href="#" className="transition-colors hover:text-primary">
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('cookieConsent');
+                window.location.reload();
+              }}
+              className="transition-colors hover:text-primary"
+            >
               Cookie Settings
-            </a>
+            </button>
           </nav>
         </div>
       </div>

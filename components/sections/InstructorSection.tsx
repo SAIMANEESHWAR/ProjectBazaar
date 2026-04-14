@@ -17,7 +17,7 @@ const InstructorSection: React.FC = () => {
   ];
 
   return (
-    <section ref={ref} className="relative py-24 md:py-32 px-5 overflow-hidden bg-[#f2f1ee]">
+    <section ref={ref} className="relative py-24 md:py-32 px-5 overflow-hidden bg-[#f2f1ee] dark:bg-[#0a0a0a] transition-colors duration-300">
       <div
         className="absolute inset-0 z-0 opacity-[0.03]"
         style={{
@@ -33,8 +33,8 @@ const InstructorSection: React.FC = () => {
           transition={{ duration: 0.65 }}
           className="text-center mb-12 md:mb-16"
         >
-          <p className="text-[#a1a1a1] font-medium uppercase tracking-wider mb-4 text-sm">Behind ProjectBazaar</p>
-          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight text-[#1a1a1a]">
+          <p className="text-[#a1a1a1] dark:text-gray-400 font-medium uppercase tracking-wider mb-4 text-sm">Behind ProjectBazaar</p>
+          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight text-[#1a1a1a] dark:text-white">
             Built by makers, <br />
             <span className="text-[#ff7a00]">for makers</span>
           </h2>
@@ -46,7 +46,7 @@ const InstructorSection: React.FC = () => {
             initial={{ opacity: 0, x: -40 }}
             animate={inView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="relative group rounded-[24px] overflow-hidden bg-[#1a1a1a] aspect-square lg:aspect-auto min-h-[320px] border-[10px] border-[#1a1a1a]"
+            className="relative group rounded-[24px] overflow-hidden bg-gray-800 dark:bg-[#1a1a1a] aspect-square lg:aspect-auto min-h-[320px] border-[10px] border-gray-200 dark:border-[#1a1a1a]"
           >
             <motion.div style={{ y: imgY }} className="absolute inset-0">
               <img
@@ -73,7 +73,7 @@ const InstructorSection: React.FC = () => {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="flex flex-col gap-4"
           >
-            <div className="bg-[#0a0a0a] rounded-[24px] p-8 md:p-10 flex-1 border border-white/5 relative overflow-hidden">
+            <div className="bg-gray-900 dark:bg-[#0a0a0a] rounded-[24px] p-8 md:p-10 flex-1 border border-gray-700 dark:border-white/5 relative overflow-hidden transition-colors duration-300">
               <div className="flex flex-col gap-6 mb-8">
                 <h3 className="text-2xl md:text-[28px] font-bold text-white mb-1">Our mission</h3>
                 <p className="text-[#a1a1a1] text-base">Turn every project into an opportunity.</p>
@@ -95,7 +95,7 @@ const InstructorSection: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.45 }}
-              className="bg-[#0a0a0a] rounded-[100px] py-4 px-8 border border-white/5 flex items-center justify-between"
+              className="bg-gray-900 dark:bg-[#0a0a0a] rounded-[100px] py-4 px-8 border border-gray-700 dark:border-white/5 flex items-center justify-between transition-colors duration-300"
             >
               <div className="flex items-center gap-4">
                 {socialIcons.map((social, idx) => (
@@ -120,13 +120,13 @@ const InstructorSection: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mt-20 pt-10 text-center border-t border-black/5"
+          className="mt-20 pt-10 text-center border-t border-black/5 dark:border-white/10"
         >
-          <p className="text-[#1a1a1a] font-semibold text-[15px] mb-8">As featured on</p>
+          <p className="text-[#1a1a1a] dark:text-gray-300 font-semibold text-[15px] mb-8">As featured on</p>
           <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6 grayscale opacity-60">
-            <span className="text-xl font-bold text-[#1a1a1a]">TechFlow</span>
-            <span className="text-xl font-bold text-[#1a1a1a]">BuildHub</span>
-            <span className="text-xl font-bold text-[#1a1a1a]">CodeSphere</span>
+            <span className="text-xl font-bold text-[#1a1a1a] dark:text-gray-400">TechFlow</span>
+            <span className="text-xl font-bold text-[#1a1a1a] dark:text-gray-400">BuildHub</span>
+            <span className="text-xl font-bold text-[#1a1a1a] dark:text-gray-400">CodeSphere</span>
           </div>
         </motion.div>
       </div>

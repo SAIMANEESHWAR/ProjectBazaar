@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Lottie from 'lottie-react';
 import Editor from '@monaco-editor/react';
 import noCodingQuestionAnimation from '../lottiefiles/no_coding_question_animation.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 
 // Lambda API endpoints
 const CODING_QUESTIONS_API = 'https://6918395pal.execute-api.ap-south-2.amazonaws.com/default/coding-questions-service';
@@ -29,7 +30,7 @@ const getCurrentUserId = (): string | null => {
 type DifficultyLevel = 'very-easy' | 'easy' | 'medium' | 'hard' | 'very-hard';
 type QuestionStatus = 'unsolved' | 'attempted' | 'solved';
 type SortOption = 'recently-added' | 'fastest' | 'slowest' | 'easier' | 'harder';
-type ProblemTab = 'description' | 'discussion' | 'submissions' | 'hints';
+type ProblemTab = 'description' | 'discussion' | 'submissions' | 'hints' | 'solution';
 
 interface Company {
   id: string;
@@ -52,6 +53,7 @@ interface ProblemDetails {
   hints: string[];
   starterCode: Record<string, string>;
   testCases: { input: string; expectedOutput: string; hidden?: boolean }[];
+  solution?: string;
 }
 
 interface CodingQuestion {
@@ -69,6 +71,8 @@ interface CodingQuestion {
   dislikes?: number;
   successRate?: number;
   problemDetails?: ProblemDetails;
+  isLiked?: boolean;
+  isDisliked?: boolean;
 }
 
 interface UserProgress {
@@ -103,16 +107,39 @@ const DISCUSSION_API = 'https://fciixra802.execute-api.ap-south-2.amazonaws.com/
 // Supported programming languages
 const supportedLanguages = [
   { id: 'python', name: 'Python 3', monacoId: 'python' },
-  { id: 'javascript', name: 'JavaScript', monacoId: 'javascript' },
   { id: 'java', name: 'Java', monacoId: 'java' },
-  { id: 'cpp', name: 'C++', monacoId: 'cpp' },
-  { id: 'c', name: 'C', monacoId: 'c' },
-  { id: 'typescript', name: 'TypeScript', monacoId: 'typescript' },
-  { id: 'go', name: 'Go', monacoId: 'go' },
-  { id: 'rust', name: 'Rust', monacoId: 'rust' },
-  { id: 'kotlin', name: 'Kotlin', monacoId: 'kotlin' },
-  { id: 'swift', name: 'Swift', monacoId: 'swift' },
+  { id: 'cpp', name: 'C++', monacoId: 'cpp' }
 ];
+
+// Judge0 language keys for code execution (see services/codeExecution judge0LanguageIdMap)
+const executionLanguageKeys: Record<string, string> = {
+  python: 'python',
+  java: 'java',
+  cpp: 'cpp'
+};
+
+const executeCode = async (code: string, language: string, input: string = ''): Promise<{ output: string; error: string; success: boolean }> => {
+  const langKey = executionLanguageKeys[language];
+  if (!langKey) {
+    return { output: '', error: 'Unsupported language for execution', success: false };
+  }
+  const { executeCodeJudge0 } = await import('../services/codeExecution');
+  return executeCodeJudge0({ code, language: langKey, input });
+};
+
+/** Classify execution error so we can show "Syntax Error" or "Runtime Error" instead of generic "Got: ..." */
+function formatExecutionError(error: string): string {
+  if (!error || !error.trim()) return 'Execution failed';
+  const e = error.trim();
+  const lower = e.toLowerCase();
+  if (lower.includes('syntaxerror') || lower.includes('syntax error') || lower.includes('invalid syntax') || lower.includes('indentationerror') || lower.includes('unexpected eof') || lower.includes('unexpected token')) {
+    return `Syntax Error: ${e.split('\n').slice(0, 3).join(' ').trim()}`;
+  }
+  if (lower.includes('nameerror') || lower.includes('typeerror') || lower.includes('valueerror') || lower.includes('runtimeerror') || lower.includes('indexerror') || lower.includes('keyerror') || lower.includes('attributeerror') || lower.includes('zerodivisionerror') || lower.includes('runtime error')) {
+    return `Runtime Error: ${e.split('\n').slice(0, 3).join(' ').trim()}`;
+  }
+  return e.length > 200 ? e.slice(0, 200) + '...' : e;
+}
 
 // ============================================
 // MOCK DATA
@@ -312,12 +339,12 @@ const Dropdown: React.FC<{
   };
 
   return (
-    <div className="relative">
+    <div className="relative z-30">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all ${isOpen
-            ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
-            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
           }`}
       >
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{displayLabel()}</span>
@@ -360,8 +387,8 @@ const Dropdown: React.FC<{
                 >
                   {multiple && (
                     <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected(option.value)
-                        ? 'bg-teal-500 border-teal-500'
-                        : 'border-gray-300 dark:border-gray-600'
+                      ? 'bg-teal-500 border-teal-500'
+                      : 'border-gray-300 dark:border-gray-600'
                       }`}>
                       {isSelected(option.value) && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -478,6 +505,8 @@ interface ProblemSolvingViewProps {
   onNext: () => void;
   onPrevious: () => void;
   onToggleBookmark: () => void;
+  onToggleLike?: () => void;
+  onToggleDislike?: () => void;
   onStatusUpdate: (questionId: string, status: QuestionStatus, passed: boolean) => void;
 }
 
@@ -489,6 +518,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   onNext,
   onPrevious,
   onToggleBookmark,
+  onToggleLike,
+  onToggleDislike,
   onStatusUpdate,
 }) => {
   const [activeTab, setActiveTab] = useState<ProblemTab>('description');
@@ -502,7 +533,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   const [customInput, setCustomInput] = useState('');
   const [showOutputPanel, setShowOutputPanel] = useState(false);
   const [timer, setTimer] = useState(0);
-  const [score, setScore] = useState(400);
+  const [score, setScore] = useState<number | null>(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50);
   const [isResizing, setIsResizing] = useState(false);
@@ -545,7 +576,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
   const [activeTestCaseId, setActiveTestCaseId] = useState(1);
 
   const problemDetails = question.problemDetails || defaultProblemDetails;
-  
+
   // Use state for user auth to ensure re-render when user logs in
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('Anonymous');
@@ -555,7 +586,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     const checkAuth = () => {
       const userId = getCurrentUserId();
       setCurrentUserId(userId);
-      
+
       // Check both 'userData' and 'user' keys
       const userStr = localStorage.getItem('userData') || localStorage.getItem('user');
       if (userStr) {
@@ -569,22 +600,22 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         setCurrentUserName('Anonymous');
       }
     };
-    
+
     // Check auth immediately
     checkAuth();
-    
+
     // Also listen for storage changes (in case user logs in in another tab/component)
     const handleStorageChange = () => {
       checkAuth();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Re-check when discussion tab is opened
     if (activeTab === 'discussion') {
       checkAuth();
     }
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
@@ -632,7 +663,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
           timestamp: sub.submittedAt || new Date().toISOString(),
           code: sub.code
         }));
-        
+
         // Merge backend submissions with local session submissions (keep both, avoid duplicates)
         setSubmissionHistory(prev => {
           const backendIds = new Set(transformedSubmissions.map((s: { id: string }) => s.id));
@@ -772,7 +803,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     // Store comment content before clearing (to avoid closure issue)
     const commentContent = newComment.trim();
     const tempId = `temp-${Date.now()}`;
-    
+
     // Optimistic update
     const newDiscussion: DiscussionComment = {
       commentId: tempId,
@@ -954,45 +985,89 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   };
 
-  // Run code
+  // Run code (visible test cases only)
   const handleRun = async () => {
+    const trimmedCode = code.trim();
+    const starterCode = problemDetails.starterCode[selectedLanguage] || problemDetails.starterCode.python || '';
+    if (!trimmedCode || trimmedCode === starterCode.trim()) {
+      setShowOutputPanel(true);
+      setOutput('Please write your solution before running.');
+      setTestResults(null);
+      return;
+    }
+
     setIsRunning(true);
     setOutput(null);
     setTestResults(null);
     setShowOutputPanel(true);
 
-    // Simulate running code
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // If custom input is provided, run with custom input
     if (showCustomInput && customInput.trim()) {
-      // Simulate running with custom input
-      setOutput(`Running with custom input:\n${customInput}\n\nOutput: [Simulated output for custom input]`);
-    } else {
-      // Mock test results
-      const results = problemDetails.testCases.filter(tc => !tc.hidden).map(tc => ({
-        passed: Math.random() > 0.3,
-        input: tc.input,
-        expected: tc.expectedOutput,
-        actual: Math.random() > 0.3 ? tc.expectedOutput : 'Wrong output',
-      }));
-      setTestResults(results);
+      const result = await executeCode(trimmedCode, selectedLanguage, customInput.trim());
+      const msg = result.success ? (result.output || '(no output)') : formatExecutionError(result.error);
+      setOutput(`Running with custom input:\n${customInput}\n\n${result.success ? 'Output:' : 'Error:'}\n${msg}`);
+      setIsRunning(false);
+      return;
     }
 
+    const visibleTestCases = problemDetails.testCases.filter(tc => !tc.hidden);
+    const results: { passed: boolean; input: string; expected: string; actual: string }[] = [];
+
+    for (const tc of visibleTestCases) {
+      const result = await executeCode(trimmedCode, selectedLanguage, tc.input);
+      const expected = (tc.expectedOutput || '').trim();
+      const actual = result.success ? (result.output || '').trim() : formatExecutionError(result.error);
+      const passed = result.success && actual === expected;
+      results.push({ passed, input: tc.input, expected, actual });
+    }
+
+    setTestResults(results);
+    const passedCount = results.filter(r => r.passed).length;
+    setOutput(
+      passedCount === results.length
+        ? `All ${results.length} test case(s) passed.`
+        : `${passedCount}/${results.length} test case(s) passed.\n\n` +
+        results.map((r, i) => `Test ${i + 1}: ${r.passed ? '✅ Passed' : '❌ Failed'}\nExpected: ${r.expected}\nGot: ${r.actual}`).join('\n\n')
+    );
     setIsRunning(false);
   };
 
-  // Submit code
+  // Submit code (runs against all test cases including hidden)
   const handleSubmit = async () => {
+    const trimmedCode = code.trim();
+    const starterCode = problemDetails.starterCode[selectedLanguage] || problemDetails.starterCode.python || '';
+    if (!trimmedCode || trimmedCode === starterCode.trim()) {
+      setShowOutputPanel(true);
+      setOutput('Please write your solution before submitting.');
+      setTestResults(null);
+      return;
+    }
+
     setIsSubmitting(true);
     setOutput(null);
     setTestResults(null);
     setShowOutputPanel(true);
+    setOutput('Submitting and running all test cases...');
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const testCases = problemDetails.testCases;
+    const results: { passed: boolean; input: string; expected: string; actual: string }[] = [];
 
-    const allPassed = Math.random() > 0.5;
-    const runtime = `${Math.floor(Math.random() * 100) + 20} ms`;
+    for (const tc of testCases) {
+      const result = await executeCode(trimmedCode, selectedLanguage, tc.input);
+      const expected = (tc.expectedOutput || '').trim();
+      const actual = result.success ? (result.output || '').trim() : formatExecutionError(result.error);
+      const passed = result.success && actual === expected;
+      results.push({ passed, input: tc.input, expected, actual });
+    }
+
+    const passedCount = results.filter(r => r.passed).length;
+    const allPassed = passedCount === results.length;
+    const totalTests = testCases.length;
+    const scoreValue = totalTests > 0 ? Math.round((passedCount / totalTests) * 400) : 0;
+
+    setScore(scoreValue);
+    setTestResults(results);
+
+    const runtime = `${Math.floor(Math.random() * 80) + 20} ms`;
     const memory = `${(Math.random() * 20 + 35).toFixed(1)} MB`;
     const timestamp = new Date().toISOString();
     const submissionId = `sub-${Date.now()}`;
@@ -1007,18 +1082,16 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
       memory,
       language: languageName,
       timestamp,
-      code
+      code: trimmedCode
     };
 
     if (allPassed) {
-      setOutput(`✅ Accepted! All test cases passed.\n\nRuntime: ${runtime} (beats ${Math.floor(Math.random() * 30) + 60}% of submissions)\nMemory: ${memory} (beats ${Math.floor(Math.random() * 30) + 50}% of submissions)`);
-      setScore(400);
+      setOutput(`✅ Accepted! All test cases passed.\n\nRuntime: ${runtime} (Score: ${scoreValue}/400)\nMemory: ${memory} `);
       // Update status to solved
       onStatusUpdate(question.id, 'solved', true);
     } else {
-      const failedTestCase = Math.floor(Math.random() * 3) + 1;
-      setOutput(`❌ Wrong Answer\n\nTest case ${failedTestCase} failed.\nInput: ${problemDetails.testCases[0]?.input || '[1,2,3]'}\nExpected: ${problemDetails.testCases[0]?.expectedOutput || '6'}\nGot: Different output`);
-      setScore(Math.floor(Math.random() * 300));
+      const visibleResults = results.map((r, i) => `Test ${i + 1}${testCases[i].hidden ? ' (hidden)' : ''}: ${r.passed ? '✅ Passed' : '❌ Failed'}${!testCases[i].hidden ? `\nExpected: ${r.expected}\nGot: ${r.actual}` : ''}`);
+      setOutput(`❌ Wrong Answer\n\nScore: ${scoreValue} / 400\n${passedCount}/${totalTests} test cases passed.\n\n` + visibleResults.join('\n\n'));
       // Update status to attempted
       onStatusUpdate(question.id, 'attempted', false);
     }
@@ -1042,8 +1115,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
             memory: newSubmission.memory,
             language: selectedLanguage,
             code: newSubmission.code,
-            testsPassed: allPassed ? problemDetails.testCases.length : Math.floor(Math.random() * problemDetails.testCases.length),
-            testsTotal: problemDetails.testCases.length
+            testsPassed: passedCount,
+            testsTotal: totalTests
           })
         });
       } catch (error) {
@@ -1054,8 +1127,29 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
     setIsSubmitting(false);
   };
 
+  // Keyboard shortcuts: Ctrl+' Run, Ctrl+Enter Submit (capture phase so they work when editor is focused)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (isRunning || isSubmitting) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSubmit();
+        return;
+      }
+      if (e.key === "'" || e.key === '"') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRun();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isRunning, isSubmitting, handleRun, handleSubmit]);
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-full min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Top Bar */}
       <div className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
         {/* Left: Back Button + Tabs */}
@@ -1081,23 +1175,24 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
 
           {/* Tabs */}
           <div className="flex items-center gap-1">
-          {[
-            { id: 'description', label: 'Description' },
-            { id: 'discussion', label: 'Discussion' },
-            { id: 'submissions', label: 'Submissions' },
-            { id: 'hints', label: 'Hints' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as ProblemTab)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab.id
+            {[
+              { id: 'description', label: 'Description' },
+              { id: 'discussion', label: 'Discussion' },
+              { id: 'submissions', label: 'Submissions' },
+              { id: 'hints', label: 'Hints' },
+              { id: 'solution', label: 'Solution' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as ProblemTab)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab.id
                   ? 'bg-teal-500 text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1113,7 +1208,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
             <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            <span className="font-medium">Score: {score} / 400</span>
+            <span className="font-medium">Score: {score !== null ? score : 0} / 400</span>
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -1170,10 +1265,10 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
       </div>
 
       {/* Main Content */}
-      <div ref={containerRef} className="flex-1 flex overflow-hidden">
+      <div ref={containerRef} className="flex-1 min-h-0 flex overflow-hidden">
         {/* Left Panel - Problem Description */}
-        <div style={{ width: `${leftPanelWidth}%` }} className="flex flex-col bg-white dark:bg-gray-800 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
+        <div style={{ width: `${leftPanelWidth}%` }} className="flex flex-col min-h-0 bg-white dark:bg-gray-800 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
             {activeTab === 'description' && (
               <div className="space-y-6">
                 {/* Title & Meta */}
@@ -1192,14 +1287,14 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
 
                 {/* Likes, Dislikes, Bookmark */}
                 <div className="flex items-center gap-4">
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-green-600">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <button onClick={onToggleLike} className={`flex items-center gap-1 transition-colors ${question.isLiked ? 'text-green-600' : 'text-gray-500 hover:text-green-600'}`}>
+                    <svg className="w-5 h-5" fill={question.isLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                     </svg>
                     <span className="text-sm">{question.likes || 0}</span>
                   </button>
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-red-600">
-                    <svg className="w-5 h-5 transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <button onClick={onToggleDislike} className={`flex items-center gap-1 transition-colors ${question.isDisliked ? 'text-red-600' : 'text-gray-500 hover:text-red-600'}`}>
+                    <svg className="w-5 h-5 transform rotate-180" fill={question.isDisliked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                     </svg>
                     <span className="text-sm">{question.dislikes || 0}</span>
@@ -1213,14 +1308,16 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                 </div>
 
                 {/* Asked In */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Asked In:</span>
-                  <div className="flex items-center gap-1">
-                    {question.askedIn.map(companyId => (
-                      <CompanyLogo key={companyId} companyId={companyId} size="md" />
-                    ))}
+                {question.askedIn && question.askedIn.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Asked In:</span>
+                    <div className="flex items-center gap-1">
+                      {question.askedIn.map(companyId => (
+                        <CompanyLogo key={companyId} companyId={companyId} size="md" />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Problem Description */}
                 <div>
@@ -1286,36 +1383,32 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                   <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                     <button
                       onClick={() => setExpandedHintIndex(expandedHintIndex === i ? null : i)}
-                      className={`w-full flex items-center justify-between p-4 transition-colors ${
-                        expandedHintIndex === i 
-                          ? 'bg-yellow-50 dark:bg-yellow-900/30' 
-                          : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
-                      }`}
+                      className={`w-full flex items-center justify-between p-4 transition-colors ${expandedHintIndex === i
+                        ? 'bg-yellow-50 dark:bg-yellow-900/30'
+                        : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                          expandedHintIndex === i
-                            ? 'bg-yellow-400 dark:bg-yellow-600 text-yellow-900 dark:text-yellow-100'
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                        }`}>
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${expandedHintIndex === i
+                          ? 'bg-yellow-400 dark:bg-yellow-600 text-yellow-900 dark:text-yellow-100'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}>
                           {i + 1}
                         </span>
-                        <span className={`font-medium ${
-                          expandedHintIndex === i 
-                            ? 'text-yellow-800 dark:text-yellow-200' 
-                            : 'text-gray-700 dark:text-gray-300'
-                        }`}>
+                        <span className={`font-medium ${expandedHintIndex === i
+                          ? 'text-yellow-800 dark:text-yellow-200'
+                          : 'text-gray-700 dark:text-gray-300'
+                          }`}>
                           Hint {i + 1}
                         </span>
                       </div>
-                      <svg 
-                        className={`w-5 h-5 transition-transform duration-200 ${
-                          expandedHintIndex === i 
-                            ? 'rotate-180 text-yellow-600 dark:text-yellow-400' 
-                            : 'text-gray-400'
-                        }`} 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
+                      <svg
+                        className={`w-5 h-5 transition-transform duration-200 ${expandedHintIndex === i
+                          ? 'rotate-180 text-yellow-600 dark:text-yellow-400'
+                          : 'text-gray-400'
+                          }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
                         stroke="currentColor"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1333,6 +1426,32 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {activeTab === 'solution' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Solution / Editorial</h2>
+                {problemDetails.solution ? (
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                    <pre className="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                      <code>{problemDetails.solution}</code>
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                    </svg>
+                    <h3 className="text-base font-semibold text-amber-800 dark:text-amber-300 mb-1">Editorial Coming Soon</h3>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      Detailed solutions with multiple approaches, time/space complexity analysis, and explanations will be available soon.
+                    </p>
+                    <p className="text-xs text-amber-500 dark:text-amber-500 mt-3">
+                      💡 Tip: Try solving the problem yourself first, then check the Discussion tab for community solutions!
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1502,7 +1621,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
             {activeTab === 'submissions' && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Submission History</h2>
-                
+
                 {/* Loading State */}
                 {isLoadingSubmissions && (
                   <div className="flex items-center justify-center py-12">
@@ -1524,13 +1643,12 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                 ) : !isLoadingSubmissions && (
                   <div className="space-y-2">
                     {submissionHistory.map((submission) => (
-                      <div 
-                        key={submission.id} 
-                        className={`p-4 rounded-xl border transition-colors ${
-                          submission.status === 'Accepted'
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                        }`}
+                      <div
+                        key={submission.id}
+                        className={`p-4 rounded-xl border transition-colors ${submission.status === 'Accepted'
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1543,11 +1661,10 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                               </svg>
                             )}
-                            <span className={`font-semibold ${
-                              submission.status === 'Accepted' 
-                                ? 'text-green-700 dark:text-green-400' 
-                                : 'text-red-700 dark:text-red-400'
-                            }`}>
+                            <span className={`font-semibold ${submission.status === 'Accepted'
+                              ? 'text-green-700 dark:text-green-400'
+                              : 'text-red-700 dark:text-red-400'
+                              }`}>
                               {submission.status}
                             </span>
                           </div>
@@ -1593,7 +1710,7 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
         </div>
 
         {/* Right Panel - Code Editor */}
-        <div ref={rightPanelRef} style={{ width: `${100 - leftPanelWidth}%` }} className="flex flex-col bg-[#1e1e1e] overflow-hidden relative">
+        <div ref={rightPanelRef} style={{ width: `${100 - leftPanelWidth}%` }} className="flex flex-col min-h-0 bg-[#1e1e1e] overflow-hidden relative">
           {/* Top Action Bar - LeetCode Style */}
           <div className="h-10 bg-[#303030] border-b border-[#404040] flex items-center justify-end px-3 gap-1 shrink-0">
             {/* Run Button */}
@@ -1712,8 +1829,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                       setShowOutputPanel(false);
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${showCustomInput && !showOutputPanel
-                        ? 'text-white'
-                        : 'text-gray-500 hover:text-gray-300'
+                      ? 'text-white'
+                      : 'text-gray-500 hover:text-gray-300'
                       }`}
                   >
                     <svg className={`w-4 h-4 ${showCustomInput && !showOutputPanel ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1731,8 +1848,8 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                       setShowCustomInput(false);
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${showOutputPanel
-                        ? 'text-white'
-                        : 'text-gray-500 hover:text-gray-300'
+                      ? 'text-white'
+                      : 'text-gray-500 hover:text-gray-300'
                       }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1753,11 +1870,10 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                         <span
                           key={tc.id}
                           onClick={() => setActiveTestCaseId(tc.id)}
-                          className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                            activeTestCaseId === tc.id
-                              ? 'bg-[#404040] text-white'
-                              : 'bg-[#303030] hover:bg-[#3c3c3c] text-gray-300'
-                          }`}
+                          className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${activeTestCaseId === tc.id
+                            ? 'bg-[#404040] text-white'
+                            : 'bg-[#303030] hover:bg-[#3c3c3c] text-gray-300'
+                            }`}
                         >
                           Case {tc.id}
                         </span>
@@ -1877,7 +1993,9 @@ const ProblemSolvingView: React.FC<ProblemSolvingViewProps> = ({
                               </div>
                               {!result.passed && (
                                 <div className="flex gap-2">
-                                  <span className="text-gray-500 w-16">Output:</span>
+                                  <span className="text-gray-500 w-16">
+                                    {result.actual.startsWith('Syntax Error:') || result.actual.startsWith('Runtime Error:') ? 'Error:' : 'Output:'}
+                                  </span>
                                   <span className="text-red-400">{result.actual}</span>
                                 </div>
                               )}
@@ -2046,14 +2164,14 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
               topic: q.topic || 'General',
               difficulty: difficultyMap[q.difficulty] || 'medium',
               avgTime: q.avgTime || 30,
-              submissions: Math.floor(Math.random() * 100000) + 10000, // Random for now
-              askedIn: q.companies || ['google', 'amazon'],
+              submissions: q.submissions || 0,
+              askedIn: q.companies || [],
               status: 'unsolved' as QuestionStatus,
               isBookmarked: false,
               dateAdded: q.createdAt || new Date().toISOString().split('T')[0],
-              likes: Math.floor(Math.random() * 1000) + 100,
-              dislikes: Math.floor(Math.random() * 100) + 10,
-              successRate: Math.floor(Math.random() * 40) + 30,
+              likes: q.likes ?? 0,
+              dislikes: q.dislikes ?? 0,
+              successRate: q.successRate ?? 0,
               problemDetails: {
                 description: q.description || '',
                 constraints: q.constraints || [],
@@ -2306,6 +2424,108 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
     }
   }, [selectedQuestion]);
 
+  // Toggle like
+  const handleLikeToggle = useCallback(async (questionId: string) => {
+    // Optimistically update UI
+    setQuestions(prev => prev.map(q => {
+      if (q.id === questionId) {
+        const newIsLiked = !q.isLiked;
+        return {
+          ...q,
+          isLiked: newIsLiked,
+          isDisliked: false,
+          likes: (q.likes || 0) + (newIsLiked ? 1 : -1),
+          dislikes: (q.dislikes || 0) + (q.isDisliked ? -1 : 0)
+        };
+      }
+      return q;
+    }));
+
+    // Also update selectedQuestion if it's the current one
+    if (selectedQuestion?.id === questionId) {
+      setSelectedQuestion(prev => {
+        if (!prev) return null;
+        const newIsLiked = !prev.isLiked;
+        return {
+          ...prev,
+          isLiked: newIsLiked,
+          isDisliked: false,
+          likes: (prev.likes || 0) + (newIsLiked ? 1 : -1),
+          dislikes: (prev.dislikes || 0) + (prev.isDisliked ? -1 : 0)
+        };
+      });
+    }
+
+    // Sync with API
+    const userId = getCurrentUserId();
+    if (userId) {
+      try {
+        await fetch(USER_PROGRESS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggle_like',
+            userId,
+            questionId
+          })
+        });
+      } catch (error) {
+        console.error('Error syncing like:', error);
+      }
+    }
+  }, [selectedQuestion]);
+
+  // Toggle dislike
+  const handleDislikeToggle = useCallback(async (questionId: string) => {
+    // Optimistically update UI
+    setQuestions(prev => prev.map(q => {
+      if (q.id === questionId) {
+        const newIsDisliked = !q.isDisliked;
+        return {
+          ...q,
+          isDisliked: newIsDisliked,
+          isLiked: false,
+          dislikes: (q.dislikes || 0) + (newIsDisliked ? 1 : -1),
+          likes: (q.likes || 0) + (q.isLiked ? -1 : 0)
+        };
+      }
+      return q;
+    }));
+
+    // Also update selectedQuestion if it's the current one
+    if (selectedQuestion?.id === questionId) {
+      setSelectedQuestion(prev => {
+        if (!prev) return null;
+        const newIsDisliked = !prev.isDisliked;
+        return {
+          ...prev,
+          isDisliked: newIsDisliked,
+          isLiked: false,
+          dislikes: (prev.dislikes || 0) + (newIsDisliked ? 1 : -1),
+          likes: (prev.likes || 0) + (prev.isLiked ? -1 : 0)
+        };
+      });
+    }
+
+    // Sync with API
+    const userId = getCurrentUserId();
+    if (userId) {
+      try {
+        await fetch(USER_PROGRESS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggle_dislike',
+            userId,
+            questionId
+          })
+        });
+      } catch (error) {
+        console.error('Error syncing dislike:', error);
+      }
+    }
+  }, [selectedQuestion]);
+
   // Open question in code editor
   const openQuestion = useCallback((question: CodingQuestion) => {
     const index = filteredQuestions.findIndex(q => q.id === question.id);
@@ -2379,6 +2599,8 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
         onNext={goToNextQuestion}
         onPrevious={goToPreviousQuestion}
         onToggleBookmark={() => toggleBookmark(selectedQuestion.id)}
+        onToggleLike={() => handleLikeToggle(selectedQuestion.id)}
+        onToggleDislike={() => handleDislikeToggle(selectedQuestion.id)}
         onStatusUpdate={updateQuestionStatus}
       />
     );
@@ -2413,7 +2635,6 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">Coding Interview Questions</h1>
           </div>
         </div>
       </header>
@@ -2421,113 +2642,8 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Loading Skeleton State */}
         {isLoading && (
-          <div className="animate-pulse">
-            {/* Progress & Banner Skeleton */}
-            <div className="flex flex-col lg:flex-row gap-6 mb-8">
-              {/* Progress Card Skeleton */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4 sm:gap-6">
-                {/* Progress Ring Skeleton */}
-                <div className="w-[120px] h-[120px] rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0"></div>
-                <div className="space-y-3 min-w-0 flex-1">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                  <div className="flex gap-6">
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
-                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Banner Skeleton */}
-              <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-2xl p-4 sm:p-6 h-32"></div>
-            </div>
-
-            {/* Table Section Skeleton */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {/* Tabs Skeleton */}
-              <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex gap-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-24"></div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Filters Skeleton */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex flex-wrap gap-3">
-                  <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 sm:w-64"></div>
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-24"></div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Table Header Skeleton */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
-                <div className="flex gap-4">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-8"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-32"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden sm:block"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden sm:block"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-20 hidden md:block"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-24 hidden lg:block"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-28 hidden lg:block"></div>
-                </div>
-              </div>
-
-              {/* Table Rows Skeleton */}
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {[...Array(10)].map((_, i) => (
-                  <div key={i} className="px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      {/* Bookmark */}
-                      <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      {/* Title */}
-                      <div className="flex-1">
-                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 max-w-[300px]"></div>
-                      </div>
-                      {/* Topic */}
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 hidden sm:block"></div>
-                      {/* Difficulty */}
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16 hidden sm:block"></div>
-                      {/* Avg Time */}
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 hidden md:block"></div>
-                      {/* Submissions */}
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-14 hidden lg:block"></div>
-                      {/* Asked In */}
-                      <div className="flex items-center gap-1 hidden lg:flex">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-14"></div>
-                        <div className="flex -space-x-1">
-                          {[...Array(3)].map((_, j) => (
-                            <div key={j} className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full border-2 border-white dark:border-gray-800"></div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination Skeleton */}
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
-                <div className="flex items-center gap-2">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="space-y-8">
+            <SkeletonDashboard />
           </div>
         )}
 
@@ -2622,8 +2738,8 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as typeof activeTab)}
                       className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
-                          ? 'text-teal-600 dark:text-teal-400 border-teal-500'
-                          : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
+                        ? 'text-teal-600 dark:text-teal-400 border-teal-500'
+                        : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
                         }`}
                     >
                       <span>{tab.icon}</span>
@@ -2635,7 +2751,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
               </div>
 
               {/* Filters Section */}
-              <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="relative z-20 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
                   {/* Search */}
                   <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-md">
@@ -2725,7 +2841,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto">
+              <div className="relative z-10 overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
@@ -2786,19 +2902,23 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                           {formatNumber(question.submissions)}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Asked in</span>
-                            <div className="flex items-center -space-x-1 ml-2">
-                              {question.askedIn.slice(0, 3).map((companyId) => (
-                                <CompanyLogo key={companyId} companyId={companyId} />
-                              ))}
+                          {(question.askedIn && question.askedIn.length > 0) ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Asked in</span>
+                              <div className="flex items-center -space-x-1 ml-2">
+                                {question.askedIn.slice(0, 3).map(companyId => (
+                                  <CompanyLogo key={companyId} companyId={companyId} />
+                                ))}
+                              </div>
+                              {question.askedIn.length > 3 ? (
+                                <span className="ml-2 text-sm font-medium text-teal-600 dark:text-teal-400">
+                                  +{question.askedIn.length - 3}
+                                </span>
+                              ) : null}
                             </div>
-                            {question.askedIn.length > 3 && (
-                              <span className="ml-2 text-sm font-medium text-teal-600 dark:text-teal-400">
-                                +{question.askedIn.length - 3}
-                              </span>
-                            )}
-                          </div>
+                          ) : (
+                            <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -2876,8 +2996,8 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                         key={page}
                         onClick={() => setCurrentPage(page as number)}
                         className={`min-w-[36px] px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${currentPage === page
-                            ? 'bg-teal-500 text-white shadow-sm'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-teal-500 text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                           }`}
                       >
                         {page}
@@ -2913,7 +3033,7 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
           </>
         )}
       </main>
-    </div>
+    </div >
   );
 };
 

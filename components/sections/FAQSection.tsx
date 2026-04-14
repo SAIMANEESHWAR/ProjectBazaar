@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigation } from '../../App';
+import { CTAArrowIcon } from '../CTAArrowIcon';
 
 const faqData = [
   {
@@ -36,21 +37,19 @@ const FAQSection: React.FC = () => {
     <section
       id="faqs"
       ref={ref}
-      className="bg-[#0a0a0a] text-white py-24 md:py-32 px-5 relative overflow-hidden"
-      style={{
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-      }}
+      className="bg-gray-100 dark:bg-[#0a0a0a] text-gray-900 dark:text-white py-24 md:py-32 px-5 relative overflow-hidden transition-colors duration-300"
     >
-      <div className="max-w-[800px] mx-auto flex flex-col items-center">
+      <div className="absolute inset-0 pointer-events-none opacity-100 dark:opacity-0 transition-opacity duration-300" style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      <div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-100 transition-opacity duration-300" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      <div className="max-w-[800px] mx-auto flex flex-col items-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.65 }}
           className="mb-12 text-center"
         >
-          <p className="text-[#a1a1a1] uppercase tracking-[0.2em] text-sm font-semibold mb-4">FAQ</p>
-          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight">
+          <p className="text-gray-500 dark:text-[#a1a1a1] uppercase tracking-[0.2em] text-sm font-semibold mb-4">FAQ</p>
+          <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight text-gray-900 dark:text-white">
             Got Questions? <span className="text-[#ff7a00]">We&apos;ve got answers.</span>
           </h2>
         </motion.div>
@@ -62,20 +61,20 @@ const FAQSection: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.1 + index * 0.08 }}
-              className="border border-[#262626] rounded-xl overflow-hidden bg-[#141414]"
+              className="border border-gray-200 dark:border-[#262626] rounded-xl overflow-hidden bg-white dark:bg-[#141414] transition-colors duration-300"
             >
               <button
                 type="button"
-                className="w-full flex items-center justify-between p-6 text-left hover:bg-[#1a1a1a] transition-colors focus:outline-none"
+                className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors focus:outline-none"
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
               >
-                <span className="text-lg md:text-xl font-medium text-white">{item.question}</span>
+                <span className="text-lg md:text-xl font-medium text-gray-900 dark:text-white">{item.question}</span>
                 <motion.div
                   animate={{ rotate: openIndex === index ? 45 : 0 }}
                   transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
-                  className="flex-shrink-0 ml-4 w-8 h-8 rounded-full bg-[#262626] flex items-center justify-center"
+                  className="flex-shrink-0 ml-4 w-8 h-8 rounded-full bg-gray-200 dark:bg-[#262626] flex items-center justify-center"
                 >
-                  <Plus className="w-4 h-4 text-[#a1a1a1]" />
+                  <Plus className="w-4 h-4 text-gray-600 dark:text-[#a1a1a1]" />
                 </motion.div>
               </button>
 
@@ -90,7 +89,7 @@ const FAQSection: React.FC = () => {
                     className="overflow-hidden"
                   >
                     <div className="px-6 pb-6">
-                      <p className="text-[#a1a1a1] leading-relaxed text-base md:text-lg">{item.answer}</p>
+                      <p className="text-gray-600 dark:text-[#a1a1a1] leading-relaxed text-base md:text-lg">{item.answer}</p>
                     </div>
                   </motion.div>
                 )}
@@ -105,7 +104,7 @@ const FAQSection: React.FC = () => {
           transition={{ duration: 0.65, delay: 0.5 }}
           className="mt-16 text-center"
         >
-          <h3 className="text-xl md:text-2xl font-semibold mb-6 text-white max-w-[400px] mx-auto">
+          <h3 className="text-xl md:text-2xl font-semibold mb-6 text-gray-900 dark:text-white max-w-[400px] mx-auto">
             Still got questions? We&apos;re here to help.
           </h3>
           <motion.button
@@ -116,13 +115,13 @@ const FAQSection: React.FC = () => {
           >
             Visit Help Center
             <span className="bg-white rounded-full p-1 ml-1 group-hover:translate-x-1 transition-transform inline-flex">
-              <ArrowRight className="w-4 h-4 text-[#ff7a00]" />
+              <CTAArrowIcon className="w-4 h-4 object-contain" />
             </span>
           </motion.button>
         </motion.div>
       </div>
 
-      <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#262626] to-transparent" />
+      <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gray-300 dark:via-[#262626] to-transparent" />
     </section>
   );
 };

@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import noCourseAnimation from '../lottiefiles/no_courseanimation.json';
+import SkeletonDashboard from './ui/skeleton-dashboard';
+
+import { useAuth } from '../App';
 
 const GET_ALL_COURSES_ENDPOINT = 'https://lejjk9h72l.execute-api.ap-south-2.amazonaws.com/default/Get_all_courses_for_admin_and_buyer';
+const COURSE_LIKE_ENDPOINT = 'https://d5mbqkhoz7.execute-api.ap-south-2.amazonaws.com/default/course_likes_handler';
 
 interface BuyerCoursesPageProps {
     onViewCourse?: (course: Course) => void;
@@ -47,6 +51,9 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [selectedLevel, setSelectedLevel] = useState<string>('all');
+    const [likedCourseIds, setLikedCourseIds] = useState<Set<string>>(new Set());
+    const [isLiking, setIsLiking] = useState<{ [key: string]: boolean }>({});
+    const { userId, isLoggedIn } = useAuth();
 
     // Fetch courses from API
     const fetchCourses = async () => {
@@ -66,14 +73,14 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
 
             const data = await response.json();
             console.log('Courses API Response:', data);
-            
+
             // Handle both array and object with courses property
             const coursesArray = Array.isArray(data.courses) ? data.courses : (data.courses || []);
-            
+
             if (data.success && coursesArray.length > 0) {
                 console.log('Total courses received:', coursesArray.length);
                 console.log('Raw courses data:', coursesArray);
-                
+
                 // Filter courses - show all public courses (including draft for testing)
                 // In production, change to: course.status === 'published' && course.visibility === 'public'
                 const publishedCourses = coursesArray
@@ -112,11 +119,11 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                             additionalResources: []
                         }
                     }));
-                
+
                 setCourses(publishedCourses);
                 console.log('Filtered courses count:', publishedCourses.length);
                 console.log('Mapped courses:', publishedCourses);
-                
+
                 if (publishedCourses.length === 0 && coursesArray.length > 0) {
                     console.warn('No courses passed filter. All courses:', coursesArray.map((c: any) => ({
                         id: c.courseId,
@@ -143,6 +150,105 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
         fetchCourses();
     }, []);
 
+    // Fetch user liked courses
+    useEffect(() => {
+        const fetchLikedCourses = async () => {
+            if (!isLoggedIn || !userId) {
+                setLikedCourseIds(new Set());
+                return;
+            }
+            try {
+                const response = await fetch(COURSE_LIKE_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, action: 'get_user_likes' })
+                });
+                const data = await response.json();
+                if (data.success && data.likedCourses) {
+                    setLikedCourseIds(new Set(data.likedCourses));
+                }
+            } catch (err) {
+                console.error('Error fetching liked courses:', err);
+            }
+        };
+        fetchLikedCourses();
+    }, [userId, isLoggedIn]);
+
+    const handleLikeToggle = async (e: React.MouseEvent, courseId: string) => {
+        e.stopPropagation();
+
+        if (!isLoggedIn || !userId) {
+            // Ideally trigger login modal or redirect, for now just alert
+            alert('Please log in to like courses');
+            return;
+        }
+
+        if (isLiking[courseId]) return;
+
+        // Optimistic UI update
+        const isCurrentlyLiked = likedCourseIds.has(courseId);
+        setIsLiking(prev => ({ ...prev, [courseId]: true }));
+
+        setLikedCourseIds(prev => {
+            const newSet = new Set(prev);
+            if (isCurrentlyLiked) newSet.delete(courseId);
+            else newSet.add(courseId);
+            return newSet;
+        });
+
+        setCourses(prev => prev.map(course => {
+            if (course.courseId === courseId) {
+                return {
+                    ...course,
+                    likesCount: isCurrentlyLiked ? Math.max(0, course.likesCount - 1) : course.likesCount + 1
+                };
+            }
+            return course;
+        }));
+
+        try {
+            const response = await fetch(COURSE_LIKE_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId, userId, action: 'toggle' })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to toggle like');
+            }
+
+            // Sync with backend truth if needed
+            if (data.likesCount !== undefined) {
+                setCourses(prev => prev.map(course =>
+                    course.courseId === courseId ? { ...course, likesCount: data.likesCount } : course
+                ));
+            }
+
+        } catch (err) {
+            console.error('Error toggling like:', err);
+            // Revert optimistic update
+            setLikedCourseIds(prev => {
+                const newSet = new Set(prev);
+                if (isCurrentlyLiked) newSet.add(courseId);
+                else newSet.delete(courseId);
+                return newSet;
+            });
+            setCourses(prev => prev.map(course => {
+                if (course.courseId === courseId) {
+                    return {
+                        ...course,
+                        likesCount: isCurrentlyLiked ? course.likesCount + 1 : Math.max(0, course.likesCount - 1)
+                    };
+                }
+                return course;
+            }));
+        } finally {
+            setIsLiking(prev => ({ ...prev, [courseId]: false }));
+        }
+    };
+
     // Get unique categories and format them
     const categories = Array.from(new Set(courses.map(c => c.category)));
 
@@ -158,11 +264,11 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
 
     // Filter courses
     const filteredCourses = courses.filter(course => {
-        const matchesSearch = searchQuery === '' || 
+        const matchesSearch = searchQuery === '' ||
             course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             course.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
             course.category.toLowerCase().includes(searchQuery.toLowerCase());
-        
+
         const matchesCategory = selectedCategory === 'all' || course.category === selectedCategory;
         const matchesLevel = selectedLevel === 'all' || course.level === selectedLevel;
 
@@ -189,11 +295,10 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                             placeholder="Search courses... (e.g., React, Python, Web Development)"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-10 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 bg-white transition-all outline-none shadow-sm ${
-                                searchQuery 
-                                    ? 'border-orange-300 hover:border-orange-400' 
-                                    : 'border-gray-200 hover:border-gray-300'
-                            }`}
+                            className={`w-full pl-12 pr-10 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 bg-white transition-all outline-none shadow-sm ${searchQuery
+                                ? 'border-orange-300 hover:border-orange-400'
+                                : 'border-gray-200 hover:border-gray-300'
+                                }`}
                             aria-label="Search courses by title, description, or category"
                         />
                         {searchQuery && (
@@ -213,7 +318,7 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                 {/* Filter Pills */}
                 <div className="flex flex-wrap items-center gap-2.5">
                     <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-0.5">Filters:</span>
-                    
+
                     {/* Category Filter */}
                     <div className="relative inline-flex">
                         <label htmlFor="course-category" className="sr-only">Filter by category</label>
@@ -221,11 +326,10 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                             id="course-category"
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(e.target.value)}
-                            className={`appearance-none pl-3 pr-8 py-2 text-sm rounded-full border transition-all outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer font-medium min-w-[140px] ${
-                                selectedCategory !== 'all' 
-                                    ? 'bg-orange-50 border-orange-400 text-orange-800 shadow-sm' 
-                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`appearance-none pl-3 pr-8 py-2 text-sm rounded-full border transition-all outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer font-medium min-w-[140px] ${selectedCategory !== 'all'
+                                ? 'bg-orange-50 border-orange-400 text-orange-800 shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                }`}
                             aria-label="Filter courses by category"
                         >
                             <option value="all">All Categories</option>
@@ -252,11 +356,10 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                             id="course-level"
                             value={selectedLevel}
                             onChange={(e) => setSelectedLevel(e.target.value)}
-                            className={`appearance-none pl-3 pr-8 py-2 text-sm rounded-full border transition-all outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer font-medium min-w-[130px] ${
-                                selectedLevel !== 'all' 
-                                    ? 'bg-orange-50 border-orange-400 text-orange-800 shadow-sm' 
-                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`appearance-none pl-3 pr-8 py-2 text-sm rounded-full border transition-all outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer font-medium min-w-[130px] ${selectedLevel !== 'all'
+                                ? 'bg-orange-50 border-orange-400 text-orange-800 shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                }`}
                             aria-label="Filter courses by difficulty level"
                         >
                             <option value="all">All Levels</option>
@@ -266,11 +369,10 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                         </select>
                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none flex items-center gap-1">
                             {selectedLevel !== 'all' && (
-                                <div className={`w-2 h-2 rounded-full mr-1 ${
-                                    selectedLevel === 'Beginner' ? 'bg-green-500' :
+                                <div className={`w-2 h-2 rounded-full mr-1 ${selectedLevel === 'Beginner' ? 'bg-green-500' :
                                     selectedLevel === 'Intermediate' ? 'bg-yellow-500' :
-                                    'bg-red-500'
-                                }`} aria-hidden="true"></div>
+                                        'bg-red-500'
+                                    }`} aria-hidden="true"></div>
                             )}
                             <svg className={`w-3.5 h-3.5 ${selectedLevel !== 'all' ? 'text-orange-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -319,10 +421,8 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
 
             {/* Loading State */}
             {isLoading && courses.length === 0 && (
-                <div className="text-center py-20 bg-white border border-gray-200 rounded-2xl">
-                    <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-orange-500 border-t-transparent mb-6"></div>
-                    <p className="text-gray-700 font-semibold text-lg mb-2">Loading courses...</p>
-                    <p className="text-gray-500 text-sm">Please wait while we fetch the latest courses</p>
+                <div className="space-y-8">
+                    <SkeletonDashboard />
                 </div>
             )}
 
@@ -336,11 +436,11 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredCourses.map((course) => (
-                            <article 
-                                key={course.courseId} 
+                            <article
+                                key={course.courseId}
                                 className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-orange-300 transition-all duration-200 group focus-within:ring-2 focus-within:ring-orange-500 focus-within:ring-offset-2"
                             >
-                                <div 
+                                <div
                                     className="relative h-48 overflow-hidden bg-gray-100 cursor-pointer"
                                     onClick={() => onViewCourse?.(course)}
                                     role="button"
@@ -349,8 +449,8 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                                 >
                                     {course.thumbnailUrl ? (
                                         <>
-                                            <img 
-                                                src={course.thumbnailUrl} 
+                                            <img
+                                                src={course.thumbnailUrl}
                                                 alt={`${course.title} course thumbnail`}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                 onError={(e) => {
@@ -379,18 +479,18 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                                         </div>
                                     )}
                                 </div>
-                                
+
                                 <div className="p-5">
                                     {/* Title - More Prominent */}
                                     <h3 className="font-bold text-xl text-gray-900 line-clamp-2 mb-2 group-hover:text-orange-600 transition-colors">
                                         {toTitleCase(course.title)}
                                     </h3>
-                                    
+
                                     {/* Description - Reduced Dominance */}
                                     <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed mb-3 min-h-[2.5rem]">
                                         {course.description}
                                     </p>
-                                    
+
                                     {/* Tags - Clear Distinction */}
                                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-semibold border border-blue-200">
@@ -409,15 +509,24 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                                         </span>
                                     </div>
 
-                                    {/* Metadata - Compact */}
                                     <div className="flex items-center gap-4 mb-4 text-xs text-gray-600 pb-3 border-b border-gray-100">
-                                        <span className="flex items-center gap-1.5" title={`${course.likesCount || 0} people saved this course`}>
-                                            <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                        <button
+                                            onClick={(e) => handleLikeToggle(e, course.courseId)}
+                                            disabled={isLiking[course.courseId]}
+                                            className={`flex items-center gap-1.5 focus:outline-none transition-transform active:scale-90 ${isLiking[course.courseId] ? 'opacity-70 cursor-wait' : 'hover:scale-105'} ${likedCourseIds.has(course.courseId) ? 'text-red-500' : 'text-gray-500 hover:text-red-400'}`}
+                                            title={likedCourseIds.has(course.courseId) ? 'Unlike this course' : 'Like this course'}
+                                            aria-label={likedCourseIds.has(course.courseId) ? 'Unlike course' : 'Like course'}
+                                        >
+                                            <svg className="w-4 h-4" fill={likedCourseIds.has(course.courseId) ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={likedCourseIds.has(course.courseId) ? 0 : 2} aria-hidden="true">
+                                                {likedCourseIds.has(course.courseId) ? (
+                                                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                                ) : (
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                                )}
                                             </svg>
-                                            <span className="font-medium">{course.likesCount || 0}</span>
-                                            <span className="sr-only">saved</span>
-                                        </span>
+                                            <span className={`font-medium ${likedCourseIds.has(course.courseId) ? 'text-red-600' : 'text-gray-600'}`}>{course.likesCount || 0}</span>
+                                            <span className="sr-only">{likedCourseIds.has(course.courseId) ? 'saved' : 'likes'}</span>
+                                        </button>
                                         <span className="flex items-center gap-1.5">
                                             <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -474,7 +583,7 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                                                 <span className="text-orange-600 font-bold text-xl">₹{(course.currency === 'USD' ? course.price * 83 : course.price).toLocaleString('en-IN')}</span>
                                             )}
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onViewCourse?.(course);
@@ -497,16 +606,16 @@ const BuyerCoursesPage: React.FC<BuyerCoursesPageProps> = ({ onViewCourse }) => 
                 <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl">
                     <div className="max-w-md mx-auto">
                         <div className="w-64 h-64 mx-auto mb-6 flex items-center justify-center">
-                            <Lottie 
-                                animationData={noCourseAnimation} 
-                                loop={true} 
+                            <Lottie
+                                animationData={noCourseAnimation}
+                                loop={true}
                                 autoplay={true}
                                 style={{ width: '100%', height: '100%' }}
                             />
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-2">
-                            {searchQuery || selectedCategory !== 'all' || selectedLevel !== 'all' 
-                                ? 'No courses match your search' 
+                            {searchQuery || selectedCategory !== 'all' || selectedLevel !== 'all'
+                                ? 'No courses match your search'
                                 : 'No courses available yet'}
                         </h3>
                         <p className="text-gray-600 mb-6">

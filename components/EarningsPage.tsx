@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
 import { fetchProjectDetails, ProjectDetails } from '../services/buyerApi';
 import noEarningAnimation from '../lottiefiles/no_earning_animation.json';
@@ -35,7 +36,7 @@ interface ChartBarProps {
 const ChartBar: React.FC<ChartBarProps> = ({ label, value, maxValue, colorClass }) => (
     <div className="flex flex-col items-center gap-2">
         <div className="w-full h-40 bg-gray-100 rounded-lg flex items-end">
-            <div 
+            <div
                 className={`w-full rounded-lg ${colorClass}`}
                 style={{ height: `${(value / maxValue) * 100}%` }}
                 title={`₹${value.toFixed(2)}`}
@@ -98,7 +99,7 @@ const EarningsPage: React.FC = () => {
                             try {
                                 const projectId = project.projectId || project.id;
                                 let projectDetail = project;
-                                
+
                                 if (projectId) {
                                     const detail = await fetchProjectDetails(projectId);
                                     if (detail) {
@@ -107,10 +108,10 @@ const EarningsPage: React.FC = () => {
                                 }
 
                                 const sales = projectDetail.purchasesCount || 0;
-                                const price = typeof projectDetail.price === 'number' 
-                                    ? projectDetail.price 
+                                const price = typeof projectDetail.price === 'number'
+                                    ? projectDetail.price
                                     : parseFloat(String(projectDetail.price || '0'));
-                                
+
                                 const revenue = sales * price;
                                 const platformFee = 0.10; // 10% platform fee
                                 const netEarnings = revenue * (1 - platformFee);
@@ -176,31 +177,27 @@ const EarningsPage: React.FC = () => {
     // Generate conic gradient for pie chart
     const generateConicGradient = () => {
         if (topProjectsData.length === 0) return 'conic-gradient(#e5e7eb 0% 100%)';
-        
+
         let gradient = '';
         let currentPercent = 0;
         const colors = ['#3b82f6', '#8b5cf6', '#22c55e', '#eab308'];
-        
+
         topProjectsData.forEach((item, index) => {
             const nextPercent = currentPercent + item.percentage;
             gradient += `${colors[index]} ${currentPercent}% ${nextPercent}%`;
             if (index < topProjectsData.length - 1) gradient += ', ';
             currentPercent = nextPercent;
         });
-        
+
         return `conic-gradient(${gradient})`;
     };
-    
+
+
+
     if (isLoading) {
         return (
-            <div className="mt-8 flex items-center justify-center py-16">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-gray-500 text-lg font-medium">Loading earnings data...</p>
-                </div>
+            <div className="mt-8 space-y-8">
+                <SkeletonDashboard />
             </div>
         );
     }
@@ -236,29 +233,29 @@ const EarningsPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard 
-                        title="Total Sales" 
-                        value={selectedProject.purchasesCount?.toString() || '0'} 
-                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} 
-                        colorClass="bg-blue-500" 
+                    <StatCard
+                        title="Total Sales"
+                        value={selectedProject.purchasesCount?.toString() || '0'}
+                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                        colorClass="bg-blue-500"
                     />
-                    <StatCard 
-                        title="Project Price" 
-                        value={`₹${selectedProject.price?.toFixed(2) || '0.00'}`} 
-                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} 
-                        colorClass="bg-purple-500" 
+                    <StatCard
+                        title="Project Price"
+                        value={`₹${selectedProject.price?.toFixed(2) || '0.00'}`}
+                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>}
+                        colorClass="bg-purple-500"
                     />
-                    <StatCard 
-                        title="Total Revenue" 
-                        value={`₹${selectedProject.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} 
-                        colorClass="bg-green-500" 
+                    <StatCard
+                        title="Total Revenue"
+                        value={`₹${selectedProject.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                        colorClass="bg-green-500"
                     />
-                    <StatCard 
-                        title="Net Earnings" 
-                        value={`₹${selectedProject.netEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
-                        colorClass="bg-orange-500" 
+                    <StatCard
+                        title="Net Earnings"
+                        value={`₹${selectedProject.netEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                        colorClass="bg-orange-500"
                     />
                 </div>
 
@@ -271,15 +268,14 @@ const EarningsPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 mb-1">Status</p>
-                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                                selectedProject.adminApprovalStatus === 'approved' 
-                                    ? 'bg-green-100 text-green-800'
-                                    : selectedProject.adminApprovalStatus === 'rejected'
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${selectedProject.adminApprovalStatus === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : selectedProject.adminApprovalStatus === 'rejected'
                                     ? 'bg-red-100 text-red-800'
                                     : selectedProject.adminApprovalStatus === 'disabled'
-                                    ? 'bg-gray-200 text-gray-700'
-                                    : 'bg-orange-100 text-orange-800'
-                            }`}>
+                                        ? 'bg-gray-200 text-gray-700'
+                                        : 'bg-orange-100 text-orange-800'
+                                }`}>
                                 {selectedProject.adminApprovalStatus || selectedProject.status || 'Pending'}
                             </span>
                         </div>
@@ -300,29 +296,29 @@ const EarningsPage: React.FC = () => {
     return (
         <div className="mt-8 space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard 
-                    title="Total Revenue" 
-                    value={`₹${totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} 
-                    colorClass="bg-blue-500" 
+                <StatCard
+                    title="Total Revenue"
+                    value={`₹${totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>}
+                    colorClass="bg-blue-500"
                 />
-                <StatCard 
-                    title="Net Earnings (After Fees)" 
-                    value={`₹${totalNetEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} 
-                    colorClass="bg-purple-500" 
+                <StatCard
+                    title="Net Earnings (After Fees)"
+                    value={`₹${totalNetEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                    colorClass="bg-purple-500"
                 />
-                <StatCard 
-                    title="Total Sales" 
-                    value={totalSales.toString()} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} 
-                    colorClass="bg-green-500" 
+                <StatCard
+                    title="Total Sales"
+                    value={totalSales.toString()}
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                    colorClass="bg-green-500"
                 />
-                <StatCard 
-                    title="This Month" 
-                    value={`₹${thisMonthEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} 
-                    colorClass="bg-orange-500" 
+                <StatCard
+                    title="This Month"
+                    value={`₹${thisMonthEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                    colorClass="bg-orange-500"
                 />
             </div>
 
@@ -401,15 +397,14 @@ const EarningsPage: React.FC = () => {
                                             <span className="text-sm font-semibold text-purple-600">${project.netEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="pt-2 border-t border-gray-100">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                project.adminApprovalStatus === 'approved' 
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : project.adminApprovalStatus === 'rejected'
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${project.adminApprovalStatus === 'approved'
+                                                ? 'bg-green-100 text-green-800'
+                                                : project.adminApprovalStatus === 'rejected'
                                                     ? 'bg-red-100 text-red-800'
                                                     : project.adminApprovalStatus === 'disabled'
-                                                    ? 'bg-gray-200 text-gray-700'
-                                                    : 'bg-orange-100 text-orange-800'
-                                            }`}>
+                                                        ? 'bg-gray-200 text-gray-700'
+                                                        : 'bg-orange-100 text-orange-800'
+                                                }`}>
                                                 {project.adminApprovalStatus || project.status || 'Pending'}
                                             </span>
                                         </div>

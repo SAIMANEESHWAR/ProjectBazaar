@@ -1,9 +1,9 @@
 import React from "react";
 import { motion } from "motion/react";
-import { 
-  Users, 
-  Gavel, 
-  Trophy, 
+import {
+  Users,
+  Gavel,
+  Trophy,
   FileText,
   ArrowRight,
   Sparkles
@@ -19,20 +19,20 @@ interface Feature {
   gradient: string;
   bgGlow: string;
   action: string;
-  page: 'browseFreelancers' | 'browseProjects' | 'buildPortfolio' | 'auth';
+  page: 'browseProjects' | 'buildPortfolio' | 'auth';
 }
 
 const features: Feature[] = [
   {
     icon: <Users className="w-8 h-8" />,
-    title: "Hire Top Freelancers",
+    title: "View Top Talent",
     description: "Browse through skilled developers, designers, and creators. Find the perfect talent for your project needs.",
     highlight: "500+ Experts",
     color: "text-orange-400",
     gradient: "from-orange-500/20 to-orange-600/10",
     bgGlow: "bg-orange-500/20",
-    action: "Browse Freelancers",
-    page: 'browseFreelancers',
+    action: "View Projects",
+    page: 'browseProjects',
   },
   {
     icon: <Gavel className="w-8 h-8" />,
@@ -71,7 +71,7 @@ const features: Feature[] = [
 
 const FeatureCard: React.FC<{ feature: Feature; index: number }> = ({ feature, index }) => {
   const { navigateTo } = useNavigation();
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -83,17 +83,17 @@ const FeatureCard: React.FC<{ feature: Feature; index: number }> = ({ feature, i
       <div className={`relative h-full p-6 rounded-2xl border border-white/10 bg-gradient-to-br ${feature.gradient} backdrop-blur-sm hover:border-white/20 transition-all duration-300 overflow-hidden`}>
         {/* Background glow effect */}
         <div className={`absolute -top-20 -right-20 w-40 h-40 ${feature.bgGlow} rounded-full blur-3xl opacity-0 group-hover:opacity-50 transition-opacity duration-500`} />
-        
+
         {/* Highlight badge */}
         <div className={`absolute top-4 right-4 px-3 py-1 bg-white/10 ${feature.color} text-xs font-bold rounded-full`}>
           {feature.highlight}
         </div>
-        
+
         {/* Icon */}
         <div className={`inline-flex p-4 rounded-xl bg-white/5 ${feature.color} mb-5 group-hover:scale-110 transition-transform duration-300`}>
           {feature.icon}
         </div>
-        
+
         {/* Content */}
         <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-orange-300 transition-colors">
           {feature.title}
@@ -101,9 +101,9 @@ const FeatureCard: React.FC<{ feature: Feature; index: number }> = ({ feature, i
         <p className="text-white/50 text-sm leading-relaxed mb-5">
           {feature.description}
         </p>
-        
+
         {/* CTA Button */}
-        <button 
+        <button
           onClick={() => navigateTo(feature.page)}
           className={`inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 ${feature.color} text-sm font-medium rounded-full transition-all duration-300 group/btn`}
         >
@@ -138,7 +138,7 @@ const PlatformFeatures: React.FC = () => {
             <Sparkles className="w-4 h-4" />
             More Than Just a Marketplace
           </div>
-          
+
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
             <span className="text-white">Everything You Need to </span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-500">
@@ -146,7 +146,7 @@ const PlatformFeatures: React.FC = () => {
             </span>
           </h2>
           <p className="text-white/80 text-lg max-w-2xl mx-auto">
-            From hiring talent to building your portfolio — discover all the powerful features 
+            From hiring talent to building your portfolio — discover all the powerful features
             that make ProjectBazaar the ultimate platform for creators and buyers.
           </p>
         </motion.div>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import Lottie from 'lottie-react';
+import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
+import { useDashboard } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
-import { fetchUserData } from '../services/buyerApi';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
 import type { BuyerProject } from './BuyerProjectCard';
@@ -34,11 +35,26 @@ import MyCoursesPage from './MyCoursesPage';
 import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
+import LiveMockInterviewPage from './LiveMockInterviewPage';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
-import { PurchasedCourse } from '../services/buyerApi';
-
-const GET_ALL_PROJECTS_ENDPOINT = 'https://vwqfgtwerj.execute-api.ap-south-2.amazonaws.com/default/Get_All_Projects_for_Admin_Buyer';
-const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
+import MyBidsPage from './MyBidsPage';
+import ChatRoom from './ChatRoom';
+import CompanyPostsPage from './CompanyPostsPage';
+import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
+import PreparationHub from './preparation/PreparationHub';
+import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
+import PrepDSAProblemsPage from './preparation/PrepDSAProblemsPage';
+import PrepQuizzesPage from './preparation/PrepQuizzesPage';
+import PrepColdDMsPage from './preparation/PrepColdDMsPage';
+import PrepCollectionsPage from './preparation/PrepCollectionsPage';
+import PrepMassRecruitmentPage from './preparation/PrepMassRecruitmentPage';
+import PrepJobPortalsPage from './preparation/PrepJobPortalsPage';
+import PrepHandwrittenNotesPage from './preparation/PrepHandwrittenNotesPage';
+import PrepRoadmapsPage from './preparation/PrepRoadmapsPage';
+import PrepPositionResourcesPage from './preparation/PrepPositionResourcesPage';
+import PrepActivityPage from './preparation/PrepActivityPage';
+import PrepSystemDesignPage from './preparation/PrepSystemDesignPage';
+import PrepFundamentalsPage from './preparation/PrepFundamentalsPage';
 
 interface ApiProject {
     projectId: string;
@@ -48,23 +64,20 @@ interface ApiProject {
     category: string;
     tags: string[];
     thumbnailUrl: string;
+    images?: string[]; // Backend returns 'images', not 'additionalImages'
     sellerId: string;
     sellerEmail: string;
     status: string;
+    likesCount?: number;
+    purchasesCount?: number;
+    demoVideoUrl?: string;
     adminApproved?: boolean;
     adminApprovalStatus?: string; // "approved" | "rejected" | "disabled"
     uploadedAt: string;
     documentationUrl?: string;
     youtubeVideoUrl?: string;
-    purchasesCount?: number;
-    likesCount?: number;
     viewsCount?: number;
-}
-
-interface ApiResponse {
-    success: boolean;
-    count: number;
-    projects: ApiProject[];
+    features?: string[]; // Features array from backend
 }
 
 // @ts-ignore - Mock data kept for potential future use
@@ -191,25 +204,84 @@ const activatedProjects = [
 
 
 interface DashboardContentProps {
-    dashboardMode: 'buyer' | 'seller';
-    setDashboardMode: (mode: 'buyer' | 'seller') => void;
-    activeView: DashboardView;
+    dashboardMode?: 'buyer' | 'seller' | 'preparation';
+    setDashboardMode?: (mode: 'buyer' | 'seller') => void;
+    activeView?: DashboardView;
     isSidebarOpen: boolean;
     toggleSidebar: () => void;
-    setActiveView: (view: DashboardView) => void;
+    setActiveView?: (view: DashboardView) => void;
 }
 
-const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setDashboardMode, activeView, isSidebarOpen, toggleSidebar, setActiveView }) => {
+export interface ExtendedProject extends BuyerProject {
+    seller: {
+        id?: string;
+        name: string;
+        email: string;
+        avatar: string;
+        rating: number;
+        totalSales: number;
+    };
+    likes: number;
+    purchases: number;
+    originalPrice?: number;
+    discount?: number;
+    promoCode?: string;
+    demoVideoUrl?: string;
+    features?: string[];
+    supportInfo?: string;
+}
+
+const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // After login, show buyer dashboard with projects view
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (sessionStorage.getItem('justLoggedIn') === 'true') {
+            setDashboardMode('buyer');
+            setActiveView('dashboard');
+            setBrowseView('all');
+            sessionStorage.removeItem('justLoggedIn');
+        }
+    }, [setDashboardMode, setActiveView, setBrowseView]);
+
+    // Live AI Interview is not part of Prep Mode navigation; normalize stale localStorage / deep state.
+    useLayoutEffect(() => {
+        if (dashboardMode === 'preparation' && activeView === 'live-mock-interview') {
+            setActiveView('prep-hub');
+        }
+    }, [dashboardMode, activeView, setActiveView]);
 
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
         mainScrollRef.current?.scrollTo(0, 0);
     }, [activeView]);
+
+    // Auto-hide scrollbar effect: show on scroll, hide after idle
+    useEffect(() => {
+        const mainEl = mainScrollRef.current;
+        if (!mainEl) return;
+
+        let scrollTimeout: ReturnType<typeof setTimeout>;
+
+        const handleScroll = () => {
+            mainEl.classList.add('is-scrolling');
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                mainEl.classList.remove('is-scrolling');
+            }, 1000);
+        };
+
+        mainEl.addEventListener('scroll', handleScroll, { passive: true });
+        return () => {
+            mainEl.removeEventListener('scroll', handleScroll);
+            clearTimeout(scrollTimeout);
+        };
+    }, []);
     const [buyerProjectView, setBuyerProjectView] = useState<'all' | 'activated' | 'disabled'>('all');
-    const [browseView, setBrowseView] = useState<'all' | 'freelancers' | 'projects'>('all');
     const [projects, setProjects] = useState<BuyerProject[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<BuyerProject[]>([]);
     const [projectSellerMap, setProjectSellerMap] = useState<Map<string, { sellerId: string; sellerEmail: string; sellerProfilePicture?: string; sellerName?: string }>>(new Map());
@@ -233,58 +305,61 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             description: apiProject.description || 'No description available',
             tags: apiProject.tags || [],
             price: typeof apiProject.price === 'number' ? apiProject.price : parseFloat(String(apiProject.price || '0')),
-            isPremium: false, // API doesn't provide this, can be updated later
+            isPremium: false,
             hasDocumentation: !!apiProject.documentationUrl,
             hasExecutionVideo: !!apiProject.youtubeVideoUrl,
+            demoVideoUrl: apiProject.youtubeVideoUrl,
+            images: apiProject.images,
+            features: apiProject.features || [], // Map features from API
+            likesCount: apiProject.likesCount || 0,
+            purchasesCount: apiProject.purchasesCount || 0,
+            sellerEmail: apiProject.sellerEmail || '',
+            isOwnProject: userId ? apiProject.sellerId === userId : false,
         };
     };
 
-    // Fetch projects from API
+    // Fetch projects from API (cached + deduplicated)
     const fetchProjects = async () => {
         setIsLoadingProjects(true);
         setProjectsError(null);
 
         try {
-            // Fetch user data to get purchased project IDs
-            let purchasedProjectIds: string[] = [];
-            if (userId) {
-                const userData = await fetchUserData(userId);
-                if (userData && userData.purchases) {
-                    purchasedProjectIds = userData.purchases.map((p: any) => p.projectId);
-                }
-            }
+            // Both calls are cached & deduplicated -- if Sidebar or DashboardPage
+            // already fetched user data, this returns instantly from cache.
+            const [userData, data] = await Promise.all([
+                userId ? cachedFetchUserData(userId) : Promise.resolve(null),
+                cachedFetchAllProjects(),
+            ]);
 
-            const response = await fetch(GET_ALL_PROJECTS_ENDPOINT);
+            const purchasedProjectIds: string[] =
+                userData?.purchases?.map((p: any) => p.projectId) ?? [];
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch projects: ${response.statusText}`);
-            }
+            const rawProjects: ApiProject[] = Array.isArray(data.projects)
+                ? data.projects
+                : Array.isArray(data.data)
+                    ? data.data
+                    : [];
 
-            const data: ApiResponse = await response.json();
-
-            if (data.success && data.projects) {
-                // Filter projects: Only show approved projects, exclude user's own projects, and exclude purchased projects
-                const filteredApiProjects = data.projects.filter((apiProject: ApiProject) => {
-                    // Check if project is approved
+            if (data.success !== false && rawProjects.length >= 0) {
+                const filteredApiProjects = rawProjects.filter((apiProject: ApiProject) => {
+                    const status = (apiProject.status || '').toLowerCase();
+                    const approvalStatus = (apiProject.adminApprovalStatus || '').toLowerCase();
                     const isApproved =
-                        apiProject.adminApprovalStatus === 'approved' ||
-                        apiProject.status === 'approved' ||
-                        (apiProject.adminApproved === true && (apiProject.status === 'active' || apiProject.status === 'live'));
+                        approvalStatus === 'approved' ||
+                        status === 'approved' ||
+                        status === 'active' ||
+                        status === 'live' ||
+                        (apiProject.adminApproved === true && (status === 'active' || status === 'live'));
 
-                    // Check if project is not owned by current user
-                    const isNotOwnProject = userId ? apiProject.sellerId !== userId : true;
-
-                    // Check if project is not already purchased
+                    const isNotDraft = status !== 'draft';
                     const isNotPurchased = !purchasedProjectIds.includes(apiProject.projectId);
 
-                    return isApproved && isNotOwnProject && isNotPurchased;
+                    return isApproved && isNotDraft && isNotPurchased;
                 });
 
-                // Map filtered projects from API
                 const mappedProjects = filteredApiProjects.map(mapApiProjectToComponent);
 
-                // Create a map of projectId to sellerId and sellerEmail for later use
-                const sellerMap = new Map<string, { sellerId: string; sellerEmail: string }>();
+                const sellerMap = new Map<string, { sellerId: string; sellerEmail: string; sellerProfilePicture?: string; sellerName?: string }>();
                 filteredApiProjects.forEach((apiProject) => {
                     if (apiProject.projectId && apiProject.sellerId) {
                         sellerMap.set(apiProject.projectId, {
@@ -295,19 +370,36 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 });
                 setProjectSellerMap(sellerMap);
 
-                setProjects(mappedProjects);
-                setFilteredProjects(mappedProjects);
-                console.log('Fetched projects for buyer:', mappedProjects.length);
-                console.log('Total projects from API:', data.projects.length);
-                console.log('Approved projects (excluding own and purchased):', filteredApiProjects.length);
-                console.log('Purchased projects filtered out:', purchasedProjectIds.length);
-            } else {
-                throw new Error('Invalid response format from API');
+                const uniqueSellerIds = Array.from(
+                    new Set(filteredApiProjects.map((p) => p.sellerId).filter(Boolean))
+                ) as string[];
+
+                const sellerProfiles = new Map<string, { profilePicture?: string; fullName?: string }>();
+                await Promise.all(
+                    uniqueSellerIds.map(async (sellerId) => {
+                        const profile = await fetchSellerProfile(sellerId);
+                        if (profile) sellerProfiles.set(sellerId, profile);
+                    })
+                );
+
+                const enrichedProjects = mappedProjects.map((project) => {
+                    const sellerInfo = sellerMap.get(project.id);
+                    const profile = sellerInfo?.sellerId ? sellerProfiles.get(sellerInfo.sellerId) : undefined;
+                    return {
+                        ...project,
+                        sellerName: profile?.fullName || undefined,
+                        sellerProfilePicture: profile?.profilePicture || undefined,
+                    };
+                });
+
+                setProjects(enrichedProjects);
+                setFilteredProjects(enrichedProjects);
+            } else if (data.success === false || (rawProjects.length === 0 && !Array.isArray(data.projects) && !Array.isArray(data.data))) {
+                throw new Error(data.message || 'Invalid response format from API');
             }
         } catch (err) {
             console.error('Error fetching projects:', err);
             setProjectsError(err instanceof Error ? err.message : 'Failed to fetch projects');
-            // Keep empty array on error
             setProjects([]);
             setFilteredProjects([]);
         } finally {
@@ -315,37 +407,26 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
         }
     };
 
-    // Fetch projects on component mount (only for buyer mode)
+    // Fetch projects when in buyer mode (and when userId changes so purchased filter is correct after login)
     useEffect(() => {
         if (dashboardMode === 'buyer') {
             fetchProjects();
         }
-    }, [dashboardMode]);
+    }, [dashboardMode, userId]);
 
-    // Function to fetch seller profile picture
+    // Fetch seller profile using centralized cache (deduplicates across components)
     const fetchSellerProfile = async (sellerId: string) => {
-        // Check if already cached
         if (sellerProfileCache.has(sellerId)) {
             return sellerProfileCache.get(sellerId);
         }
 
         try {
-            const response = await fetch(GET_USER_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: sellerId }),
-            });
-
-            const data = await response.json();
-            const user = data.data || data.user || data;
-
-            if (user && data.success !== false) {
+            const user = await cachedFetchUserProfile(sellerId);
+            if (user) {
                 const profile = {
                     profilePicture: user.profilePictureUrl || undefined,
                     fullName: user.fullName || user.name || undefined,
                 };
-
-                // Cache the result
                 setSellerProfileCache(prev => new Map(prev).set(sellerId, profile));
                 return profile;
             }
@@ -408,46 +489,11 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
 
                                 {/* Projects Grid */}
                                 <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar pr-2">
-                                    {/* Loading State - Skeleton Cards */}
+                                    {/* Loading State - Skeleton Dashboard */}
                                     {isLoadingProjects && (
-                                        <>
-                                            <div className="mb-4">
-                                                <div className="h-5 bg-gray-200 rounded w-40 animate-pulse"></div>
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                                                {[...Array(6)].map((_, i) => (
-                                                    <div key={i} className="bg-white rounded-2xl overflow-hidden border border-gray-100 animate-pulse">
-                                                        {/* Image Skeleton */}
-                                                        <div className="h-52 bg-gray-200"></div>
-                                                        {/* Content */}
-                                                        <div className="p-5">
-                                                            {/* Category */}
-                                                            <div className="h-4 bg-gray-200 rounded-lg w-28 mb-2"></div>
-                                                            {/* Title */}
-                                                            <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-                                                            {/* Description */}
-                                                            <div className="space-y-2 mb-4">
-                                                                <div className="h-4 bg-gray-200 rounded w-full"></div>
-                                                                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                                                            </div>
-                                                            {/* Tags */}
-                                                            <div className="flex gap-2 mb-4">
-                                                                <div className="h-7 bg-gray-200 rounded-lg w-16"></div>
-                                                                <div className="h-7 bg-gray-200 rounded-lg w-20"></div>
-                                                            </div>
-                                                            {/* Footer */}
-                                                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                                                                <div className="h-7 bg-gray-200 rounded w-16"></div>
-                                                                <div className="flex gap-2">
-                                                                    <div className="h-10 w-10 bg-gray-200 rounded-xl"></div>
-                                                                    <div className="h-10 bg-gray-200 rounded-xl w-20"></div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
+                                        <div className="space-y-8">
+                                            <SkeletonDashboard />
+                                        </div>
                                     )}
 
                                     {/* Error State */}
@@ -545,6 +591,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 return (
                     <WishlistPage
                         allProjects={projects}
+                        onBack={() => setActiveView('dashboard')}
                         onViewDetails={(proj) => {
                             setPreviousView('wishlist');
                             setSelectedProject(proj);
@@ -553,7 +600,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                     />
                 );
             case 'cart':
-                return <CartPage allProjects={projects} />;
+                return (
+                    <CartPage
+                        allProjects={projects}
+                        onBack={() => setActiveView('dashboard')}
+                    />
+                );
+            case 'messages':
+                return <ChatRoom />;
             case 'courses':
                 return (
                     <BuyerCoursesPage
@@ -600,16 +654,18 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
                 );
             case 'hackathons':
                 return <HackathonsPage toggleSidebar={toggleSidebar} />;
-            case 'post-project':
-                return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
-                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+            case 'company-posts':
+                return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'course-details':
@@ -628,47 +684,39 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
             case 'settings':
                 return <SettingsPage />;
             case 'project-details':
-                if (!selectedProject) return null;
-                // Get seller info from map
+                if (!selectedProject) {
+                    // Redirect to dashboard if project data is lost (e.g. page reload)
+                    setTimeout(() => setActiveView('dashboard'), 0);
+                    return null;
+                }
                 const sellerInfo = projectSellerMap.get(selectedProject.id);
-                // Get cached seller profile
-                const cachedSellerProfile = sellerInfo?.sellerId ? sellerProfileCache.get(sellerInfo.sellerId) : undefined;
+                const cachedProfile = sellerInfo?.sellerId ? sellerProfileCache.get(sellerInfo.sellerId) : null;
+                const defaultName = selectedProject.sellerEmail ? selectedProject.sellerEmail.split('@')[0] : 'Seller';
+                const sellerName = cachedProfile?.fullName || defaultName;
+
                 // Extend project with additional details
-                const extendedProject = {
+                const extendedProject: ExtendedProject = {
                     ...selectedProject,
-                    likes: Math.floor(Math.random() * 500) + 50,
-                    purchases: Math.floor(Math.random() * 200) + 10,
+                    likes: typeof selectedProject.likesCount === 'number' ? selectedProject.likesCount : 0,
+                    purchases: typeof selectedProject.purchasesCount === 'number' ? selectedProject.purchasesCount : 0,
                     seller: {
-                        id: sellerInfo?.sellerId || '',
-                        name: cachedSellerProfile?.fullName || sellerInfo?.sellerEmail?.split('@')[0] || 'Seller',
-                        email: sellerInfo?.sellerEmail || 'seller@example.com',
-                        avatar: cachedSellerProfile?.profilePicture || '',
-                        rating: 4.8,
-                        totalSales: Math.floor(Math.random() * 1000) + 100,
+                        id: sellerInfo?.sellerId,
+                        name: sellerName,
+                        email: selectedProject.sellerEmail || 'seller@example.com',
+                        avatar: cachedProfile?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(sellerName)}&background=f97316&color=fff`,
+                        rating: 0,
+                        totalSales: 0,
                     },
-                    originalPrice: selectedProject.price * 1.1,
-                    discount: 4,
-                    promoCode: '444555',
-                    demoVideoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-                    features: [
-                        'Real-time collaboration',
-                        'Live code editing',
-                        'Integrated chat system',
-                        'Drawing/paint board',
-                        'Multiple user support',
-                        'Code sharing capabilities'
-                    ],
+                    demoVideoUrl: selectedProject.demoVideoUrl || (selectedProject.hasExecutionVideo ? '' : undefined),
                     supportInfo: 'For any questions or support regarding this project, please contact the seller directly through their profile or email.',
-                    images: [
-                        selectedProject.imageUrl,
-                        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop',
-                        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop',
-                    ],
+                    images: selectedProject.images && selectedProject.images.length > 0
+                        ? selectedProject.images
+                        : [selectedProject.imageUrl],
                 };
                 return (
                     <ProjectDetailsPage
                         project={extendedProject}
-                        onBack={() => setActiveView(previousView)}
+                        onBack={() => setActiveView(previousView === 'project-details' ? 'dashboard' : previousView)}
                         onViewSeller={(seller) => {
                             setPreviousView('project-details');
                             setSelectedSeller(seller);
@@ -701,16 +749,22 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
         switch (activeView) {
             case 'dashboard':
                 return <SellerDashboard />;
+            case 'messages':
+                return <ChatRoom />;
             case 'post-project':
                 return <PostBidRequestProjectPage onBack={() => setActiveView('dashboard')} />;
+            case 'my-bids':
+                return <MyBidsPage onBack={() => setActiveView('dashboard')} />;
             case 'build-portfolio':
                 return <BuildPortfolioPage embedded toggleSidebar={toggleSidebar} />;
             case 'build-resume':
-                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} />;
+                return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'career-guidance':
                 return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'my-projects':
@@ -773,30 +827,278 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ dashboardMode, setD
         }
     };
 
+    const renderPreparationContent = () => {
+        switch (activeView) {
+            case 'prep-hub':
+                return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
+            case 'prep-interview-questions':
+                return <PrepInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-dsa':
+                return <PrepDSAProblemsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-quizzes':
+                return <PrepQuizzesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-cold-dms':
+                return <PrepColdDMsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-collections':
+                return <PrepCollectionsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-mass-recruitment':
+                return <PrepMassRecruitmentPage toggleSidebar={toggleSidebar} />;
+            case 'prep-job-portals':
+                return <PrepJobPortalsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-notes':
+                return <PrepHandwrittenNotesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-roadmaps':
+                return <PrepRoadmapsPage toggleSidebar={toggleSidebar} />;
+            case 'prep-position-resources':
+                return <PrepPositionResourcesPage toggleSidebar={toggleSidebar} />;
+            case 'prep-system-design':
+            case 'prep-hld':
+                return <PrepSystemDesignPage {...{ designTab: 'hld' as const, toggleSidebar }} />;
+            case 'prep-lld':
+                return <PrepSystemDesignPage {...{ designTab: 'lld' as const, toggleSidebar }} />;
+            case 'prep-fundamentals':
+            case 'prep-oops':
+                return <PrepFundamentalsPage {...{ section: 'oops' as const, toggleSidebar }} />;
+            case 'prep-language':
+                return <PrepFundamentalsPage {...{ section: 'language' as const, toggleSidebar }} />;
+            case 'prep-activity':
+                return <PrepActivityPage toggleSidebar={toggleSidebar} />;
+            default:
+                return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
+        }
+    };
+
+    const isCodingQuestions = activeView === 'coding-questions';
+    const isLiveMockInterview = activeView === 'live-mock-interview';
+    const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview;
+
+    const renderModeContent = () => {
+        if (dashboardMode === 'preparation') return renderPreparationContent();
+        if (dashboardMode === 'buyer') return renderBuyerContent();
+        return renderSellerContent();
+    };
+
+    const isPreparationMode = dashboardMode === 'preparation';
+    const isPrepDark = isPreparationMode && prepDarkMode;
+
     return (
-        <main ref={mainScrollRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-white">
-            {activeView === 'help-center' ? (
-                dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()
-            ) : (
-                <div className="container mx-auto px-6 py-8">
-                    {activeView !== 'project-details' && activeView !== 'seller-profile' && activeView !== 'course-details' && activeView !== 'hackathons' && activeView !== 'build-portfolio' && activeView !== 'build-resume' && activeView !== 'career-guidance' && activeView !== 'mock-assessment' && activeView !== 'coding-questions' && (
+        <main
+            ref={mainScrollRef}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
+        >
+            {isPreparationMode ? (
+                <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn ${isPrepDark ? 'prep-dark-mode' : ''}`}>
+                    <style>{`
+                        @keyframes fadeIn {
+                            from { opacity: 0; transform: translateY(12px); }
+                            to { opacity: 1; transform: translateY(0); }
+                        }
+                        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+
+                        /* ========== Apple-inspired pure black dark theme ========== */
+                        .prep-dark-mode {
+                            background-color: #000000;
+                            color: #f5f5f7;
+                        }
+
+                        /* Card & surface backgrounds */
+                        .prep-dark-mode .bg-white { background-color: #1c1c1e !important; }
+                        .prep-dark-mode .bg-gray-50 { background-color: #111111 !important; }
+
+                        /* Borders */
+                        .prep-dark-mode .border-gray-200 { border-color: #2c2c2e !important; }
+                        .prep-dark-mode .border-gray-100 { border-color: #1c1c1e !important; }
+                        .prep-dark-mode .border-b { border-color: #2c2c2e; }
+
+                        /* Text hierarchy */
+                        .prep-dark-mode .text-gray-900 { color: #f5f5f7 !important; }
+                        .prep-dark-mode .text-gray-800 { color: #e5e5ea !important; }
+                        .prep-dark-mode .text-gray-700 { color: #d1d1d6 !important; }
+                        .prep-dark-mode .text-gray-600 { color: #aeaeb2 !important; }
+                        .prep-dark-mode .text-gray-500 { color: #8e8e93 !important; }
+                        .prep-dark-mode .text-gray-400 { color: #636366 !important; }
+
+                        /* Orange tinted backgrounds */
+                        .prep-dark-mode .bg-orange-50 { background-color: rgba(249, 115, 22, 0.08) !important; }
+                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .border-orange-100 { border-color: rgba(249, 115, 22, 0.2) !important; }
+                        .prep-dark-mode .border-orange-200 { border-color: rgba(249, 115, 22, 0.25) !important; }
+                        .prep-dark-mode .border-orange-300 { border-color: rgba(249, 115, 22, 0.35) !important; }
+
+                        /* Hover states */
+                        .prep-dark-mode .hover\\:bg-gray-50:hover { background-color: #2c2c2e !important; }
+                        .prep-dark-mode .hover\\:bg-orange-50:hover { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .hover\\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.15) !important; }
+                        .prep-dark-mode .hover\\:bg-orange-50\\/30:hover { background-color: rgba(249, 115, 22, 0.08) !important; }
+                        .prep-dark-mode .hover\\:border-orange-500:hover { border-color: #f97316 !important; }
+                        .prep-dark-mode .hover\\:shadow-md:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+                        .prep-dark-mode .hover\\:bg-gray-100:hover { background-color: #2c2c2e !important; }
+
+                        /* Topic chips */
+                        .prep-dark-mode .prep-topic-chip {
+                            background-color: #2c2c2e !important;
+                            color: #a1a1a6 !important;
+                            border: 1px solid #38383a;
+                        }
+
+                        /* Badge difficulty colors on dark */
+                        .prep-dark-mode .bg-green-100 { background-color: rgba(34, 197, 94, 0.12) !important; }
+                        .prep-dark-mode .text-green-700 { color: #4ade80 !important; }
+                        .prep-dark-mode .bg-green-50 { background-color: rgba(34, 197, 94, 0.08) !important; }
+                        .prep-dark-mode .text-green-600 { color: #22c55e !important; }
+                        .prep-dark-mode .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.12) !important; }
+                        .prep-dark-mode .text-yellow-700 { color: #fbbf24 !important; }
+                        .prep-dark-mode .bg-red-100 { background-color: rgba(239, 68, 68, 0.12) !important; }
+                        .prep-dark-mode .text-red-700 { color: #f87171 !important; }
+
+                        /* Additional badge colors */
+                        .prep-dark-mode .bg-blue-100 { background-color: rgba(59, 130, 246, 0.12) !important; }
+                        .prep-dark-mode .text-blue-700 { color: #60a5fa !important; }
+                        .prep-dark-mode .bg-purple-100 { background-color: rgba(168, 85, 247, 0.12) !important; }
+                        .prep-dark-mode .text-purple-700 { color: #c084fc !important; }
+                        .prep-dark-mode .bg-amber-100 { background-color: rgba(245, 158, 11, 0.12) !important; }
+                        .prep-dark-mode .text-amber-700 { color: #fbbf24 !important; }
+                        .prep-dark-mode .bg-cyan-100 { background-color: rgba(6, 182, 212, 0.12) !important; }
+                        .prep-dark-mode .text-cyan-700 { color: #22d3ee !important; }
+                        .prep-dark-mode .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.12) !important; }
+                        .prep-dark-mode .text-indigo-700 { color: #818cf8 !important; }
+                        .prep-dark-mode .bg-pink-100 { background-color: rgba(236, 72, 153, 0.12) !important; }
+                        .prep-dark-mode .text-pink-700 { color: #f472b6 !important; }
+                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
+                        .prep-dark-mode .text-orange-700 { color: #fb923c !important; }
+
+                        /* Inputs & selects */
+                        .prep-dark-mode input,
+                        .prep-dark-mode select,
+                        .prep-dark-mode textarea {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            color: #f5f5f7 !important;
+                        }
+                        .prep-dark-mode input::placeholder,
+                        .prep-dark-mode textarea::placeholder {
+                            color: #636366 !important;
+                        }
+                        .prep-dark-mode input:focus,
+                        .prep-dark-mode select:focus,
+                        .prep-dark-mode textarea:focus {
+                            border-color: #f97316 !important;
+                            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
+                        }
+
+                        /* Table header */
+                        .prep-dark-mode thead tr {
+                            background-color: #111111 !important;
+                        }
+                        .prep-dark-mode th {
+                            color: #8e8e93 !important;
+                        }
+                        .prep-dark-mode th:hover {
+                            color: #e5e5ea !important;
+                        }
+
+                        /* Shadows */
+                        .prep-dark-mode .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+
+                        /* Checkboxes */
+                        .prep-dark-mode input[type="checkbox"] {
+                            accent-color: #f97316;
+                        }
+
+                        /* Scrollbar for dark mode */
+                        .prep-dark-mode ::-webkit-scrollbar-track { background: #000000; }
+                        .prep-dark-mode ::-webkit-scrollbar-thumb { background: #38383a; border-radius: 4px; }
+                        .prep-dark-mode ::-webkit-scrollbar-thumb:hover { background: #48484a; }
+
+                        /* Keep orange buttons vibrant */
+                        .prep-dark-mode .bg-orange-500 { background-color: #f97316 !important; }
+                        .prep-dark-mode .text-orange-500 { color: #fb923c !important; }
+                        .prep-dark-mode .text-orange-600 { color: #f97316 !important; }
+                        .prep-dark-mode .bg-orange-500.text-white { color: #ffffff !important; }
+
+                        /* Orange 50 border-b tabs */
+                        .prep-dark-mode .border-orange-500 { border-color: #f97316 !important; }
+                        .prep-dark-mode .hover\\:border-gray-300:hover { border-color: #48484a !important; }
+                        .prep-dark-mode .border-transparent { border-color: transparent !important; }
+                        .prep-dark-mode .hover\\:text-gray-700:hover { color: #d1d1d6 !important; }
+
+                        /* Rounded full toggle buttons */
+                        .prep-dark-mode .bg-orange-50.text-orange-500,
+                        .prep-dark-mode .text-orange-500.bg-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; }
+
+                        /* Progress ring & SVG */
+                        .prep-dark-mode svg path[stroke="#e5e7eb"],
+                        .prep-dark-mode svg circle[stroke="#e5e7eb"] { stroke: #2c2c2e; }
+
+                        /* Custom filter dropdowns */
+                        .prep-dark-mode .prep-filter-btn {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            color: #f5f5f7 !important;
+                        }
+                        .prep-dark-mode .prep-filter-btn:hover {
+                            background-color: #2c2c2e !important;
+                        }
+                        .prep-dark-mode .prep-filter-btn span { color: #e5e5ea !important; }
+                        .prep-dark-mode .prep-filter-btn svg { color: #636366 !important; }
+                        .prep-dark-mode .prep-filter-menu {
+                            background-color: #1c1c1e !important;
+                            border-color: #38383a !important;
+                            box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu button {
+                            color: #e5e5ea !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu button:hover {
+                            background-color: #2c2c2e !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu .bg-orange-50 {
+                            background-color: rgba(249, 115, 22, 0.1) !important;
+                        }
+                        .prep-dark-mode .prep-filter-menu .text-orange-600 {
+                            color: #fb923c !important;
+                        }
+
+                        /* Smooth transition on theme change */
+                        .prep-dark-mode * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+                    `}</style>
+                    <div
+                        className={
+                            activeView === 'live-mock-interview'
+                                ? 'w-full max-w-none py-8'
+                                : 'container mx-auto px-6 py-8'
+                        }
+                    >
+                        {renderModeContent()}
+                    </div>
+                </div>
+            ) : isToolViewWithStickyHeader ? (
+                <div
+                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}
+                >
+                    <div className="flex-shrink-0">
                         <DashboardHeader
-                            dashboardMode={dashboardMode}
-                            setDashboardMode={setDashboardMode}
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
-                            activeView={activeView}
-                            setActiveView={setActiveView}
                             buyerProjectView={buyerProjectView}
                             setBuyerProjectView={setBuyerProjectView}
-                            browseView={browseView}
-                            setBrowseView={setBrowseView}
                             isSidebarOpen={isSidebarOpen}
                             toggleSidebar={toggleSidebar}
                         />
-                    )}
-
-                    {dashboardMode === 'buyer' ? renderBuyerContent() : renderSellerContent()}
+                    </div>
+                    {renderModeContent()}
+                </div>
+            ) : (
+                <div className="container mx-auto px-6 py-8">
+                    <DashboardHeader
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                        buyerProjectView={buyerProjectView}
+                        setBuyerProjectView={setBuyerProjectView}
+                        isSidebarOpen={isSidebarOpen}
+                        toggleSidebar={toggleSidebar}
+                    />
+                    {renderModeContent()}
                 </div>
             )}
         </main>

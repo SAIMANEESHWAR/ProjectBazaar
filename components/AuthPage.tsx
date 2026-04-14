@@ -300,13 +300,10 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        // Determine role - check if admin
-        const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
+        const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
 
-        // Call the login function with user data
         login(data.data.userId, data.data.email, userRole);
       } else {
         setError(data.error?.message || 'Login failed. Please check your credentials.');
@@ -336,9 +333,8 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        const userRole = data.data.email === 'saimanee@gmail.com' ? 'admin' : (data.data.role || 'user');
+        const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        // Store user data in localStorage for session persistence
         localStorage.setItem('userData', JSON.stringify(data.data));
 
         login(data.data.userId, data.data.email, userRole);
@@ -381,13 +377,6 @@ const AuthPage: React.FC = () => {
       ...prevState,
       [name]: value,
     }));
-  };
-
-  const goToForgotPassword = (
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    event.preventDefault();
-    console.log('forgot password');
   };
 
   const toggleAuthMode = () => {
@@ -477,7 +466,6 @@ const AuthPage: React.FC = () => {
     subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
     fields: isLogin ? loginFields : signupFields,
     submitButton: isLogin ? 'Sign in' : 'Sign up',
-    textVariantButton: isLogin ? 'Forgot password?' : undefined,
   };
 
   return (
@@ -531,7 +519,7 @@ const AuthPage: React.FC = () => {
           <div className='w-full flex-shrink-0' key={authMode}>
             <AuthTabs
               formFields={formFields}
-              goTo={isLogin ? goToForgotPassword : toggleAuthMode}
+              goTo={() => { }}
               handleSubmit={handleSubmit}
               accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
               onAccountToggle={toggleAuthMode}
