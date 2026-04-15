@@ -16,4 +16,11 @@ export interface PeerWaitlistEntry extends MockWaitlistEntry {
   isMine?: boolean;
   practiceMode?: 'peers' | 'friend';
   connections?: PeerConnectionOffer[];
+  /** From API; false when listing is closed (e.g. after a match). */
+  isPublic?: boolean;
+  /**
+   * Outbound-only stub when the listing is no longer in the public scan but My requests / History
+   * still needs the row. Must not appear on Interview with peer → queue.
+   */
+  peerQueueExcluded?: boolean;
 }

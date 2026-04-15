@@ -34,9 +34,15 @@ export async function acceptPeerInterviewConnection(
       if (w.id !== requestId) return w;
       return {
         ...w,
-        connections: (w.connections ?? []).map((c) =>
-          c.id === connectionId ? { ...c, status: 'accepted' as const, meetLink: link } : c,
-        ),
+        connections: (w.connections ?? []).map((c) => {
+          if (c.id === connectionId) {
+            return { ...c, status: 'accepted' as const, meetLink: link };
+          }
+          if (c.status === 'pending') {
+            return { ...c, status: 'rejected' as const };
+          }
+          return c;
+        }),
       };
     }),
   );

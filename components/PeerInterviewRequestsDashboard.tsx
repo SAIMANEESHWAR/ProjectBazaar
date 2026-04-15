@@ -56,6 +56,9 @@ const tdBase =
 const PAGE_SURFACE =
   'relative w-full min-w-0 bg-gradient-to-b from-white via-slate-50 to-white dark:from-gray-950 dark:via-slate-950 dark:to-gray-950 rounded-3xl border border-gray-200/90 dark:border-gray-800 shadow-sm overflow-hidden';
 
+/** Must match LiveMockInterviewPage — opens Live interview on the Peer tab after back navigation. */
+const LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY = 'bazaar_live_mock_interview_mode';
+
 const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> = ({ toggleSidebar }) => {
   const { userId } = useAuth();
   const { setActiveView } = useDashboard();
@@ -83,6 +86,12 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     const accepted = modalConnections.filter((c) => c.status === 'accepted').length;
     return { total: modalConnections.length, pending, accepted };
   }, [modalConnections]);
+
+  /** Single accepted connection for this listing — Chat & Meet live in the modal summary only. */
+  const acceptedMemberInModal = useMemo(
+    () => modalConnections.find((c) => c.status === 'accepted') ?? null,
+    [modalConnections],
+  );
 
   useEffect(() => {
     if (!membersModalListingId) return;
@@ -127,6 +136,17 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     },
     [setActiveView, navigateTo],
   );
+
+  const goBackToLiveMockInterviewPeer = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY, 'peer');
+      } catch {
+        /* ignore */
+      }
+    }
+    setActiveView('live-mock-interview');
+  }, [setActiveView]);
 
   const incomingRequests = useMemo(() => {
     const rows: IncomingRow[] = [];
@@ -226,7 +246,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
             )}
             <button
               type="button"
-              onClick={() => setActiveView('live-mock-interview')}
+              onClick={goBackToLiveMockInterviewPeer}
               className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#f97316] dark:hover:text-orange-400 transition-colors sm:ml-0"
             >
               <ChevronLeft className="w-4 h-4 shrink-0 opacity-80" strokeWidth={2} />
@@ -288,7 +308,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                   {historyOnly ? (
                     <>
                       Requests where you clicked <span className="font-semibold text-gray-800 dark:text-gray-200">Connect</span>
-                      . Track status and open chat/meet after acceptance.
+                      . Pending rows wait on the host; matched rows show as <span className="font-semibold text-gray-800 dark:text-gray-200">Expired</span> once the host accepts (listing closes). Chat and Meet stay available when you were matched.
                     </>
                   ) : (
                     <>
@@ -307,7 +327,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                 ? [
                     { label: 'Sent', value: outgoingStats.total, sub: 'Total requests', icon: MessageCircle },
                     { label: 'Pending', value: outgoingStats.pending, sub: 'Awaiting host', icon: Clock },
-                    { label: 'Accepted', value: outgoingStats.accepted, sub: 'Meet/Chat ready', icon: CheckCircle2 },
+                    { label: 'Expired', value: outgoingStats.accepted, sub: 'Matched · listing closed', icon: CheckCircle2 },
                     { label: 'Rejected', value: outgoingStats.rejected, sub: 'Not selected', icon: X },
                   ]
                 : [
@@ -347,10 +367,10 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
               Your listings &amp; connects
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
-              One row per <span className="font-semibold text-gray-700 dark:text-gray-300">your listing</span>.{' '}
-              <span className="font-semibold text-gray-700 dark:text-gray-300">View members</span> when someone connects;{' '}
-              <span className="font-semibold text-gray-700 dark:text-gray-300">Peer queue</span> returns to Live interview →
-              Peer. Accept first, then Chat and Meet unlock per member.
+              One row per <span className="font-semibold text-gray-700 dark:text-gray-300">your listing</span>. Use{' '}
+              <span className="font-semibold text-gray-700 dark:text-gray-300">View members</span> to accept someone; after
+              that, <span className="font-semibold text-gray-700 dark:text-gray-300">Matched</span> shows their name with
+              Chat and Meet in this table.
             </p>
             <div className="rounded-2xl border border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden ring-1 ring-orange-100/60 dark:ring-orange-950/40">
               <div className="overflow-x-auto">
@@ -375,7 +395,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                           </p>
                           <button
                             type="button"
-                            onClick={() => setActiveView('live-mock-interview')}
+                            onClick={goBackToLiveMockInterviewPeer}
                             className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold px-4 py-2.5 shadow-md shadow-orange-500/20"
                           >
                             Go to peer queue
@@ -386,7 +406,9 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                       myListings.map((w) => {
                         const title = w.practiceGoal ?? w.displayName;
                         const cat = w.category;
-                        const n = w.connections?.length ?? 0;
+                        const connections = w.connections ?? [];
+                        const n = connections.length;
+                        const accepted = connections.find((c) => c.status === 'accepted');
                         return (
                           <tr
                             key={w.id}
@@ -416,7 +438,48 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                               </span>
                             </td>
                             <td className={tdBase}>
-                              {n > 0 ? (
+                              {accepted ? (
+                                <div className="flex flex-col gap-2 min-w-[10rem] max-w-[20rem]">
+                                  <p className="text-[11px] leading-snug text-gray-800 dark:text-gray-100">
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-300">Matched</span>
+                                    <span className="text-gray-500 dark:text-gray-400"> · </span>
+                                    <span className="font-semibold">{accepted.fromName}</span>
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={!accepted.fromUserId}
+                                      onClick={() => openChat(accepted.fromUserId)}
+                                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 px-2.5 py-1.5 text-[10px] font-bold hover:bg-orange-100/80 dark:hover:bg-orange-950/45 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                                      Chat
+                                    </button>
+                                    {accepted.meetLink ? (
+                                      <a
+                                        href={accepted.meetLink}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                      >
+                                        <Link2 className="w-3.5 h-3.5 shrink-0" />
+                                        Meet
+                                      </a>
+                                    ) : (
+                                      <span className="text-[10px] text-gray-400 dark:text-gray-500">Meet link pending…</span>
+                                    )}
+                                  </div>
+                                  {n > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setMembersModalListingId(w.id)}
+                                      className="self-start text-[10px] font-semibold text-gray-500 dark:text-gray-400 hover:text-[#f97316] dark:hover:text-orange-300 underline-offset-2 hover:underline"
+                                    >
+                                      Other requests ({n - 1})
+                                    </button>
+                                  )}
+                                </div>
+                              ) : n > 0 ? (
                                 <button
                                   type="button"
                                   onClick={() => setMembersModalListingId(w.id)}
@@ -453,7 +516,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
               Requests where you clicked <span className="font-semibold text-gray-700 dark:text-gray-300">Connect</span>.
-              Track pending/accepted/rejected, and open chat or meet when accepted.
+              Track pending, expired (matched), and rejected. Chat and Meet remain available when you were matched.
             </p>
             <div className="rounded-2xl border border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden ring-1 ring-orange-100/60 dark:ring-orange-950/40">
               <div className="overflow-x-auto">
@@ -496,8 +559,14 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                           </td>
                           <td className={tdBase}>
                             {r.status === 'accepted' ? (
-                              <span className="inline-flex items-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                                Accepted
+                              <span
+                                className="inline-flex flex-col items-start gap-0.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-200"
+                                title="Host accepted your request. This listing is closed to new connects."
+                              >
+                                Expired
+                                <span className="font-normal text-[9px] text-slate-500 dark:text-slate-400">
+                                  Matched
+                                </span>
                               </span>
                             ) : r.status === 'rejected' ? (
                               <span className="inline-flex items-center rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-1 text-[10px] font-bold text-gray-600 dark:text-gray-300">
@@ -632,7 +701,8 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                           .join('')
                           .slice(0, 2)
                           .toUpperCase();
-                        const canAccept = c.status === 'pending' && !acceptedConnectionId;
+                        const listingHasAccepted = Boolean(acceptedConnectionId);
+                        const canAccept = c.status === 'pending' && !listingHasAccepted;
                         const canChat = c.status === 'accepted' && !!c.fromUserId;
                         const showPostAcceptActions = c.status === 'accepted' && c.id === acceptedConnectionId;
                         return (
@@ -664,11 +734,17 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                             <td className="px-3 py-3 align-middle">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 {c.status === 'pending' && (
-                                  canAccept ? (
+                                  <div className="flex flex-col items-start gap-1">
                                     <button
                                       type="button"
                                       disabled={!canAccept}
-                                      title={`Accept ${c.fromName} — meet link and chat appear after.`}
+                                      title={
+                                        canAccept
+                                          ? `Accept ${c.fromName} — meet link and chat appear after.`
+                                          : listingHasAccepted
+                                            ? 'This listing already has an accepted member.'
+                                            : 'Cannot accept'
+                                      }
                                       onClick={() => {
                                         if (modalListing && canAccept) void onAccept(modalListing.id, c.id);
                                       }}
@@ -677,11 +753,12 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
                                       Accept
                                     </button>
-                                  ) : (
-                                    <span className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                      Not selected
-                                    </span>
-                                  )
+                                    {!canAccept && listingHasAccepted && (
+                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        Not selected — another request was accepted
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                                 {showPostAcceptActions && (
                                   <>
@@ -717,9 +794,20 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
                                   </>
                                 )}
                                 {c.status === 'rejected' && (
-                                  <span className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                    Rejected
-                                  </span>
+                                  <div className="flex flex-col items-start gap-1">
+                                    <button
+                                      type="button"
+                                      disabled
+                                      title="Not selected for this listing"
+                                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide cursor-not-allowed opacity-60"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+                                      Accept
+                                    </button>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      Not selected
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                             </td>

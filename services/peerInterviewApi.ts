@@ -206,6 +206,8 @@ function mergeOutgoingOntoEntries(
       practiceGoal: listingTitle,
       connections: [conn],
       ownerUserId: typeof raw.ownerUserId === 'string' ? raw.ownerUserId : undefined,
+      isPublic: false,
+      peerQueueExcluded: true,
     });
     seenListingIds.add(lid);
   }
@@ -226,6 +228,7 @@ function mapListingRow(
     category: coerceCategory(row.category),
     skills: String(row.skills ?? ''),
     waitingSince: created ? `Listed ${created.slice(0, 10)}` : 'In queue',
+    isPublic: typeof row.isPublic === 'boolean' ? row.isPublic : true,
     experienceLevel: row.experienceLevel as PeerWaitlistEntry['experienceLevel'],
     timezoneRegion: row.timezoneRegion as PeerWaitlistEntry['timezoneRegion'],
     techTags: Array.isArray(row.techTags) ? (row.techTags as string[]) : undefined,

@@ -89,6 +89,22 @@ const initialPrereqStatuses = (): PrereqItemStatus[] =>
 const PAGE_BG = 'bg-white dark:bg-[#12111a]';
 const LV_TITLE = 'text-[#1a1c2e] dark:text-white';
 const LIVE_INTERVIEW_API_KEY_SESSION_KEY = 'liveMockInterviewApiKey';
+/** Set by PeerInterviewRequestsDashboard before navigating back so the peer tab is selected. */
+const LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY = 'bazaar_live_mock_interview_mode';
+
+function readInitialLiveInterviewMode(): LiveInterviewMode {
+  if (typeof window === 'undefined') return 'ai';
+  try {
+    const v = sessionStorage.getItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY);
+    if (v === 'peer') {
+      sessionStorage.removeItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY);
+      return 'peer';
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'ai';
+}
 
 /** Role / company picker — orange + white */
 const PICKER_SURFACE =
@@ -162,7 +178,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const peerViewerDisplayName = userEmail ? userEmail.split('@')[0] || 'You' : 'You';
   const { dashboardMode, setActiveView } = useDashboard();
 
-  const [liveInterviewMode, setLiveInterviewMode] = useState<LiveInterviewMode>('ai');
+  const [liveInterviewMode, setLiveInterviewMode] = useState<LiveInterviewMode>(readInitialLiveInterviewMode);
   const [phase, setPhase] = useState<FlowPhase>('setup');
   const [setupTab, setSetupTab] = useState<SetupTabId>('role');
   const [roleSearch, setRoleSearch] = useState('');

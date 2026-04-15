@@ -40,6 +40,18 @@ import {
   updatePeerListing,
 } from '../services/peerInterviewApi';
 
+/** Rows that stay in waitlist for History / My requests but must not appear in the public peer queue. */
+function canShowOnPeerQueue(w: PeerWaitlistEntry, viewerUserId: string | null): boolean {
+  if (w.isMine) return false;
+  if (w.peerQueueExcluded) return false;
+  if (w.isPublic === false) return false;
+  if (viewerUserId) {
+    const mine = (w.connections ?? []).filter((c) => c.fromUserId === viewerUserId);
+    if (mine.some((c) => c.status === 'pending' || c.status === 'accepted')) return false;
+  }
+  return true;
+}
+
 type CategoryFilter = 'all' | PeerInterviewCategoryId;
 
 const PAGE_BG =
@@ -284,6 +296,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
       }
       await refreshWaitlistFromBackend(viewerUserId);
       closeConnectModal();
+      goToSentHistory();
     } finally {
       setConnectSubmitting(false);
     }
@@ -349,8 +362,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return waitlist.filter((w) => {
-      // Peer queue should show only other members' listings.
-      if (w.isMine) return false;
+      if (!canShowOnPeerQueue(w, viewerUserId)) return false;
       if (categoryFilter !== 'all' && w.category !== categoryFilter) return false;
       if (experienceFilter !== 'all' && w.experienceLevel !== experienceFilter) return false;
       if (regionFilter !== 'all' && w.timezoneRegion !== regionFilter) return false;
@@ -382,6 +394,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
     });
   }, [
     waitlist,
+    viewerUserId,
     categoryFilter,
     experienceFilter,
     regionFilter,
@@ -504,7 +517,10 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
 
   const scheduleStepLabels = ['Interview type', 'Format', 'Your details'] as const;
 
-  const otherPeerCount = waitlist.filter((w) => !w.isMine).length;
+  const otherPeerCount = useMemo(
+    () => waitlist.filter((w) => canShowOnPeerQueue(w, viewerUserId)).length,
+    [waitlist, viewerUserId],
+  );
   const filterExcludedAll = otherPeerCount > 0 && filtered.length === 0;
 
   const renderFilters = (compact: boolean) => (
