@@ -20,15 +20,15 @@ import { prepAdminApi } from "../../services/preparationApi";
 
 type PrepTab =
   | "overview"
-  | "interview-questions"
-  | "dsa"
+  | "questions"
+  // | "dsa"
   | "quizzes"
   | "cold-dms"
   | "job-portals"
   | "notes"
   | "roadmaps"
-  | "mass-recruitment"
-  | "positions"
+  // | "mass-recruitment"
+  // | "positions"
   | "hld"
   | "lld"
   | "oops"
@@ -77,6 +77,9 @@ const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
   legend: [{ color: "#1e3a8a", label: "Service" }],
 };
 
+const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
+const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
+
 const parseDiagramDataShape = (
   value: string,
 ): { data?: DiagramData; error?: string } => {
@@ -104,8 +107,8 @@ const parseDiagramDataShape = (
 
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "interview-questions", label: "Interview Qs" },
-  { id: "dsa", label: "DSA" },
+  { id: "questions", label: "Questions" },
+  // { id: "dsa", label: "DSA" },
   { id: "hld", label: "HLD" },
   { id: "lld", label: "LLD" },
   { id: "oops", label: "OOPs" },
@@ -115,8 +118,8 @@ const tabs: { id: PrepTab; label: string }[] = [
   { id: "job-portals", label: "Job Portals" },
   { id: "notes", label: "Notes" },
   { id: "roadmaps", label: "Roadmaps" },
-  { id: "mass-recruitment", label: "Mass Recruit" },
-  { id: "positions", label: "Positions" },
+  // { id: "mass-recruitment", label: "Mass Recruit" },
+  // { id: "roles", label: "Positions" },
 ];
 
 const EditIcon = () => (
@@ -419,6 +422,28 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
 
     return uploadData.publicUrl;
   };
+
+  const [iqData, setIqData] = useState([]);
+const [loading, setLoading] = useState(true);
+
+// ✅ Fetch from CloudShell Backend
+const fetchQuestions = async () => {
+  setLoading(true); // Start loading
+  try {
+    const url = "https://5000-cs-1153eff4-c05e-4332-b59a-c3a91371be60.cs-asia-southeast1-ajrg.cloudshell.dev/questions";
+    const response = await fetch(url);
+    const data = await response.json();
+    setIqData(data);
+  } catch (error) {
+    console.error("Fetch error:", error);
+  } finally {
+    setLoading(false); // Stop loading regardless of success/fail
+  }
+};
+
+useEffect(() => {
+  fetchQuestions();
+}, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1108,97 +1133,91 @@ const PrepContentManagementPage: React.FC = () => {
       )}
 
       {/* ─── Interview Questions ─── */}
-      {activeTab === "interview-questions" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Interview Questions"
-            count={iqData.length}
-            btnLabel="Add Question"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {iqData.map((q) => (
-                <CardShell key={q.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={q.difficulty} />
-                    <ActionBtns
-                      name={q.question}
-                      onEdit={() => triggerEdit(q.question)}
-                      onDelete={() =>
-                        confirmDelete(q.question, q.id, setIqData)
-                      }
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
-                    {q.question}
-                  </h4>
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
-                      {q.category}
-                    </span>
-                  </div>
-                </CardShell>
-              ))}
+{/* ─── Interview Questions ─── */}
+{activeTab === "questions" && (
+  <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+    <SectionHeader
+      title="Interview Questions"
+      count={iqData.length}
+      btnLabel="Add Question"
+      view={viewMode}
+      onViewChange={setViewMode}
+      // Pass the fetchQuestions to the "Add" button's onRefresh if needed
+    />
+    
+    {loading ? (
+       <div className="p-10 text-center text-gray-500">Loading from DynamoDB...</div>
+    ) : iqData.length === 0 ? (
+       <div className="p-10 text-center text-gray-500">No questions found in this category.</div>
+    ) : isGrid ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+        {iqData.map((q) => (
+          <CardShell key={q.id}>
+            <div className="flex items-start justify-between mb-3">
+              <DiffBadge d={q.difficulty} />
+              <ActionBtns
+                name={q.title} // ✅ Changed from q.question
+                onEdit={() => triggerEdit(q)} // Pass the whole object
+                onDelete={() => confirmDelete(q.title, q.id, setIqData)}
+              />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Question
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {iqData.map((q, i) => (
-                    <tr key={q.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
-                        {q.question}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={q.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.category}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={q.question}
-                          onEdit={() => triggerEdit(q.question)}
-                          onDelete={() =>
-                            confirmDelete(q.question, q.id, setIqData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+              {q.title} {/* ✅ Changed from q.question */}
+            </h4>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full ring-1 ring-orange-100">
+                {q.company}
+              </span>
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
+                {q.topic} {/* ✅ Changed from q.category */}
+              </span>
             </div>
-          )}
-        </div>
-      )}
+          </CardShell>
+        ))}
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {iqData.map((q, i) => (
+              <tr key={q.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate font-medium">
+                  {q.title}
+                </td>
+                <td className="px-6 py-4 text-xs text-gray-500 font-bold uppercase">{q.company}</td>
+                <td className="px-6 py-4 text-xs text-gray-500">{q.topic}</td>
+                <td className="px-6 py-4">
+                  <DiffBadge d={q.difficulty} />
+                </td>
+                <td className="px-6 py-4">
+                  <ActionBtns
+                    name={q.title}
+                    onEdit={() => triggerEdit(q)}
+                    onDelete={() => confirmDelete(q.title, q.id, setIqData)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
 
       {/* ─── DSA Problems ─── */}
-      {activeTab === "dsa" && (
+      {/* {activeTab === "dsa" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <SectionHeader
             title="DSA Problems"
@@ -1317,7 +1336,7 @@ const PrepContentManagementPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* ─── Quizzes ─── */}
       {activeTab === "quizzes" && (
@@ -1878,7 +1897,7 @@ const PrepContentManagementPage: React.FC = () => {
       )}
 
       {/* ─── Mass Recruitment ─── */}
-      {activeTab === "mass-recruitment" && (
+      {/* {activeTab === "mass-recruitment" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <SectionHeader
             title="Mass Recruitment Companies"
@@ -2024,7 +2043,8 @@ const PrepContentManagementPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      )
+      } */}
 
       {/* ─── HLD ─── */}
       {activeTab === "hld" && (
@@ -2501,7 +2521,7 @@ const PrepContentManagementPage: React.FC = () => {
       )}
 
       {/* ─── Positions ─── */}
-      {activeTab === "positions" && (
+      {/* {activeTab === "positions" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <SectionHeader
             title="Position Resources"
@@ -2628,7 +2648,7 @@ const PrepContentManagementPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* ─── SD Add/Edit Modal ─── */}
       {sdModal.open && (
