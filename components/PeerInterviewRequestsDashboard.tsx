@@ -87,12 +87,6 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
     return { total: modalConnections.length, pending, accepted };
   }, [modalConnections]);
 
-  /** Single accepted connection for this listing — Chat & Meet live in the modal summary only. */
-  const acceptedMemberInModal = useMemo(
-    () => modalConnections.find((c) => c.status === 'accepted') ?? null,
-    [modalConnections],
-  );
-
   useEffect(() => {
     if (!membersModalListingId) return;
     const onKey = (e: KeyboardEvent) => {
