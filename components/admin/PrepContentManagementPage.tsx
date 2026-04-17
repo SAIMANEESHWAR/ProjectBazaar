@@ -1,5 +1,6 @@
 import Editor from "@monaco-editor/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { editor as MonacoEditor } from "monaco-editor";
 import {
   interviewQuestions,
@@ -11,8 +12,17 @@ import {
   handwrittenNotes,
   roadmaps,
   positionResources,
+  type JobPortal,
+  type ColdDMTemplate,
+  type Quiz,
+  type HandwrittenNote,
+  type Roadmap,
 } from "../../data/preparationMockData";
-import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
+import {
+  oopsConcepts,
+  languageConcepts,
+  type Concept,
+} from "../../data/fundamentalsData";
 import { DiagramData } from "../../data/systemDesignData";
 import { prepAdminApi } from "../../services/preparationApi";
 
@@ -263,6 +273,1712 @@ const CardShell: React.FC<{
   </div>
 );
 
+const JOB_PORTAL_CATEGORIES = [
+  "General",
+  "Networking",
+  "Research",
+  "Startups",
+  "Internships",
+  "Competitions",
+  "Tech",
+] as const;
+const JOB_PORTAL_REGIONS = ["India", "Global"] as const;
+
+/** Suggested cold DM categories (datalist); any custom string is allowed. */
+const COLD_DM_CATEGORY_SUGGESTIONS = [
+  "BTech Freshers",
+  "Internships",
+  "Referral",
+  "Networking",
+  "Professionals",
+  "Startups",
+  "Freelance",
+  "Skill Showcase",
+  "Follow-up",
+  "Feedback",
+  "Career Change",
+  "Remote Work",
+  "Relocation",
+  "Return to Work",
+  "Mentorship",
+  "Internal Mobility",
+  "Contract-to-Hire",
+] as const;
+
+const QUIZ_CATEGORY_SUGGESTIONS = [
+  "Tech",
+  "Aptitude",
+  "General",
+] as const;
+
+const QUIZ_ROLE_SUGGESTIONS = [
+  "Backend Developer",
+  "Frontend Developer",
+  "General",
+] as const;
+
+const LANGUAGE_FUNDAMENTAL_GROUPS = [
+  "Basics",
+  "Data Structures",
+  "Error Handling",
+  "Advanced",
+] as const;
+
+const OOPS_FUNDAMENTAL_GROUPS = [
+  "Abstraction Concepts",
+  "Basics Concepts",
+  "Encapsulation Concepts",
+  "Inheritance Concepts",
+  "Polymorphism Concepts",
+  "Design Patterns Concepts",
+  "Design Principles Concepts",
+] as const;
+
+const ROADMAP_CATEGORY_SUGGESTIONS = [
+  "Web Development",
+  "Mobile",
+  "Data Science",
+  "DevOps",
+  "General",
+] as const;
+
+const PROGRAMMING_LANG_SUGGESTIONS = [
+  "java",
+  "javascript",
+  "typescript",
+  "python",
+  "cpp",
+  "c",
+  "go",
+  "rust",
+] as const;
+
+interface JobPortalModalProps {
+  item: JobPortal | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    name: string;
+    logo: string;
+    description: string;
+    url: string;
+    category: string;
+    region: string;
+    isFavorite: boolean;
+    isApplied: boolean;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const JobPortalModal: React.FC<JobPortalModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const [name, setName] = useState("");
+  const [logo, setLogo] = useState("");
+  const [description, setDescription] = useState("");
+  const [url, setUrl] = useState("");
+  const [category, setCategory] = useState<string>("General");
+  const [region, setRegion] = useState<string>("India");
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setName(item.name);
+      setLogo(item.logo);
+      setDescription(item.description);
+      setUrl(item.url);
+      setCategory(item.category || "General");
+      setRegion(item.region || "India");
+      setIsFavorite(item.isFavorite);
+      setIsApplied(item.isApplied);
+    } else {
+      setName("");
+      setLogo("");
+      setDescription("");
+      setUrl("");
+      setCategory("General");
+      setRegion("India");
+      setIsFavorite(false);
+      setIsApplied(false);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Name is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      name: trimmed,
+      logo: logo.trim(),
+      description: description.trim(),
+      url: url.trim(),
+      category,
+      region,
+      isFavorite,
+      isApplied,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby="jp-modal-title"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id="jp-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit job portal" : "Add job portal"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g. Naukri"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Logo URL
+            </label>
+            <input
+              type="url"
+              value={logo}
+              onChange={(e) => setLogo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="https://…"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-y"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Website URL
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="https://…"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                {JOB_PORTAL_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Region
+              </label>
+              <select
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                {JOB_PORTAL_REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 pt-1">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              />
+              Default favorite
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isApplied}
+                onChange={(e) => setIsApplied(e.target.checked)}
+                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+              />
+              Default applied
+            </label>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add portal"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface ColdDMModalProps {
+  item: ColdDMTemplate | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    content: string;
+    category: string;
+    isCopied: boolean;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const ColdDMModal: React.FC<ColdDMModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const categoryListId = React.useId();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setContent(item.content);
+      setCategory(item.category || "");
+      setIsCopied(item.isCopied);
+    } else {
+      setTitle("");
+      setContent("");
+      setCategory("BTech Freshers");
+      setIsCopied(false);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      return;
+    }
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      setError("Message content is required.");
+      return;
+    }
+    const trimmedCat = category.trim();
+    if (!trimmedCat) {
+      setError("Category is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: trimmedTitle,
+      content: trimmedContent,
+      category: trimmedCat,
+      isCopied,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby="cold-dm-modal-title"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id="cold-dm-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit cold DM template" : "Add cold DM template"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="e.g. BTech Fresher - Formal Introduction"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Category
+            </label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              list={categoryListId}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+              placeholder="Pick or type a category"
+            />
+            <datalist id={categoryListId}>
+              {COLD_DM_CATEGORY_SUGGESTIONS.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Message body
+            </label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={14}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-y font-mono leading-relaxed"
+              placeholder="Use [Name], [Company], etc. as placeholders."
+            />
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isCopied}
+              onChange={(e) => setIsCopied(e.target.checked)}
+              className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+            />
+            Mark as default copied (UI hint for learners)
+          </label>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add template"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface QuizModalProps {
+  item: Quiz | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    description: string;
+    questionCount: number;
+    difficulty: "Easy" | "Medium" | "Hard";
+    category: string;
+    role: string;
+    duration: number;
+    passingScore: number;
+    questions: unknown[];
+    isBookmarked: boolean;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const QuizModal: React.FC<QuizModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const categoryListId = React.useId();
+  const roleListId = React.useId();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [questionCount, setQuestionCount] = useState(10);
+  const [duration, setDuration] = useState(20);
+  const [passingScore, setPassingScore] = useState(70);
+  const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">(
+    "Medium",
+  );
+  const [category, setCategory] = useState("");
+  const [role, setRole] = useState("");
+  const [questionsJson, setQuestionsJson] = useState("[]");
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setDescription(item.description);
+      setQuestionCount(item.questionCount);
+      setDuration(item.duration);
+      setDifficulty(item.difficulty);
+      setCategory(item.category || "");
+      setRole(item.role || "");
+      setIsBookmarked(item.isBookmarked);
+      const ext = item as Quiz & {
+        questions?: unknown[];
+        passingScore?: number;
+      };
+      setPassingScore(
+        typeof ext.passingScore === "number" ? ext.passingScore : 70,
+      );
+      const qs = ext.questions;
+      setQuestionsJson(
+        Array.isArray(qs) && qs.length > 0
+          ? JSON.stringify(qs, null, 2)
+          : "[]",
+      );
+    } else {
+      setTitle("");
+      setDescription("");
+      setQuestionCount(10);
+      setDuration(20);
+      setPassingScore(70);
+      setDifficulty("Medium");
+      setCategory("Tech");
+      setRole("General");
+      setQuestionsJson("[]");
+      setIsBookmarked(false);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      return;
+    }
+    let questions: unknown[];
+    try {
+      const parsed = JSON.parse(questionsJson.trim() || "[]");
+      if (!Array.isArray(parsed)) {
+        setError("Questions must be a JSON array.");
+        return;
+      }
+      questions = parsed;
+    } catch {
+      setError("Invalid JSON in questions field.");
+      return;
+    }
+    const count =
+      questions.length > 0 ? questions.length : Math.max(0, questionCount);
+    if (count <= 0) {
+      setError("Set question count > 0 or add at least one question in JSON.");
+      return;
+    }
+    const pass = Math.min(100, Math.max(0, Math.round(passingScore)));
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: trimmedTitle,
+      description: description.trim(),
+      questionCount: count,
+      difficulty,
+      category: category.trim() || "General",
+      role: role.trim() || "General",
+      duration: Math.max(0, duration),
+      passingScore: pass,
+      questions,
+      isBookmarked,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby="quiz-modal-title"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id="quiz-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit quiz" : "Add quiz"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Difficulty
+              </label>
+              <select
+                value={difficulty}
+                onChange={(e) =>
+                  setDifficulty(e.target.value as "Easy" | "Medium" | "Hard")
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Duration (min)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                # Questions
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={questionCount}
+                onChange={(e) =>
+                  setQuestionCount(Math.max(0, Number(e.target.value) || 0))
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                title="Used when questions JSON is empty; otherwise count matches JSON length"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Passing %
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={passingScore}
+                onChange={(e) =>
+                  setPassingScore(Number(e.target.value) || 0)
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Category
+              </label>
+              <input
+                type="text"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                list={categoryListId}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+              <datalist id={categoryListId}>
+                {QUIZ_CATEGORY_SUGGESTIONS.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Role
+              </label>
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                list={roleListId}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+              <datalist id={roleListId}>
+                {QUIZ_ROLE_SUGGESTIONS.map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Questions (JSON array)
+            </label>
+            <p className="text-xs text-gray-400 mb-1">
+              Each item:{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">
+                question
+              </code>
+              ,{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">
+                options
+              </code>{" "}
+              (string[]),{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">
+                correctAnswer
+              </code>{" "}
+              (0-based index). Use{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">[]</code>{" "}
+              if listing count only.
+            </p>
+            <textarea
+              value={questionsJson}
+              onChange={(e) => setQuestionsJson(e.target.value)}
+              rows={10}
+              spellCheck={false}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+            />
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isBookmarked}
+              onChange={(e) => setIsBookmarked(e.target.checked)}
+              className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+            />
+            Default bookmarked (learner UI)
+          </label>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add quiz"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+function mergeFundamentalToConcept(
+  saved: Record<string, unknown>,
+  fallback: {
+    id?: string;
+    title: string;
+    description: string;
+    difficulty: Concept["difficulty"];
+    groupCategory: string;
+    topic: string;
+    programmingLanguage: string;
+    explanation: string;
+    codeExample: string;
+  },
+): Concept {
+  const codeEx = saved.codeExamples;
+  let codeExample = fallback.codeExample;
+  if (Array.isArray(codeEx) && codeEx.length > 0) {
+    const first = codeEx[0];
+    codeExample =
+      typeof first === "string" ? first : String(first ?? "");
+  }
+  const diff = saved.difficulty;
+  const difficulty: Concept["difficulty"] =
+    diff === "Easy" || diff === "Medium" || diff === "Hard"
+      ? diff
+      : fallback.difficulty;
+  const sub = String(saved.subcategory ?? "").trim();
+  const catDisc = String(saved.category ?? "").trim();
+  const uiCategory =
+    sub ||
+    (catDisc && catDisc !== "Language" && catDisc !== "OOPs"
+      ? catDisc
+      : fallback.groupCategory);
+  return {
+    id: String(saved.id ?? fallback.id ?? ""),
+    title: String(saved.title ?? fallback.title),
+    description: String(saved.description ?? fallback.description),
+    difficulty,
+    category: uiCategory,
+    topic: String(saved.topic ?? fallback.topic),
+    explanation: String(saved.content ?? fallback.explanation),
+    codeExample,
+    language: String(saved.language ?? fallback.programmingLanguage),
+  };
+}
+
+interface FundamentalConceptModalProps {
+  item: Concept | null;
+  saving: boolean;
+  groupSuggestions: readonly string[];
+  defaultTopic: string;
+  defaultGroupForNew: string;
+  titleAdd: string;
+  titleEdit: string;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    description: string;
+    difficulty: Concept["difficulty"];
+    groupCategory: string;
+    topic: string;
+    programmingLanguage: string;
+    explanation: string;
+    codeExample: string;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const FundamentalConceptModal: React.FC<FundamentalConceptModalProps> = ({
+  item,
+  saving,
+  groupSuggestions,
+  defaultTopic,
+  defaultGroupForNew,
+  titleAdd,
+  titleEdit,
+  onSave,
+  onClose,
+}) => {
+  const groupListId = React.useId();
+  const langListId = React.useId();
+  const modalTitleId = React.useId();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [difficulty, setDifficulty] = useState<Concept["difficulty"]>(
+    "Medium",
+  );
+  const [groupCategory, setGroupCategory] = useState("");
+  const [topic, setTopic] = useState(defaultTopic);
+  const [programmingLanguage, setProgrammingLanguage] = useState("java");
+  const [explanation, setExplanation] = useState("");
+  const [codeExample, setCodeExample] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setDescription(item.description);
+      setDifficulty(item.difficulty);
+      setGroupCategory(item.category || "");
+      setTopic(item.topic || defaultTopic);
+      setProgrammingLanguage(item.language || "java");
+      setExplanation(item.explanation);
+      setCodeExample(item.codeExample);
+    } else {
+      setTitle("");
+      setDescription("");
+      setDifficulty("Easy");
+      setGroupCategory(defaultGroupForNew);
+      setTopic(defaultTopic);
+      setProgrammingLanguage("java");
+      setExplanation("");
+      setCodeExample("");
+    }
+    setError(null);
+  }, [item, defaultTopic, defaultGroupForNew]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) {
+      setError("Title is required.");
+      return;
+    }
+    const gc = groupCategory.trim();
+    if (!gc) {
+      setError("Category (group) is required.");
+      return;
+    }
+    const ex = explanation.trim();
+    if (!ex) {
+      setError("Explanation is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: t,
+      description: description.trim(),
+      difficulty,
+      groupCategory: gc,
+      topic: topic.trim() || defaultTopic,
+      programmingLanguage: programmingLanguage.trim() || "java",
+      explanation: ex,
+      codeExample,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby={modalTitleId}
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id={modalTitleId}
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? titleEdit : titleAdd}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Short description
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Difficulty
+              </label>
+              <select
+                value={difficulty}
+                onChange={(e) =>
+                  setDifficulty(e.target.value as Concept["difficulty"])
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              >
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Group (category)
+              </label>
+              <input
+                type="text"
+                value={groupCategory}
+                onChange={(e) => setGroupCategory(e.target.value)}
+                list={groupListId}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                placeholder="e.g. Basics"
+              />
+              <datalist id={groupListId}>
+                {groupSuggestions.map((g) => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Topic label
+              </label>
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                placeholder={defaultTopic}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Code language (syntax highlight)
+            </label>
+            <input
+              type="text"
+              value={programmingLanguage}
+              onChange={(e) => setProgrammingLanguage(e.target.value)}
+              list={langListId}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+            <datalist id={langListId}>
+              {PROGRAMMING_LANG_SUGGESTIONS.map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Explanation
+            </label>
+            <textarea
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              rows={6}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-y leading-relaxed"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Code example (markdown fenced block OK)
+            </label>
+            <textarea
+              value={codeExample}
+              onChange={(e) => setCodeExample(e.target.value)}
+              rows={10}
+              spellCheck={false}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add concept"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+function mergeRoadmapFromApi(
+  saved: Record<string, unknown>,
+  fallback: {
+    id?: string;
+    title: string;
+    description: string;
+    category: string;
+    steps: Roadmap["steps"];
+    isFree: boolean;
+  },
+): Roadmap {
+  const rawSteps = saved.steps;
+  const steps: Roadmap["steps"] = [];
+  if (Array.isArray(rawSteps)) {
+    for (const s of rawSteps) {
+      if (s && typeof s === "object") {
+        const o = s as Record<string, unknown>;
+        const t = String(o.title ?? "").trim();
+        if (t)
+          steps.push({
+            title: t,
+            completed: Boolean(o.completed),
+          });
+      }
+    }
+  }
+  return {
+    id: String(saved.id ?? fallback.id ?? ""),
+    title: String(saved.title ?? fallback.title),
+    description: String(saved.description ?? fallback.description),
+    category: String(saved.category ?? fallback.category),
+    isFree: Boolean(
+      saved.isFree !== undefined ? saved.isFree : fallback.isFree,
+    ),
+    steps: steps.length > 0 ? steps : fallback.steps,
+  };
+}
+
+interface HandwrittenNoteModalProps {
+  item: HandwrittenNote | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    description: string;
+    topic: string;
+    pageCount: number;
+    thumbnailUrl: string;
+    s3Key: string;
+    fileSize: number;
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const HandwrittenNoteModal: React.FC<HandwrittenNoteModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const topicListId = React.useId();
+  const titleId = React.useId();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [topic, setTopic] = useState("");
+  const [pageCount, setPageCount] = useState(0);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [s3Key, setS3Key] = useState("");
+  const [fileSize, setFileSize] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setDescription(item.description);
+      setTopic(item.topic || "");
+      setPageCount(item.pageCount);
+      setThumbnailUrl(item.thumbnailUrl || "");
+      const ext = item as HandwrittenNote & { s3Key?: string; fileSize?: number };
+      setS3Key(ext.s3Key ?? "");
+      setFileSize(typeof ext.fileSize === "number" ? ext.fileSize : 0);
+    } else {
+      setTitle("");
+      setDescription("");
+      setTopic("Algorithms");
+      setPageCount(1);
+      setThumbnailUrl("");
+      setS3Key("");
+      setFileSize(0);
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) {
+      setError("Title is required.");
+      return;
+    }
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: t,
+      description: description.trim(),
+      topic: topic.trim() || "General",
+      pageCount: Math.max(0, pageCount),
+      thumbnailUrl: thumbnailUrl.trim(),
+      s3Key: s3Key.trim(),
+      fileSize: Math.max(0, fileSize),
+    });
+  };
+
+  const NOTE_TOPIC_SUGGESTIONS = [
+    "Algorithms",
+    "DBMS",
+    "OS",
+    "Networking",
+    "General",
+  ] as const;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby={titleId}
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id={titleId}
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit note" : "Add handwritten note"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Topic
+            </label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              list={topicListId}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+            <datalist id={topicListId}>
+              {NOTE_TOPIC_SUGGESTIONS.map((x) => (
+                <option key={x} value={x} />
+              ))}
+            </datalist>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Page count
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={pageCount}
+                onChange={(e) =>
+                  setPageCount(Math.max(0, Number(e.target.value) || 0))
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                File size (bytes)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={fileSize}
+                onChange={(e) =>
+                  setFileSize(Math.max(0, Number(e.target.value) || 0))
+                }
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Thumbnail URL
+            </label>
+            <input
+              type="url"
+              value={thumbnailUrl}
+              onChange={(e) => setThumbnailUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              placeholder="https://…"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              S3 key (optional)
+            </label>
+            <input
+              type="text"
+              value={s3Key}
+              onChange={(e) => setS3Key(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              placeholder="notes/…"
+            />
+          </div>
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save" : "Add note"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface RoadmapModalProps {
+  item: Roadmap | null;
+  saving: boolean;
+  onSave: (data: {
+    id?: string;
+    title: string;
+    description: string;
+    category: string;
+    isFree: boolean;
+    estimatedDuration: string;
+    stepsPayload: { title: string; description: string; resources: string[] }[];
+  }) => void | Promise<void>;
+  onClose: () => void;
+}
+
+const RoadmapModal: React.FC<RoadmapModalProps> = ({
+  item,
+  saving,
+  onSave,
+  onClose,
+}) => {
+  const catListId = React.useId();
+  const dialogTitleId = React.useId();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [isFree, setIsFree] = useState(true);
+  const [estimatedDuration, setEstimatedDuration] = useState("");
+  const [stepsText, setStepsText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (item) {
+      setTitle(item.title);
+      setDescription(item.description);
+      setCategory(item.category || "");
+      setIsFree(item.isFree);
+      setStepsText(item.steps.map((s) => s.title).join("\n"));
+      setEstimatedDuration("");
+      const ext = item as Roadmap & { estimatedDuration?: string };
+      if (typeof ext.estimatedDuration === "string")
+        setEstimatedDuration(ext.estimatedDuration);
+    } else {
+      setTitle("");
+      setDescription("");
+      setCategory("Web Development");
+      setIsFree(true);
+      setEstimatedDuration("");
+      setStepsText("");
+    }
+    setError(null);
+  }, [item]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) {
+      setError("Title is required.");
+      return;
+    }
+    const lines = stepsText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) {
+      setError("Add at least one step (one title per line).");
+      return;
+    }
+    const stepsPayload = lines.map((line) => ({
+      title: line,
+      description: "",
+      resources: [] as string[],
+    }));
+    setError(null);
+    await onSave({
+      id: item?.id,
+      title: t,
+      description: description.trim(),
+      category: category.trim() || "General",
+      isFree,
+      estimatedDuration: estimatedDuration.trim(),
+      stepsPayload,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+        role="dialog"
+        aria-labelledby={dialogTitleId}
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3
+              id={dialogTitleId}
+              className="text-lg font-semibold text-gray-900"
+            >
+              {item ? "Edit roadmap" : "Add roadmap"}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg disabled:opacity-50"
+              aria-label="Close"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Category
+              </label>
+              <input
+                type="text"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                list={catListId}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+              <datalist id={catListId}>
+                {ROADMAP_CATEGORY_SUGGESTIONS.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Estimated duration (optional)
+              </label>
+              <input
+                type="text"
+                value={estimatedDuration}
+                onChange={(e) => setEstimatedDuration(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                placeholder="e.g. 8 weeks"
+              />
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isFree}
+              onChange={(e) => setIsFree(e.target.checked)}
+              className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+            />
+            Free roadmap
+          </label>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Steps (one title per line)
+            </label>
+            <textarea
+              value={stepsText}
+              onChange={(e) => setStepsText(e.target.value)}
+              rows={10}
+              spellCheck={false}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-orange-500 outline-none resize-y"
+              placeholder={"Step 1 title\nStep 2 title"}
+            />
+          </div>
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              {item ? "Save changes" : "Add roadmap"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // ─── SD Question Add / Edit Modal ────────────────────────────────────────────
 interface SDQuestionModalProps {
   designType: "hld" | "lld";
@@ -479,7 +2195,7 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -803,6 +2519,44 @@ const PrepContentManagementPage: React.FC = () => {
   const [oopsData, setOopsData] = useState(oopsConcepts);
   const [langData, setLangData] = useState(languageConcepts);
 
+  const [jpModal, setJpModal] = useState<{
+    open: boolean;
+    item: JobPortal | null;
+  }>({ open: false, item: null });
+  const [jpSaving, setJpSaving] = useState(false);
+
+  const [dmModal, setDmModal] = useState<{
+    open: boolean;
+    item: ColdDMTemplate | null;
+  }>({ open: false, item: null });
+  const [dmSaving, setDmSaving] = useState(false);
+
+  const [quizModal, setQuizModal] = useState<{
+    open: boolean;
+    item: Quiz | null;
+  }>({ open: false, item: null });
+  const [quizSaving, setQuizSaving] = useState(false);
+
+  const [fundamentalConceptModal, setFundamentalConceptModal] = useState<{
+    open: boolean;
+    item: Concept | null;
+    variant: "language" | "oops";
+  }>({ open: false, item: null, variant: "language" });
+  const [fundamentalConceptSaving, setFundamentalConceptSaving] =
+    useState(false);
+
+  const [noteModal, setNoteModal] = useState<{
+    open: boolean;
+    item: HandwrittenNote | null;
+  }>({ open: false, item: null });
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  const [roadmapModal, setRoadmapModal] = useState<{
+    open: boolean;
+    item: Roadmap | null;
+  }>({ open: false, item: null });
+  const [roadmapSaving, setRoadmapSaving] = useState(false);
+
   // SD modal state
   const [sdModal, setSdModal] = useState<{
     open: boolean;
@@ -872,6 +2626,302 @@ const PrepContentManagementPage: React.FC = () => {
 
   const triggerEdit = (name: string) => {
     showToast(`Editing "${name}" — editor modal coming soon`, "info");
+  };
+
+  const handleJobPortalSave = async (form: {
+    id?: string;
+    name: string;
+    logo: string;
+    description: string;
+    url: string;
+    category: string;
+    region: string;
+    isFavorite: boolean;
+    isApplied: boolean;
+  }) => {
+    setJpSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "job_portals",
+      { ...form } as Record<string, unknown>,
+    );
+    setJpSaving(false);
+    if (item) {
+      const saved = item as unknown as JobPortal;
+      const merged: JobPortal = {
+        ...saved,
+        isFavorite: form.isFavorite,
+        isApplied: form.isApplied,
+        logo: String(saved.logo || form.logo),
+        name: String(saved.name || form.name),
+        description: String(saved.description ?? form.description),
+        url: String(saved.url ?? form.url),
+        category: String(saved.category || form.category),
+        region: String(saved.region || form.region),
+      };
+      const isEdit = !!form.id;
+      setJpData((prev) =>
+        isEdit
+          ? prev.map((p) => (p.id === merged.id ? merged : p))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.name}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setJpModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleColdDMSave = async (form: {
+    id?: string;
+    title: string;
+    content: string;
+    category: string;
+    isCopied: boolean;
+  }) => {
+    setDmSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "cold_dm_templates",
+      { ...form } as Record<string, unknown>,
+    );
+    setDmSaving(false);
+    if (item) {
+      const saved = item as unknown as ColdDMTemplate;
+      const merged: ColdDMTemplate = {
+        ...saved,
+        isCopied: form.isCopied,
+        title: String(saved.title || form.title),
+        content: String(saved.content ?? form.content),
+        category: String(saved.category || form.category),
+      };
+      const isEdit = !!form.id;
+      setDmData((prev) =>
+        isEdit
+          ? prev.map((d) => (d.id === merged.id ? merged : d))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setDmModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleQuizSave = async (form: {
+    id?: string;
+    title: string;
+    description: string;
+    questionCount: number;
+    difficulty: "Easy" | "Medium" | "Hard";
+    category: string;
+    role: string;
+    duration: number;
+    passingScore: number;
+    questions: unknown[];
+    isBookmarked: boolean;
+  }) => {
+    setQuizSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "quizzes",
+      { ...form } as Record<string, unknown>,
+    );
+    setQuizSaving(false);
+    if (item) {
+      const saved = item as unknown as Quiz & {
+        questions?: unknown[];
+        passingScore?: number;
+      };
+      const merged: Quiz = {
+        id: saved.id,
+        title: String(saved.title || form.title),
+        description: String(saved.description ?? form.description),
+        questionCount: Number(saved.questionCount ?? form.questionCount),
+        difficulty: (saved.difficulty ?? form.difficulty) as
+          | "Easy"
+          | "Medium"
+          | "Hard",
+        category: String(saved.category || form.category),
+        role: String(saved.role || form.role),
+        duration: Number(saved.duration ?? form.duration),
+        isBookmarked: form.isBookmarked,
+      };
+      const isEdit = !!form.id;
+      setQuizData((prev) =>
+        isEdit
+          ? prev.map((q) => (q.id === merged.id ? merged : q))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setQuizModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleFundamentalConceptSave = async (
+    form: {
+      id?: string;
+      title: string;
+      description: string;
+      difficulty: Concept["difficulty"];
+      groupCategory: string;
+      topic: string;
+      programmingLanguage: string;
+      explanation: string;
+      codeExample: string;
+    },
+    variant: "language" | "oops",
+  ) => {
+    setFundamentalConceptSaving(true);
+    const apiCategory = variant === "language" ? "Language" : "OOPs";
+    const payload: Record<string, unknown> = {
+      id: form.id,
+      title: form.title,
+      description: form.description,
+      category: apiCategory,
+      subcategory: form.groupCategory,
+      topic: form.topic,
+      language: form.programmingLanguage,
+      content: form.explanation,
+      codeExamples: form.codeExample.trim() ? [form.codeExample] : [],
+      difficulty: form.difficulty,
+    };
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "fundamentals",
+      payload,
+    );
+    setFundamentalConceptSaving(false);
+    if (item) {
+      const merged = mergeFundamentalToConcept(
+        item as Record<string, unknown>,
+        form,
+      );
+      const isEdit = !!form.id;
+      const updateList = (prev: Concept[]) =>
+        isEdit
+          ? prev.map((c) => (c.id === merged.id ? merged : c))
+          : [merged, ...prev];
+      if (variant === "language") setLangData(updateList);
+      else setOopsData(updateList);
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setFundamentalConceptModal((m) => ({
+        ...m,
+        open: false,
+        item: null,
+      }));
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleNoteSave = async (form: {
+    id?: string;
+    title: string;
+    description: string;
+    topic: string;
+    pageCount: number;
+    thumbnailUrl: string;
+    s3Key: string;
+    fileSize: number;
+  }) => {
+    setNoteSaving(true);
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "handwritten_notes",
+      { ...form } as Record<string, unknown>,
+    );
+    setNoteSaving(false);
+    if (item) {
+      const raw = item as Record<string, unknown>;
+      const merged: HandwrittenNote = {
+        id: String(raw.id ?? form.id ?? ""),
+        title: String(raw.title ?? form.title),
+        description: String(raw.description ?? form.description),
+        topic: String(raw.topic ?? form.topic),
+        pageCount: Number(raw.pageCount ?? form.pageCount),
+        thumbnailUrl: String(raw.thumbnailUrl ?? form.thumbnailUrl),
+      };
+      const isEdit = !!form.id;
+      setNoteData((prev) =>
+        isEdit
+          ? prev.map((n) => (n.id === merged.id ? merged : n))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setNoteModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
+  };
+
+  const handleRoadmapSave = async (form: {
+    id?: string;
+    title: string;
+    description: string;
+    category: string;
+    isFree: boolean;
+    estimatedDuration: string;
+    stepsPayload: {
+      title: string;
+      description: string;
+      resources: string[];
+    }[];
+  }) => {
+    setRoadmapSaving(true);
+    const payload: Record<string, unknown> = {
+      id: form.id,
+      title: form.title,
+      description: form.description,
+      category: form.category,
+      isFree: form.isFree,
+      estimatedDuration: form.estimatedDuration,
+      steps: form.stepsPayload,
+    };
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "roadmaps",
+      payload,
+    );
+    setRoadmapSaving(false);
+    if (item) {
+      const uiSteps: Roadmap["steps"] = form.stepsPayload.map((s) => ({
+        title: s.title,
+        completed: false,
+      }));
+      const merged = mergeRoadmapFromApi(item as Record<string, unknown>, {
+        id: form.id,
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        steps: uiSteps,
+        isFree: form.isFree,
+      });
+      const isEdit = !!form.id;
+      setRmData((prev) =>
+        isEdit
+          ? prev.map((r) => (r.id === merged.id ? merged : r))
+          : [merged, ...prev],
+      );
+      showToast(
+        `"${merged.title}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setRoadmapModal({ open: false, item: null });
+    } else {
+      showToast("Save failed. Check the admin API or try again.", "info");
+    }
   };
 
   // SD-specific: open delete confirmation modal
@@ -1315,6 +3365,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Quiz"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setQuizModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1324,7 +3375,7 @@ const PrepContentManagementPage: React.FC = () => {
                     <DiffBadge d={quiz.difficulty} />
                     <ActionBtns
                       name={quiz.title}
-                      onEdit={() => triggerEdit(quiz.title)}
+                      onEdit={() => setQuizModal({ open: true, item: quiz })}
                       onDelete={() =>
                         confirmDelete(quiz.title, quiz.id, setQuizData)
                       }
@@ -1425,7 +3476,7 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={quiz.title}
-                          onEdit={() => triggerEdit(quiz.title)}
+                          onEdit={() => setQuizModal({ open: true, item: quiz })}
                           onDelete={() =>
                             confirmDelete(quiz.title, quiz.id, setQuizData)
                           }
@@ -1449,6 +3500,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Template"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setDmModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1460,7 +3512,7 @@ const PrepContentManagementPage: React.FC = () => {
                     </span>
                     <ActionBtns
                       name={dm.title}
-                      onEdit={() => triggerEdit(dm.title)}
+                      onEdit={() => setDmModal({ open: true, item: dm })}
                       onDelete={() => confirmDelete(dm.title, dm.id, setDmData)}
                     />
                   </div>
@@ -1509,7 +3561,7 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={dm.title}
-                          onEdit={() => triggerEdit(dm.title)}
+                          onEdit={() => setDmModal({ open: true, item: dm })}
                           onDelete={() =>
                             confirmDelete(dm.title, dm.id, setDmData)
                           }
@@ -1533,6 +3585,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Portal"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setJpModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1549,7 +3602,7 @@ const PrepContentManagementPage: React.FC = () => {
                     </div>
                     <ActionBtns
                       name={portal.name}
-                      onEdit={() => triggerEdit(portal.name)}
+                      onEdit={() => setJpModal({ open: true, item: portal })}
                       onDelete={() =>
                         confirmDelete(portal.name, portal.id, setJpData)
                       }
@@ -1608,7 +3661,7 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={portal.name}
-                          onEdit={() => triggerEdit(portal.name)}
+                          onEdit={() => setJpModal({ open: true, item: portal })}
                           onDelete={() =>
                             confirmDelete(portal.name, portal.id, setJpData)
                           }
@@ -1623,6 +3676,131 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
+      {/* ─── Job portal add/edit modal (portal: above admin header/sidebar stacking) ─── */}
+      {jpModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <JobPortalModal
+            item={jpModal.item}
+            saving={jpSaving}
+            onSave={handleJobPortalSave}
+            onClose={() => {
+              if (!jpSaving) setJpModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Cold DM add/edit modal (portal: above admin header/sidebar stacking) ─── */}
+      {dmModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ColdDMModal
+            item={dmModal.item}
+            saving={dmSaving}
+            onSave={handleColdDMSave}
+            onClose={() => {
+              if (!dmSaving) setDmModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Quiz add/edit modal (portal: above admin header/sidebar stacking) ─── */}
+      {quizModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <QuizModal
+            item={quizModal.item}
+            saving={quizSaving}
+            onSave={handleQuizSave}
+            onClose={() => {
+              if (!quizSaving) setQuizModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Language / OOPs fundamental modal (portal) ─── */}
+      {fundamentalConceptModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <FundamentalConceptModal
+            item={fundamentalConceptModal.item}
+            saving={fundamentalConceptSaving}
+            groupSuggestions={
+              fundamentalConceptModal.variant === "language"
+                ? LANGUAGE_FUNDAMENTAL_GROUPS
+                : OOPS_FUNDAMENTAL_GROUPS
+            }
+            defaultTopic={
+              fundamentalConceptModal.variant === "language"
+                ? "Language"
+                : "OOPs"
+            }
+            defaultGroupForNew={
+              fundamentalConceptModal.variant === "language"
+                ? "Basics"
+                : "Basics Concepts"
+            }
+            titleAdd={
+              fundamentalConceptModal.variant === "language"
+                ? "Add language concept"
+                : "Add OOPs concept"
+            }
+            titleEdit={
+              fundamentalConceptModal.variant === "language"
+                ? "Edit language concept"
+                : "Edit OOPs concept"
+            }
+            onSave={(data) =>
+              handleFundamentalConceptSave(
+                data,
+                fundamentalConceptModal.variant,
+              )
+            }
+            onClose={() => {
+              if (!fundamentalConceptSaving)
+                setFundamentalConceptModal((m) => ({
+                  ...m,
+                  open: false,
+                  item: null,
+                }));
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Handwritten note modal (portal) ─── */}
+      {noteModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <HandwrittenNoteModal
+            item={noteModal.item}
+            saving={noteSaving}
+            onSave={handleNoteSave}
+            onClose={() => {
+              if (!noteSaving) setNoteModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
+      {/* ─── Roadmap modal (portal) ─── */}
+      {roadmapModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <RoadmapModal
+            item={roadmapModal.item}
+            saving={roadmapSaving}
+            onSave={handleRoadmapSave}
+            onClose={() => {
+              if (!roadmapSaving) setRoadmapModal({ open: false, item: null });
+            }}
+          />,
+          document.body,
+        )}
+
       {/* ─── Notes ─── */}
       {activeTab === "notes" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
@@ -1632,6 +3810,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Upload Note"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setNoteModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1643,7 +3822,9 @@ const PrepContentManagementPage: React.FC = () => {
                     </span>
                     <ActionBtns
                       name={note.title}
-                      onEdit={() => triggerEdit(note.title)}
+                      onEdit={() =>
+                        setNoteModal({ open: true, item: note })
+                      }
                       onDelete={() =>
                         confirmDelete(note.title, note.id, setNoteData)
                       }
@@ -1721,7 +3902,9 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={note.title}
-                          onEdit={() => triggerEdit(note.title)}
+                          onEdit={() =>
+                            setNoteModal({ open: true, item: note })
+                          }
                           onDelete={() =>
                             confirmDelete(note.title, note.id, setNoteData)
                           }
@@ -1745,6 +3928,7 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Roadmap"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => setRoadmapModal({ open: true, item: null })}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -1763,7 +3947,9 @@ const PrepContentManagementPage: React.FC = () => {
                     </div>
                     <ActionBtns
                       name={rm.title}
-                      onEdit={() => triggerEdit(rm.title)}
+                      onEdit={() =>
+                        setRoadmapModal({ open: true, item: rm })
+                      }
                       onDelete={() => confirmDelete(rm.title, rm.id, setRmData)}
                     />
                   </div>
@@ -1849,7 +4035,9 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={rm.title}
-                          onEdit={() => triggerEdit(rm.title)}
+                          onEdit={() =>
+                            setRoadmapModal({ open: true, item: rm })
+                          }
                           onDelete={() =>
                             confirmDelete(rm.title, rm.id, setRmData)
                           }
@@ -2262,6 +4450,13 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Concept"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() =>
+              setFundamentalConceptModal({
+                open: true,
+                item: null,
+                variant: "oops",
+              })
+            }
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -2271,7 +4466,13 @@ const PrepContentManagementPage: React.FC = () => {
                     <DiffBadge d={c.difficulty} />
                     <ActionBtns
                       name={c.title}
-                      onEdit={() => triggerEdit(c.title)}
+                      onEdit={() =>
+                        setFundamentalConceptModal({
+                          open: true,
+                          item: c,
+                          variant: "oops",
+                        })
+                      }
                       onDelete={() => confirmDelete(c.title, c.id, setOopsData)}
                     />
                   </div>
@@ -2343,7 +4544,13 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={c.title}
-                          onEdit={() => triggerEdit(c.title)}
+                          onEdit={() =>
+                            setFundamentalConceptModal({
+                              open: true,
+                              item: c,
+                              variant: "oops",
+                            })
+                          }
                           onDelete={() =>
                             confirmDelete(c.title, c.id, setOopsData)
                           }
@@ -2367,6 +4574,13 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Concept"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() =>
+              setFundamentalConceptModal({
+                open: true,
+                item: null,
+                variant: "language",
+              })
+            }
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
@@ -2376,7 +4590,13 @@ const PrepContentManagementPage: React.FC = () => {
                     <DiffBadge d={c.difficulty} />
                     <ActionBtns
                       name={c.title}
-                      onEdit={() => triggerEdit(c.title)}
+                      onEdit={() =>
+                        setFundamentalConceptModal({
+                          open: true,
+                          item: c,
+                          variant: "language",
+                        })
+                      }
                       onDelete={() => confirmDelete(c.title, c.id, setLangData)}
                     />
                   </div>
@@ -2448,7 +4668,13 @@ const PrepContentManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <ActionBtns
                           name={c.title}
-                          onEdit={() => triggerEdit(c.title)}
+                          onEdit={() =>
+                            setFundamentalConceptModal({
+                              open: true,
+                              item: c,
+                              variant: "language",
+                            })
+                          }
                           onDelete={() =>
                             confirmDelete(c.title, c.id, setLangData)
                           }
@@ -2593,55 +4819,61 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── SD Add/Edit Modal ─── */}
-      {sdModal.open && (
-        <SDQuestionModal
-          designType={sdModal.designType}
-          item={sdModal.item ?? null}
-          saving={sdSaving}
-          onSave={handleSdSave}
-          onClose={() =>
-            setSdModal({ open: false, designType: sdModal.designType })
-          }
-        />
-      )}
+      {/* ─── SD Add/Edit Modal (portal: above admin header/sidebar stacking) ─── */}
+      {sdModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <SDQuestionModal
+            designType={sdModal.designType}
+            item={sdModal.item ?? null}
+            saving={sdSaving}
+            onSave={handleSdSave}
+            onClose={() =>
+              setSdModal({ open: false, designType: sdModal.designType })
+            }
+          />,
+          document.body,
+        )}
 
       {/* ─── Delete Confirmation Modal ─── */}
-      {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete Question
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete{" "}
-              <span className="font-medium text-gray-900">
-                "{deleteModal.name}"
-              </span>
-              ? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteModal(null)}
-                disabled={deleteLoading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSdDeleteConfirm}
-                disabled={deleteLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {deleteLoading && (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                Delete
-              </button>
+      {deleteModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Delete Question
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Are you sure you want to delete{" "}
+                <span className="font-medium text-gray-900">
+                  "{deleteModal.name}"
+                </span>
+                ? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeleteModal(null)}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSdDeleteConfirm}
+                  disabled={deleteLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleteLoading && (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

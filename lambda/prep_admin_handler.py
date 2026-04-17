@@ -297,14 +297,25 @@ def normalize_system_design(raw: dict, now: str) -> dict:
 
 
 def normalize_fundamental(raw: dict, now: str) -> dict:
+    """Fundamentals table: category = 'Language' | 'OOPs' (discriminator); subcategory = UI group (e.g. Basics)."""
+    diff = raw.get("difficulty", "Medium")
+    if isinstance(diff, str):
+        difficulty = diff.strip() or "Medium"
+    else:
+        difficulty = "Medium"
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
     return {
         "id": str(raw.get("id") or generate_id("fund")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
-        "category": raw.get("category", "Language"),
+        "category": str(raw.get("category", "Language")).strip() or "Language",
         "subcategory": str(raw.get("subcategory", "")).strip(),
         "content": str(raw.get("content", "")).strip(),
         "codeExamples": raw.get("codeExamples", []),
+        "difficulty": difficulty,
+        "topic": str(raw.get("topic", "")).strip(),
+        "language": str(raw.get("language", "")).strip(),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
