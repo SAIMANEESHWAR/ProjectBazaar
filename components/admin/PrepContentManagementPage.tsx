@@ -4,7 +4,6 @@ import type { editor as MonacoEditor } from "monaco-editor";
 import AddQuestionPage from "./AddQuestionPage";
 import Modal from "./QuestionModal"
 import {
-  interviewQuestions,
   dsaProblems,
   quizzes,
   coldDMTemplates,
@@ -18,17 +17,35 @@ import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
 import { DiagramData } from "../../data/systemDesignData";
 import { prepAdminApi } from "../../services/preparationApi";
 
+interface DynamoDBString { S: string; }
+
+interface RawDynamoQuestion {
+  id: DynamoDBString;
+  pk?: DynamoDBString;
+  title: DynamoDBString;
+  company: DynamoDBString;
+  topic: DynamoDBString;
+  difficulty: DynamoDBString;
+  description: DynamoDBString;
+}
+
+interface InterviewQuestion {
+  id: string;
+  title: string;
+  company: string;
+  topic: string;
+  difficulty: string;
+  description: string;
+}
+
 type PrepTab =
   | "overview"
   | "questions"
-  // | "dsa"
   | "quizzes"
   | "cold-dms"
   | "job-portals"
   | "notes"
   | "roadmaps"
-  // | "mass-recruitment"
-  // | "positions"
   | "hld"
   | "lld"
   | "oops"
@@ -50,15 +67,7 @@ interface AdminSDQuestion {
   updatedAt?: string;
 }
 
-const SD_SECTIONS_HLD = ["System Design", "Distributed Systems"];
-const SD_SECTIONS_LLD = [
-  "Object-Oriented Design",
-  "System Design",
-  "Game Design",
-  "Data Structures",
-  "Design Patterns",
-];
-
+//////////////////// constants ------------------
 
 const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
   subtitle: "",
@@ -77,8 +86,23 @@ const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
   legend: [{ color: "#1e3a8a", label: "Service" }],
 };
 
-const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
-const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
+// ✅ Fetch from CloudShell Backend
+
+
+const SD_SECTIONS_HLD = ["System Design", "Distributed Systems"];
+const SD_SECTIONS_LLD = [
+  "Object-Oriented Design",
+  "System Design",
+  "Game Design",
+  "Data Structures",
+  "Design Patterns",
+];
+
+
+
+
+// const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
+// const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
 
 const parseDiagramDataShape = (
   value: string,
@@ -108,7 +132,6 @@ const parseDiagramDataShape = (
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "questions", label: "Questions" },
-  // { id: "dsa", label: "DSA" },
   { id: "hld", label: "HLD" },
   { id: "lld", label: "LLD" },
   { id: "oops", label: "OOPs" },
@@ -118,10 +141,9 @@ const tabs: { id: PrepTab; label: string }[] = [
   { id: "job-portals", label: "Job Portals" },
   { id: "notes", label: "Notes" },
   { id: "roadmaps", label: "Roadmaps" },
-  // { id: "mass-recruitment", label: "Mass Recruit" },
-  // { id: "roles", label: "Positions" },
 ];
 
+// ------------UI components --------------
 const EditIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -179,13 +201,15 @@ const ActionBtns: React.FC<{
   </div>
 );
 
-const DiffBadge: React.FC<{ d: string }> = ({ d }) => (
-  <span
-    className={`px-2.5 py-1 text-xs font-semibold rounded-full ${d === "Easy" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : d === "Medium" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200" : "bg-red-50 text-red-700 ring-1 ring-red-200"}`}
-  >
-    {d}
-  </span>
-);
+const DiffBadge: React.FC<{ d: string }> = ({ d }) => {
+  const normalized = d ? d.charAt(0).toUpperCase() + d.slice(1).toLowerCase() : "Medium";
+  const styles: Record<string, string> = {
+    Easy: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    Medium: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    Hard: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  };
+  return <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${styles[normalized] || styles.Medium}`}>{normalized}</span>;
+};
 
 const ViewToggle: React.FC<{
   view: "table" | "grid";
@@ -426,24 +450,7 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
   const [iqData, setIqData] = useState([]);
 const [loading, setLoading] = useState(true);
 
-// ✅ Fetch from CloudShell Backend
-const fetchQuestions = async () => {
-  setLoading(true); // Start loading
-  try {
-    const url = "https://5000-cs-1153eff4-c05e-4332-b59a-c3a91371be60.cs-asia-southeast1-ajrg.cloudshell.dev/questions";
-    const response = await fetch(url);
-    const data = await response.json();
-    setIqData(data);
-  } catch (error) {
-    console.error("Fetch error:", error);
-  } finally {
-    setLoading(false); // Stop loading regardless of success/fail
-  }
-};
 
-useEffect(() => {
-  fetchQuestions();
-}, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -817,6 +824,8 @@ useEffect(() => {
 
 const PrepContentManagementPage: React.FC = () => {
   const [open, setOpen] = useState(false);
+  const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
+const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
 
   const [activeTab, setActiveTab] = useState<PrepTab>("overview");
   const [toast, setToast] = useState<{
@@ -825,7 +834,36 @@ const PrepContentManagementPage: React.FC = () => {
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const [iqData, setIqData] = useState(interviewQuestions);
+  const fetchQuestions = async () => {
+  setLoading(true);
+  try {
+    const url = "https://5000-cs-1153eff4-c05e-4332-b59a-c3a91371be60.cs-asia-southeast1-ajrg.cloudshell.dev/questions";
+    const response = await fetch(url);
+    const rawData = await response.json();
+    
+    // Convert DynamoDB format to plain Javascript objects
+    const cleanData = rawData.map((item: any) => ({
+      id: item.id?.S || item.pk?.S,
+      title: item.title?.S || "No Title",
+      company: item.company?.S || "Unknown",
+      topic: item.topic?.S || "General",
+      difficulty: item.difficulty?.S || "Medium",
+      description: item.description?.S || ""
+    }));
+
+    setIqData(cleanData);
+  } catch (error) {
+    console.error("Fetch error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchQuestions();
+}, []);
+
+  // const [iqData, setIqData] = useState<any[]>([]);
   const [dsaData, setDsaData] = useState(dsaProblems);
   const [quizData, setQuizData] = useState(quizzes);
   const [dmData, setDmData] = useState(coldDMTemplates);
@@ -1142,7 +1180,7 @@ const PrepContentManagementPage: React.FC = () => {
       btnLabel="Add Question"
       view={viewMode}
       onViewChange={setViewMode}
-      // Pass the fetchQuestions to the "Add" button's onRefresh if needed
+      onAdd={() => setShowAddModal(true)}
     />
     
     {loading ? (
@@ -1151,13 +1189,13 @@ const PrepContentManagementPage: React.FC = () => {
        <div className="p-10 text-center text-gray-500">No questions found in this category.</div>
     ) : isGrid ? (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-        {iqData.map((q) => (
+        {iqData.map((q: any) => (
           <CardShell key={q.id}>
             <div className="flex items-start justify-between mb-3">
               <DiffBadge d={q.difficulty} />
               <ActionBtns
-                name={q.title} // ✅ Changed from q.question
-                onEdit={() => triggerEdit(q)} // Pass the whole object
+                name={q.title}
+                onEdit={() => triggerEdit(q)}
                 onDelete={() => confirmDelete(q.title, q.id, setIqData)}
               />
             </div>
@@ -1189,7 +1227,7 @@ const PrepContentManagementPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {iqData.map((q, i) => (
+            {iqData.map((q: any, i: number) => (
               <tr key={q.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate font-medium">
@@ -1213,130 +1251,14 @@ const PrepContentManagementPage: React.FC = () => {
         </table>
       </div>
     )}
+    {showAddModal && (
+      <AddQuestionPage
+        onClose={() => setShowAddModal(false)}
+        onRefresh={fetchQuestions}
+      />
+    )}
   </div>
 )}
-
-      {/* ─── DSA Problems ─── */}
-      {/* {activeTab === "dsa" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="DSA Problems"
-            count={dsaData.length}
-            btnLabel="Add Problem"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {dsaData.map((p) => (
-                <CardShell key={p.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={p.difficulty} />
-                    <ActionBtns
-                      name={p.title}
-                      onEdit={() => triggerEdit(p.title)}
-                      onDelete={() => confirmDelete(p.title, p.id, setDsaData)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {p.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {p.description}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">
-                      {p.topic}
-                    </span>
-                    {p.company.slice(0, 2).map((c) => (
-                      <span
-                        key={c}
-                        className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                    {p.company.length > 2 && (
-                      <span className="text-xs text-gray-400">
-                        +{p.company.length - 2}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3 text-xs text-gray-400">
-                    Acceptance: {p.acceptance}%
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Topic
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Companies
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {dsaData.map((p, i) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {p.title}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={p.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {p.topic}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-1 flex-wrap">
-                          {p.company.slice(0, 2).map((c) => (
-                            <span
-                              key={c}
-                              className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
-                            >
-                              {c}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={p.title}
-                          onEdit={() => triggerEdit(p.title)}
-                          onDelete={() =>
-                            confirmDelete(p.title, p.id, setDsaData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )} */}
 
       {/* ─── Quizzes ─── */}
       {activeTab === "quizzes" && (
@@ -2519,136 +2441,6 @@ const PrepContentManagementPage: React.FC = () => {
           )}
         </div>
       )}
-
-      {/* ─── Positions ─── */}
-      {/* {activeTab === "positions" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Position Resources"
-            count={posData.length}
-            btnLabel="Add Position"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {posData.map((pos) => (
-                <CardShell key={pos.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-semibold text-gray-900 text-sm">
-                      {pos.role}
-                    </h4>
-                    <ActionBtns
-                      name={pos.role}
-                      onEdit={() => triggerEdit(pos.role)}
-                      onDelete={() =>
-                        confirmDelete(pos.role, pos.id, setPosData)
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-blue-50 rounded-lg p-2 text-center ring-1 ring-blue-100">
-                      <p className="text-base font-bold text-blue-700">
-                        {pos.interviewQuestions}
-                      </p>
-                      <p className="text-[10px] text-blue-500">Interview</p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-lg p-2 text-center ring-1 ring-emerald-100">
-                      <p className="text-base font-bold text-emerald-700">
-                        {pos.dsaQuestions}
-                      </p>
-                      <p className="text-[10px] text-emerald-500">DSA</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-2 text-center ring-1 ring-amber-100">
-                      <p className="text-base font-bold text-amber-700">
-                        {pos.aptitudeQuestions}
-                      </p>
-                      <p className="text-[10px] text-amber-500">Aptitude</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="bg-purple-50 rounded-lg p-2 text-center ring-1 ring-purple-100">
-                      <p className="text-base font-bold text-purple-700">
-                        {pos.sqlQuestions}
-                      </p>
-                      <p className="text-[10px] text-purple-500">SQL</p>
-                    </div>
-                    <div className="bg-pink-50 rounded-lg p-2 text-center ring-1 ring-pink-100">
-                      <p className="text-base font-bold text-pink-700">
-                        {pos.coreCSQuestions}
-                      </p>
-                      <p className="text-[10px] text-pink-500">Core CS</p>
-                    </div>
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interview Qs
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      DSA
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Aptitude
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      SQL
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Core CS
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {posData.map((pos) => (
-                    <tr key={pos.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {pos.role}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.interviewQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.dsaQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.aptitudeQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.sqlQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.coreCSQuestions}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={pos.role}
-                          onEdit={() => triggerEdit(pos.role)}
-                          onDelete={() =>
-                            confirmDelete(pos.role, pos.id, setPosData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )} */}
 
       {/* ─── SD Add/Edit Modal ─── */}
       {sdModal.open && (
