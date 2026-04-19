@@ -70,10 +70,10 @@ function getCachedClientId(): string | null {
 
 /** Start Google sign-in; client id is read from Lambda (cached after fetchGoogleOAuthConfig). */
 export async function startGoogleDirectSignIn(loginApiUrl: string): Promise<void> {
-  let clientId = getCachedClientId();
+  let clientId: string | null = getCachedClientId();
   if (!clientId) {
     const cfg = await fetchGoogleOAuthConfig(loginApiUrl);
-    clientId = cfg.clientId || undefined;
+    clientId = cfg.clientId ?? null;
   }
   if (!clientId) {
     throw new Error('Google sign-in is not enabled on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the login Lambda.');
