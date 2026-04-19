@@ -14,6 +14,14 @@ const ATS_SCORER_DIRECT =
 
 const ATS_SCORER_ENDPOINT = import.meta.env.DEV ? '/dev-api/ats-scorer' : ATS_SCORER_DIRECT;
 
+/** Dedicated Fix My Resume Lambda (set in .env: VITE_FIX_RESUME_ENDPOINT). Dev uses Vite proxy /dev-api/fix-resume. */
+const FIX_RESUME_DIRECT =
+  (import.meta.env?.VITE_FIX_RESUME_ENDPOINT as string) || '';
+
+const FIX_RESUME_ENDPOINT = import.meta.env.DEV
+  ? '/dev-api/fix-resume'
+  : FIX_RESUME_DIRECT || ATS_SCORER_DIRECT;
+
 export interface LlmProvider {
   id: string;
   name: string;
@@ -39,12 +47,59 @@ export interface AtsBreakdown {
   locationAndSoft?: number;
 }
 
+/** One missing JD keyword plus where to add it on the resume (from ATS Lambda). */
+export interface MissingKeywordItem {
+  keyword: string;
+  suggestedSection: string[];
+}
+
 export interface AtsResult {
   overallScore: number;
   breakdown: AtsBreakdown;
   matchedKeywords: string[];
   missingKeywords: string[];
+  /** Rich missing-keyword rows when the scorer returns section hints. */
+  missingKeywordDetails?: MissingKeywordItem[];
   feedback: string[];
+}
+
+/** Normalize API payload: strings-only legacy vs objects with suggestedSection (snake_case tolerant). */
+export function coerceMissingKeywordDetails(ar: {
+  missingKeywords?: string[];
+  missingKeywordDetails?: MissingKeywordItem[];
+  missing_keyword_details?: unknown;
+}): MissingKeywordItem[] {
+  const raw =
+    ar.missingKeywordDetails ??
+    (Array.isArray(ar.missing_keyword_details) ? ar.missing_keyword_details : undefined);
+  if (Array.isArray(raw) && raw.length > 0) {
+    const out: MissingKeywordItem[] = [];
+    const seen = new Set<string>();
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const o = item as Record<string, unknown>;
+      const keyword = String(o.keyword ?? o.term ?? '').trim();
+      if (!keyword) continue;
+      const kl = keyword.toLowerCase();
+      if (seen.has(kl)) continue;
+      seen.add(kl);
+      let suggestedSection: string[] = [];
+      const sec = o.suggestedSection ?? o.suggested_section;
+      if (Array.isArray(sec)) {
+        suggestedSection = sec.map((s) => String(s).trim()).filter(Boolean);
+      } else if (typeof sec === 'string' && sec.trim()) {
+        suggestedSection = [sec.trim()];
+      }
+      out.push({ keyword, suggestedSection });
+    }
+    return out;
+  }
+  const keys = ar.missingKeywords ?? [];
+  return keys
+    .map((k) => String(k).trim())
+    .filter(Boolean)
+    .filter((k, i, a) => a.findIndex((x) => x.toLowerCase() === k.toLowerCase()) === i)
+    .map((keyword) => ({ keyword, suggestedSection: [] as string[] }));
 }
 
 export type AtsProvider = 'gemini' | 'openai' | 'openrouter' | 'anthropic';
@@ -121,6 +176,107 @@ export interface AnalyzeAtsWithProviderParams {
   model?: string;
 }
 
+/** Response from the Fix My Resume Lambda. */
+export interface FixResumeResult {
+  success: boolean;
+  message?: string;
+  improvedResume?: Record<string, unknown>;
+  /** When useLlmRenderHtml is enabled, server returns full HTML doc for preview/print. */
+  renderedHtml?: string;
+  /** When useLlmRenderResumeJson is enabled, server returns template data for rendering. */
+  resumeData?: Record<string, unknown>;
+  addedKeywords?: string[];
+  previewText?: string;
+  pdfUrl?: string | null;
+  pdfS3Key?: string | null;
+  pdfBase64?: string;
+  pdfFileName?: string;
+  pdfAvailable?: boolean;
+  pdfError?: string;
+  /** Present when PDF was built with ReportLab (no LaTeX on server). */
+  pdfNote?: string;
+}
+
+export interface FixResumeWithProviderParams {
+  resumeFile: File;
+  missingKeywords: string[];
+  userId?: string;
+  /** Optional single LLM pass for minimal wording polish (OpenAI / OpenRouter keys only). */
+  useLlmEnhance?: boolean;
+  /** Optional LLM mapping pass to extract contacts + skills (can use saved keys via userId). */
+  useLlmMapFields?: boolean;
+  /** Optional LLM render pass that returns the final resume HTML (preferred). */
+  useLlmRenderHtml?: boolean;
+  /** Optional LLM render pass that returns the resume template JSON (preferred). */
+  useLlmRenderResumeJson?: boolean;
+  provider?: AtsProvider;
+  apiKey?: string;
+  model?: string;
+}
+
+/**
+ * Fix My Resume: dedicated Lambda by default (VITE_FIX_RESUME_ENDPOINT or dev proxy).
+ * If VITE_FIX_RESUME_ENDPOINT is unset in production, falls back to the ATS URL (legacy).
+ */
+export async function fixResumeWithProvider(
+  params: FixResumeWithProviderParams
+): Promise<FixResumeResult> {
+  const { resumeFile, missingKeywords, userId, useLlmEnhance, useLlmMapFields, useLlmRenderHtml, useLlmRenderResumeJson, provider, apiKey, model } = params;
+  const resumeBase64 = await fileToBase64(resumeFile);
+  const body: Record<string, unknown> = {
+    resumeBase64,
+    resumeFileName: resumeFile.name || 'resume.pdf',
+    missingKeywords,
+  };
+  if (userId) body.userId = userId;
+  if (useLlmRenderResumeJson && provider) {
+    body.useLlmRenderResumeJson = true;
+    body.provider = provider;
+    if (apiKey?.trim()) body.apiKey = apiKey.trim();
+    if (model) body.model = model;
+  }
+  if (useLlmRenderHtml && provider) {
+    body.useLlmRenderHtml = true;
+    body.provider = provider;
+    if (apiKey?.trim()) body.apiKey = apiKey.trim();
+    if (model) body.model = model;
+  }
+  if (useLlmMapFields && provider) {
+    body.useLlmMapFields = true;
+    body.provider = provider;
+    if (apiKey?.trim()) body.apiKey = apiKey.trim();
+    if (model) body.model = model;
+  }
+  if (useLlmEnhance && provider && apiKey?.trim()) {
+    body.useLlmEnhance = true;
+    body.provider = provider;
+    body.apiKey = apiKey.trim();
+    if (model) body.model = model;
+  }
+  const res = await fetch(FIX_RESUME_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let data: FixResumeResult = { success: false };
+  try {
+    const text = await res.text();
+    data = text ? (JSON.parse(text) as FixResumeResult) : { success: false };
+  } catch {
+    return { success: false, message: 'Invalid response from fix-resume service' };
+  }
+  if (!res.ok || !data.success) {
+    const raw = data as unknown as Record<string, unknown>;
+    const message =
+      (typeof raw.message === 'string' && raw.message) ||
+      (typeof raw.Message === 'string' && raw.Message) ||
+      (typeof raw.errorMessage === 'string' && raw.errorMessage) ||
+      `Request failed (${res.status})`;
+    return { success: false, message };
+  }
+  return data;
+}
+
 /**
  * ATS score via user-provided LLM API key (BYOK). Sends resume as base64; Lambda extracts text.
  */
@@ -194,6 +350,7 @@ export interface AtsHistoryItem {
   overallScore?: number;
   matchedKeywords?: string[];
   missingKeywords?: string[];
+  missingKeywordDetails?: MissingKeywordItem[];
   /** Saved critical-fix sentences (same as live `atsResult.feedback`). */
   feedback?: string[];
   /** Legacy / alternate key if ever stored instead of `feedback`. */

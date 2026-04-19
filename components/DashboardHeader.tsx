@@ -97,7 +97,7 @@ const viewTitles: Record<DashboardView, string> = {
   'course-details': 'Course Details',
   'build-portfolio': 'Build Portfolio',
   'build-resume': 'AI Resume Builder',
-  'ats-scorer': 'ATS Resume Scorer',
+  'ats-scorer': 'Resume match',
   'career-guidance': 'Career Guidance Hub',
   'company-posts': 'Company Posts',
   'mock-assessment': 'Mock Assessments',

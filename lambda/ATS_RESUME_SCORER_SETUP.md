@@ -69,7 +69,7 @@ Settings Lambda action **`getAtsScoreHistory`**: `{ "action": "getAtsScoreHistor
 | `ATS_RESUME_DOWNLOAD_TTL` | Optional. Seconds for presigned `resumeDownloadUrl` on each history item (default `3600`, max `604800`). Requires `s3:GetObject` on the resume bucket. Presigned URLs include `ResponseContentDisposition: attachment` so PDFs download instead of opening inline in the browser. |
 | `ATS_RESUME_S3_REGION` | Optional. If the resume bucket is **not** in `ap-south-2`, set this to that region so presigned URLs sign correctly (e.g. `us-east-1`). New history rows also store `resumeS3Region` from the ATS Lambda; older rows infer region from `resumeFileUrl` when possible. |
 
-**History item fields:** `overallScore`, `matchedKeywords`, `missingKeywords`, `feedback` (critical-fix strings for history replay in the app), `jobDescriptionPreview`, `provider`, plus when S3 is enabled: `resumeS3Bucket`, `resumeS3Key`, `resumeS3Region` (optional), `resumeFileUrl`, `resume`. The app should use **`resumeDownloadUrl`** from `getAtsScoreHistory` (presigned) for downloads when the bucket is private.
+**History item fields:** `overallScore`, `matchedKeywords`, `missingKeywords` (flat strings, same order as details), `missingKeywordDetails` (optional list of `{ keyword, suggestedSection[] }` for ATS section hints), `feedback` (critical-fix strings for history replay in the app), `jobDescriptionPreview`, `provider`, plus when S3 is enabled: `resumeS3Bucket`, `resumeS3Key`, `resumeS3Region` (optional), `resumeFileUrl`, `resume`. The app should use **`resumeDownloadUrl`** from `getAtsScoreHistory` (presigned) for downloads when the bucket is private.
 
 ## IAM (recommended)
 

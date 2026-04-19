@@ -3,8 +3,9 @@ import type { JobPortal } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Sparkles } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import TailorResumeModal from './TailorResumeModal';
 
 interface PrepJobPortalsPageProps {
   toggleSidebar?: () => void;
@@ -22,6 +23,7 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [portals, setPortals] = useState<JobPortal[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tailorPortal, setTailorPortal] = useState<JobPortal | null>(null);
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -204,7 +206,15 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTailorPortal(portal)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-[#FF6B00] hover:bg-orange-100 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                          Tailor My Resume
+                        </button>
                         <button
                           onClick={() => toggleFavorite(portal.id)}
                           className={`p-1.5 transition-colors focus:outline-none ${portal.isFavorite
@@ -281,10 +291,20 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
                   <h4 className="font-semibold text-gray-900 text-sm">{portal.name}</h4>
                 </div>
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">{portal.description}</p>
-                <a href={portal.url} target="_blank" rel="noopener noreferrer" className="group mt-3 inline-flex items-center gap-1 text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors duration-200">
-                  Visit Portal
-                  <svg className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100 transition-opacity duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </a>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setTailorPortal(portal)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#FF6B00] text-white px-3 py-2 text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                    Tailor My Resume
+                  </button>
+                  <a href={portal.url} target="_blank" rel="noopener noreferrer" className="group inline-flex items-center justify-center gap-1 text-xs font-semibold text-orange-500 hover:text-orange-600 transition-colors duration-200 sm:ml-1">
+                    Visit Portal
+                    <svg className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100 transition-opacity duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+                </div>
               </div>
             ))}
           </div>
@@ -298,6 +318,10 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
           )}
         </div>
       )}
+
+      {tailorPortal ? (
+        <TailorResumeModal portal={tailorPortal} onClose={() => setTailorPortal(null)} />
+      ) : null}
     </div>
   );
 };

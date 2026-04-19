@@ -19,6 +19,10 @@ build/
 *.swo
 *~
 
+# Cursor (local project data, MCP/Supabase tool JSON, agent state — not part of the app)
+.cursor/
+**/.cursor/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -39,3 +43,7 @@ __pycache__/
 lambda/*.zip
 lambda/package/
 lambda/deploy_ats/
+lambda/package_fix_resume/
+
+# Lambda local test / scratch
+lambda/tmp_fpdf_test/

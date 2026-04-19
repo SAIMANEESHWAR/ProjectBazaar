@@ -3,5 +3,6 @@
 # cd package && zip -r ../ats_resume_scorer.zip . && cd .. && zip ats_resume_scorer.zip ats_resume_scorer.py
 
 PyPDF2>=3.0.0
+pdfminer.six>=20221105
 PyMuPDF>=1.24.0
 python-docx>=1.1.0

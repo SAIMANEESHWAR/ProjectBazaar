@@ -68,7 +68,7 @@ const buyerNavItems = [
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
-    { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
+    { name: 'Resume match', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },
