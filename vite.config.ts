@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     proxy: {
       '/api': {
-        target: 'https://projectbazaar.in',
+        target: 'https://codexcareer.com',
         changeOrigin: true,
       },
       // ATS Lambda: avoids browser CORS errors when developing on localhost:5173

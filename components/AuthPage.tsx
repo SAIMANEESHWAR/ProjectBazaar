@@ -5,10 +5,18 @@ import {
   AuthTabs,
   TechOrbitDisplay,
 } from '@/components/ui/modern-animated-sign-in';
+import {
+  clearOAuthParamsFromUrl,
+  fetchGoogleOAuthConfig,
+  getGoogleRedirectUri,
+  readOAuthCallbackParams,
+  startGoogleDirectSignIn,
+  takeGooglePkceVerifier,
+  validateGoogleOAuthState,
+} from '@/lib/googleDirectAuth';
+import { LOGIN_API_URL } from '@/lib/apiConfig';
 
 type FieldType = 'text' | 'email' | 'password';
-
-const API_ENDPOINT = 'https://xlxus7dr78.execute-api.ap-south-2.amazonaws.com/User_login_signup';
 
 type AuthMode = 'login' | 'signup';
 
@@ -23,6 +31,8 @@ interface ApiResponse {
     credits?: number;
     status?: string;
     profilePictureUrl?: string | null;
+    /** Present after direct Google OAuth (`google_oauth_exchange`). */
+    idToken?: string;
   };
   error?: {
     code: string;
@@ -237,20 +247,117 @@ const AuthPage: React.FC = () => {
   });
   const [, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthWorking, setOauthWorking] = useState(false);
+  const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
 
   const isLogin = authMode === 'login';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await fetchGoogleOAuthConfig(LOGIN_API_URL);
+        if (!cancelled && cfg.googleEnabled && cfg.clientId) {
+          setGoogleOAuthEnabled(true);
+        }
+      } catch {
+        if (!cancelled) setGoogleOAuthEnabled(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Clear error when switching between login and signup
   useEffect(() => {
     setError(null);
   }, [authMode]);
 
+  // Google OAuth return: `/auth?code=...` — Lambda exchanges code (secret stays on server)
+  useEffect(() => {
+    const { code, state, error: oauthError, errorDescription } = readOAuthCallbackParams();
+    if (!code && !oauthError) return;
+
+    if (oauthError) {
+      clearOAuthParamsFromUrl();
+      setError(errorDescription || oauthError || 'Google sign-in was cancelled.');
+      return;
+    }
+
+    if (!code || !state) {
+      clearOAuthParamsFromUrl();
+      return;
+    }
+
+    clearOAuthParamsFromUrl();
+
+    if (!validateGoogleOAuthState(state)) {
+      setError('Sign-in session expired or invalid. Please try again.');
+      return;
+    }
+
+    const code_verifier = takeGooglePkceVerifier();
+    if (!code_verifier) {
+      setError('Missing sign-in data. Please try again.');
+      return;
+    }
+
+    const redirectUri = getGoogleRedirectUri();
+
+    let cancelled = false;
+    setOauthWorking(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const response = await fetch(LOGIN_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'google_oauth_exchange',
+            code,
+            redirect_uri: redirectUri,
+            code_verifier,
+          }),
+        });
+
+        const data: ApiResponse = await response.json();
+        if (cancelled) return;
+
+        if (data.success && data.data) {
+          const { idToken, ...userRest } = data.data;
+          if (idToken) {
+            localStorage.setItem('oauthIdToken', idToken);
+          }
+          localStorage.setItem('userData', JSON.stringify(userRest));
+          const userRole = data.data.role === 'admin' ? 'admin' : 'user';
+          login(data.data.userId, data.data.email, userRole);
+        } else {
+          setError(data.error?.message || 'Could not complete sign-in with Google.');
+        }
+      } catch (err) {
+        console.error('Google OAuth error:', err);
+        setError(
+          err instanceof Error ? err.message : 'Google sign-in failed. Please try again.'
+        );
+      } finally {
+        if (!cancelled) setOauthWorking(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- OAuth callback runs once per page load
+  }, []);
+
   const handleSignup = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(API_ENDPOINT, {
+      const response = await fetch(LOGIN_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -285,7 +392,7 @@ const AuthPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch(API_ENDPOINT, {
+      const response = await fetch(LOGIN_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,7 +425,7 @@ const AuthPage: React.FC = () => {
 
   const handleLoginAfterSignup = async () => {
     try {
-      const response = await fetch(API_ENDPOINT, {
+      const response = await fetch(LOGIN_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -468,6 +575,28 @@ const AuthPage: React.FC = () => {
     submitButton: isLogin ? 'Sign in' : 'Sign up',
   };
 
+  const handleGoogleClick = () => {
+    setError(null);
+    (async () => {
+      try {
+        await startGoogleDirectSignIn(LOGIN_API_URL);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not start Google sign-in.');
+      }
+    })();
+  };
+
+  if (oauthWorking) {
+    return (
+      <section className='flex max-lg:justify-center h-screen overflow-hidden relative bg-black items-center justify-center'>
+        <div className='text-center text-gray-300'>
+          <div className='inline-block h-10 w-10 animate-spin rounded-full border-2 border-gray-600 border-t-blue-500 mb-4' aria-hidden />
+          <p className='text-sm'>Completing sign-in…</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className='flex max-lg:justify-center h-screen overflow-hidden relative bg-black'>
       {/* Left Side - Animation */}
@@ -516,6 +645,24 @@ const AuthPage: React.FC = () => {
         </button>
 
         <div className='w-full max-w-md flex flex-col items-center px-2 sm:px-0 max-h-full overflow-hidden'>
+          {googleOAuthEnabled && (
+            <div className='w-full max-w-md mb-4 flex-shrink-0'>
+              <button
+                type='button'
+                onClick={handleGoogleClick}
+                className='flex w-full items-center justify-center gap-2 rounded-lg border border-gray-600 bg-gray-900/80 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 hover:border-gray-500'
+              >
+                <svg className='h-5 w-5 shrink-0' viewBox='0 0 48 48' aria-hidden>
+                  <path fill='#FFC107' d='M43.611 20.083H42V20H24v8h11.303C33.72 32.657 29.342 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z' />
+                  <path fill='#FF3D00' d='m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z' />
+                  <path fill='#4CAF50' d='M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z' />
+                  <path fill='#1976D2' d='M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z' />
+                </svg>
+                Continue with Google
+              </button>
+              <p className='mt-3 text-center text-xs text-gray-500'>or use your email below</p>
+            </div>
+          )}
           <div className='w-full flex-shrink-0' key={authMode}>
             <AuthTabs
               formFields={formFields}

@@ -405,7 +405,7 @@ AWS SETUP INSTRUCTIONS
 5. Security Considerations:
    - Enable AWS KMS encryption for DynamoDB table
    - Consider using AWS Secrets Manager for additional security
-   - Implement proper authentication (JWT/Cognito)
+   - Implement proper authentication (e.g. Google ID token / JWT authorizer)
    - Enable API Gateway throttling
    - Set up CloudWatch alarms for monitoring
 

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import { SITE_ORIGIN } from './lib/apiConfig';
 import { DashboardProvider } from './context/DashboardContext';
 import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
 import PeerInterviewBackendSync from './components/PeerInterviewBackendSync';
@@ -240,7 +241,7 @@ function updatePageMeta(page: Page) {
 
   const canonicalEl = document.querySelector('link[rel="canonical"]');
   if (canonicalEl) {
-    const base = 'https://projectbazaar.in';
+    const base = SITE_ORIGIN;
     const pageToPath: Record<string, string> = {
       home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
       mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
@@ -595,6 +596,7 @@ const App: React.FC = () => {
     // Clear auth and session data
     localStorage.removeItem('userData');
     localStorage.removeItem('authSession');
+    localStorage.removeItem('oauthIdToken');
     localStorage.removeItem('currentPage');
     sessionStorage.clear();
 

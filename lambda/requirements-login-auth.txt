@@ -1,0 +1,3 @@
+# Bundle with login_handler.py only (PyJWT RS256 + Google JWKS; includes TOKEN authorizer in same file)
+PyJWT>=2.8.0
+cryptography>=42.0.0
