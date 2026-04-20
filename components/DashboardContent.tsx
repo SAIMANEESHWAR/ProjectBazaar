@@ -335,7 +335,7 @@ const DashboardFeatureCard: React.FC<{
         onClick={onClick}
         className={`${card.accentClass} relative flex h-full w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-gray-200 p-6 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
     >
-        <span className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-white/28 text-xl leading-none text-white shadow-sm backdrop-blur-sm">
+        <span className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-indigo-200/80 bg-indigo-200/70 text-base leading-none text-indigo-700 shadow-sm">
             ↗
         </span>
         <div className={card.showAnimation !== false ? 'max-w-[68%]' : 'max-w-full'}>
@@ -354,7 +354,7 @@ const UpcomingSection: React.FC = () => (
     <aside className="h-full rounded-2xl bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
         <div className="flex h-full flex-col justify-between">
             <div className="mb-6">
-                <h3 className="mb-6 text-xl font-semibold text-gray-900">No Upcoming Meetings</h3>
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">No Messages</h3>
                 <div className="flex items-center justify-center rounded-xl bg-transparent p-0">
                     <div className="h-56 w-full max-w-[320px]">
                         <Lottie animationData={upcomingMeetingsAnimation} loop className="h-full w-full" />
