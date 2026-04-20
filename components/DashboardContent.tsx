@@ -4,6 +4,7 @@ import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
+import codingCardAnimation from '../lottiefiles/coding.json';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
 import type { BuyerProject } from './BuyerProjectCard';
@@ -206,6 +207,83 @@ const activatedProjects = [
     },
 ];
 
+const DASHBOARD_RECENT_VIEWS_KEY = 'projectbazaar_recent_views';
+
+const FEATURE_CARDS: Array<{
+    title: string;
+    subtitle: string;
+    accent: string;
+    action: 'job-hunt' | 'preparation-mode' | 'live-mock-interview' | 'hackathons' | 'ats-scorer';
+    cardClass: string;
+    titleClass: string;
+    copyClass: string;
+    animationWrapClass: string;
+}> = [
+    {
+        title: 'Job Hunt',
+        subtitle: 'Browse roles and track applications quickly.',
+        accent: 'bg-[#f1f5ff]',
+        action: 'job-hunt',
+        cardClass: 'sm:col-span-2 min-h-[250px] sm:min-h-[300px]',
+        titleClass: 'max-w-[70%]',
+        copyClass: 'max-w-[72%]',
+        animationWrapClass: 'absolute right-4 bottom-4 h-36 w-36 sm:h-48 sm:w-48 opacity-95',
+    },
+    {
+        title: 'Preparation Mode',
+        subtitle: 'Practice DSA, system design, and interview rounds.',
+        accent: 'bg-[#ffeef5]',
+        action: 'preparation-mode',
+        cardClass: 'min-h-[210px]',
+        titleClass: 'max-w-[72%]',
+        copyClass: 'max-w-[72%]',
+        animationWrapClass: 'absolute right-3 top-4 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+    },
+    {
+        title: 'Live AI Interviews',
+        subtitle: 'Simulate real interviews with instant feedback.',
+        accent: 'bg-[#fff9e8]',
+        action: 'live-mock-interview',
+        cardClass: 'min-h-[210px]',
+        titleClass: 'max-w-[72%]',
+        copyClass: 'max-w-[72%]',
+        animationWrapClass: 'absolute right-3 bottom-3 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+    },
+    {
+        title: 'Hackathons',
+        subtitle: 'Find upcoming hackathons and register faster.',
+        accent: 'bg-[#eef9ef]',
+        action: 'hackathons',
+        cardClass: 'min-h-[210px]',
+        titleClass: 'max-w-[72%]',
+        copyClass: 'max-w-[72%]',
+        animationWrapClass: 'absolute right-3 top-4 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+    },
+    {
+        title: 'ATS Scorer',
+        subtitle: 'Check resume match score before applying.',
+        accent: 'bg-[#ecf7ff]',
+        action: 'ats-scorer',
+        cardClass: 'sm:col-span-2 min-h-[220px]',
+        titleClass: 'max-w-[72%]',
+        copyClass: 'max-w-[72%]',
+        animationWrapClass: 'absolute right-4 bottom-3 h-28 w-28 sm:h-36 sm:w-36 opacity-90',
+    },
+];
+
+const RECENT_LABELS: Partial<Record<DashboardView, string>> = {
+    'job-hunt': 'Job Hunt',
+    'prep-hub': 'Preparation Mode',
+    'live-mock-interview': 'Live AI Interviews',
+    'hackathons': 'Hackathons',
+    'ats-scorer': 'ATS Scorer',
+};
+
+interface RecentEntry {
+    view: DashboardView;
+    timestamp: number;
+}
+
 
 interface DashboardContentProps {
     dashboardMode?: 'buyer' | 'seller' | 'preparation' | 'jobHunt';
@@ -302,6 +380,57 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const [projectsError, setProjectsError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12);
+    const [recentViews, setRecentViews] = useState<RecentEntry[]>([]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const raw = localStorage.getItem(DASHBOARD_RECENT_VIEWS_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                const normalized = parsed
+                    .map((entry): RecentEntry | null => {
+                        if (typeof entry === 'string') {
+                            return { view: entry as DashboardView, timestamp: Date.now() };
+                        }
+                        if (
+                            entry &&
+                            typeof entry === 'object' &&
+                            'view' in entry &&
+                            typeof (entry as { view: unknown }).view === 'string'
+                        ) {
+                            const maybe = entry as { view: DashboardView; timestamp?: number };
+                            return {
+                                view: maybe.view,
+                                timestamp: typeof maybe.timestamp === 'number' ? maybe.timestamp : Date.now(),
+                            };
+                        }
+                        return null;
+                    })
+                    .filter((entry): entry is RecentEntry => entry !== null);
+                setRecentViews(normalized);
+            }
+        } catch {
+            setRecentViews([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const trackable = new Set<DashboardView>(['job-hunt', 'prep-hub', 'live-mock-interview', 'hackathons', 'ats-scorer']);
+        if (!trackable.has(activeView)) return;
+
+        setRecentViews((prev) => {
+            const now = Date.now();
+            const next: RecentEntry[] = [
+                { view: activeView, timestamp: now },
+                ...prev.filter((item) => item.view !== activeView),
+            ].slice(0, 5);
+            localStorage.setItem(DASHBOARD_RECENT_VIEWS_KEY, JSON.stringify(next));
+            return next;
+        });
+    }, [activeView]);
 
     // Map API project to BuyerProject interface
     const mapApiProjectToComponent = (apiProject: ApiProject): BuyerProject => {
@@ -478,8 +607,124 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     }, [searchQuery, filteredProjects.length]);
 
     const renderBuyerContent = () => {
+        const openFeatureFromCard = (action: typeof FEATURE_CARDS[number]['action']) => {
+            if (action === 'job-hunt') {
+                setDashboardMode('jobHunt');
+                return;
+            }
+            if (action === 'preparation-mode') {
+                setDashboardMode('preparation');
+                return;
+            }
+            setDashboardMode('buyer');
+            setActiveView(action);
+        };
+
+        const openRecentView = (view: DashboardView) => {
+            if (view === 'job-hunt') {
+                setDashboardMode('jobHunt');
+                return;
+            }
+            if (view === 'prep-hub') {
+                setDashboardMode('preparation');
+                return;
+            }
+            setDashboardMode('buyer');
+            setActiveView(view);
+        };
+
+        const formatTimeAgo = (timestamp: number) => {
+            const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+            const days = Math.floor(hours / 24);
+            return `${days} day${days === 1 ? '' : 's'} ago`;
+        };
+
+        const getRecentIcon = (view: DashboardView) => {
+            const iconMap: Partial<Record<DashboardView, string>> = {
+                'job-hunt': '💼',
+                'prep-hub': '🧠',
+                'live-mock-interview': '🎙️',
+                'hackathons': '🏆',
+                'ats-scorer': '📊',
+            };
+            return iconMap[view] || '•';
+        };
+
         switch (activeView) {
             case 'dashboard':
+                return (
+                    <div className="mt-8">
+                        <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr,1fr]">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                {FEATURE_CARDS.map((card) => (
+                                    <button
+                                        key={card.title}
+                                        type="button"
+                                        onClick={() => openFeatureFromCard(card.action)}
+                                            className={`${card.accent} ${card.cardClass} relative overflow-hidden rounded-3xl border border-gray-200 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
+                                    >
+                                        <div className={`${card.animationWrapClass} pointer-events-none`}>
+                                            <div className="h-full w-full rounded-xl border border-white/60 bg-white/50 p-1">
+                                                <Lottie animationData={codingCardAnimation} loop className="h-full w-full" />
+                                            </div>
+                                        </div>
+                                        <h3 className={`${card.titleClass} text-[2.05rem] leading-[1.05] font-black tracking-tight text-gray-900 font-sans`}>{card.title}</h3>
+                                        <p className={`${card.copyClass} mt-2 text-[1.05rem] leading-snug text-gray-700 font-sans`}>{card.subtitle}</p>
+                                    </button>
+                                ))}
+                            </div>
+
+                                <aside className="rounded-3xl border border-gray-200 bg-[#f8faef] p-6 shadow-sm">
+                                    <h3 className="text-5xl font-extrabold tracking-tight text-gray-900">No Upcoming Meetings</h3>
+
+                                    <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                                        <img
+                                            src="/feature-gifs/recent-activity-illustration.gif"
+                                            alt="Recent activity illustration"
+                                            className="h-64 w-full object-cover"
+                                        />
+                                    </div>
+
+                                    <div className="my-5 border-t border-gray-200" />
+
+                                    <h4 className="text-4xl font-extrabold text-gray-900">Recent Activity</h4>
+
+                                    <div className="mt-4 divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
+                                        {recentViews.length > 0 ? recentViews.slice(0, 3).map((entry) => (
+                                            <button
+                                                key={`${entry.view}-${entry.timestamp}`}
+                                                type="button"
+                                                onClick={() => openRecentView(entry.view)}
+                                                className="flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-orange-50"
+                                            >
+                                                <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-sm">
+                                                    {getRecentIcon(entry.view)}
+                                                </span>
+                                                <span className="flex-1">
+                                                    <span className="block text-base font-semibold text-gray-900">
+                                                        {RECENT_LABELS[entry.view] || entry.view}
+                                                    </span>
+                                                    <span className="mt-0.5 block text-sm text-gray-500">
+                                                        {formatTimeAgo(entry.timestamp)}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        )) : (
+                                            <div className="px-4 py-5 text-sm text-gray-600">
+                                                No recent activity yet. Open any feature card to populate this list.
+                                            </div>
+                                        )}
+                                </div>
+                            </aside>
+                        </section>
+                    </div>
+                );
+            case 'project-bazaar':
                 return (
                     <div className="mt-8">
                         {/* Render content based on browseView */}
@@ -487,7 +732,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         {browseView === 'projects' && <BrowseProjectsContent />}
                         {(browseView === 'all' || (!browseView && buyerProjectView === 'all')) && (
                             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
-                                {/* Filters Sidebar */}
                                 <div className="lg:w-72 flex-shrink-0 lg:overflow-y-auto custom-scrollbar pr-2 pb-20">
                                     <DashboardFilters
                                         projects={projects}
@@ -495,16 +739,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                     />
                                 </div>
 
-                                {/* Projects Grid */}
                                 <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar pr-2">
-                                    {/* Loading State - Skeleton Dashboard */}
                                     {isLoadingProjects && (
                                         <div className="space-y-8">
                                             <SkeletonDashboard />
                                         </div>
                                     )}
 
-                                    {/* Error State */}
                                     {projectsError && !isLoadingProjects && (
                                         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                                             <div className="flex items-center gap-2">
@@ -533,7 +774,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                                         key={project.id}
                                                         project={project}
                                                         onViewDetails={(proj) => {
-                                                            setPreviousView('dashboard');
+                                                            setPreviousView('project-bazaar');
                                                             setSelectedProject(proj);
                                                             setActiveView('project-details');
                                                         }}

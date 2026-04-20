@@ -8,6 +8,7 @@ export type DashboardMode = 'buyer' | 'seller' | 'preparation' | 'jobHunt';
 // This is a superset of views for both buyer and seller dashboards
 export type DashboardView =
     | 'dashboard'
+    | 'project-bazaar'
     | 'projects'
     | 'messages'
     | 'freelancers'

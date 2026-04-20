@@ -81,6 +81,7 @@ interface DashboardHeaderProps {
 
 const viewTitles: Record<DashboardView, string> = {
   dashboard: 'Dashboard',
+  'project-bazaar': 'ProjectBazaar',
   purchases: 'My Purchases',
   wishlist: 'My Wishlist',
   cart: 'Shopping Cart',
@@ -149,7 +150,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const isLiveInterviewView =
     activeView === 'live-mock-interview' || activeView === 'live-peer-requests';
   const isBuyerDashboard =
-    activeView === 'dashboard' && dashboardMode === 'buyer';
+    activeView === 'project-bazaar' && dashboardMode === 'buyer';
 
   const { isPremium, credits } = usePremium();
   const { userId } = useAuth();

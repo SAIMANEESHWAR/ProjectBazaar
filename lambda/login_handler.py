@@ -14,7 +14,8 @@ Environment (this Lambda only):
 Also handles API Gateway custom authorizer invocations (event.type == "TOKEN") using the same
 GOOGLE_CLIENT_ID to validate Google ID tokens (Bearer).
 
-Requires PyJWT + cryptography in the deployment package.
+For best performance, include PyJWT + cryptography in the deployment package.
+If unavailable, verification falls back to Google's tokeninfo endpoint.
 """
 import json
 import re
@@ -27,7 +28,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import boto3
+import traceback
 from datetime import datetime
+from typing import Optional, Tuple
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
@@ -59,7 +62,7 @@ dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(USERS_TABLE)
 
 # ---------- PASSWORD HASHING ----------
-def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+def _hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
     """Hash password with PBKDF2-HMAC-SHA256. Returns (hash_hex, salt_hex)."""
     if salt is None:
         salt = secrets.token_hex(32)
@@ -116,6 +119,14 @@ def get_password_error(password):
 
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
+    print("login_handler invoked", json.dumps({
+        "hasType": "type" in event,
+        "type": event.get("type"),
+        "httpMethod": event.get("httpMethod"),
+        "path": event.get("path"),
+        "hasAuthorizationToken": "authorizationToken" in event,
+    }))
+
     # Same Lambda as API Gateway TOKEN authorizer (Google Bearer JWT)
     if event.get("type") == "TOKEN" and "authorizationToken" in event:
         return _handle_google_token_authorizer(event)
@@ -158,11 +169,14 @@ def lambda_handler(event, context):
         })
 
     except Exception as e:
+        print("Unhandled lambda_handler exception:", str(e))
+        traceback.print_exc()
         return response(500, {
             "success": False,
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "Server error",
+                "detail": str(e),
             }
         })
 
@@ -412,11 +426,50 @@ def _get_google_jwks_client():
     return _google_jwks_client
 
 
-def _decode_google_id_token(id_token: str) -> dict:
-    if jwt is None:
-        raise RuntimeError("PyJWT is not installed on this Lambda deployment")
+def _decode_google_id_token_via_tokeninfo(id_token: str) -> dict:
+    """
+    Fallback verifier when PyJWT is unavailable.
+    Uses Google's tokeninfo endpoint and performs local claim checks.
+    """
     if not GOOGLE_CLIENT_ID:
         raise RuntimeError("GOOGLE_CLIENT_ID must be set")
+
+    url = (
+        "https://oauth2.googleapis.com/tokeninfo?"
+        + urllib.parse.urlencode({"id_token": id_token})
+    )
+    req = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            claims = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace") if e.fp else ""
+        raise RuntimeError(f"Google tokeninfo HTTP {e.code}: {err_body}") from e
+
+    aud = str(claims.get("aud", "")).strip()
+    if aud != GOOGLE_CLIENT_ID:
+        raise RuntimeError("Token audience mismatch")
+
+    issuer = str(claims.get("iss", "")).strip()
+    if issuer not in ("accounts.google.com", "https://accounts.google.com"):
+        raise RuntimeError("Token issuer mismatch")
+
+    exp_raw = claims.get("exp")
+    try:
+        exp = int(exp_raw)
+    except (TypeError, ValueError):
+        raise RuntimeError("Token exp claim is invalid")
+    if exp <= int(datetime.utcnow().timestamp()):
+        raise RuntimeError("Token is expired")
+
+    return claims
+
+
+def _decode_google_id_token(id_token: str) -> dict:
+    if not GOOGLE_CLIENT_ID:
+        raise RuntimeError("GOOGLE_CLIENT_ID must be set")
+    if jwt is None:
+        return _decode_google_id_token_via_tokeninfo(id_token)
     client = _get_google_jwks_client()
     if client is None:
         raise RuntimeError("Could not load Google JWKS client")
@@ -584,7 +637,17 @@ def handle_google_oauth_exchange(body):
             "error": {"code": "VALIDATION_ERROR", "message": "Google token has no sub"},
         })
 
-    user = _find_user_by_email_or_google_sub(email, google_sub)
+    try:
+        user = _find_user_by_email_or_google_sub(email, google_sub)
+    except Exception as e:
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "USER_LOOKUP_FAILED",
+                "message": "Could not check existing account",
+                "detail": str(e),
+            },
+        })
     now = datetime.utcnow().isoformat()
 
     if user:
@@ -607,23 +670,33 @@ def handle_google_oauth_exchange(body):
             })
 
         uid = user["userId"]
-        table.update_item(
-            Key={"userId": uid},
-            UpdateExpression="""
-                SET lastLoginAt = :l,
-                    loginCount = if_not_exists(loginCount, :z) + :o,
-                    googleSub = :g,
-                    updatedAt = :u
-            """,
-            ExpressionAttributeValues={
-                ":l": now,
-                ":z": 0,
-                ":o": 1,
-                ":g": google_sub,
-                ":u": now,
-            },
-        )
-        refreshed = table.get_item(Key={"userId": uid}).get("Item") or user
+        try:
+            table.update_item(
+                Key={"userId": uid},
+                UpdateExpression="""
+                    SET lastLoginAt = :l,
+                        loginCount = if_not_exists(loginCount, :z) + :o,
+                        googleSub = :g,
+                        updatedAt = :u
+                """,
+                ExpressionAttributeValues={
+                    ":l": now,
+                    ":z": 0,
+                    ":o": 1,
+                    ":g": google_sub,
+                    ":u": now,
+                },
+            )
+            refreshed = table.get_item(Key={"userId": uid}).get("Item") or user
+        except Exception as e:
+            return response(500, {
+                "success": False,
+                "error": {
+                    "code": "USER_UPDATE_FAILED",
+                    "message": "Could not update account during login",
+                    "detail": str(e),
+                },
+            })
         return response(200, {
             "success": True,
             "message": "Login successful",
@@ -641,42 +714,51 @@ def handle_google_oauth_exchange(body):
     random_pw = secrets.token_urlsafe(48)
     pw_hash, pw_salt = _hash_password(random_pw)
 
-    table.put_item(
-        Item={
-            "userId": user_id,
-            "email": email,
-            "phoneNumber": "",
-            "passwordHash": pw_hash,
-            "passwordSalt": pw_salt,
-            "role": "user",
-            "status": "active",
-            "googleSub": google_sub,
-            "authProvider": "google",
-            "emailVerified": True,
-            "phoneVerified": False,
-            "isPremium": False,
-            "subscription": {
-                "plan": "free",
-                "startedAt": None,
-                "expiresAt": None,
+    try:
+        table.put_item(
+            Item={
+                "userId": user_id,
+                "email": email,
+                "passwordHash": pw_hash,
+                "passwordSalt": pw_salt,
+                "role": "user",
+                "status": "active",
+                "googleSub": google_sub,
+                "authProvider": "google",
+                "emailVerified": True,
+                "phoneVerified": False,
+                "isPremium": False,
+                "subscription": {
+                    "plan": "free",
+                    "startedAt": None,
+                    "expiresAt": None,
+                },
+                "credits": 0,
+                "projectsCount": 0,
+                "totalPurchases": 0,
+                "totalSpent": 0,
+                "wishlist": [],
+                "cart": [],
+                "purchases": [],
+                "lastLoginAt": now,
+                "loginCount": 1,
+                "failedLoginAttempts": 0,
+                "accountLockedUntil": None,
+                "passwordUpdatedAt": now,
+                "createdAt": now,
+                "updatedAt": now,
+                "createdBy": "google_oauth",
+            }
+        )
+    except Exception as e:
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "USER_CREATE_FAILED",
+                "message": "Could not create account from Google sign-in",
+                "detail": str(e),
             },
-            "credits": 0,
-            "projectsCount": 0,
-            "totalPurchases": 0,
-            "totalSpent": 0,
-            "wishlist": [],
-            "cart": [],
-            "purchases": [],
-            "lastLoginAt": now,
-            "loginCount": 1,
-            "failedLoginAttempts": 0,
-            "accountLockedUntil": None,
-            "passwordUpdatedAt": now,
-            "createdAt": now,
-            "updatedAt": now,
-            "createdBy": "google_oauth",
-        }
-    )
+        })
 
     return response(200, {
         "success": True,
