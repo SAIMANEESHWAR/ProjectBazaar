@@ -5,6 +5,11 @@ import { useAuth } from '../App';
 import { useDashboard } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import codingCardAnimation from '../lottiefiles/coding.json';
+import studentCardAnimation from '../lottiefiles/student_card.json';
+import preparationModeCardAnimation from '../lottiefiles/preparation_mode_card.json';
+import portfolioCardAnimation from '../lottiefiles/portfolio_card.json';
+import codingQuestionsCardAnimation from '../lottiefiles/coding_questions_card.json';
+import upcomingMeetingsAnimation from '../lottiefiles/upcoming_meetings_update.json';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
 import type { BuyerProject } from './BuyerProjectCard';
@@ -207,82 +212,90 @@ const activatedProjects = [
     },
 ];
 
-const DASHBOARD_RECENT_VIEWS_KEY = 'projectbazaar_recent_views';
+type FeatureCardTarget = {
+    mode: 'buyer' | 'preparation' | 'jobHunt';
+    view: DashboardView;
+};
 
-const FEATURE_CARDS: Array<{
+interface FeatureCardConfig {
     title: string;
     subtitle: string;
-    accent: string;
-    action: 'job-hunt' | 'preparation-mode' | 'live-mock-interview' | 'hackathons' | 'ats-scorer';
-    cardClass: string;
-    titleClass: string;
-    copyClass: string;
-    animationWrapClass: string;
-}> = [
+    accentClass: string;
+    gridClass: string;
+    target: FeatureCardTarget;
+    showAnimation?: boolean;
+    animationData?: unknown;
+}
+
+interface UpcomingActivityItem {
+    title: string;
+    time: string;
+}
+
+const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Job Hunt',
         subtitle: 'Browse roles and track applications quickly.',
-        accent: 'bg-[#f1f5ff]',
-        action: 'job-hunt',
-        cardClass: 'sm:col-span-2 min-h-[250px] sm:min-h-[300px]',
-        titleClass: 'max-w-[70%]',
-        copyClass: 'max-w-[72%]',
-        animationWrapClass: 'absolute right-4 bottom-4 h-36 w-36 sm:h-48 sm:w-48 opacity-95',
+        accentClass: 'bg-purple-100',
+        gridClass: 'xl:col-span-7 xl:h-[220px]',
+        target: { mode: 'jobHunt', view: 'job-hunt' },
+        animationData: studentCardAnimation,
     },
     {
         title: 'Preparation Mode',
         subtitle: 'Practice DSA, system design, and interview rounds.',
-        accent: 'bg-[#ffeef5]',
-        action: 'preparation-mode',
-        cardClass: 'min-h-[210px]',
-        titleClass: 'max-w-[72%]',
-        copyClass: 'max-w-[72%]',
-        animationWrapClass: 'absolute right-3 top-4 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+        accentClass: 'bg-pink-100',
+        gridClass: 'xl:col-span-5 xl:h-[220px]',
+        target: { mode: 'preparation', view: 'prep-hub' },
+        animationData: preparationModeCardAnimation,
     },
     {
         title: 'Live AI Interviews',
         subtitle: 'Simulate real interviews with instant feedback.',
-        accent: 'bg-[#fff9e8]',
-        action: 'live-mock-interview',
-        cardClass: 'min-h-[210px]',
-        titleClass: 'max-w-[72%]',
-        copyClass: 'max-w-[72%]',
-        animationWrapClass: 'absolute right-3 bottom-3 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+        accentClass: 'bg-yellow-100',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'live-mock-interview' },
+        showAnimation: false,
     },
     {
         title: 'Hackathons',
         subtitle: 'Find upcoming hackathons and register faster.',
-        accent: 'bg-[#eef9ef]',
-        action: 'hackathons',
-        cardClass: 'min-h-[210px]',
-        titleClass: 'max-w-[72%]',
-        copyClass: 'max-w-[72%]',
-        animationWrapClass: 'absolute right-3 top-4 h-28 w-28 sm:h-32 sm:w-32 opacity-90',
+        accentClass: 'bg-green-100',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'hackathons' },
+        showAnimation: false,
     },
     {
         title: 'ATS Scorer',
         subtitle: 'Check resume match score before applying.',
-        accent: 'bg-[#ecf7ff]',
-        action: 'ats-scorer',
-        cardClass: 'sm:col-span-2 min-h-[220px]',
-        titleClass: 'max-w-[72%]',
-        copyClass: 'max-w-[72%]',
-        animationWrapClass: 'absolute right-4 bottom-3 h-28 w-28 sm:h-36 sm:w-36 opacity-90',
+        accentClass: 'bg-blue-100',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'ats-scorer' },
+        showAnimation: false,
+    },
+    {
+        title: 'Coding Questions',
+        subtitle: 'Sharpen interview skills with curated coding sets.',
+        accentClass: 'bg-slate-100',
+        gridClass: 'xl:col-span-6 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'coding-questions' },
+        animationData: codingQuestionsCardAnimation,
+    },
+    {
+        title: 'Build Portfolio',
+        subtitle: 'Create and publish a project portfolio in minutes.',
+        accentClass: 'bg-indigo-100',
+        gridClass: 'xl:col-span-6 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'build-portfolio' },
+        animationData: portfolioCardAnimation,
     },
 ];
 
-const RECENT_LABELS: Partial<Record<DashboardView, string>> = {
-    'job-hunt': 'Job Hunt',
-    'prep-hub': 'Preparation Mode',
-    'live-mock-interview': 'Live AI Interviews',
-    'hackathons': 'Hackathons',
-    'ats-scorer': 'ATS Scorer',
-};
-
-interface RecentEntry {
-    view: DashboardView;
-    timestamp: number;
-}
+const UPCOMING_ACTIVITY: UpcomingActivityItem[] = [
+    { title: 'Resume scored for Job Hunt profile', time: '2 mins ago' },
+    { title: 'Mock interview feedback updated', time: '18 mins ago' },
+    { title: 'Hackathon reminder created', time: '2 hours ago' },
+];
 
 
 interface DashboardContentProps {
@@ -312,6 +325,60 @@ export interface ExtendedProject extends BuyerProject {
     features?: string[];
     supportInfo?: string;
 }
+
+const DashboardFeatureCard: React.FC<{
+    card: FeatureCardConfig;
+    onClick: () => void;
+}> = ({ card, onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        className={`${card.accentClass} relative flex h-full w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-gray-200 p-6 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
+    >
+        <span className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-white/28 text-xl leading-none text-white shadow-sm backdrop-blur-sm">
+            ↗
+        </span>
+        <div className={card.showAnimation !== false ? 'max-w-[68%]' : 'max-w-full'}>
+            <h3 className="mb-2 text-xl font-semibold text-gray-900">{card.title}</h3>
+            <p className="mb-4 text-sm text-gray-500">{card.subtitle}</p>
+        </div>
+        {card.showAnimation !== false && (
+            <div className="pointer-events-none flex h-24 w-24 flex-shrink-0 items-center justify-center lg:h-28 lg:w-28">
+                <Lottie animationData={card.animationData ?? codingCardAnimation} loop={false} className="h-full w-full" />
+            </div>
+        )}
+    </button>
+);
+
+const UpcomingSection: React.FC = () => (
+    <aside className="h-full rounded-2xl bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+        <div className="flex h-full flex-col justify-between">
+            <div className="mb-6">
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">No Upcoming Meetings</h3>
+                <div className="flex items-center justify-center rounded-xl bg-transparent p-0">
+                    <div className="h-56 w-full max-w-[320px]">
+                        <Lottie animationData={upcomingMeetingsAnimation} loop className="h-full w-full" />
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t pt-4">
+                <h4 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h4>
+                <div className="space-y-3">
+                    {UPCOMING_ACTIVITY.map((item) => (
+                        <div key={item.title} className="flex items-start gap-3 rounded-lg px-1 py-1">
+                            <span className="mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full bg-indigo-400" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-800">{item.title}</p>
+                                <p className="text-xs text-gray-500">{item.time}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </aside>
+);
 
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
@@ -380,57 +447,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const [projectsError, setProjectsError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12);
-    const [recentViews, setRecentViews] = useState<RecentEntry[]>([]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        try {
-            const raw = localStorage.getItem(DASHBOARD_RECENT_VIEWS_KEY);
-            if (!raw) return;
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                const normalized = parsed
-                    .map((entry): RecentEntry | null => {
-                        if (typeof entry === 'string') {
-                            return { view: entry as DashboardView, timestamp: Date.now() };
-                        }
-                        if (
-                            entry &&
-                            typeof entry === 'object' &&
-                            'view' in entry &&
-                            typeof (entry as { view: unknown }).view === 'string'
-                        ) {
-                            const maybe = entry as { view: DashboardView; timestamp?: number };
-                            return {
-                                view: maybe.view,
-                                timestamp: typeof maybe.timestamp === 'number' ? maybe.timestamp : Date.now(),
-                            };
-                        }
-                        return null;
-                    })
-                    .filter((entry): entry is RecentEntry => entry !== null);
-                setRecentViews(normalized);
-            }
-        } catch {
-            setRecentViews([]);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const trackable = new Set<DashboardView>(['job-hunt', 'prep-hub', 'live-mock-interview', 'hackathons', 'ats-scorer']);
-        if (!trackable.has(activeView)) return;
-
-        setRecentViews((prev) => {
-            const now = Date.now();
-            const next: RecentEntry[] = [
-                { view: activeView, timestamp: now },
-                ...prev.filter((item) => item.view !== activeView),
-            ].slice(0, 5);
-            localStorage.setItem(DASHBOARD_RECENT_VIEWS_KEY, JSON.stringify(next));
-            return next;
-        });
-    }, [activeView]);
 
     // Map API project to BuyerProject interface
     const mapApiProjectToComponent = (apiProject: ApiProject): BuyerProject => {
@@ -607,120 +623,33 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     }, [searchQuery, filteredProjects.length]);
 
     const renderBuyerContent = () => {
-        const openFeatureFromCard = (action: typeof FEATURE_CARDS[number]['action']) => {
-            if (action === 'job-hunt') {
-                setDashboardMode('jobHunt');
-                return;
-            }
-            if (action === 'preparation-mode') {
-                setDashboardMode('preparation');
-                return;
-            }
-            setDashboardMode('buyer');
-            setActiveView(action);
-        };
-
-        const openRecentView = (view: DashboardView) => {
-            if (view === 'job-hunt') {
-                setDashboardMode('jobHunt');
-                return;
-            }
-            if (view === 'prep-hub') {
-                setDashboardMode('preparation');
-                return;
-            }
-            setDashboardMode('buyer');
-            setActiveView(view);
-        };
-
-        const formatTimeAgo = (timestamp: number) => {
-            const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
-            if (seconds < 60) return 'just now';
-            const minutes = Math.floor(seconds / 60);
-            if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
-            const hours = Math.floor(minutes / 60);
-            if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-            const days = Math.floor(hours / 24);
-            return `${days} day${days === 1 ? '' : 's'} ago`;
-        };
-
-        const getRecentIcon = (view: DashboardView) => {
-            const iconMap: Partial<Record<DashboardView, string>> = {
-                'job-hunt': '💼',
-                'prep-hub': '🧠',
-                'live-mock-interview': '🎙️',
-                'hackathons': '🏆',
-                'ats-scorer': '📊',
-            };
-            return iconMap[view] || '•';
+        const openFeatureFromCard = (target: FeatureCardTarget) => {
+            setDashboardMode(target.mode);
+            setActiveView(target.view);
         };
 
         switch (activeView) {
             case 'dashboard':
                 return (
                     <div className="mt-8">
-                        <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr,1fr]">
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                {FEATURE_CARDS.map((card) => (
-                                    <button
-                                        key={card.title}
-                                        type="button"
-                                        onClick={() => openFeatureFromCard(card.action)}
-                                            className={`${card.accent} ${card.cardClass} relative overflow-hidden rounded-3xl border border-gray-200 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
-                                    >
-                                        <div className={`${card.animationWrapClass} pointer-events-none`}>
-                                            <div className="h-full w-full rounded-xl border border-white/60 bg-white/50 p-1">
-                                                <Lottie animationData={codingCardAnimation} loop className="h-full w-full" />
-                                            </div>
-                                        </div>
-                                        <h3 className={`${card.titleClass} text-[2.05rem] leading-[1.05] font-black tracking-tight text-gray-900 font-sans`}>{card.title}</h3>
-                                        <p className={`${card.copyClass} mt-2 text-[1.05rem] leading-snug text-gray-700 font-sans`}>{card.subtitle}</p>
-                                    </button>
-                                ))}
-                            </div>
-
-                                <aside className="rounded-3xl border border-gray-200 bg-[#f8faef] p-6 shadow-sm">
-                                    <h3 className="text-5xl font-extrabold tracking-tight text-gray-900">No Upcoming Meetings</h3>
-
-                                    <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                                        <img
-                                            src="/feature-gifs/recent-activity-illustration.gif"
-                                            alt="Recent activity illustration"
-                                            className="h-64 w-full object-cover"
-                                        />
-                                    </div>
-
-                                    <div className="my-5 border-t border-gray-200" />
-
-                                    <h4 className="text-4xl font-extrabold text-gray-900">Recent Activity</h4>
-
-                                    <div className="mt-4 divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
-                                        {recentViews.length > 0 ? recentViews.slice(0, 3).map((entry) => (
-                                            <button
-                                                key={`${entry.view}-${entry.timestamp}`}
-                                                type="button"
-                                                onClick={() => openRecentView(entry.view)}
-                                                className="flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-orange-50"
+                        <section className="mb-8">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+                                <div className="md:col-span-12 xl:col-span-8">
+                                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-12">
+                                        {FEATURE_CARDS.map((card) => (
+                                            <div
+                                                key={card.title}
+                                                className={`${card.gridClass} min-h-[180px]`}
                                             >
-                                                <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-sm">
-                                                    {getRecentIcon(entry.view)}
-                                                </span>
-                                                <span className="flex-1">
-                                                    <span className="block text-base font-semibold text-gray-900">
-                                                        {RECENT_LABELS[entry.view] || entry.view}
-                                                    </span>
-                                                    <span className="mt-0.5 block text-sm text-gray-500">
-                                                        {formatTimeAgo(entry.timestamp)}
-                                                    </span>
-                                                </span>
-                                            </button>
-                                        )) : (
-                                            <div className="px-4 py-5 text-sm text-gray-600">
-                                                No recent activity yet. Open any feature card to populate this list.
+                                                <DashboardFeatureCard card={card} onClick={() => openFeatureFromCard(card.target)} />
                                             </div>
-                                        )}
+                                        ))}
+                                    </div>
                                 </div>
-                            </aside>
+                                <div className="md:col-span-12 xl:col-span-4">
+                                    <UpcomingSection />
+                                </div>
+                            </div>
                         </section>
                     </div>
                 );
