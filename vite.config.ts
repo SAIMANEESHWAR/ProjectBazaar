@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    sourcemap: true,
+    // Prevent Vercel build OOM by avoiding huge production sourcemaps.
+    sourcemap: mode !== 'production',
     rollupOptions: {
       output: {
         manualChunks: {
