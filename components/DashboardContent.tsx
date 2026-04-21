@@ -350,7 +350,7 @@ const DashboardFeatureCard: React.FC<{
     </button>
 );
 
-const UpcomingSection: React.FC = () => (
+const UpcomingSection: React.FC<{ onMarketplaceClick: () => void }> = ({ onMarketplaceClick }) => (
     <aside className="h-full rounded-2xl bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
         <div className="flex h-full flex-col justify-between">
             <div className="mb-6">
@@ -359,6 +359,24 @@ const UpcomingSection: React.FC = () => (
                     <div className="h-56 w-full max-w-[320px]">
                         <Lottie animationData={upcomingMeetingsAnimation} loop className="h-full w-full" />
                     </div>
+                </div>
+                <div className="mt-4 flex justify-center">
+                    <button
+                        type="button"
+                        onClick={onMarketplaceClick}
+                        className="relative inline-flex items-center gap-2 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
+                    >
+                        <span className="relative z-10">Marketplace</span>
+                        <span className="relative z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-black text-sm font-bold">
+                            ↗
+                        </span>
+                        <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                        >
+                            <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -391,6 +409,92 @@ const CareerGuidanceComingSoon: React.FC = () => (
             <p className="mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
                 We are building the Career Guidance experience right now. Please check back soon.
             </p>
+        </div>
+    </section>
+);
+
+interface MarketplaceShortcutItem {
+    title: string;
+    subtitle: string;
+    view: DashboardView;
+}
+
+const MARKETPLACE_SHORTCUTS: MarketplaceShortcutItem[] = [
+    { title: 'Project Marketplace', subtitle: 'Browse projects, freelancers, and project bids.', view: 'project-bazaar' },
+    { title: 'Courses', subtitle: 'Explore and purchase learning courses.', view: 'courses' },
+    { title: 'My Purchases', subtitle: 'Open all your purchased items.', view: 'purchases' },
+    { title: 'My Wishlist', subtitle: 'See saved projects and revisit them.', view: 'wishlist' },
+    { title: 'Cart', subtitle: 'Review items ready for checkout.', view: 'cart' },
+    { title: 'Analytics', subtitle: 'Track your marketplace activity.', view: 'analytics' },
+    { title: 'Help Center', subtitle: 'Get support for buying and orders.', view: 'help-center' },
+    { title: 'Profiles & Settings', subtitle: 'Manage buyer, seller, and account details.', view: 'settings' },
+];
+
+const MarketplaceHub: React.FC<{
+    onNavigate: (view: DashboardView) => void;
+    onSwitchMode: (mode: 'buyer' | 'seller') => void;
+}> = ({ onNavigate, onSwitchMode }) => (
+    <section className="mt-8 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => onNavigate('wishlist')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Wishlist
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('cart')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Cart
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('purchases')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Purchases
+                </button>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-orange-50 p-1">
+                <button
+                    type="button"
+                    onClick={() => onSwitchMode('buyer')}
+                    className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white"
+                >
+                    Buyer
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onSwitchMode('seller')}
+                    className="rounded-md px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white"
+                >
+                    Seller
+                </button>
+            </div>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-orange-50 via-white to-orange-50 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">Marketplace</p>
+            <h2 className="mt-2 text-3xl font-bold text-gray-900">Marketplace dashboard</h2>
+            <p className="mt-3 max-w-2xl text-sm text-gray-600">
+                All marketplace actions are grouped here, so job-hunt and preparation workflows stay clean and focused.
+            </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {MARKETPLACE_SHORTCUTS.map((item) => (
+                <button
+                    key={item.title}
+                    type="button"
+                    onClick={() => onNavigate(item.view)}
+                    className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:border-orange-300 hover:shadow-md"
+                >
+                    <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
+                    <p className="mt-2 text-sm text-gray-600">{item.subtitle}</p>
+                </button>
+            ))}
         </div>
     </section>
 );
@@ -662,11 +766,23 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                     </div>
                                 </div>
                                 <div className="md:col-span-12 xl:col-span-4">
-                                    <UpcomingSection />
+                                    <UpcomingSection
+                                        onMarketplaceClick={() => {
+                                            setDashboardMode('buyer');
+                                            setActiveView('project-bazaar');
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </section>
                     </div>
+                );
+            case 'marketplace-hub':
+                return (
+                    <MarketplaceHub
+                        onNavigate={setActiveView}
+                        onSwitchMode={(mode) => setDashboardMode(mode)}
+                    />
                 );
             case 'project-bazaar':
                 return (

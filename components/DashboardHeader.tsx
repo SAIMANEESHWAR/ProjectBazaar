@@ -81,6 +81,7 @@ interface DashboardHeaderProps {
 
 const viewTitles: Record<DashboardView, string> = {
   dashboard: 'Dashboard',
+  'marketplace-hub': 'Marketplace',
   'project-bazaar': 'ProjectBazaar',
   purchases: 'My Purchases',
   wishlist: 'My Wishlist',
@@ -151,6 +152,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     activeView === 'live-mock-interview' || activeView === 'live-peer-requests';
   const isBuyerDashboard =
     activeView === 'project-bazaar' && dashboardMode === 'buyer';
+  const isMarketplaceScopeView = [
+    'marketplace-hub',
+    'project-bazaar',
+    'courses',
+    'analytics',
+    'help-center',
+    'purchases',
+    'wishlist',
+    'cart',
+  ].includes(activeView);
 
   const { isPremium, credits } = usePremium();
   const { userId, userEmail } = useAuth();
@@ -180,11 +191,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const isDashboardGreeting = activeView === 'dashboard';
   const greetingText = getGreeting();
   const displayName = getDisplayName();
-
-  const handleSetDashboardMode = (mode: 'buyer' | 'seller') => {
-    setDashboardMode(mode);
-    navigateTo(mode === 'buyer' ? 'dashboard' : 'seller');
-  };
 
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -319,32 +325,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick Access: Job Hunt entry/exit + Purchases, Wishlist, Cart */}
-          {(dashboardMode === 'buyer' || dashboardMode === 'preparation' || dashboardMode === 'jobHunt') && (
-            <div className="flex items-center gap-1.5 mr-2 flex-wrap justify-end">
-              {(dashboardMode === 'buyer' || dashboardMode === 'preparation') && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardMode('jobHunt');
-                    navigateTo('dashboard');
-                  }}
-                  className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
-                >
-                  <span className="relative z-10 flex h-[13px] w-[11px] shrink-0 items-center justify-center">
-                    <PinkJobHuntStar className="h-[11px] w-[10px] animate-pink-star-shine" aria-hidden />
-                  </span>
-                  <span className="relative z-10">Job Hunt</span>
-                  <span className="relative z-10 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    New
-                  </span>
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+          {/* Quick Access: Job Hunt + contextual actions */}
+          {(dashboardMode === 'buyer' || dashboardMode === 'seller' || dashboardMode === 'preparation' || dashboardMode === 'jobHunt') && (
+            <div className="order-3 ml-2 flex items-center gap-1.5 flex-wrap justify-end">
+              {(dashboardMode === 'preparation' || (dashboardMode === 'buyer' && !isMarketplaceScopeView)) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardMode('jobHunt');
+                      navigateTo('dashboard');
+                    }}
+                    className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
                   >
-                    <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
-                  </span>
-                </button>
+                    <span className="relative z-10 flex h-[13px] w-[11px] shrink-0 items-center justify-center">
+                      <PinkJobHuntStar className="h-[11px] w-[10px] animate-pink-star-shine" aria-hidden />
+                    </span>
+                    <span className="relative z-10">Job Hunt</span>
+                    <span className="relative z-10 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      New
+                    </span>
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                    >
+                      <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
+                    </span>
+                  </button>
+                </>
               )}
               {dashboardMode === 'jobHunt' && (
                 <button
@@ -359,8 +367,49 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   Exit Job Hunt
                 </button>
               )}
+              {dashboardMode === 'buyer' && isMarketplaceScopeView && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardMode('buyer');
+                    setActiveView('dashboard');
+                    setBrowseView('all');
+                    navigateTo('dashboard');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border-2 border-gray-900 bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                >
+                  <LogOut className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
+                  Exit Marketplace
+                </button>
+              )}
+              {dashboardMode === 'seller' && (
+                <div className="flex bg-orange-50 rounded-lg p-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardMode('buyer');
+                      setActiveView('project-bazaar');
+                      setBrowseView('all');
+                      navigateTo('dashboard');
+                    }}
+                    className="px-3 py-1 rounded text-gray-700 hover:bg-white"
+                  >
+                    Buyer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardMode('seller');
+                      navigateTo('seller');
+                    }}
+                    className="px-3 py-1 rounded bg-orange-500 text-white"
+                  >
+                    Seller
+                  </button>
+                </div>
+              )}
 
-              {dashboardMode === 'buyer' && (
+              {dashboardMode === 'buyer' && isMarketplaceScopeView && (
               <>
               {/* Purchases */}
               <div className="relative group">
@@ -430,6 +479,30 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </div>
               </>
               )}
+              {dashboardMode === 'buyer' && isMarketplaceScopeView && (
+                <div className="flex bg-orange-50 rounded-lg p-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardMode('buyer');
+                      navigateTo('dashboard');
+                    }}
+                    className="px-3 py-1 rounded bg-orange-500 text-white"
+                  >
+                    Buyer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardMode('seller');
+                      navigateTo('seller');
+                    }}
+                    className="px-3 py-1 rounded text-gray-700 hover:bg-white"
+                  >
+                    Seller
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -441,7 +514,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           )}
 
           {/* 💬 MESSAGES */}
-          <div className="relative group">
+          <div className="relative group order-1">
             <button
               onClick={() => setActiveView('messages')}
               className={`relative p-2 rounded-xl transition-colors ${activeView === 'messages' ? 'bg-orange-500 text-white' : 'hover:bg-orange-50 text-gray-600'}`}
@@ -462,7 +535,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </div>
 
           {/* 🔔 NOTIFICATIONS */}
-          <div className="relative" ref={notificationRef}>
+          <div className="relative order-2" ref={notificationRef}>
             <button
               onClick={() => {
                 setIsNotificationOpen(!isNotificationOpen);
@@ -532,31 +605,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             )}
           </div>
 
-          {/* MODE SWITCH — hidden in Job Hunt (mode is fixed for that flow) */}
-          {dashboardMode !== 'jobHunt' && (
-            <div className="flex bg-orange-50 rounded-lg p-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSetDashboardMode('buyer')}
-                className={`px-3 py-1 rounded ${dashboardMode === 'buyer'
-                  ? 'bg-orange-500 text-white'
-                  : ''
-                  }`}
-              >
-                Buyer
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetDashboardMode('seller')}
-                className={`px-3 py-1 rounded ${dashboardMode === 'seller'
-                  ? 'bg-orange-500 text-white'
-                  : ''
-                  }`}
-              >
-                Seller
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

@@ -20,6 +20,9 @@ const PayoutsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" 
 const HelpCenterIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CoursesIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>;
 const HackathonsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
+const PurchasesIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>;
+const WishlistIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
+const CartIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const JobHuntNavIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -69,8 +72,15 @@ const buyerNavItems = [
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'Mock Assessments', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
-    { name: 'Marketplace', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
+    { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
+];
+
+const marketplaceNavItems = [
+    { name: 'Project Marketplace', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
+    { name: 'My Purchases', view: 'purchases' as DashboardView, icon: PurchasesIcon },
+    { name: 'My Wishlist', view: 'wishlist' as DashboardView, icon: WishlistIcon },
+    { name: 'My Cart', view: 'cart' as DashboardView, icon: CartIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },
     { name: 'Help Center', view: 'help-center' as DashboardView, icon: HelpCenterIcon },
     { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
@@ -130,7 +140,6 @@ const jobHuntNavItems = [
 
 const sellerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Post Project Bid', view: 'post-project' as DashboardView, icon: PostProjectIcon },
     { name: 'My Bids', view: 'my-bids' as DashboardView, icon: MyBidsIcon },
     { name: 'My Projects', view: 'my-projects' as DashboardView, icon: ProjectsIcon },
@@ -174,7 +183,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
             : dashboardMode === 'jobHunt'
                 ? jobHuntNavItems
                 : dashboardMode === 'buyer'
-                    ? buyerNavItems
+                    ? (
+                        [
+                            'project-bazaar',
+                            'courses',
+                            'purchases',
+                            'wishlist',
+                            'cart',
+                            'analytics',
+                            'help-center',
+                        ] as DashboardView[]
+                    ).includes(activeView)
+                        ? marketplaceNavItems
+                        : buyerNavItems
                     : sellerNavItems;
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
