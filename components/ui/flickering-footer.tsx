@@ -393,7 +393,7 @@ export const FlickeringFooter: React.FC = () => {
               alt="CodeXCareer logo"
               width={260}
               height={56}
-              className="hidden h-10 w-auto max-w-full object-contain object-left sm:block sm:h-11"
+              className="hidden h-40 w-auto max-w-none object-contain object-left sm:block sm:h-44"
             />
           </a>
           <p className="tracking-tight text-gray-600 dark:text-white/70 font-medium">
@@ -445,7 +445,7 @@ export const FlickeringFooter: React.FC = () => {
         <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-gray-100 dark:to-[#0a0a0a]" />
         <div className="absolute inset-0 mx-6">
           <FlickeringGrid
-            text={tablet ? "Footer" : "Discover. Build. Earn."}
+            text={tablet ? "CXC" : "Discover. Build. Earn."}
             fontSize={tablet ? 70 : 90}
             className="h-full w-full"
             squareSize={2}
