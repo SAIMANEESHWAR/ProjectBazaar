@@ -60,16 +60,16 @@ const LLDIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill
 
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Market Place', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
+    { name: 'Live AI Interviews', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
-    { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
-    { name: 'Mock Assessment', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
-    { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
-    { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
-    { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
+    { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
     { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
-    { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
+    { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
+    { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
+    { name: 'Mock Assessments', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
+    { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
+    { name: 'Marketplace', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },
     { name: 'Help Center', view: 'help-center' as DashboardView, icon: HelpCenterIcon },
@@ -367,6 +367,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 return (
                                     <div key={group.label}>
                                         <button
+                                            type="button"
                                             onClick={() => toggleGroup(group.label)}
                                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${hasActiveItem
                                                 ? isDark ? 'text-white' : 'text-gray-900'
@@ -386,6 +387,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                             <div className="mt-0.5 ml-2 space-y-0.5">
                                                 {group.items.map((item) => (
                                                     <button
+                                                        type="button"
                                                         key={item.name}
                                                         onClick={() => {
                                                             setActiveView(item.view);
@@ -414,6 +416,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         <div className="space-y-1">
                             {navItems.map((item, index) => (
                                 <button
+                                    type="button"
                                     key={item.name}
                                     onClick={() => {
                                         setActiveView(item.view);
@@ -481,6 +484,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     ) : (
                         navItems.map((item, index) => (
                             <button
+                                type="button"
                                 key={item.name}
                                 onClick={() => {
                                     setActiveView(item.view);

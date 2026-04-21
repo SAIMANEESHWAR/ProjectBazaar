@@ -7,6 +7,7 @@ import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import codingCardAnimation from '../lottiefiles/coding.json';
 import studentCardAnimation from '../lottiefiles/student_card.json';
 import preparationModeELearningAnimation from '../lottiefiles/preparation_mode_e_learning.json';
+import rocketLightAnimation from '../lottiefiles/rocket_light.json';
 import portfolioCardAnimation from '../lottiefiles/portfolio_card.json';
 import codingQuestionsManUsingLaptopAnimation from '../lottiefiles/coding_questions_man_using_laptop.json';
 import upcomingMeetingsAnimation from '../lottiefiles/upcoming_meetings_update.json';
@@ -40,7 +41,6 @@ import BuildPortfolioPage from './BuildPortfolioPage';
 import ATSScorer from './ATSScorer';
 import { ResumeBuilderPage } from './resume-builder';
 import MyCoursesPage from './MyCoursesPage';
-import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
 import LiveMockInterviewPage from './LiveMockInterviewPage';
@@ -378,6 +378,21 @@ const UpcomingSection: React.FC = () => (
             </div>
         </div>
     </aside>
+);
+
+const CareerGuidanceComingSoon: React.FC = () => (
+    <section className="flex min-h-[72vh] w-full items-center justify-center px-4 py-10 sm:px-8">
+        <div className="flex w-full max-w-3xl flex-col items-center justify-center text-center">
+            <div className="mx-auto mb-3 h-56 w-56 sm:h-64 sm:w-64">
+                <Lottie animationData={rocketLightAnimation} loop className="h-full w-full" />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">Career Guidance</p>
+            <h2 className="mt-3 text-3xl font-bold text-gray-900">Feature Coming Soon</h2>
+            <p className="mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
+                We are building the Career Guidance experience right now. Please check back soon.
+            </p>
+        </div>
+    </section>
 );
 
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
@@ -839,7 +854,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'ats-scorer':
                 return <ATSScorer onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
-                return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+                return <CareerGuidanceComingSoon />;
             case 'company-posts':
                 return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
@@ -946,7 +961,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'ats-scorer':
                 return <ATSScorer onBack={() => setActiveView('dashboard')} />;
             case 'career-guidance':
-                return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+                return <CareerGuidanceComingSoon />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
