@@ -15,12 +15,9 @@ import Hero from './components/Hero';
 
 // -- Lazy-loaded route components --
 const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
-const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
 const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
 const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
-const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
 const FAQSection = lazy(() => import('./components/sections/FAQSection'));
-const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
 const HackathonCarouselSection = lazy(() => import('./components/sections/HackathonCarouselSection'));
 const InterviewPrepHowItWorks = lazy(() => import('./components/sections/InterviewPrepHowItWorks'));
 const TopSellers = lazy(() => import('./components/TopSellers'));
@@ -330,14 +327,11 @@ const AppContent: React.FC = () => {
             <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
               <Hero />
               <InterviewPrepHowItWorks />
-              <ProblemsSection />
               <PlatformCardsSection />
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
               <TopSellers />
-              <InstructorSection />
               <FAQSection />
-              <FinalCTASection />
             </main>
             <FlickeringFooter />
           </div>

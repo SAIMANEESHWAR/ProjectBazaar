@@ -153,11 +153,33 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     activeView === 'project-bazaar' && dashboardMode === 'buyer';
 
   const { isPremium, credits } = usePremium();
-  const { userId } = useAuth();
+  const { userId, userEmail } = useAuth();
   const { cartCount } = useCart();
   const { wishlist } = useWishlist();
   const { unreadMessageCount } = useMessagesUnread();
   const wishlistCount = wishlist.length;
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const getDisplayName = () => {
+    const localPart = userEmail?.split('@')[0]?.trim();
+    if (!localPart) return 'there';
+    return localPart
+      .replace(/[._-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
+  const isDashboardGreeting = activeView === 'dashboard';
+  const greetingText = getGreeting();
+  const displayName = getDisplayName();
 
   const handleSetDashboardMode = (mode: 'buyer' | 'seller') => {
     setDashboardMode(mode);
@@ -282,9 +304,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </button>
           {dashboardMode !== 'jobHunt' && (
             <h1
-              className={`text-3xl font-bold text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
+              className={`text-3xl ${activeView === 'dashboard' ? 'font-semibold' : 'font-bold'} text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
             >
-              {title}
+              {isDashboardGreeting ? (
+                <>
+                  {greetingText},{' '}
+                  <span className="text-[0.88em] font-medium">{displayName}</span>
+                </>
+              ) : (
+                title
+              )}
             </h1>
           )}
         </div>

@@ -6,7 +6,7 @@ import { useDashboard } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import codingCardAnimation from '../lottiefiles/coding.json';
 import studentCardAnimation from '../lottiefiles/student_card.json';
-import preparationModeCardAnimation from '../lottiefiles/preparation_mode_card.json';
+import preparationModeELearningAnimation from '../lottiefiles/preparation_mode_e_learning.json';
 import portfolioCardAnimation from '../lottiefiles/portfolio_card.json';
 import codingQuestionsManUsingLaptopAnimation from '../lottiefiles/coding_questions_man_using_laptop.json';
 import upcomingMeetingsAnimation from '../lottiefiles/upcoming_meetings_update.json';
@@ -247,7 +247,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         accentClass: 'bg-[#f8c7df]',
         gridClass: 'xl:col-span-5 xl:h-[220px]',
         target: { mode: 'preparation', view: 'prep-hub' },
-        animationData: preparationModeCardAnimation,
+        animationData: preparationModeELearningAnimation,
     },
     {
         title: 'Live AI Interviews',
@@ -335,7 +335,7 @@ const DashboardFeatureCard: React.FC<{
         onClick={onClick}
         className={`${card.accentClass} relative flex h-full w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-gray-200 p-6 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
     >
-        <span className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-indigo-200/80 bg-indigo-200/70 text-base leading-none text-indigo-700 shadow-sm">
+        <span className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/28 text-base leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] backdrop-blur-md">
             ↗
         </span>
         <div className={card.showAnimation !== false ? 'max-w-[68%]' : 'max-w-full'}>
@@ -343,8 +343,8 @@ const DashboardFeatureCard: React.FC<{
             <p className="mb-4 text-sm text-gray-500">{card.subtitle}</p>
         </div>
         {card.showAnimation !== false && (
-            <div className="pointer-events-none flex h-24 w-24 flex-shrink-0 items-center justify-center lg:h-28 lg:w-28">
-                <Lottie animationData={card.animationData ?? codingCardAnimation} loop={false} className="h-full w-full" />
+            <div className="pointer-events-none flex h-28 w-28 flex-shrink-0 items-center justify-center lg:h-36 lg:w-36">
+                <Lottie animationData={card.animationData ?? codingCardAnimation} loop className="h-full w-full" />
             </div>
         )}
     </button>

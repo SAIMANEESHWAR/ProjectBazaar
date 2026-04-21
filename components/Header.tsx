@@ -70,7 +70,7 @@ const Header: React.FC = () => {
 
   return (
     <header
-      className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[960px] px-4 pt-6 pointer-events-none"
+      className="fixed top-0 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[960px] px-3 pt-3 sm:px-4 sm:pt-6 pointer-events-none"
       role="banner"
     >
       <div
@@ -92,7 +92,7 @@ const Header: React.FC = () => {
               alt="CodeXCareer — codexcareer, CODE • LEARN • LAUNCH"
               width={960}
               height={192}
-              className="pointer-events-none block h-[108px] w-auto max-w-[min(560px,88vw)] origin-left object-contain object-left -my-[20px] sm:h-[120px] sm:max-w-[min(640px,78vw)] sm:-my-[26px] md:h-[132px] md:max-w-[min(780px,58vw)] md:-my-[32px]"
+              className="pointer-events-none block h-[74px] w-auto max-w-[min(320px,58vw)] origin-left object-contain object-left -my-[12px] sm:h-[96px] sm:max-w-[min(520px,74vw)] sm:-my-[17px] md:h-[132px] md:max-w-[min(780px,58vw)] md:-my-[32px]"
             />
           </button>
         </div>

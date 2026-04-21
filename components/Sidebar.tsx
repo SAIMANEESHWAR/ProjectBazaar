@@ -60,7 +60,7 @@ const LLDIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill
 
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'ProjectBazaar', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
+    { name: 'Market Place', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
     { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
     { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
     { name: 'Mock Assessment', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },

@@ -4,6 +4,7 @@ import * as Color from "color-bits";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { useNavigation } from "../../App";
+import { CODEXCAREER_LOGO_SRC } from "../../lib/brandAssets";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -381,18 +382,26 @@ export const FlickeringFooter: React.FC = () => {
 
   return (
     <footer id="footer" className="w-full pb-0 bg-gray-100 dark:bg-[#0a0a0a] transition-colors duration-300">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between p-10">
+      <div className="flex flex-col p-6 sm:p-10 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col items-start justify-start gap-y-5 max-w-xs mx-0">
-          <a href="#" className="flex items-center gap-2 group" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-            <Icons.logo className="size-8 [&_path]:fill-[#ff7a00]" />
-            <p className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-[#ff7a00] transition-colors">CodeXCareer</p>
+          <a href="#" className="group flex items-center" onClick={(e) => { e.preventDefault(); scrollToId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            <span className="text-2xl font-extrabold tracking-tight text-gray-900 transition-colors group-hover:text-[#ff7a00] dark:text-white sm:hidden">
+              CXC
+            </span>
+            <img
+              src={CODEXCAREER_LOGO_SRC}
+              alt="CodeXCareer logo"
+              width={260}
+              height={56}
+              className="hidden h-10 w-auto max-w-full object-contain object-left sm:block sm:h-11"
+            />
           </a>
           <p className="tracking-tight text-gray-600 dark:text-white/70 font-medium">
             {siteConfig.hero.description}
           </p>
         </div>
-        <div className="pt-5 md:w-1/2">
-          <div className="flex flex-col items-start justify-start md:flex-row md:items-center md:justify-between gap-y-5 lg:pl-10">
+        <div className="w-full pt-8 md:w-1/2 md:pt-5">
+          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8 md:flex md:flex-row md:items-center md:justify-between md:gap-y-5 lg:pl-10">
             {siteConfig.footerLinks.map((column, columnIndex) => (
               <ul key={columnIndex} className="flex flex-col gap-y-2">
                 <li className="mb-2 text-sm font-semibold text-[#ff7a00]">{column.title}</li>
@@ -432,7 +441,7 @@ export const FlickeringFooter: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="w-full h-48 md:h-64 relative mt-24 z-0">
+      <div className="relative z-0 mt-16 h-44 w-full md:mt-24 md:h-64">
         <div className="absolute inset-0 z-10 bg-gradient-to-t from-transparent from-[40%] to-gray-100 dark:to-[#0a0a0a]" />
         <div className="absolute inset-0 mx-6">
           <FlickeringGrid
