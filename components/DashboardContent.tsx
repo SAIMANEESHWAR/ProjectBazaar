@@ -8,7 +8,7 @@ import codingCardAnimation from '../lottiefiles/coding.json';
 import studentCardAnimation from '../lottiefiles/student_card.json';
 import preparationModeCardAnimation from '../lottiefiles/preparation_mode_card.json';
 import portfolioCardAnimation from '../lottiefiles/portfolio_card.json';
-import codingQuestionsCardAnimation from '../lottiefiles/coding_questions_card.json';
+import codingQuestionsManUsingLaptopAnimation from '../lottiefiles/coding_questions_man_using_laptop.json';
 import upcomingMeetingsAnimation from '../lottiefiles/upcoming_meetings_update.json';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
@@ -236,7 +236,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Job Hunt',
         subtitle: 'Browse roles and track applications quickly.',
-        accentClass: 'bg-purple-100',
+        accentClass: 'bg-[#dcc9ff]',
         gridClass: 'xl:col-span-7 xl:h-[220px]',
         target: { mode: 'jobHunt', view: 'job-hunt' },
         animationData: studentCardAnimation,
@@ -244,7 +244,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Preparation Mode',
         subtitle: 'Practice DSA, system design, and interview rounds.',
-        accentClass: 'bg-pink-100',
+        accentClass: 'bg-[#f8c7df]',
         gridClass: 'xl:col-span-5 xl:h-[220px]',
         target: { mode: 'preparation', view: 'prep-hub' },
         animationData: preparationModeCardAnimation,
@@ -252,7 +252,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Live AI Interviews',
         subtitle: 'Simulate real interviews with instant feedback.',
-        accentClass: 'bg-yellow-100',
+        accentClass: 'bg-[#ffecad]',
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'live-mock-interview' },
         showAnimation: false,
@@ -260,7 +260,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Hackathons',
         subtitle: 'Find upcoming hackathons and register faster.',
-        accentClass: 'bg-green-100',
+        accentClass: 'bg-[#cfe1af]',
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'hackathons' },
         showAnimation: false,
@@ -268,7 +268,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'ATS Scorer',
         subtitle: 'Check resume match score before applying.',
-        accentClass: 'bg-blue-100',
+        accentClass: 'bg-[#c7e1ff]',
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'ats-scorer' },
         showAnimation: false,
@@ -276,15 +276,15 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
     {
         title: 'Coding Questions',
         subtitle: 'Sharpen interview skills with curated coding sets.',
-        accentClass: 'bg-slate-100',
+        accentClass: 'bg-[#ffd8bb]',
         gridClass: 'xl:col-span-6 xl:h-[180px]',
         target: { mode: 'buyer', view: 'coding-questions' },
-        animationData: codingQuestionsCardAnimation,
+        animationData: codingQuestionsManUsingLaptopAnimation,
     },
     {
         title: 'Build Portfolio',
         subtitle: 'Create and publish a project portfolio in minutes.',
-        accentClass: 'bg-indigo-100',
+        accentClass: 'bg-[#cde8ff]',
         gridClass: 'xl:col-span-6 xl:h-[180px]',
         target: { mode: 'buyer', view: 'build-portfolio' },
         animationData: portfolioCardAnimation,
