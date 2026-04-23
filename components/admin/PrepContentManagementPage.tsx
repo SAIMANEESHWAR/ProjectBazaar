@@ -834,21 +834,27 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const fetchQuestions = async () => {
+const fetchQuestions = async () => {
   setLoading(true);
   try {
-    const url = "https://5000-cs-1153eff4-c05e-4332-b59a-c3a91371be60.cs-asia-southeast1-ajrg.cloudshell.dev/questions";
+   const url = "https://rls3p3m4fd.execute-api.ap-south-2.amazonaws.com/questions_user_handler";
     const response = await fetch(url);
     const rawData = await response.json();
-    
-    // Convert DynamoDB format to plain Javascript objects
-    const cleanData = rawData.map((item: any) => ({
-      id: item.id?.S || item.pk?.S,
-      title: item.title?.S || "No Title",
-      company: item.company?.S || "Unknown",
-      topic: item.topic?.S || "General",
-      difficulty: item.difficulty?.S || "Medium",
-      description: item.description?.S || ""
+
+    // DEBUG: See exactly what the API is sending back
+    console.log("API Response:", rawData);
+
+    // Ensure we are working with an array. 
+    // If your Lambda returns { "items": [...] }, use rawData.items
+    const dataToMap = Array.isArray(rawData) ? rawData : (rawData.items || []);
+
+    const cleanData = dataToMap.map((item: any) => ({
+      id: item.id?.S || item.id || item.pk?.S || item.pk,
+      title: item.title?.S || item.title || "No Title",
+      company: item.company?.S || item.company || "Unknown",
+      topic: item.topic?.S || item.topic || "General",
+      difficulty: item.difficulty?.S || item.difficulty || "Medium",
+      description: item.description?.S || item.description || ""
     }));
 
     setIqData(cleanData);
@@ -858,10 +864,6 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
     setLoading(false);
   }
 };
-
-useEffect(() => {
-  fetchQuestions();
-}, []);
 
   // const [iqData, setIqData] = useState<any[]>([]);
   const [dsaData, setDsaData] = useState(dsaProblems);
