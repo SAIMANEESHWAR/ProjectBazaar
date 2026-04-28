@@ -251,20 +251,25 @@ export const coldDMTemplates: ColdDMTemplate[] = [
 
 export const collections: Collection[] = [];
 
-export const massRecruitmentCompanies: MassRecruitmentCompany[] = [
-  { id: 'mr-1', name: 'TCS', logo: '🏢', interviewQuestions: 150, dsaProblems: 80, aptitudeQuestions: 120 },
-  { id: 'mr-2', name: 'Infosys', logo: '🏢', interviewQuestions: 130, dsaProblems: 70, aptitudeQuestions: 100 },
-  { id: 'mr-3', name: 'Wipro', logo: '🏢', interviewQuestions: 120, dsaProblems: 65, aptitudeQuestions: 90 },
-  { id: 'mr-4', name: 'Cognizant', logo: '🏢', interviewQuestions: 110, dsaProblems: 60, aptitudeQuestions: 85 },
-  { id: 'mr-5', name: 'HCL', logo: '🏢', interviewQuestions: 100, dsaProblems: 55, aptitudeQuestions: 80 },
-  { id: 'mr-6', name: 'Tech Mahindra', logo: '🏢', interviewQuestions: 95, dsaProblems: 50, aptitudeQuestions: 75 },
-  { id: 'mr-7', name: 'Capgemini', logo: '🏢', interviewQuestions: 90, dsaProblems: 48, aptitudeQuestions: 70 },
-  { id: 'mr-8', name: 'Accenture', logo: '🏢', interviewQuestions: 105, dsaProblems: 58, aptitudeQuestions: 88 },
-  { id: 'mr-9', name: 'L&T', logo: '🏢', interviewQuestions: 85, dsaProblems: 45, aptitudeQuestions: 65 },
-  { id: 'mr-10', name: 'Zoho', logo: '🏢', interviewQuestions: 140, dsaProblems: 90, aptitudeQuestions: 60 },
-  { id: 'mr-11', name: 'IBM', logo: '🏢', interviewQuestions: 115, dsaProblems: 62, aptitudeQuestions: 82 },
-  { id: 'mr-12', name: 'Mindtree', logo: '🏢', interviewQuestions: 80, dsaProblems: 42, aptitudeQuestions: 60 },
-];
+export const CompanyNames = [
+  "TCS", "Infosys",  "Wipro",  "Cognizant",  "HCL",  "Tech Mahindra",  "Capgemini",  "Accenture",  "L&T", 
+   "Zoho",  "IBM",  "Mindtree",  "Google",  "Microsoft",  "Amazon",  "Meta",  "Apple",  "Oracle",  "Adobe",
+  "Salesforce",  "Flipkart",  "Paytm",  "Deloitte",  "EY",  "KPMG",  "PwC"];
+
+// export const massRecruitmentCompanies: MassRecruitmentCompany[] = [
+//   { id: 'mr-1', name: 'TCS', logo: '🏢', interviewQuestions: 150, dsaProblems: 80, aptitudeQuestions: 120 },
+//   { id: 'mr-2', name: 'Infosys', logo: '🏢', interviewQuestions: 130, dsaProblems: 70, aptitudeQuestions: 100 },
+//   { id: 'mr-3', name: 'Wipro', logo: '🏢', interviewQuestions: 120, dsaProblems: 65, aptitudeQuestions: 90 },
+//   { id: 'mr-4', name: 'Cognizant', logo: '🏢', interviewQuestions: 110, dsaProblems: 60, aptitudeQuestions: 85 },
+//   { id: 'mr-5', name: 'HCL', logo: '🏢', interviewQuestions: 100, dsaProblems: 55, aptitudeQuestions: 80 },
+//   { id: 'mr-6', name: 'Tech Mahindra', logo: '🏢', interviewQuestions: 95, dsaProblems: 50, aptitudeQuestions: 75 },
+//   { id: 'mr-7', name: 'Capgemini', logo: '🏢', interviewQuestions: 90, dsaProblems: 48, aptitudeQuestions: 70 },
+//   { id: 'mr-8', name: 'Accenture', logo: '🏢', interviewQuestions: 105, dsaProblems: 58, aptitudeQuestions: 88 },
+//   { id: 'mr-9', name: 'L&T', logo: '🏢', interviewQuestions: 85, dsaProblems: 45, aptitudeQuestions: 65 },
+//   { id: 'mr-10', name: 'Zoho', logo: '🏢', interviewQuestions: 140, dsaProblems: 90, aptitudeQuestions: 60 },
+//   { id: 'mr-11', name: 'IBM', logo: '🏢', interviewQuestions: 115, dsaProblems: 62, aptitudeQuestions: 82 },
+//   { id: 'mr-12', name: 'Mindtree', logo: '🏢', interviewQuestions: 80, dsaProblems: 42, aptitudeQuestions: 60 },
+// ];
 
 export const jobPortals: JobPortal[] = [
   { id: 'jp-1', name: 'Naukri', logo: 'https://www.google.com/s2/favicons?domain=naukri.com&sz=128', description: "India's leading job portal founded in 1997, offering extensive job listings across various industries.", url: 'https://naukri.com', category: 'General', region: 'India', isFavorite: false, isApplied: false },

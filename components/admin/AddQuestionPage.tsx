@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { massRecruitmentCompanies as MRC } from "../../data/preparationMockData";
+import { CompanyNames as MRC } from "../../data/preparationMockData";
 
 interface Props {
   item?: any | null; 
@@ -22,7 +22,7 @@ const AddQuestionPage = ({ item, onClose }: Props) => {
     "Stacks", "Queues", "Linked List", "Bits", "Heaps", "Hashmaps"
   ];
 
-  const availableCompanies = MRC.map((company) => company.name);
+  const availableCompanies = MRC;
 
   const [form, setForm] = useState({
     title: item?.title ?? "",

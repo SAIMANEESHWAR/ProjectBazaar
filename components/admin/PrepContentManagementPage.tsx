@@ -7,7 +7,7 @@ import {
   dsaProblems,
   quizzes,
   coldDMTemplates,
-  massRecruitmentCompanies,
+  CompanyNames,
   jobPortals,
   handwrittenNotes,
   roadmaps,
@@ -834,36 +834,37 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-const fetchQuestions = async () => {
-  setLoading(true);
-  try {
-   const url = "https://rls3p3m4fd.execute-api.ap-south-2.amazonaws.com/questions_user_handler";
-    const response = await fetch(url);
-    const rawData = await response.json();
+  const fetchQuestions = useCallback(async () => {
+    setLoading(true);
+    console.log("fetchQuestions: starting data fetch...");
+    try {
+      const url = "https://rls3p3m4fd.execute-api.ap-south-2.amazonaws.com/questions_user_handler";
+      const response = await fetch(url);
+      console.log("Response received:", response.status);
+      const rawData = await response.json();
 
-    // DEBUG: See exactly what the API is sending back
-    console.log("API Response:", rawData);
+      // DEBUG: See exactly what the API is sending back
+      console.log("API Response:", rawData);
 
-    // Ensure we are working with an array. 
-    // If your Lambda returns { "items": [...] }, use rawData.items
-    const dataToMap = Array.isArray(rawData) ? rawData : (rawData.items || []);
+      // Ensure we are working with an array. 
+      const dataToMap = Array.isArray(rawData) ? rawData : (rawData.items || []);
 
-    const cleanData = dataToMap.map((item: any) => ({
-      id: item.id?.S || item.id || item.pk?.S || item.pk,
-      title: item.title?.S || item.title || "No Title",
-      company: item.company?.S || item.company || "Unknown",
-      topic: item.topic?.S || item.topic || "General",
-      difficulty: item.difficulty?.S || item.difficulty || "Medium",
-      description: item.description?.S || item.description || ""
-    }));
+      const cleanData = dataToMap.map((item: any) => ({
+        id: item.id?.S || item.id || item.pk?.S || item.pk,
+        title: item.title?.S || item.title || "No Title",
+        company: item.company?.S || item.company || "Unknown",
+        topic: item.topic?.S || item.topic || "General",
+        difficulty: item.difficulty?.S || item.difficulty || "Medium",
+        description: item.description?.S || item.description || ""
+      }));
 
-    setIqData(cleanData);
-  } catch (error) {
-    console.error("Fetch error:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+      setIqData(cleanData);
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // const [iqData, setIqData] = useState<any[]>([]);
   const [dsaData, setDsaData] = useState(dsaProblems);
@@ -872,7 +873,7 @@ const fetchQuestions = async () => {
   const [jpData, setJpData] = useState(jobPortals);
   const [noteData, setNoteData] = useState(handwrittenNotes);
   const [rmData, setRmData] = useState(roadmaps);
-  const [mrData, setMrData] = useState(massRecruitmentCompanies);
+  const [mrData, setMrData] = useState(CompanyNames);
   const [posData, setPosData] = useState(positionResources);
   const [hldData, setHldData] = useState<AdminSDQuestion[]>([]);
   const [lldData, setLldData] = useState<AdminSDQuestion[]>([]);
@@ -918,16 +919,20 @@ const fetchQuestions = async () => {
   }, []);
 
   useEffect(() => {
+    if (activeTab === "questions") {
+      fetchQuestions();
+    }
     if (activeTab === "hld") loadSdContent("hld");
     if (activeTab === "lld") loadSdContent("lld");
-  }, [activeTab, loadSdContent]);
+  }, [activeTab, loadSdContent, fetchQuestions]);
 
   // Pre-load SD counts for the overview
   useEffect(() => {
+    fetchQuestions();
     loadSdContent("hld");
     loadSdContent("lld");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchQuestions, loadSdContent]);
 
   const showToast = (message: string, type: "success" | "info" = "info") => {
     setToast({ message, type });
