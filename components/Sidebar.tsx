@@ -1,21 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useAuth } from '../App';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
 import { useDashboard } from '../context/DashboardContext';
 import { cachedFetchUserProfile } from '../services/buyerApi';
-
-const LogoIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path d="M14.293 3.293L12 1.00001L3.29297 9.70704C3.10547 9.89454 3.00006 10.149 3.00006 10.414V20C3.00006 20.552 3.44806 21 4.00006 21H12V13H14V21H20C20.552 21 21 20.552 21 20V10.414C21 10.149 20.8946 9.89452 20.7071 9.70702L14.293 3.293Z" fill="url(#paint0_linear_sidebar)" />
-        <defs>
-            <linearGradient id="paint0_linear_sidebar" x1="3" y1="1" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#F97316" />
-                <stop offset="1" stopColor="#EA580C" />
-            </linearGradient>
-        </defs>
-    </svg>
-);
+import { useJobHuntShell } from '../context/JobHuntShellContext';
+import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
+import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 
 const DashboardIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
 const ProjectsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>;
@@ -28,8 +20,23 @@ const PayoutsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" 
 const HelpCenterIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CoursesIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>;
 const HackathonsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
+const PurchasesIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>;
+const WishlistIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
+const CartIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const JobHuntNavIcon = (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+);
 const PortfolioIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>;
 const ResumeIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
+/** Gauge / dial — reads as “score & fit”, distinct from AI Resume Builder (document) icon. Paths match lucide-react Gauge. */
+const ATSScorerIcon = (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m12 14 4-4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </svg>
+);
 const CareerGuidanceIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
 const CompanyPostsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-6 4h4M5 5a2 2 0 00-2 2v11l3-3h11a2 2 0 002-2V7a2 2 0 00-2-2H5z" /></svg>;
 const MockAssessmentIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>;
@@ -56,15 +63,24 @@ const LLDIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill
 
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
+    { name: 'Live AI Interviews', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
-    { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
-    { name: 'Mock Assessment', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
-    { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
-    { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
-    { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
-    { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
+    { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
+    { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
+    { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
+    { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
+    { name: 'Mock Assessments', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
+    { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
+    { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
+];
+
+const marketplaceNavItems = [
+    { name: 'Project Marketplace', view: 'project-bazaar' as DashboardView, icon: ProjectsIcon },
     { name: 'Courses', view: 'courses' as DashboardView, icon: CoursesIcon },
+    { name: 'My Purchases', view: 'purchases' as DashboardView, icon: PurchasesIcon },
+    { name: 'My Wishlist', view: 'wishlist' as DashboardView, icon: WishlistIcon },
+    { name: 'My Cart', view: 'cart' as DashboardView, icon: CartIcon },
     { name: 'Analytics', view: 'analytics' as DashboardView, icon: AnalyticsIcon },
     { name: 'Help Center', view: 'help-center' as DashboardView, icon: HelpCenterIcon },
     { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
@@ -118,9 +134,12 @@ const prepNavGroups: PrepNavGroup[] = [
 
 const preparationNavItems = prepNavGroups.flatMap(g => g.items);
 
+const jobHuntNavItems = [
+    { name: 'Browse roles', view: 'job-hunt' as DashboardView, icon: JobHuntNavIcon },
+];
+
 const sellerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Live AI Interview', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
     { name: 'Post Project Bid', view: 'post-project' as DashboardView, icon: PostProjectIcon },
     { name: 'My Bids', view: 'my-bids' as DashboardView, icon: MyBidsIcon },
     { name: 'My Projects', view: 'my-projects' as DashboardView, icon: ProjectsIcon },
@@ -133,7 +152,7 @@ const sellerNavItems = [
 ];
 
 interface SidebarProps {
-    dashboardMode?: 'buyer' | 'seller' | 'preparation';
+    dashboardMode?: 'buyer' | 'seller' | 'preparation' | 'jobHunt';
     activeView?: DashboardView;
     setActiveView?: (view: DashboardView) => void;
     isOpen: boolean;
@@ -147,8 +166,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const { userEmail, userId, logout } = useAuth();
     // Use global state
     const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode } = useDashboard();
+    const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
 
-    const [isHovered, setIsHovered] = useState(false);
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
     const [userFullName, setUserFullName] = useState<string>('');
     const [isTransitioning, setIsTransitioning] = useState(false);
@@ -158,7 +177,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const cart = useCart();
     const cartCount = dashboardMode === 'buyer' ? cart.cartCount : 0;
 
-    const navItems = dashboardMode === 'preparation' ? preparationNavItems : dashboardMode === 'buyer' ? buyerNavItems : sellerNavItems;
+    const navItems =
+        dashboardMode === 'preparation'
+            ? preparationNavItems
+            : dashboardMode === 'jobHunt'
+                ? jobHuntNavItems
+                : dashboardMode === 'buyer'
+                    ? (
+                        [
+                            'project-bazaar',
+                            'courses',
+                            'purchases',
+                            'wishlist',
+                            'cart',
+                            'analytics',
+                            'help-center',
+                        ] as DashboardView[]
+                    ).includes(activeView)
+                        ? marketplaceNavItems
+                        : buyerNavItems
+                    : sellerNavItems;
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
 
@@ -182,8 +220,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
         }).catch(() => { });
     }, [userId]);
 
-    // When collapsed and hovered, show expanded version
-    const isExpanded = isOpen && (!isCollapsed || isHovered);
+    // Width follows collapse state only — no hover-to-expand (use chevron to toggle)
+    const isExpanded = isOpen && !isCollapsed;
     const sidebarWidth = isExpanded ? 'w-64' : 'w-16';
     const isDark = dashboardMode === 'preparation' && prepDarkMode;
 
@@ -194,33 +232,62 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     ? 'bg-black border-r border-[#1c1c1e] shadow-[0_0_15px_rgba(0,0,0,0.5)]'
                     : 'bg-white border-r border-gray-200 shadow-sm'
                     } ${isOpen ? 'translate-x-0' : '-translate-x-full'
-                    } ${sidebarWidth} ${isCollapsed && isHovered ? 'shadow-xl z-[60]' : ''}`}
-                onMouseEnter={() => {
-                    if (isCollapsed && isOpen) {
-                        setIsHovered(true);
-                    }
-                }}
-                onMouseLeave={() => {
-                    if (isCollapsed) {
-                        setIsHovered(false);
-                    }
-                }}
+                    } ${sidebarWidth}`}
             >
-                {/* Header with logo */}
-                <div className={`flex items-center ${isExpanded ? 'justify-start' : 'justify-center'} h-16 ${isDark ? 'border-b border-[#1c1c1e]' : 'border-b border-gray-200'} ${isExpanded ? 'px-4' : 'px-2'}`}>
-                    {isExpanded && (
-                        <div className="flex items-center gap-2">
-                            <LogoIcon />
-                            <span className={`text-lg font-bold whitespace-nowrap transition-colors duration-300 ${isDark ? 'text-white' : ''}`}>ProjectBazaar</span>
+                {/* Header: logo + manual collapse/expand (desktop) */}
+                {isExpanded ? (
+                    <div
+                        className={`relative z-10 flex h-16 shrink-0 items-center gap-2 overflow-visible border-b px-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}
+                    >
+                        <div className="flex min-w-0 flex-1 items-center justify-start overflow-visible">
+                            <img
+                                src={CODEXCAREER_LOGO_SRC}
+                                alt="CodeXCareer"
+                                width={960}
+                                height={192}
+                                className="pointer-events-none block h-[216px] w-auto max-w-[calc(100%-2.75rem)] origin-left object-contain object-left -my-[76px]"
+                            />
                         </div>
-                    )}
-                    {!isExpanded && (
-                        <div className="flex items-center justify-center">
-                            <LogoIcon />
+                        <button
+                            type="button"
+                            onClick={onCollapseToggle}
+                            className={`hidden lg:inline-flex shrink-0 rounded-lg p-2 transition-colors ${isDark ? 'text-white hover:bg-[#2c2c2e]' : 'text-gray-600 hover:bg-gray-100'}`}
+                            aria-label="Collapse sidebar"
+                            title="Collapse sidebar"
+                        >
+                            <ChevronLeft className="h-5 w-5" aria-hidden />
+                        </button>
+                    </div>
+                ) : (
+                    <div
+                        className={`relative z-10 flex shrink-0 flex-col items-center gap-2 border-b py-3 ${isDark ? 'border-[#1c1c1e]' : 'border-gray-200'}`}
+                    >
+                        <div
+                            className="flex w-full justify-center px-1"
+                            role="img"
+                            aria-label="CodeXCareer"
+                            title="CodeXCareer"
+                        >
+                            <span
+                                className={`select-none text-center text-base font-extrabold leading-none tracking-tight sm:text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}
+                            >
+                                <span className={isDark ? 'text-white' : 'text-gray-900'}>c</span>
+                                <span className="text-[#ff7a00]">X</span>
+                                <span className={isDark ? 'text-white' : 'text-gray-900'}>c</span>
+                            </span>
                         </div>
-                    )}
-                </div>
-                {/* Preparation Mode Toggle */}
+                        <button
+                            type="button"
+                            onClick={onCollapseToggle}
+                            className={`hidden lg:inline-flex rounded-lg p-1.5 transition-colors ${isDark ? 'text-white hover:bg-[#2c2c2e]' : 'text-gray-600 hover:bg-gray-100'}`}
+                            aria-label="Expand sidebar"
+                            title="Expand sidebar"
+                        >
+                            <ChevronRight className="h-5 w-5" aria-hidden />
+                        </button>
+                    </div>
+                )}
+                {/* Preparation Mode toggle */}
                 {isExpanded && (
                     <div className="px-4 pt-3">
                         <button
@@ -261,6 +328,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         animation: navSlideIn 0.3s ease-out forwards;
                     }
                 `}</style>
+                {dashboardMode === 'jobHunt' && isExpanded && (
+                    <div className="px-4 pb-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50">
+                            <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                                <PinkJobHuntStar className="h-[11px] w-[10px] animate-pink-star-shine" aria-hidden />
+                            </span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-800">Job Hunt</span>
+                        </div>
+                    </div>
+                )}
                 {dashboardMode === 'preparation' && isExpanded && (
                     <div className="px-4 pb-2">
                         <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-300 ${isDark
@@ -300,7 +377,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         </div>
                     </div>
                 )}
-                <nav className={`flex-1 ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto custom-scrollbar`}>
+                <nav
+                    className={`flex-1 custom-scrollbar ${isExpanded ? 'px-4' : 'px-2'} py-4 space-y-1 overflow-y-auto`}
+                >
                     {dashboardMode === 'preparation' && isExpanded ? (
                         <div className="space-y-1">
                             {prepNavGroups.map((group) => {
@@ -309,6 +388,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 return (
                                     <div key={group.label}>
                                         <button
+                                            type="button"
                                             onClick={() => toggleGroup(group.label)}
                                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${hasActiveItem
                                                 ? isDark ? 'text-white' : 'text-gray-900'
@@ -328,6 +408,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                             <div className="mt-0.5 ml-2 space-y-0.5">
                                                 {group.items.map((item) => (
                                                     <button
+                                                        type="button"
                                                         key={item.name}
                                                         onClick={() => {
                                                             setActiveView(item.view);
@@ -352,17 +433,84 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 );
                             })}
                         </div>
+                    ) : dashboardMode === 'jobHunt' ? (
+                        <div className="space-y-1">
+                            {navItems.map((item, index) => (
+                                <button
+                                    type="button"
+                                    key={item.name}
+                                    onClick={() => {
+                                        setActiveView(item.view);
+                                        goToBrowseAllJobs();
+                                        if (window.innerWidth < 1024) {
+                                            onClose();
+                                        }
+                                    }}
+                                    className={`group relative flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${isExpanded ? 'px-4' : 'justify-center px-2'} ${activeView === item.view
+                                        ? isDark
+                                            ? 'bg-white text-black'
+                                            : 'bg-orange-500 text-white'
+                                        : isDark
+                                            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                            : 'text-gray-600 hover:bg-orange-50'
+                                        } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                    style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        {item.icon}
+                                        {item.view === 'cart' && cartCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                                                {cartCount > 9 ? '9+' : cartCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isExpanded ? (
+                                        <span className="ml-3 whitespace-nowrap">{item.name}</span>
+                                    ) : null}
+                                    {!isExpanded ? (
+                                        <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                            {item.name}
+                                            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                        </div>
+                                    ) : null}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    goToSavedJobsList();
+                                    if (window.innerWidth < 1024) {
+                                        onClose();
+                                    }
+                                }}
+                                className={`group relative flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${isExpanded ? 'px-4' : 'justify-center px-2'} ${isDark
+                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                    : 'text-gray-600 hover:bg-orange-50'
+                                    }`}
+                            >
+                                <div className="relative flex-shrink-0">
+                                    <Star className="h-5 w-5" strokeWidth={2} aria-hidden />
+                                </div>
+                                {isExpanded ? (
+                                    <span className="ml-3 whitespace-nowrap">Saved jobs</span>
+                                ) : null}
+                                {!isExpanded ? (
+                                    <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                        Saved jobs
+                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                    </div>
+                                ) : null}
+                            </button>
+                        </div>
                     ) : (
                         navItems.map((item, index) => (
                             <button
+                                type="button"
                                 key={item.name}
                                 onClick={() => {
                                     setActiveView(item.view);
                                     if (window.innerWidth < 1024) {
                                         onClose();
-                                    }
-                                    if (isCollapsed && !isHovered) {
-                                        onCollapseToggle();
                                     }
                                 }}
                                 className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
@@ -402,28 +550,38 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     {isExpanded ? (
                         <div className={`flex items-center p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>
                             <button
-                                onClick={() => setActiveView('settings')}
-                                className="relative flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                type="button"
+                                onClick={() => {
+                                    setActiveView('settings');
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
+                                className="relative flex min-w-0 flex-1 cursor-pointer items-center text-left transition-opacity hover:opacity-90"
                             >
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
-                                    {userProfileImage ? (
-                                        <img
-                                            src={userProfileImage}
-                                            alt="Profile"
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                <span className="relative flex-shrink-0">
+                                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-sm font-bold text-white">
+                                        {userProfileImage ? (
+                                            <img
+                                                src={userProfileImage}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
+                                        )}
+                                    </span>
+                                    {userProfileImage && (
+                                        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
                                     )}
-                                </div>
-                                {userProfileImage && (
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
-                                )}
+                                </span>
+                                <span className="ml-3 min-w-0 flex-1">
+                                    <span className={`block truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                        {userFullName || 'User'}
+                                    </span>
+                                    <span className={`block truncate text-xs ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>
+                                        {userEmail ?? 'user@example.com'}
+                                    </span>
+                                </span>
                             </button>
-                            <div className="ml-3 flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{userFullName || 'User'}</p>
-                                <p className={`text-xs truncate ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>{userEmail ?? 'user@example.com'}</p>
-                            </div>
                             <button
                                 onClick={logout}
                                 className={`ml-2 p-2 rounded-full flex-shrink-0 relative group ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
@@ -439,7 +597,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     ) : (
                         <div className="flex flex-col items-center gap-2">
                             <button
-                                onClick={() => setActiveView('settings')}
+                                type="button"
+                                onClick={() => {
+                                    setActiveView('settings');
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
                                 className="relative cursor-pointer hover:opacity-80 transition-opacity group"
                             >
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">

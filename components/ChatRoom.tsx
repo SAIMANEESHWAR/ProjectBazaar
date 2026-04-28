@@ -195,6 +195,15 @@ const ChatRoom: React.FC = () => {
         [userId, conversations, refreshUnread]
     );
 
+    useEffect(() => {
+        if (loadingList || !userId || typeof window === 'undefined') return;
+        const key = 'bazaar_open_chat_user_id';
+        const target = sessionStorage.getItem(key);
+        if (!target) return;
+        sessionStorage.removeItem(key);
+        void openConversation(target);
+    }, [loadingList, userId, openConversation]);
+
     const sendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!userId || !selectedId || !replyText.trim() || sending) return;

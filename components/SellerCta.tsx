@@ -58,7 +58,7 @@ const SellerCta: React.FC = () => {
             className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white py-2 px-5 rounded-full text-sm font-medium mb-8 border border-white/30"
           >
             <Rocket className="w-4 h-4" />
-            Join 5,000+ Sellers Earning on ProjectBazaar
+            Join 5,000+ Sellers Earning on CodeXCareer
           </motion.div>
 
           {/* Headline */}

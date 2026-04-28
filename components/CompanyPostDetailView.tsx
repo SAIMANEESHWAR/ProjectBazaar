@@ -58,7 +58,6 @@ const CompanyPostDetailView: React.FC<CompanyPostDetailViewProps> = ({
     upvoteDisabled = false,
     upvoteDisabledTitle,
 }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
     const [commentSort, setCommentSort] = useState<CommentSort>('new');
 
     const sortedComments = useMemo(() => {

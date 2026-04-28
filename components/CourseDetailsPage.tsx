@@ -149,7 +149,7 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                 key: orderResponse.key,
                 amount: orderResponse.amount,
                 currency: orderResponse.currency,
-                name: orderResponse.name || 'ProjectBazaar',
+                name: orderResponse.name || 'CodeXCareer',
                 description: orderResponse.description || `Purchase: ${course.title}`,
                 order_id: orderResponse.razorpayOrderId,
                 prefill: orderResponse.prefill,

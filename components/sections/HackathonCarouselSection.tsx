@@ -37,16 +37,25 @@ const HackathonCarouselSection: React.FC = () => {
     useEffect(() => {
         const load = async () => {
             try {
-                const result = await fetchHackathons();
+                const result = await fetchHackathons({ allData: true });
                 if (result.success && result.data?.hackathons) {
                     const withImages = result.data.hackathons
                         .filter((h) => h.image_url && h.image_url.trim() !== '')
                         .sort((a, b) => {
-                            const dateA = a.end_date ? new Date(a.end_date).getTime() : a.created_at;
-                            const dateB = b.end_date ? new Date(b.end_date).getTime() : b.created_at;
+                            const postDateA = (a as unknown as { post_date?: string | null }).post_date
+                                ? new Date((a as unknown as { post_date?: string | null }).post_date as string).getTime()
+                                : NaN;
+                            const postDateB = (b as unknown as { post_date?: string | null }).post_date
+                                ? new Date((b as unknown as { post_date?: string | null }).post_date as string).getTime()
+                                : NaN;
+                            const dateA = !Number.isNaN(postDateA)
+                                ? postDateA
+                                : (a.created_at ? a.created_at * 1000 : (a.end_date ? new Date(a.end_date).getTime() : 0));
+                            const dateB = !Number.isNaN(postDateB)
+                                ? postDateB
+                                : (b.created_at ? b.created_at * 1000 : (b.end_date ? new Date(b.end_date).getTime() : 0));
                             return dateB - dateA; // newest first
-                        })
-                        .slice(0, 15);
+                        });
                     setHackathons(withImages);
                 }
             } catch (err) {

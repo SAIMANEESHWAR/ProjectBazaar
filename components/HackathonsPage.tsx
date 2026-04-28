@@ -30,18 +30,58 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [logoErrors, setLogoErrors] = useState<Record<string, boolean>>({});
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pageCursors, setPageCursors] = useState<Record<number, string | null>>({ 1: null });
 
-  // Fetch hackathons from API
+  const getHackathonSortTimestamp = (hackathon: Hackathon): number => {
+    const postDateTs = (hackathon as unknown as { post_date?: string | null }).post_date
+      ? new Date((hackathon as unknown as { post_date?: string | null }).post_date as string).getTime()
+      : NaN;
+    if (!Number.isNaN(postDateTs)) return postDateTs;
+
+    const createdAtTs = hackathon.created_at ? hackathon.created_at * 1000 : NaN;
+    if (!Number.isNaN(createdAtTs)) return createdAtTs;
+
+    const startDateTs = hackathon.start_date ? new Date(hackathon.start_date).getTime() : NaN;
+    if (!Number.isNaN(startDateTs)) return startDateTs;
+
+    const endDateTs = hackathon.end_date ? new Date(hackathon.end_date).getTime() : NaN;
+    if (!Number.isNaN(endDateTs)) return endDateTs;
+
+    return (hackathon.created_at || 0) * 1000;
+  };
+
+  const sortHackathonsLatestFirst = (items: Hackathon[]): Hackathon[] =>
+    [...items].sort((a, b) => getHackathonSortTimestamp(b) - getHackathonSortTimestamp(a));
+
+  // Fetch one page from API (cursor-based pagination)
   useEffect(() => {
     const loadHackathons = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        const result = await fetchHackathons();
+        const cursor = pageCursors[currentPage] ?? null;
+        const result = await fetchHackathons({
+          limit: itemsPerPage,
+          cursor: cursor || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          type:
+            modeFilter === 'all'
+              ? undefined
+              : modeFilter === 'Online'
+                ? 'online'
+                : 'offline',
+        });
         if (result.success && result.data?.hackathons) {
-          setHackathons(result.data.hackathons);
-          setFilteredHackathons(result.data.hackathons);
+          const sortedHackathons = sortHackathonsLatestFirst(result.data.hackathons);
+          setHackathons(sortedHackathons);
+          setFilteredHackathons(sortedHackathons);
+          setNextCursor(result.data.nextCursor ?? null);
+          setPageCursors((prev) => ({
+            ...prev,
+            [currentPage + 1]: result.data?.nextCursor ?? null,
+          }));
           setError(null); // Clear any previous errors
         } else {
           // Extract error message from error object
@@ -66,7 +106,13 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
     };
 
     loadHackathons();
-  }, []);
+  }, [currentPage, itemsPerPage, statusFilter, modeFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setNextCursor(null);
+    setPageCursors({ 1: null });
+  }, [statusFilter, modeFilter]);
 
   // Apply filters
   useEffect(() => {
@@ -101,20 +147,18 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
       );
     }
 
-    setFilteredHackathons(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setFilteredHackathons(sortHackathonsLatestFirst(filtered));
   }, [searchQuery, statusFilter, modeFilter, locationFilter, hackathons]);
   
   // Get featured hackathons (top 8 based on some criteria, e.g., live or upcoming)
   const featuredHackathons = hackathons
     .filter(h => h.status === 'live' || h.status === 'upcoming')
+    .sort((a, b) => getHackathonSortTimestamp(b) - getHackathonSortTimestamp(a))
     .slice(0, 8);
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredHackathons.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedHackathons = filteredHackathons.slice(startIndex, endIndex);
+  const totalPages = nextCursor ? currentPage + 1 : currentPage;
+  const paginatedHackathons = filteredHackathons;
 
   const handleHackathonClick = (hackathon: Hackathon) => {
     // Open hackathon URL in new tab
@@ -329,10 +373,19 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
                     setIsLoading(true);
                     const loadHackathons = async () => {
                       try {
-                        const result = await fetchHackathons();
+                        const result = await fetchHackathons({
+                          limit: itemsPerPage,
+                          cursor: pageCursors[currentPage] || undefined,
+                        });
                         if (result.success && result.data?.hackathons) {
-                          setHackathons(result.data.hackathons);
-                          setFilteredHackathons(result.data.hackathons);
+                          const sortedHackathons = sortHackathonsLatestFirst(result.data.hackathons);
+                          setHackathons(sortedHackathons);
+                          setFilteredHackathons(sortedHackathons);
+                          setNextCursor(result.data.nextCursor ?? null);
+                          setPageCursors((prev) => ({
+                            ...prev,
+                            [currentPage + 1]: result.data?.nextCursor ?? null,
+                          }));
                           setError(null);
                         } else {
                           const errorMessage = result.error 
@@ -388,10 +441,12 @@ const HackathonsPage: React.FC<HackathonsPageProps> = ({ toggleSidebar }) => {
                     totalPages={totalPages}
                     onPageChange={setCurrentPage}
                     itemsPerPage={itemsPerPage}
-                    totalItems={filteredHackathons.length}
+                    totalItems={(currentPage - 1) * itemsPerPage + filteredHackathons.length + (nextCursor ? 1 : 0)}
                     onItemsPerPageChange={(newItemsPerPage) => {
                       setItemsPerPage(newItemsPerPage);
                       setCurrentPage(1);
+                      setNextCursor(null);
+                      setPageCursors({ 1: null });
                     }}
                   />
                 </div>

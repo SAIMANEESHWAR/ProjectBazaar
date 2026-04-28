@@ -1,8 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth, useNavigation, usePremium } from '../App';
+import type { ResumeInfo } from '../context/ResumeInfoContext';
+import {
+    defaultResumeExportSettings,
+    parseResumeExportSettings,
+    saveResumeProfileToCloud,
+    type ResumeExportSettings,
+} from '../services/resumeCloudService';
+import {
+    applyUserProfileToResumePersonal,
+    emptyResumeFullForm,
+    resumeFullFormHasMinimumProfile,
+    resumeFullFormToResumeInfo,
+    resumeInfoToResumeFullForm,
+    type ResumeFullForm,
+} from '../lib/resumeSettingsForm';
+import ResumeSettingsProfileForm from './ResumeSettingsProfileForm';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
+import { invalidateUserCache } from '../services/buyerApi';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -25,9 +42,15 @@ const GeminiLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
 const ClaudeLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
     <img src={CLAUDE_LOGO_URL} alt="Anthropic Claude" className={className} aria-hidden="true" />
 );
+const OPENROUTER_LOGO_URL = 'https://openrouter.ai/favicon.ico';
+const OpenRouterLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
+    <img src={OPENROUTER_LOGO_URL} alt="OpenRouter" className={className} aria-hidden="true" />
+);
+
+type SettingsLlmProviderId = 'openai' | 'openrouter' | 'gemini' | 'claude';
 
 // Models per provider for ATS (id = API model id, label = display name)
-const LLM_MODELS: Record<'openai' | 'gemini' | 'claude', { id: string; label: string }[]> = {
+const LLM_MODELS: Record<SettingsLlmProviderId, { id: string; label: string }[]> = {
     openai: [
         { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
         { id: 'gpt-4o', label: 'GPT-4o' },
@@ -39,6 +62,12 @@ const LLM_MODELS: Record<'openai' | 'gemini' | 'claude', { id: string; label: st
         { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
         { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
         { id: 'gemini-1.0-pro', label: 'Gemini 1.0 Pro' },
+    ],
+    openrouter: [
+        { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
+        { id: 'openai/gpt-4o', label: 'GPT-4o' },
+        { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+        { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
     ],
     claude: [
         { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
@@ -132,7 +161,7 @@ const SettingsPage: React.FC = () => {
     const { isPremium, credits, setIsPremium } = usePremium();
     const { navigateTo } = useNavigation();
     const [profileImg, setProfileImg] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'user' | 'freelancer'>('user');
+    const [viewMode, setViewMode] = useState<'user' | 'freelancer' | 'resume'>('user');
 
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(false);
@@ -240,9 +269,10 @@ const SettingsPage: React.FC = () => {
 
     // LLM API Keys for ATS / Resume Builder
     const [hasOpenAiKey, setHasOpenAiKey] = useState(false);
+    const [hasOpenrouterKey, setHasOpenrouterKey] = useState(false);
     const [hasGeminiKey, setHasGeminiKey] = useState(false);
     const [hasClaudeKey, setHasClaudeKey] = useState(false);
-    const [selectedLlmProvider, setSelectedLlmProvider] = useState<'openai' | 'gemini' | 'claude'>('openai');
+    const [selectedLlmProvider, setSelectedLlmProvider] = useState<SettingsLlmProviderId>('openai');
     const [selectedLlmModel, setSelectedLlmModel] = useState<string>('gpt-4o-mini');
     const [llmSavedModels, setLlmSavedModels] = useState<Record<string, string>>({});
     const [llmKeyInput, setLlmKeyInput] = useState('');
@@ -253,6 +283,15 @@ const SettingsPage: React.FC = () => {
     const [uploadingProjectImageId, setUploadingProjectImageId] = useState<string | null>(null);
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    /** Resume PDF export: editable form + layout settings (stored on user in DynamoDB). */
+    const [resumeExportSettings, setResumeExportSettings] = useState<ResumeExportSettings>(() => defaultResumeExportSettings());
+    const [resumeFullForm, setResumeFullForm] = useState<ResumeFullForm>(() => emptyResumeFullForm());
+    /** Preserves theme/template/profileImage from import or cloud when merging form → ResumeInfo */
+    const [resumeStylingBase, setResumeStylingBase] = useState<ResumeInfo | null>(null);
+    const [resumeCloudMessage, setResumeCloudMessage] = useState<string | null>(null);
+    const [resumeCloudError, setResumeCloudError] = useState<string | null>(null);
+    const [savingResumeCloud, setSavingResumeCloud] = useState(false);
 
     const MAX_SIZE_MB = 10;
 
@@ -344,6 +383,38 @@ const SettingsPage: React.FC = () => {
                     if (typeof user.isPremium === 'boolean') {
                         setIsPremium(user.isPremium);
                     }
+
+                    const accountEmail =
+                        (typeof user.email === 'string' && user.email.trim()) || userEmail || '';
+                    const resumePrefill = {
+                        fullName: (user.fullName || user.name || '').trim(),
+                        phone: (user.phoneNumber || '').trim(),
+                        email: accountEmail.trim(),
+                        linkedIn: (user.linkedinUrl || '').trim(),
+                        github: (user.githubUrl || '').trim(),
+                        website:
+                            (typeof user.website === 'string' && user.website.trim()) ||
+                            (typeof user.portfolioUrl === 'string' && user.portfolioUrl.trim()) ||
+                            '',
+                        jobTitle:
+                            (typeof user.jobTitle === 'string' && user.jobTitle.trim()) ||
+                            (typeof user.professionalTitle === 'string' && user.professionalTitle.trim()) ||
+                            '',
+                    };
+                    if (user.savedResumeProfile && typeof user.savedResumeProfile === 'object') {
+                        const prof = user.savedResumeProfile as ResumeInfo;
+                        setResumeStylingBase(prof);
+                        setResumeFullForm(
+                            applyUserProfileToResumePersonal(resumeInfoToResumeFullForm(prof), resumePrefill)
+                        );
+                    } else {
+                        setResumeStylingBase(null);
+                        setResumeFullForm(applyUserProfileToResumePersonal(emptyResumeFullForm(), resumePrefill));
+                    }
+                    setResumeExportSettings({
+                        ...parseResumeExportSettings(user.resumeExportSettings),
+                        experienceBulletLimits: [],
+                    });
                 }
             } catch (err) {
                 console.error('Failed to fetch user profile:', err);
@@ -354,6 +425,22 @@ const SettingsPage: React.FC = () => {
 
         fetchUserProfile();
     }, [userId]);
+
+    // When User Settings profile fields change, pre-fill any still-empty Resume personal fields
+    useEffect(() => {
+        if (loading) return;
+        setResumeFullForm((prev) =>
+            applyUserProfileToResumePersonal(prev, {
+                fullName: fullName.trim(),
+                phone: phoneNumber.trim(),
+                email: (userEmail || '').trim(),
+                linkedIn: linkedinUrl.trim(),
+                github: githubUrl.trim(),
+                website: '',
+                jobTitle: '',
+            })
+        );
+    }, [loading, fullName, phoneNumber, linkedinUrl, githubUrl, userEmail]);
 
     // Fetch LLM API key status (has key or not; we never load actual keys)
     useEffect(() => {
@@ -368,6 +455,7 @@ const SettingsPage: React.FC = () => {
                 const data = await res.json();
                 if (data.success) {
                     setHasOpenAiKey(!!data.hasOpenAiKey);
+                    setHasOpenrouterKey(!!data.hasOpenrouterKey);
                     setHasGeminiKey(!!data.hasGeminiKey);
                     setHasClaudeKey(!!data.hasClaudeKey);
                     if (data.savedModels && typeof data.savedModels === 'object') {
@@ -389,6 +477,38 @@ const SettingsPage: React.FC = () => {
         const validSaved = saved && models?.some((m) => m.id === saved);
         setSelectedLlmModel(validSaved ? saved : defaultId);
     }, [selectedLlmProvider, llmSavedModels]);
+
+    const handleSaveResumeProfileAndSettings = async () => {
+        if (!userId) {
+            setResumeCloudError('You must be logged in.');
+            return;
+        }
+        if (!resumeFullFormHasMinimumProfile(resumeFullForm)) {
+            setResumeCloudError('Add at least full name, email, and phone under Personal Information.');
+            return;
+        }
+        if (!resumeFullForm.skillsText.trim()) {
+            setResumeCloudError('Add at least one skill in the Skills field (comma-separated).');
+            return;
+        }
+        setResumeCloudError(null);
+        setResumeCloudMessage(null);
+        setSavingResumeCloud(true);
+        try {
+            const built = resumeFullFormToResumeInfo(resumeFullForm, resumeStylingBase);
+            const payloadSettings = { ...resumeExportSettings, experienceBulletLimits: [] as number[] };
+            const out = await saveResumeProfileToCloud(userId, built, payloadSettings);
+            if (!out.ok) {
+                setResumeCloudError(out.message || 'Save failed');
+            } else {
+                setResumeStylingBase(built);
+                setResumeExportSettings(payloadSettings);
+                setResumeCloudMessage('Changes saved.');
+            }
+        } finally {
+            setSavingResumeCloud(false);
+        }
+    };
 
     const testLlmApiKey = async (provider: string, apiKey: string) => {
         const key = (apiKey || '').trim();
@@ -424,8 +544,15 @@ const SettingsPage: React.FC = () => {
             setLlmKeyError('You must be logged in.');
             return;
         }
-        const p = provider.toLowerCase() as 'openai' | 'gemini' | 'claude';
-        const hasKeyForProvider = p === 'openai' ? hasOpenAiKey : p === 'gemini' ? hasGeminiKey : hasClaudeKey;
+        const p = provider.toLowerCase() as SettingsLlmProviderId;
+        const hasKeyForProvider =
+            p === 'openai'
+                ? hasOpenAiKey
+                : p === 'openrouter'
+                  ? hasOpenrouterKey
+                  : p === 'gemini'
+                    ? hasGeminiKey
+                    : hasClaudeKey;
         const savingKey = !!key;
         const savingModelOnly = !key && hasKeyForProvider && selectedLlmModel;
         if (!savingKey && !savingModelOnly) {
@@ -450,9 +577,10 @@ const SettingsPage: React.FC = () => {
             const data = await res.json();
             if (data.success) {
                 setLlmKeyMessage(`${provider} key and model saved. You can use ATS Score in the Resume Builder.`);
-                if (p === 'openai') setHasOpenAiKey(!!key);
-                if (p === 'gemini') setHasGeminiKey(!!key);
-                if (p === 'claude') setHasClaudeKey(!!key);
+                if (p === 'openai') setHasOpenAiKey(savingKey ? !!key : hasOpenAiKey);
+                if (p === 'openrouter') setHasOpenrouterKey(savingKey ? !!key : hasOpenrouterKey);
+                if (p === 'gemini') setHasGeminiKey(savingKey ? !!key : hasGeminiKey);
+                if (p === 'claude') setHasClaudeKey(savingKey ? !!key : hasClaudeKey);
                 setLlmSavedModels((prev) => ({ ...prev, [p]: selectedLlmModel }));
                 setLlmKeyInput('');
             } else {
@@ -1023,7 +1151,7 @@ const SettingsPage: React.FC = () => {
     };
 
     // Navigate to seller dashboard with gitUrl and project name pre-filled
-    const uploadToProjectBazaar = (repoUrl: string, repoName: string) => {
+    const uploadToCodeXCareer = (repoUrl: string, repoName: string) => {
         // Store gitUrl and project name in localStorage for SellerDashboard to pick up
         localStorage.setItem('prefillGitUrl', repoUrl);
         localStorage.setItem('prefillProjectName', repoName);
@@ -1039,7 +1167,7 @@ const SettingsPage: React.FC = () => {
         const selectedRepo = repositories.find(repo => repo.id === selectedRepoId);
 
         if (selectedRepo) {
-            uploadToProjectBazaar(selectedRepo.html_url, selectedRepo.name);
+            uploadToCodeXCareer(selectedRepo.html_url, selectedRepo.name);
             // Clear selection after upload
             setSelectedRepoId(null);
         }
@@ -1290,6 +1418,7 @@ const SettingsPage: React.FC = () => {
                 setSaveMessage('Settings updated successfully.');
                 setPendingImageUrl(null);
                 setIsEditingProfile(false);
+                invalidateUserCache(userId);
 
                 // Update local state with returned data to ensure sync
                 const updatedUser = data.data || data.user;
@@ -1334,18 +1463,27 @@ const SettingsPage: React.FC = () => {
         <div className="mt-8 max-w-4xl mx-auto pb-24">
             {/* Toggle Switch */}
             <div className="flex flex-col items-center mb-0">
-                <div className="flex items-center gap-0 bg-gray-100 p-1.5 rounded-full border border-gray-200 shadow-inner">
+                <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-0 bg-gray-100 p-1.5 rounded-full border border-gray-200 shadow-inner max-w-full">
                     <button
+                        type="button"
                         onClick={() => setViewMode('user')}
-                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'user' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'user' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
                     >
                         User Settings
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('freelancer')}
-                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'freelancer' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'freelancer' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
                     >
                         Freelancer Settings
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('resume')}
+                        className={`px-4 sm:px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${viewMode === 'resume' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                        Resume Settings
                     </button>
                 </div>
                 {viewMode === 'freelancer' && !isFreelancer && (
@@ -1353,54 +1491,58 @@ const SettingsPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Global Actions Bar */}
-            <div className="flex items-center justify-between bg-white px-6 py-4 mt-8 mb-8 rounded-2xl border border-gray-200 shadow-sm">
-                <div className="hidden sm:block">
-                    <h2 className="text-lg font-bold text-gray-900">{viewMode === 'user' ? 'User Profile' : 'Freelancer Profile'}</h2>
-                </div>
-                <div className="flex flex-1 sm:flex-none justify-end items-center gap-3">
-                    {saveError && <p className="text-sm text-red-600 hidden md:block animate-in fade-in">{saveError}</p>}
-                    {saveMessage && !saveError && <p className="text-sm text-green-600 hidden md:block animate-in fade-in">{saveMessage}</p>}
+            {/* Global Actions Bar — profile edit/save only on User & Freelancer tabs */}
+            {viewMode !== 'resume' && (
+                <div className="flex items-center justify-between bg-white px-6 py-4 mt-8 mb-8 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="hidden sm:block">
+                        <h2 className="text-lg font-bold text-gray-900">
+                            {viewMode === 'user' ? 'User Profile' : 'Freelancer Profile'}
+                        </h2>
+                    </div>
+                    <div className="flex flex-1 sm:flex-none justify-end items-center gap-3">
+                        {saveError && <p className="text-sm text-red-600 hidden md:block animate-in fade-in">{saveError}</p>}
+                        {saveMessage && !saveError && <p className="text-sm text-green-600 hidden md:block animate-in fade-in">{saveMessage}</p>}
 
-                    {!isEditingProfile ? (
-                        <button
-                            type="button"
-                            onClick={() => setIsEditingProfile(true)}
-                            className="flex items-center justify-center w-full sm:w-auto gap-2 px-5 py-2 hover:bg-orange-50 text-orange-600 font-semibold rounded-xl border border-orange-200 transition-colors text-sm bg-white"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            Edit Profile
-                        </button>
-                    ) : (
-                        <div className="flex w-full sm:w-auto items-center gap-2">
+                        {!isEditingProfile ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setIsEditingProfile(false);
-                                    setSaveError(null);
-                                    setSaveMessage(null);
-                                }}
-                                className="flex-1 sm:flex-none py-2 px-5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm bg-white"
+                                onClick={() => setIsEditingProfile(true)}
+                                className="flex items-center justify-center w-full sm:w-auto gap-2 px-5 py-2 hover:bg-orange-50 text-orange-600 font-semibold rounded-xl border border-orange-200 transition-colors text-sm bg-white"
                             >
-                                Cancel
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Edit Profile
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => handleProfileSubmit()}
-                                disabled={saving || uploading}
-                                className="flex-1 sm:flex-none bg-orange-600 text-white font-semibold flex items-center justify-center gap-2 py-2 px-5 rounded-xl hover:bg-orange-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                                {saving ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="flex w-full sm:w-auto items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditingProfile(false);
+                                        setSaveError(null);
+                                        setSaveMessage(null);
+                                    }}
+                                    className="flex-1 sm:flex-none py-2 px-5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm bg-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleProfileSubmit()}
+                                    disabled={saving || uploading}
+                                    className="flex-1 sm:flex-none bg-orange-600 text-white font-semibold flex items-center justify-center gap-2 py-2 px-5 rounded-xl hover:bg-orange-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* Mobile error/success messages */}
-            {(saveError || saveMessage) && (
+            {/* Mobile error/success messages (profile save) */}
+            {viewMode !== 'resume' && (saveError || saveMessage) && (
                 <div className="md:hidden mb-6">
                     {saveError && <p className="text-sm text-center text-red-600 bg-red-50 p-2 rounded-lg">{saveError}</p>}
                     {saveMessage && !saveError && <p className="text-sm text-center text-green-600 bg-green-50 p-2 rounded-lg">{saveMessage}</p>}
@@ -1633,9 +1775,10 @@ const SettingsPage: React.FC = () => {
                             <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select LLM provider</label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {[
                                             { id: 'openai' as const, name: 'OpenAI (GPT)', Logo: OpenAILogo, saved: hasOpenAiKey },
+                                            { id: 'openrouter' as const, name: 'OpenRouter', Logo: OpenRouterLogo, saved: hasOpenrouterKey },
                                             { id: 'gemini' as const, name: 'Google Gemini', Logo: GeminiLogo, saved: hasGeminiKey },
                                             { id: 'claude' as const, name: 'Anthropic Claude', Logo: ClaudeLogo, saved: hasClaudeKey },
                                         ].map(({ id, name, Logo, saved }) => (
@@ -1683,9 +1826,21 @@ const SettingsPage: React.FC = () => {
                                             value={llmKeyInput}
                                             onChange={(e) => setLlmKeyInput(e.target.value)}
                                             placeholder={
-                                                selectedLlmProvider === 'openai' ? (hasOpenAiKey ? 'Enter new key to replace' : 'sk-...') :
-                                                    selectedLlmProvider === 'gemini' ? (hasGeminiKey ? 'Enter new key to replace' : 'AIza...') :
-                                                        hasClaudeKey ? 'Enter new key to replace' : 'sk-ant-...'
+                                                selectedLlmProvider === 'openai'
+                                                    ? hasOpenAiKey
+                                                        ? 'Enter new key to replace'
+                                                        : 'sk-...'
+                                                    : selectedLlmProvider === 'openrouter'
+                                                      ? hasOpenrouterKey
+                                                        ? 'Enter new key to replace'
+                                                        : 'sk-or-v1-...'
+                                                      : selectedLlmProvider === 'gemini'
+                                                        ? hasGeminiKey
+                                                          ? 'Enter new key to replace'
+                                                          : 'AIza...'
+                                                        : hasClaudeKey
+                                                          ? 'Enter new key to replace'
+                                                          : 'sk-ant-...'
                                             }
                                             className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                                         />
@@ -1697,7 +1852,11 @@ const SettingsPage: React.FC = () => {
                                             onClick={() => saveLlmApiKey(selectedLlmProvider, llmKeyInput)}
                                             disabled={
                                                 llmSavingProvider !== null ||
-                                                (!llmKeyInput.trim() && !(hasOpenAiKey && selectedLlmProvider === 'openai') && !(hasGeminiKey && selectedLlmProvider === 'gemini') && !(hasClaudeKey && selectedLlmProvider === 'claude'))
+                                                (!llmKeyInput.trim() &&
+                                                    !(hasOpenAiKey && selectedLlmProvider === 'openai') &&
+                                                    !(hasOpenrouterKey && selectedLlmProvider === 'openrouter') &&
+                                                    !(hasGeminiKey && selectedLlmProvider === 'gemini') &&
+                                                    !(hasClaudeKey && selectedLlmProvider === 'claude'))
                                             }
                                             className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
                                         >
@@ -1705,11 +1864,16 @@ const SettingsPage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
-                                {(hasOpenAiKey || hasGeminiKey || hasClaudeKey) && (
+                                {(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey) && (
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         {hasOpenAiKey && (
                                             <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
                                                 <OpenAILogo className="w-3.5 h-3.5" /> OpenAI ✓
+                                            </span>
+                                        )}
+                                        {hasOpenrouterKey && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                                                <OpenRouterLogo className="w-3.5 h-3.5" /> OpenRouter ✓
                                             </span>
                                         )}
                                         {hasGeminiKey && (
@@ -1725,7 +1889,7 @@ const SettingsPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <p className="text-xs text-gray-500">Get keys from OpenAI, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
+                            <p className="text-xs text-gray-500">Get keys from OpenAI, OpenRouter, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
                         </div>
                     </SectionCard>
 
@@ -2234,7 +2398,7 @@ const SettingsPage: React.FC = () => {
                                                 </svg>
                                                 <div>
                                                     <h4 className="text-lg font-semibold text-gray-900">Upload</h4>
-                                                    <p className="text-xs text-gray-500 mt-0.5">Select your public repository to upload as a project in ProjectBazaar</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Select your public repository to upload as a project in CodeXCareer</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -2265,7 +2429,7 @@ const SettingsPage: React.FC = () => {
                                                     onClick={uploadSelectedRepo}
                                                     className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm hover:shadow-md"
                                                 >
-                                                    Upload to ProjectBazaar
+                                                    Upload to CodeXCareer
                                                 </button>
                                             </div>
                                         )}
@@ -2702,6 +2866,40 @@ const SettingsPage: React.FC = () => {
                                     )}
                                 </button>
                             )}
+                        </div>
+                    </SectionCard>
+                </div>
+            )}
+
+            {viewMode === 'resume' && (
+                <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <SectionCard
+                        title="Resume profile"
+                        description="Enter your resume. Saved to your account for export. Separate from your public user profile."
+                    >
+                        <div className="space-y-6">
+                            {resumeCloudMessage && (
+                                <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
+                                    {resumeCloudMessage}
+                                </div>
+                            )}
+                            {resumeCloudError && (
+                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+                                    {resumeCloudError}
+                                </div>
+                            )}
+                            <ResumeSettingsProfileForm form={resumeFullForm} setForm={setResumeFullForm} />
+
+                            <div className="flex flex-col sm:flex-row sm:justify-end pt-6 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    disabled={savingResumeCloud || !resumeFullFormHasMinimumProfile(resumeFullForm)}
+                                    onClick={handleSaveResumeProfileAndSettings}
+                                    className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {savingResumeCloud ? 'Saving…' : 'Save changes'}
+                                </button>
+                            </div>
                         </div>
                     </SectionCard>
                 </div>

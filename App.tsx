@@ -1,5 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import { SITE_ORIGIN } from './lib/apiConfig';
 import { DashboardProvider } from './context/DashboardContext';
+import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
+import PeerInterviewBackendSync from './components/PeerInterviewBackendSync';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
@@ -12,16 +15,9 @@ import Hero from './components/Hero';
 
 // -- Lazy-loaded route components --
 const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
-const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
 const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
-const UniSystemSection = lazy(() => import('./components/sections/UniSystemSection'));
-const CurriculumSection = lazy(() => import('./components/sections/CurriculumSection'));
 const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
-const ResultsGridSection = lazy(() => import('./components/sections/ResultsGridSection'));
-const TestimonialsSection = lazy(() => import('./components/sections/TestimonialsSection'));
-const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
 const FAQSection = lazy(() => import('./components/sections/FAQSection'));
-const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
 const HackathonCarouselSection = lazy(() => import('./components/sections/HackathonCarouselSection'));
 const InterviewPrepHowItWorks = lazy(() => import('./components/sections/InterviewPrepHowItWorks'));
 const TopSellers = lazy(() => import('./components/TopSellers'));
@@ -186,37 +182,37 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
 };
 
 const PAGE_TITLES: Record<Page, string> = {
-  home: 'Project Bazaar — Marketplace for Projects, Ideas & Freelance Collaborations',
-  auth: 'Sign In — Project Bazaar',
-  dashboard: 'Dashboard — Project Bazaar',
-  seller: 'Seller Dashboard — Project Bazaar',
-  admin: 'Admin — Project Bazaar',
-  faq: 'FAQ — Project Bazaar',
-  browseProjects: 'Browse Projects — Project Bazaar',
-  freelancerProfile: 'Freelancer Profile — Project Bazaar',
-  buildPortfolio: 'Build Portfolio — Project Bazaar',
-  buildResume: 'Resume Builder — Project Bazaar',
-  mockAssessment: 'Mock Assessments — Project Bazaar',
-  mockLeaderboard: 'Leaderboard — Mock Assessments — Project Bazaar',
-  mockAchievements: 'Achievements — Mock Assessments — Project Bazaar',
-  mockDailyChallenge: 'Daily Challenge — Mock Assessments — Project Bazaar',
-  mockHistory: 'Test History — Mock Assessments — Project Bazaar',
-  codingQuestions: 'Coding Interview Questions — Project Bazaar',
-  liveMockInterview: 'Live AI Mock Interview — Project Bazaar',
-  privacy: 'Privacy Policy — Project Bazaar',
-  terms: 'Terms & Conditions — Project Bazaar',
-  notFound: 'Page Not Found — Project Bazaar',
+  home: 'CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations',
+  auth: 'Sign In — CodeXCareer',
+  dashboard: 'Dashboard — CodeXCareer',
+  seller: 'Seller Dashboard — CodeXCareer',
+  admin: 'Admin — CodeXCareer',
+  faq: 'FAQ — CodeXCareer',
+  browseProjects: 'Browse Projects — CodeXCareer',
+  freelancerProfile: 'Freelancer Profile — CodeXCareer',
+  buildPortfolio: 'Build Portfolio — CodeXCareer',
+  buildResume: 'Resume Builder — CodeXCareer',
+  mockAssessment: 'Mock Assessments — CodeXCareer',
+  mockLeaderboard: 'Leaderboard — Mock Assessments — CodeXCareer',
+  mockAchievements: 'Achievements — Mock Assessments — CodeXCareer',
+  mockDailyChallenge: 'Daily Challenge — Mock Assessments — CodeXCareer',
+  mockHistory: 'Test History — Mock Assessments — CodeXCareer',
+  codingQuestions: 'Coding Interview Questions — CodeXCareer',
+  liveMockInterview: 'Live AI Mock Interview — CodeXCareer',
+  privacy: 'Privacy Policy — CodeXCareer',
+  terms: 'Terms & Conditions — CodeXCareer',
+  notFound: 'Page Not Found — CodeXCareer',
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
-  home: 'Discover, buy, and sell projects on Project Bazaar. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
-  faq: 'Frequently asked questions about Project Bazaar — your marketplace for projects, freelancing, and career development.',
-  browseProjects: 'Browse and discover projects for sale on Project Bazaar. Find the perfect project to buy or get inspired for your next build.',
-  mockAssessment: 'Practice with mock assessments and coding challenges on Project Bazaar. Prepare for technical interviews and track your progress.',
-  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on Project Bazaar.',
-  liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on Project Bazaar.',
-  privacy: 'Learn how Project Bazaar collects, uses, and protects your personal data. Read our full privacy policy.',
-  terms: 'Read the terms and conditions for using Project Bazaar, including marketplace rules, intellectual property, and payment terms.',
+  home: 'Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
+  faq: 'Frequently asked questions about CodeXCareer — your marketplace for projects, freelancing, and career development.',
+  browseProjects: 'Browse and discover projects for sale on CodeXCareer. Find the perfect project to buy or get inspired for your next build.',
+  mockAssessment: 'Practice with mock assessments and coding challenges on CodeXCareer. Prepare for technical interviews and track your progress.',
+  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on CodeXCareer.',
+  liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on CodeXCareer.',
+  privacy: 'Learn how CodeXCareer collects, uses, and protects your personal data. Read our full privacy policy.',
+  terms: 'Read the terms and conditions for using CodeXCareer, including marketplace rules, intellectual property, and payment terms.',
 };
 
 function updatePageMeta(page: Page) {
@@ -242,7 +238,7 @@ function updatePageMeta(page: Page) {
 
   const canonicalEl = document.querySelector('link[rel="canonical"]');
   if (canonicalEl) {
-    const base = 'https://projectbazaar.in';
+    const base = SITE_ORIGIN;
     const pageToPath: Record<string, string> = {
       home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
       mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
@@ -331,18 +327,11 @@ const AppContent: React.FC = () => {
             <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
               <Hero />
               <InterviewPrepHowItWorks />
-              <ProblemsSection />
               <PlatformCardsSection />
-              <UniSystemSection />
-              <CurriculumSection />
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
-              <ResultsGridSection />
-              <TestimonialsSection />
               <TopSellers />
-              <InstructorSection />
               <FAQSection />
-              <FinalCTASection />
             </main>
             <FlickeringFooter />
           </div>
@@ -601,6 +590,7 @@ const App: React.FC = () => {
     // Clear auth and session data
     localStorage.removeItem('userData');
     localStorage.removeItem('authSession');
+    localStorage.removeItem('oauthIdToken');
     localStorage.removeItem('currentPage');
     sessionStorage.clear();
 
@@ -612,14 +602,17 @@ const App: React.FC = () => {
       <ThemeProvider page={page}>
         <PremiumProvider>
           <DashboardProvider>
-            <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
-              <SocketProvider>
-                <NavigationContext.Provider value={{ page, navigateTo }}>
-                  <AppContent />
-                  <CookieConsent />
-                </NavigationContext.Provider>
-              </SocketProvider>
-            </AuthContext.Provider>
+            <PeerInterviewQueueProvider>
+              <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
+                <PeerInterviewBackendSync />
+                <SocketProvider>
+                  <NavigationContext.Provider value={{ page, navigateTo }}>
+                    <AppContent />
+                    <CookieConsent />
+                  </NavigationContext.Provider>
+                </SocketProvider>
+              </AuthContext.Provider>
+            </PeerInterviewQueueProvider>
           </DashboardProvider>
         </PremiumProvider>
       </ThemeProvider>

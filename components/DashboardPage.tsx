@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
 import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
+import { JobHuntShellProvider } from '../context/JobHuntShellContext';
 import { cachedFetchUserData, cachedFetchUserProfile, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem, invalidateUserCache } from '../services/buyerApi';
 
 // Re-export DashboardView for compatibility
@@ -312,7 +313,7 @@ const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
     // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [showWelcomeToast, setShowWelcomeToast] = useState(false);
     const [userName, setUserName] = useState<string>('');
 
@@ -354,6 +355,7 @@ const DashboardPage: React.FC = () => {
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
                 <MessagesUnreadProvider userId={userId}>
+                <JobHuntShellProvider>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
                     {/* Welcome Toast */}
                     <Toast
@@ -384,6 +386,7 @@ const DashboardPage: React.FC = () => {
                         />
                     </div>
                 </div>
+                </JobHuntShellProvider>
                 </MessagesUnreadProvider>
             </CartProvider>
         </WishlistProvider>

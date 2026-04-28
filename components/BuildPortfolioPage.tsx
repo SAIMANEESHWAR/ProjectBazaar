@@ -684,7 +684,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
                 <span className="text-sm font-bold text-white">PB</span>
               </div>
-              <span className="text-xl font-bold text-gray-800 group-hover:text-orange-500 transition-colors">ProjectBazaar</span>
+              <span className="text-xl font-bold text-gray-800 group-hover:text-orange-500 transition-colors">CodeXCareer</span>
             </button>
             <nav className="flex items-center gap-4">
               {isLoggedIn ? (

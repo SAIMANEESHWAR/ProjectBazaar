@@ -79,7 +79,6 @@ const Hero: React.FC = () => {
   const { d, h, m, s } = useCountdown(6 * 86400000);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const videoY = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const bgY = useTransform(scrollYProgress, [0, 1], [0, -40]);
 
   return (
@@ -106,7 +105,7 @@ const Hero: React.FC = () => {
         <div className="absolute bottom-[-20%] left-[20%] w-[70%] h-[50%] bg-gradient-to-t from-[#f5f5f5] dark:from-[#0a0a0a] via-transparent to-transparent z-10" />
       </motion.div>
 
-      <div className="landing-container relative z-10 flex flex-col items-center">
+      <div className="landing-container relative z-10 flex w-full flex-col items-center px-4 sm:px-6">
         {/* Countdown */}
         <motion.div
           variants={fadeUp}
@@ -115,11 +114,11 @@ const Hero: React.FC = () => {
           custom={0}
           className="mb-8 flex items-center justify-center"
         >
-          <div className="flex items-center gap-0 border border-gray-200 dark:border-white/10 rounded-lg overflow-hidden">
-            <div className="bg-gray-200/80 dark:bg-[#1a1a1a] px-4 py-2 text-[14px] font-medium text-gray-700 dark:text-white/80 whitespace-nowrap font-sans">
+          <div className="flex w-full max-w-[26rem] flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:gap-0">
+            <div className="bg-gray-200/80 dark:bg-[#1a1a1a] px-4 py-2 text-center text-[13px] font-medium text-gray-700 dark:text-white/80 whitespace-nowrap font-sans sm:text-[14px]">
               Limited time offer ends in
             </div>
-            <div className="bg-white dark:bg-white px-4 py-2 text-[14px] font-bold text-black font-mono tabular-nums font-sans">
+            <div className="bg-white px-4 py-2 text-center text-[13px] font-bold text-black font-mono tabular-nums font-sans sm:text-[14px]">
               {Pad(d)} : {Pad(h)} : {Pad(m)} : {Pad(s)}
             </div>
           </div>
@@ -131,9 +130,9 @@ const Hero: React.FC = () => {
           initial="hidden"
           animate="visible"
           custom={1}
-          className="max-w-[1000px] text-center mb-10"
+          className="mb-10 max-w-[1000px] text-center"
         >
-          <h1 className="text-[44px] md:text-[72px] lg:text-[80px] font-extrabold leading-[1.08] tracking-tight text-gray-900 dark:text-white font-sans">
+          <h1 className="text-[34px] font-extrabold leading-[1.08] tracking-tight text-gray-900 dark:text-white font-sans sm:text-[44px] md:text-[72px] lg:text-[80px]">
             Discover. Build. &{' '}
             <span className="orange-gradient-text italic">Earn.</span>
           </h1>
@@ -145,10 +144,10 @@ const Hero: React.FC = () => {
           initial="hidden"
           animate="visible"
           custom={2}
-          className="w-full max-w-[680px] mb-12"
+          className="mb-12 w-full max-w-[680px]"
         >
-          <div className="rounded-[16px] p-6 shadow-2xl bg-white/80 dark:glass-panel border border-gray-200/80 dark:border-white/10 dark:bg-[#1a1a1a]/40 backdrop-blur-[12px]">
-            <div className="text-gray-800 dark:text-white/90 text-lg md:text-xl font-medium mb-8 min-h-[56px] flex items-start font-sans">
+          <div className="rounded-[16px] border border-gray-200/80 bg-white/80 p-4 shadow-2xl backdrop-blur-[12px] dark:glass-panel dark:border-white/10 dark:bg-[#1a1a1a]/40 sm:p-6">
+            <div className="mb-8 flex min-h-[56px] items-start text-base font-medium text-gray-800 dark:text-white/90 font-sans sm:text-lg md:text-xl">
               <span>{text}</span>
               <motion.span
                 animate={{ opacity: [1, 0] }}
@@ -156,7 +155,7 @@ const Hero: React.FC = () => {
                 className="inline-block w-[3px] h-[24px] bg-[#ff7a00] ml-1 mt-1 flex-shrink-0"
               />
             </div>
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-white/5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-4 dark:border-white/5 sm:gap-4">
               <button type="button" className="flex items-center gap-2 text-gray-500 dark:text-white/40 hover:text-gray-700 dark:hover:text-white/60 transition-colors text-sm font-medium font-sans">
                 <span className="text-xl">+</span>
                 <div className="flex items-center gap-1.5">
@@ -194,13 +193,13 @@ const Hero: React.FC = () => {
           initial="hidden"
           animate="visible"
           custom={3}
-          className="flex flex-col md:flex-row items-center gap-8 mb-20"
+          className="mb-16 flex flex-col items-center gap-6 sm:mb-20 md:flex-row md:gap-8"
         >
           <motion.button
             onClick={() => navigateTo('auth')}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
-            className="btn-primary-orange group h-[60px] px-8 text-lg font-semibold flex items-center justify-between min-w-[260px] font-sans"
+            className="btn-primary-orange group flex h-[56px] w-full items-center justify-between px-6 text-base font-semibold font-sans sm:h-[60px] sm:w-auto sm:min-w-[260px] sm:px-8 sm:text-lg"
           >
             <span>Join now — it&apos;s free</span>
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center ml-4 group-hover:scale-110 transition-transform">
@@ -208,7 +207,7 @@ const Hero: React.FC = () => {
             </div>
           </motion.button>
 
-          <div className="flex items-center gap-12 relative">
+          <div className="relative flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-12">
             <div className="flex -space-x-3">
               {AVATARS.map((src, i) => (
                 <motion.div
@@ -223,7 +222,7 @@ const Hero: React.FC = () => {
               ))}
             </div>
             <div className="relative">
-              <p className="text-gray-500 dark:text-[#a1a1a1] uppercase text-[12px] font-bold tracking-widest leading-tight w-[200px] font-sans">
+              <p className="w-[180px] text-center text-[11px] font-bold uppercase leading-tight tracking-[0.2em] text-gray-500 dark:text-[#a1a1a1] font-sans sm:w-[200px] sm:text-left sm:text-[12px] sm:tracking-widest">
                 2k+ creators are already ahead of you.
               </p>
               <div className="absolute top-1/2 left-[-60px] transform -translate-y-1/2 rotate-[-10deg] hidden md:block opacity-40 text-gray-400 dark:text-white">
@@ -234,48 +233,6 @@ const Hero: React.FC = () => {
               </div>
             </div>
           </div>
-        </motion.div>
-
-        {/* Video / Hero visual */}
-        <motion.div
-          style={{ y: videoY }}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          custom={4}
-          className="w-full max-w-[1140px] relative mt-10"
-        >
-          <motion.div
-            animate={{
-              boxShadow: [
-                '0 0 60px rgba(255,122,0,0.1)',
-                '0 0 100px rgba(255,122,0,0.25)',
-                '0 0 60px rgba(255,122,0,0.1)',
-              ],
-            }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="relative aspect-video rounded-[24px] overflow-hidden border border-gray-200 dark:border-white/10 group"
-          >
-            <img
-              src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=675&fit=crop"
-              alt="Project Bazaar"
-              className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay transition-transform duration-700 group-hover:scale-[1.02]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <motion.div
-                whileHover={{ scale: 1.12 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{ scale: [1, 1.06, 1] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="w-20 h-20 rounded-full bg-[#ff7a00] flex items-center justify-center cursor-pointer shadow-[0_0_30px_rgba(255,122,0,0.4)]"
-              >
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </motion.div>
-            </div>
-          </motion.div>
         </motion.div>
       </div>
     </header>

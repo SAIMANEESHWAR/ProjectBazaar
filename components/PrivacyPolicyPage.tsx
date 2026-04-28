@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { useNavigation } from '../App';
+import { SITE_ORIGIN } from '@/lib/apiConfig';
 
-const SITE_NAME = 'Project Bazaar';
-const SITE_URL = 'https://projectbazaar.in';
+const SITE_NAME = 'CodeXCareer';
+const SITE_URL = SITE_ORIGIN;
 const SUPPORT_EMAIL = 'support@projectbazaar.com';
 const GRIEVANCE_EMAIL = 'grievance@projectbazaar.com';
 const EFFECTIVE_DATE = 'March 5, 2026';
