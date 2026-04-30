@@ -1,5 +1,5 @@
 # robots.txt for CodeXCareer
-# https://projectbazaar.in
+# https://codexcareer.com
 
 User-agent: *
 Allow: /
@@ -7,6 +7,7 @@ Allow: /faq
 Allow: /browse-projects
 Allow: /mock-assessment
 Allow: /coding-questions
+Allow: /blog
 Allow: /privacy
 Allow: /terms
 Allow: /sitemap.xml
@@ -29,7 +30,7 @@ Disallow: /static/
 Disallow: /assets/
 
 # Sitemaps
-Sitemap: https://projectbazaar.in/sitemap.xml
+Sitemap: https://codexcareer.com/sitemap.xml
 
 # Crawl-delay (optional, respected by some bots)
 Crawl-delay: 1

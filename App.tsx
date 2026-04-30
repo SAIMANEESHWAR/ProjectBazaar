@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
 import { SITE_ORIGIN } from './lib/apiConfig';
+import { trackPageView } from './lib/analytics';
 import { DashboardProvider } from './context/DashboardContext';
 import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
 import PeerInterviewBackendSync from './components/PeerInterviewBackendSync';
@@ -37,9 +38,11 @@ const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage'));
 const TermsAndConditionsPage = lazy(() => import('./components/TermsAndConditionsPage'));
 const ResumeBuilderPage = lazy(() => import('./components/resume-builder').then(m => ({ default: m.ResumeBuilderPage })));
 const LiveMockInterviewPage = lazy(() => import('./components/LiveMockInterviewPage'));
+const BlogPage = lazy(() => import('./components/BlogPage'));
+const BlogPostPage = lazy(() => import('./components/BlogPostPage'));
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'liveMockInterview' | 'privacy' | 'terms' | 'notFound';
+type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'liveMockInterview' | 'blog' | 'blogPost' | 'privacy' | 'terms' | 'notFound';
 type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
@@ -199,6 +202,8 @@ const PAGE_TITLES: Record<Page, string> = {
   mockHistory: 'Test History — Mock Assessments — CodeXCareer',
   codingQuestions: 'Coding Interview Questions — CodeXCareer',
   liveMockInterview: 'Live AI Mock Interview — CodeXCareer',
+  blog: 'Blog — Anayattics',
+  blogPost: 'Blog Article — Anayattics',
   privacy: 'Privacy Policy — CodeXCareer',
   terms: 'Terms & Conditions — CodeXCareer',
   notFound: 'Page Not Found — CodeXCareer',
@@ -211,41 +216,74 @@ const PAGE_META_DESCRIPTIONS: Record<string, string> = {
   mockAssessment: 'Practice with mock assessments and coding challenges on CodeXCareer. Prepare for technical interviews and track your progress.',
   codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on CodeXCareer.',
   liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on CodeXCareer.',
+  blog: 'Read analytics implementation guides, data strategy insights, and growth measurement best practices from the Anayattics team.',
+  blogPost: 'Detailed analytics implementation guide and expert insights from the Anayattics editorial team.',
   privacy: 'Learn how CodeXCareer collects, uses, and protects your personal data. Read our full privacy policy.',
   terms: 'Read the terms and conditions for using CodeXCareer, including marketplace rules, intellectual property, and payment terms.',
 };
 
+const DEFAULT_META_DESCRIPTION =
+  'CodeXCareer helps you discover projects, prepare for interviews, build portfolios, and grow with practical learning and marketplace tools.';
+
 function updatePageMeta(page: Page) {
-  document.title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  const title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  const description = PAGE_META_DESCRIPTIONS[page] || DEFAULT_META_DESCRIPTION;
+  const base = SITE_ORIGIN;
+  const pageToPath: Record<Page, string> = {
+    home: '/',
+    auth: '/auth',
+    dashboard: '/dashboard',
+    seller: '/seller',
+    admin: '/admin',
+    faq: '/faq',
+    browseProjects: '/browse-projects',
+    freelancerProfile: '/freelancer',
+    buildPortfolio: '/build-portfolio',
+    buildResume: '/build-resume',
+    mockAssessment: '/mock-assessment',
+    mockLeaderboard: '/mock-assessment/leaderboard',
+    mockAchievements: '/mock-assessment/achievements',
+    mockDailyChallenge: '/mock-assessment/daily-challenge',
+    mockHistory: '/mock-assessment/history',
+    codingQuestions: '/coding-questions',
+    liveMockInterview: '/live-mock-interview',
+    blog: '/blog',
+    blogPost: window.location.pathname.startsWith('/blog/') ? window.location.pathname : '/blog',
+    privacy: '/privacy',
+    terms: '/terms',
+    notFound: '/404',
+  };
+  const path = pageToPath[page] || '/';
+  const absoluteUrl = `${base}${path}`;
+
+  document.title = title;
 
   const descEl = document.querySelector('meta[name="description"]');
-  const desc = PAGE_META_DESCRIPTIONS[page];
-  if (descEl && desc) {
-    descEl.setAttribute('content', desc);
+  if (descEl) {
+    descEl.setAttribute('content', description);
   }
 
   const ogTitleEl = document.querySelector('meta[property="og:title"]');
-  if (ogTitleEl) ogTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+  if (ogTitleEl) ogTitleEl.setAttribute('content', title);
 
   const ogDescEl = document.querySelector('meta[property="og:description"]');
-  if (ogDescEl && desc) ogDescEl.setAttribute('content', desc);
+  if (ogDescEl) ogDescEl.setAttribute('content', description);
+
+  const ogUrlEl = document.querySelector('meta[property="og:url"]');
+  if (ogUrlEl) ogUrlEl.setAttribute('content', absoluteUrl);
 
   const twitterTitleEl = document.querySelector('meta[name="twitter:title"]');
-  if (twitterTitleEl) twitterTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+  if (twitterTitleEl) twitterTitleEl.setAttribute('content', title);
 
   const twitterDescEl = document.querySelector('meta[name="twitter:description"]');
-  if (twitterDescEl && desc) twitterDescEl.setAttribute('content', desc);
+  if (twitterDescEl) twitterDescEl.setAttribute('content', description);
+
+  const twitterUrlEl = document.querySelector('meta[name="twitter:url"]');
+  if (twitterUrlEl) twitterUrlEl.setAttribute('content', absoluteUrl);
 
   const canonicalEl = document.querySelector('link[rel="canonical"]');
   if (canonicalEl) {
-    const base = SITE_ORIGIN;
-    const pageToPath: Record<string, string> = {
-      home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
-      mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
-      liveMockInterview: '/live-mock-interview', privacy: '/privacy', terms: '/terms',
-    };
-    const path = pageToPath[page] || '/';
-    canonicalEl.setAttribute('href', `${base}${path}`);
+    canonicalEl.setAttribute('href', absoluteUrl);
   }
 }
 
@@ -254,10 +292,19 @@ const AppContent: React.FC = () => {
   const { isLoggedIn, userRole } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
+  const [blogSlug, setBlogSlug] = useState<string | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     updatePageMeta(page);
+    trackPageView(window.location.pathname, document.title);
+    if (page === 'blogPost') {
+      const path = window.location.pathname.replace(/\/+$/, '');
+      const match = path.match(/^\/blog\/([^/]+)$/);
+      setBlogSlug(match ? decodeURIComponent(match[1]) : null);
+    } else {
+      setBlogSlug(null);
+    }
 
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -313,6 +360,10 @@ const AppContent: React.FC = () => {
         return <CodingInterviewQuestionsPage />;
       case 'liveMockInterview':
         return <LiveMockInterviewPage />;
+      case 'blog':
+        return <BlogPage />;
+      case 'blogPost':
+        return <BlogPostPage slug={blogSlug} />;
       case 'privacy':
         return <PrivacyPolicyPage />;
       case 'terms':
@@ -401,6 +452,7 @@ const App: React.FC = () => {
         '/coding-questions': 'codingQuestions',
         '/coding-interview-questions': 'codingQuestions',
         '/live-mock-interview': 'liveMockInterview',
+        '/blog': 'blog',
         '/privacy': 'privacy',
         '/privacy-policy': 'privacy',
         '/terms': 'terms',
@@ -424,6 +476,8 @@ const App: React.FC = () => {
         'mockHistory': 'mockHistory',
         'codingQuestions': 'codingQuestions',
         'liveMockInterview': 'liveMockInterview',
+        'blog': 'blog',
+        'blogPost': 'blogPost',
         'privacy': 'privacy',
         'terms': 'terms',
         'notFound': 'notFound',
@@ -442,6 +496,12 @@ const App: React.FC = () => {
 
       // Don't interfere with static assets
       if (isStaticAsset) {
+        return;
+      }
+
+      if (/^\/blog\/[^/]+$/.test(normalizedPath)) {
+        setPage('blogPost');
+        localStorage.setItem('currentPage', 'blogPost');
         return;
       }
 
@@ -548,6 +608,8 @@ const App: React.FC = () => {
       'mockHistory': '/mock-assessment/history',
       'codingQuestions': '/coding-questions',
       'liveMockInterview': '/live-mock-interview',
+      'blog': '/blog',
+      'blogPost': '/blog',
       'privacy': '/privacy',
       'terms': '/terms',
       'notFound': '/404'
