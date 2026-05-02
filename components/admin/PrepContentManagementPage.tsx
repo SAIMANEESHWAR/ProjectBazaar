@@ -1,7 +1,7 @@
 import Editor from "@monaco-editor/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
-import AddQuestionPage from "./AddQuestionPage";
+import {AddQuestionPage, DeleteQuestions} from "./AddQuestionPage";
 import Modal from "./QuestionModal"
 import {
   dsaProblems,
@@ -881,6 +881,28 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
   const [sdError, setSdError] = useState<string | null>(null);
   const [oopsData, setOopsData] = useState(oopsConcepts);
   const [langData, setLangData] = useState(languageConcepts);
+const [editingItem, setEditingItem] = useState<any | null>(null);
+
+
+const InterviewEdit = (question: any) => {
+  // Ensure the question object has 'section'
+  // Logic: If the topic matches a DSA topic, it's likely "DSA", else it's "Interview Ques"
+  const dsaTopics = ["Array", "String", "Trees", "Graphs", "DP", "Stacks", "Queues", "Linked List"];
+  
+  const formattedItem = {
+    ...question,
+    section: question.section || (dsaTopics.includes(question.topic) ? "DSA" : "Interview Ques")
+  };
+
+  setEditingItem(formattedItem);
+  setShowAddModal(true);
+};
+
+const handleCloseModal = () => {
+  setShowAddModal(false);
+  setEditingItem(null); // Clear selection so next open is 'Add'
+};
+
 
   // SD modal state
   const [sdModal, setSdModal] = useState<{
@@ -939,20 +961,28 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
     setTimeout(() => setToast(null), 2500);
   };
 
-  const confirmDelete = (
-    name: string,
-    id: string | number,
-    setter: React.Dispatch<React.SetStateAction<any[]>>,
-  ) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-      )
-    ) {
-      setter((prev: any[]) => prev.filter((item: any) => item.id !== id));
-      showToast(`"${name}" deleted successfully`, "success");
+const confirmDelete = async (
+  name: string,
+  id: string,
+  setter: React.Dispatch<React.SetStateAction<any[]>>,
+) => {
+  if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+    try {
+      // 1. Call the actual API
+      const result = await DeleteQuestions(id);
+      
+      if (result.success || result.message?.includes("deleted")) {
+        // 2. Update local UI state only if API call succeeds
+        setter((prev: any[]) => prev.filter((item: any) => item.id !== id));
+        showToast(`"${name}" deleted successfully`, "success");
+      } else {
+        throw new Error(result.message || "Failed to delete from database");
+      }
+    } catch (error: any) {
+      alert(`Delete failed: ${error.message}`);
     }
-  };
+  }
+};
 
   const triggerEdit = (name: string) => {
     showToast(`Editing "${name}" — editor modal coming soon`, "info");
@@ -1177,7 +1207,6 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
         </div>
       )}
 
-      {/* ─── Interview Questions ─── */}
 {/* ─── Interview Questions ─── */}
 {activeTab === "questions" && (
   <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
@@ -1187,7 +1216,10 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
       btnLabel="Add Question"
       view={viewMode}
       onViewChange={setViewMode}
-      onAdd={() => setShowAddModal(true)}
+      onAdd={() => {
+        setEditingItem(null); // Ensure it's fresh
+        setShowAddModal(true);
+      }}
     />
     
     {loading ? (
@@ -1202,37 +1234,21 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
               <DiffBadge d={q.difficulty} />
               <ActionBtns
                 name={q.title}
-                onEdit={() => triggerEdit(q)}
+                onEdit={() => InterviewEdit(q)} // ✅ Pass the whole object
                 onDelete={() => confirmDelete(q.title, q.id, setIqData)}
               />
             </div>
             <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
-              {q.title} {/* ✅ Changed from q.question */}
+              {q.title}
             </h4>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full ring-1 ring-orange-100">
-                {q.company}
-              </span>
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
-                {q.topic} {/* ✅ Changed from q.category */}
-              </span>
-            </div>
+            {/* ... badges ... */}
           </CardShell>
         ))}
       </div>
     ) : (
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
+          {/* ... thead ... */}
           <tbody className="divide-y divide-gray-200">
             {iqData.map((q: any, i: number) => (
               <tr key={q.id} className="hover:bg-gray-50">
@@ -1248,7 +1264,7 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
                 <td className="px-6 py-4">
                   <ActionBtns
                     name={q.title}
-                    onEdit={() => triggerEdit(q)}
+                    onEdit={() => InterviewEdit(q)} // ✅ Pass the whole object
                     onDelete={() => confirmDelete(q.title, q.id, setIqData)}
                   />
                 </td>
@@ -1258,9 +1274,12 @@ const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
         </table>
       </div>
     )}
+
+    {/* Unified Modal */}
     {showAddModal && (
       <AddQuestionPage
-        onClose={() => setShowAddModal(false)}
+        item={editingItem} // ✅ Pass the object if editing, null if adding
+        onClose={handleCloseModal} // ✅ Uses the handler that resets state
         onRefresh={fetchQuestions}
       />
     )}
