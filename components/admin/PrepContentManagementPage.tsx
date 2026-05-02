@@ -1,12 +1,13 @@
 import Editor from "@monaco-editor/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
+import {AddQuestionPage, DeleteQuestions} from "./AddQuestionPage";
+import Modal from "./QuestionModal"
 import {
-  interviewQuestions,
   dsaProblems,
   quizzes,
   coldDMTemplates,
-  massRecruitmentCompanies,
+  CompanyNames,
   jobPortals,
   handwrittenNotes,
   roadmaps,
@@ -16,17 +17,35 @@ import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
 import { DiagramData } from "../../data/systemDesignData";
 import { prepAdminApi } from "../../services/preparationApi";
 
+interface DynamoDBString { S: string; }
+
+interface RawDynamoQuestion {
+  id: DynamoDBString;
+  pk?: DynamoDBString;
+  title: DynamoDBString;
+  company: DynamoDBString;
+  topic: DynamoDBString;
+  difficulty: DynamoDBString;
+  description: DynamoDBString;
+}
+
+interface InterviewQuestion {
+  id: string;
+  title: string;
+  company: string;
+  topic: string;
+  difficulty: string;
+  description: string;
+}
+
 type PrepTab =
   | "overview"
-  | "interview-questions"
-  | "dsa"
+  | "questions"
   | "quizzes"
   | "cold-dms"
   | "job-portals"
   | "notes"
   | "roadmaps"
-  | "mass-recruitment"
-  | "positions"
   | "hld"
   | "lld"
   | "oops"
@@ -48,14 +67,7 @@ interface AdminSDQuestion {
   updatedAt?: string;
 }
 
-const SD_SECTIONS_HLD = ["System Design", "Distributed Systems"];
-const SD_SECTIONS_LLD = [
-  "Object-Oriented Design",
-  "System Design",
-  "Game Design",
-  "Data Structures",
-  "Design Patterns",
-];
+//////////////////// constants ------------------
 
 const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
   subtitle: "",
@@ -73,6 +85,24 @@ const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
   edges: [],
   legend: [{ color: "#1e3a8a", label: "Service" }],
 };
+
+// ✅ Fetch from CloudShell Backend
+
+
+const SD_SECTIONS_HLD = ["System Design", "Distributed Systems"];
+const SD_SECTIONS_LLD = [
+  "Object-Oriented Design",
+  "System Design",
+  "Game Design",
+  "Data Structures",
+  "Design Patterns",
+];
+
+
+
+
+// const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
+// const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
 
 const parseDiagramDataShape = (
   value: string,
@@ -101,8 +131,7 @@ const parseDiagramDataShape = (
 
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "interview-questions", label: "Interview Qs" },
-  { id: "dsa", label: "DSA" },
+  { id: "questions", label: "Questions" },
   { id: "hld", label: "HLD" },
   { id: "lld", label: "LLD" },
   { id: "oops", label: "OOPs" },
@@ -112,10 +141,9 @@ const tabs: { id: PrepTab; label: string }[] = [
   { id: "job-portals", label: "Job Portals" },
   { id: "notes", label: "Notes" },
   { id: "roadmaps", label: "Roadmaps" },
-  { id: "mass-recruitment", label: "Mass Recruit" },
-  { id: "positions", label: "Positions" },
 ];
 
+// ------------UI components --------------
 const EditIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -173,13 +201,15 @@ const ActionBtns: React.FC<{
   </div>
 );
 
-const DiffBadge: React.FC<{ d: string }> = ({ d }) => (
-  <span
-    className={`px-2.5 py-1 text-xs font-semibold rounded-full ${d === "Easy" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : d === "Medium" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200" : "bg-red-50 text-red-700 ring-1 ring-red-200"}`}
-  >
-    {d}
-  </span>
-);
+const DiffBadge: React.FC<{ d: string }> = ({ d }) => {
+  const normalized = d ? d.charAt(0).toUpperCase() + d.slice(1).toLowerCase() : "Medium";
+  const styles: Record<string, string> = {
+    Easy: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    Medium: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    Hard: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  };
+  return <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${styles[normalized] || styles.Medium}`}>{normalized}</span>;
+};
 
 const ViewToggle: React.FC<{
   view: "table" | "grid";
@@ -230,11 +260,13 @@ const ViewToggle: React.FC<{
 const SectionHeader: React.FC<{
   title: string;
   count: number;
-  btnLabel: string;
+  btnLabel?: string;
   view: "table" | "grid";
   onViewChange: (v: "table" | "grid") => void;
   onAdd?: () => void;
-}> = ({ title, count, btnLabel, view, onViewChange, onAdd }) => (
+  // New prop to inject additional buttons
+  renderExtraActions?: () => React.ReactNode;
+}> = ({ title, count, btnLabel, view, onViewChange, onAdd, renderExtraActions }) => (
   <div className="p-5 border-b border-gray-200 flex items-center justify-between gap-3">
     <h3 className="text-lg font-semibold text-gray-900">
       {title}{" "}
@@ -242,12 +274,18 @@ const SectionHeader: React.FC<{
     </h3>
     <div className="flex items-center gap-3">
       <ViewToggle view={view} onChange={onViewChange} />
-      <button
-        onClick={onAdd}
-        className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm"
-      >
-        {btnLabel}
-      </button>
+
+      {/* This will render the 2nd button only if the prop is provided */}
+      {renderExtraActions && renderExtraActions()}
+
+      {btnLabel && (
+        <button
+          onClick={onAdd}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm"
+        >
+          {btnLabel}
+        </button>
+      )}
     </div>
   </div>
 );
@@ -409,6 +447,11 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
     return uploadData.publicUrl;
   };
 
+  const [iqData, setIqData] = useState([]);
+const [loading, setLoading] = useState(true);
+
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setDiagramError(null);
@@ -472,10 +515,10 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
   const parsedDiagram = parseDiagramDataShape(form.diagramData);
   const diagramSummary = parsedDiagram.data
     ? {
-        nodes: parsedDiagram.data.nodes.length,
-        edges: parsedDiagram.data.edges.length,
-        legend: parsedDiagram.data.legend.length,
-      }
+      nodes: parsedDiagram.data.nodes.length,
+      edges: parsedDiagram.data.edges.length,
+      legend: parsedDiagram.data.legend.length,
+    }
     : null;
 
   return (
@@ -780,6 +823,10 @@ const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
 };
 
 const PrepContentManagementPage: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  const [iqData, setIqData] = useState<any[]>([]); // Your existing data state
+const [loading, setLoading] = useState(true);   // ✅ ADD THIS LINE
+
   const [activeTab, setActiveTab] = useState<PrepTab>("overview");
   const [toast, setToast] = useState<{
     message: string;
@@ -787,14 +834,46 @@ const PrepContentManagementPage: React.FC = () => {
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const [iqData, setIqData] = useState(interviewQuestions);
+  const fetchQuestions = useCallback(async () => {
+    setLoading(true);
+    console.log("fetchQuestions: starting data fetch...");
+    try {
+      const url = "https://rls3p3m4fd.execute-api.ap-south-2.amazonaws.com/questions_user_handler";
+      const response = await fetch(url);
+      console.log("Response received:", response.status);
+      const rawData = await response.json();
+
+      // DEBUG: See exactly what the API is sending back
+      console.log("API Response:", rawData);
+
+      // Ensure we are working with an array. 
+      const dataToMap = Array.isArray(rawData) ? rawData : (rawData.items || []);
+
+      const cleanData = dataToMap.map((item: any) => ({
+        id: item.id?.S || item.id || item.pk?.S || item.pk,
+        title: item.title?.S || item.title || "No Title",
+        company: item.company?.S || item.company || "Unknown",
+        topic: item.topic?.S || item.topic || "General",
+        difficulty: item.difficulty?.S || item.difficulty || "Medium",
+        description: item.description?.S || item.description || ""
+      }));
+
+      setIqData(cleanData);
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // const [iqData, setIqData] = useState<any[]>([]);
   const [dsaData, setDsaData] = useState(dsaProblems);
   const [quizData, setQuizData] = useState(quizzes);
   const [dmData, setDmData] = useState(coldDMTemplates);
   const [jpData, setJpData] = useState(jobPortals);
   const [noteData, setNoteData] = useState(handwrittenNotes);
   const [rmData, setRmData] = useState(roadmaps);
-  const [mrData, setMrData] = useState(massRecruitmentCompanies);
+  const [mrData, setMrData] = useState(CompanyNames);
   const [posData, setPosData] = useState(positionResources);
   const [hldData, setHldData] = useState<AdminSDQuestion[]>([]);
   const [lldData, setLldData] = useState<AdminSDQuestion[]>([]);
@@ -802,6 +881,28 @@ const PrepContentManagementPage: React.FC = () => {
   const [sdError, setSdError] = useState<string | null>(null);
   const [oopsData, setOopsData] = useState(oopsConcepts);
   const [langData, setLangData] = useState(languageConcepts);
+const [editingItem, setEditingItem] = useState<any | null>(null);
+
+
+const InterviewEdit = (question: any) => {
+  // Ensure the question object has 'section'
+  // Logic: If the topic matches a DSA topic, it's likely "DSA", else it's "Interview Ques"
+  const dsaTopics = ["Array", "String", "Trees", "Graphs", "DP", "Stacks", "Queues", "Linked List"];
+  
+  const formattedItem = {
+    ...question,
+    section: question.section || (dsaTopics.includes(question.topic) ? "DSA" : "Interview Ques")
+  };
+
+  setEditingItem(formattedItem);
+  setShowAddModal(true);
+};
+
+const handleCloseModal = () => {
+  setShowAddModal(false);
+  setEditingItem(null); // Clear selection so next open is 'Add'
+};
+
 
   // SD modal state
   const [sdModal, setSdModal] = useState<{
@@ -810,6 +911,7 @@ const PrepContentManagementPage: React.FC = () => {
     item?: AdminSDQuestion | null;
   }>({ open: false, designType: "hld" });
   const [sdSaving, setSdSaving] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   // Delete confirmation modal state (for SD; other tabs use window.confirm for now)
   const [deleteModal, setDeleteModal] = useState<{
     id: string;
@@ -839,36 +941,48 @@ const PrepContentManagementPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (activeTab === "questions") {
+      fetchQuestions();
+    }
     if (activeTab === "hld") loadSdContent("hld");
     if (activeTab === "lld") loadSdContent("lld");
-  }, [activeTab, loadSdContent]);
+  }, [activeTab, loadSdContent, fetchQuestions]);
 
   // Pre-load SD counts for the overview
   useEffect(() => {
+    fetchQuestions();
     loadSdContent("hld");
     loadSdContent("lld");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchQuestions, loadSdContent]);
 
   const showToast = (message: string, type: "success" | "info" = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
   };
 
-  const confirmDelete = (
-    name: string,
-    id: string | number,
-    setter: React.Dispatch<React.SetStateAction<any[]>>,
-  ) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-      )
-    ) {
-      setter((prev: any[]) => prev.filter((item: any) => item.id !== id));
-      showToast(`"${name}" deleted successfully`, "success");
+const confirmDelete = async (
+  name: string,
+  id: string,
+  setter: React.Dispatch<React.SetStateAction<any[]>>,
+) => {
+  if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+    try {
+      // 1. Call the actual API
+      const result = await DeleteQuestions(id);
+      
+      if (result.success || result.message?.includes("deleted")) {
+        // 2. Update local UI state only if API call succeeds
+        setter((prev: any[]) => prev.filter((item: any) => item.id !== id));
+        showToast(`"${name}" deleted successfully`, "success");
+      } else {
+        throw new Error(result.message || "Failed to delete from database");
+      }
+    } catch (error: any) {
+      alert(`Delete failed: ${error.message}`);
     }
-  };
+  }
+};
 
   const triggerEdit = (name: string) => {
     showToast(`Editing "${name}" — editor modal coming soon`, "info");
@@ -1038,11 +1152,10 @@ const PrepContentManagementPage: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-              activeTab === tab.id
-                ? "bg-orange-500 text-white shadow-sm"
-                : "text-gray-600 hover:bg-orange-50"
-            }`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === tab.id
+              ? "bg-orange-500 text-white shadow-sm"
+              : "text-gray-600 hover:bg-orange-50"
+              }`}
           >
             {tab.label}
           </button>
@@ -1094,217 +1207,84 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Interview Questions ─── */}
-      {activeTab === "interview-questions" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Interview Questions"
-            count={iqData.length}
-            btnLabel="Add Question"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {iqData.map((q) => (
-                <CardShell key={q.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={q.difficulty} />
-                    <ActionBtns
-                      name={q.question}
-                      onEdit={() => triggerEdit(q.question)}
-                      onDelete={() =>
-                        confirmDelete(q.question, q.id, setIqData)
-                      }
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
-                    {q.question}
-                  </h4>
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
-                      {q.category}
-                    </span>
-                  </div>
-                </CardShell>
-              ))}
+{/* ─── Interview Questions ─── */}
+{activeTab === "questions" && (
+  <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+    <SectionHeader
+      title="Interview Questions"
+      count={iqData.length}
+      btnLabel="Add Question"
+      view={viewMode}
+      onViewChange={setViewMode}
+      onAdd={() => {
+        setEditingItem(null); // Ensure it's fresh
+        setShowAddModal(true);
+      }}
+    />
+    
+    {loading ? (
+       <div className="p-10 text-center text-gray-500">Loading from DynamoDB...</div>
+    ) : iqData.length === 0 ? (
+       <div className="p-10 text-center text-gray-500">No questions found in this category.</div>
+    ) : isGrid ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+        {iqData.map((q: any) => (
+          <CardShell key={q.id}>
+            <div className="flex items-start justify-between mb-3">
+              <DiffBadge d={q.difficulty} />
+              <ActionBtns
+                name={q.title}
+                onEdit={() => InterviewEdit(q)} // ✅ Pass the whole object
+                onDelete={() => confirmDelete(q.title, q.id, setIqData)}
+              />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Question
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {iqData.map((q, i) => (
-                    <tr key={q.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
-                        {q.question}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={q.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.category}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={q.question}
-                          onEdit={() => triggerEdit(q.question)}
-                          onDelete={() =>
-                            confirmDelete(q.question, q.id, setIqData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+            <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+              {q.title}
+            </h4>
+            {/* ... badges ... */}
+          </CardShell>
+        ))}
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          {/* ... thead ... */}
+          <tbody className="divide-y divide-gray-200">
+            {iqData.map((q: any, i: number) => (
+              <tr key={q.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate font-medium">
+                  {q.title}
+                </td>
+                <td className="px-6 py-4 text-xs text-gray-500 font-bold uppercase">{q.company}</td>
+                <td className="px-6 py-4 text-xs text-gray-500">{q.topic}</td>
+                <td className="px-6 py-4">
+                  <DiffBadge d={q.difficulty} />
+                </td>
+                <td className="px-6 py-4">
+                  <ActionBtns
+                    name={q.title}
+                    onEdit={() => InterviewEdit(q)} // ✅ Pass the whole object
+                    onDelete={() => confirmDelete(q.title, q.id, setIqData)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
 
-      {/* ─── DSA Problems ─── */}
-      {activeTab === "dsa" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="DSA Problems"
-            count={dsaData.length}
-            btnLabel="Add Problem"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {dsaData.map((p) => (
-                <CardShell key={p.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={p.difficulty} />
-                    <ActionBtns
-                      name={p.title}
-                      onEdit={() => triggerEdit(p.title)}
-                      onDelete={() => confirmDelete(p.title, p.id, setDsaData)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {p.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {p.description}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">
-                      {p.topic}
-                    </span>
-                    {p.company.slice(0, 2).map((c) => (
-                      <span
-                        key={c}
-                        className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                    {p.company.length > 2 && (
-                      <span className="text-xs text-gray-400">
-                        +{p.company.length - 2}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3 text-xs text-gray-400">
-                    Acceptance: {p.acceptance}%
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Topic
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Companies
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {dsaData.map((p, i) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {p.title}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={p.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {p.topic}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-1 flex-wrap">
-                          {p.company.slice(0, 2).map((c) => (
-                            <span
-                              key={c}
-                              className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
-                            >
-                              {c}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={p.title}
-                          onEdit={() => triggerEdit(p.title)}
-                          onDelete={() =>
-                            confirmDelete(p.title, p.id, setDsaData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+    {/* Unified Modal */}
+    {showAddModal && (
+      <AddQuestionPage
+        item={editingItem} // ✅ Pass the object if editing, null if adding
+        onClose={handleCloseModal} // ✅ Uses the handler that resets state
+        onRefresh={fetchQuestions}
+      />
+    )}
+  </div>
+)}
 
       {/* ─── Quizzes ─── */}
       {activeTab === "quizzes" && (
@@ -1865,15 +1845,39 @@ const PrepContentManagementPage: React.FC = () => {
       )}
 
       {/* ─── Mass Recruitment ─── */}
-      {activeTab === "mass-recruitment" && (
+      {/* {activeTab === "mass-recruitment" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <SectionHeader
             title="Mass Recruitment Companies"
             count={mrData.length}
-            btnLabel="Add Company"
             view={viewMode}
             onViewChange={setViewMode}
+            btnLabel="Add Question"
+            onAdd={() => setShowAddModal(true)}
+            // Adding the second button here
+            renderExtraActions={() => (
+              <div>
+                <button
+                  onClick={() => setOpen(true)}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors shadow-sm"
+                >
+                  Add Company
+                </button>
+                <Modal isOpen={open} onClose={() => setOpen(false)} />
+              </div>
+            )}
           />
+          {showAddModal && (
+            <AddQuestionPage
+              onClose={() => setShowAddModal(false)}
+              onSave={async (data) => {
+                // If you want to handle the data here (e.g., API call)
+                console.log("Saving data:", data);
+                setShowAddModal(false);
+                showToast("Question added successfully", "success");
+              }}
+            />
+          )}
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
               {mrData.map((company) => (
@@ -1987,7 +1991,8 @@ const PrepContentManagementPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      )
+      } */}
 
       {/* ─── HLD ─── */}
       {activeTab === "hld" && (
@@ -2451,136 +2456,6 @@ const PrepContentManagementPage: React.FC = () => {
                           onEdit={() => triggerEdit(c.title)}
                           onDelete={() =>
                             confirmDelete(c.title, c.id, setLangData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── Positions ─── */}
-      {activeTab === "positions" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Position Resources"
-            count={posData.length}
-            btnLabel="Add Position"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {posData.map((pos) => (
-                <CardShell key={pos.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-semibold text-gray-900 text-sm">
-                      {pos.role}
-                    </h4>
-                    <ActionBtns
-                      name={pos.role}
-                      onEdit={() => triggerEdit(pos.role)}
-                      onDelete={() =>
-                        confirmDelete(pos.role, pos.id, setPosData)
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-blue-50 rounded-lg p-2 text-center ring-1 ring-blue-100">
-                      <p className="text-base font-bold text-blue-700">
-                        {pos.interviewQuestions}
-                      </p>
-                      <p className="text-[10px] text-blue-500">Interview</p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-lg p-2 text-center ring-1 ring-emerald-100">
-                      <p className="text-base font-bold text-emerald-700">
-                        {pos.dsaQuestions}
-                      </p>
-                      <p className="text-[10px] text-emerald-500">DSA</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-2 text-center ring-1 ring-amber-100">
-                      <p className="text-base font-bold text-amber-700">
-                        {pos.aptitudeQuestions}
-                      </p>
-                      <p className="text-[10px] text-amber-500">Aptitude</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="bg-purple-50 rounded-lg p-2 text-center ring-1 ring-purple-100">
-                      <p className="text-base font-bold text-purple-700">
-                        {pos.sqlQuestions}
-                      </p>
-                      <p className="text-[10px] text-purple-500">SQL</p>
-                    </div>
-                    <div className="bg-pink-50 rounded-lg p-2 text-center ring-1 ring-pink-100">
-                      <p className="text-base font-bold text-pink-700">
-                        {pos.coreCSQuestions}
-                      </p>
-                      <p className="text-[10px] text-pink-500">Core CS</p>
-                    </div>
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interview Qs
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      DSA
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Aptitude
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      SQL
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Core CS
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {posData.map((pos) => (
-                    <tr key={pos.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {pos.role}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.interviewQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.dsaQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.aptitudeQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.sqlQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.coreCSQuestions}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={pos.role}
-                          onEdit={() => triggerEdit(pos.role)}
-                          onDelete={() =>
-                            confirmDelete(pos.role, pos.id, setPosData)
                           }
                         />
                       </td>

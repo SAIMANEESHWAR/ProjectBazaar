@@ -13,6 +13,7 @@
     "seed:prep": "npx tsx scripts/uploadPrepSeed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1024.0",
     "@monaco-editor/react": "^4.7.0",
     "@motionone/utils": "^10.18.0",
     "@number-flow/react": "^0.5.10",
