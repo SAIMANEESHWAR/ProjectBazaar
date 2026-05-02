@@ -1,0 +1,189 @@
+/**
+ * Shepherd Tour Styling — CodeXCareer
+ * Brand: #ff7a00 orange · always light mode
+ */
+
+/* ========== ENTRANCE ANIMATION ========== */
+@keyframes shepherdFadeInSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== TOUR STEP CONTAINER ========== */
+.shepherd-step-custom {
+  color-scheme: light;                          /* lock to light regardless of OS dark mode */
+  border-radius: 16px;
+  min-width: 320px;
+  max-width: 380px;
+  overflow: hidden;
+  background: #ffffff !important;
+  border: none;
+  border-top: 3px solid #ff7a00;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  animation: shepherdFadeInSlideUp 200ms ease forwards;
+}
+
+/* ========== SHEPHERD CONTENT WRAPPER — neutralize base CSS clipping ========== */
+/* Shepherd's base CSS wraps everything in .shepherd-content which clips our header gradient.
+   This resets it so our header/footer/body styling takes full effect. */
+.shepherd-step-custom .shepherd-content {
+  background: #ffffff !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ========== HEADER ========== */
+.shepherd-step-custom .shepherd-header {
+  background: linear-gradient(90deg, #ff7a00, #ff9533) !important;
+  padding: 0 !important;
+  border-radius: 13px 13px 0 0 !important;
+}
+
+.shepherd-step-custom .shepherd-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  margin: 0;
+  background: linear-gradient(90deg, #ff7a00, #ff9533);
+  color: #ffffff !important;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 13px 13px 0 0;
+  border: none;
+}
+
+/* ========== BODY ========== */
+.shepherd-step-custom .shepherd-text {
+  padding: 16px 20px;
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563 !important;
+  background: #ffffff !important;
+}
+
+/* ========== FOOTER ========== */
+.shepherd-step-custom .shepherd-footer,
+.shepherd-element .shepherd-footer,
+.shepherd-footer {
+  display: flex !important;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  margin: 0;
+  border-top: 1px solid #f3f4f6 !important;
+  background: #ffffff !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 10000 !important;
+}
+
+/* ========== BUTTONS — base ========== */
+.shepherd-button {
+  position: relative;
+  z-index: 10001 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: all 300ms ease !important;
+  user-select: none;
+  color: inherit !important;
+}
+
+/* Primary — last button (Next / Done) */
+.shepherd-footer .shepherd-button:last-child {
+  background: linear-gradient(90deg, #ff7a00, #ff9533) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 0, 0.3) !important;
+  font-weight: 600 !important;
+}
+.shepherd-footer .shepherd-button:last-child:hover {
+  filter: brightness(1.1) !important;
+  box-shadow: 0 6px 20px rgba(255, 122, 0, 0.4) !important;
+  transform: translateY(-2px) !important;
+}
+.shepherd-footer .shepherd-button:last-child:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(255, 122, 0, 0.2) !important;
+}
+
+/* Secondary — first button (Skip Tour) */
+.shepherd-footer .shepherd-button:first-child {
+  background: #ffffff !important;
+  color: #6b7280 !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: none !important;
+}
+.shepherd-footer .shepherd-button:first-child:hover {
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+  color: #374151 !important;
+}
+.shepherd-footer .shepherd-button:first-child:active {
+  background: #f3f4f6 !important;
+}
+
+/* ========== Z-INDEX ========== */
+.shepherd-element {
+  z-index: 9999 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* ========== MODAL OVERLAY ========== */
+.shepherd-modal-overlay-container {
+  display: block !important;
+  z-index: 9998 !important;
+  pointer-events: none;
+}
+.shepherd-modal-overlay-container path {
+  fill: rgba(0, 0, 0, 0.5) !important;
+  stroke: #ff7a00 !important;
+  stroke-width: 4px !important;
+}
+
+/* ========== ARROW ========== */
+.shepherd-step-custom.shepherd-element[data-popper-placement^='top']    > .popper__arrow::after { border-top-color: #ff7a00; }
+.shepherd-step-custom.shepherd-element[data-popper-placement^='bottom'] > .popper__arrow::after { border-bottom-color: #ff7a00; }
+.shepherd-step-custom.shepherd-element[data-popper-placement^='left']   > .popper__arrow::after { border-left-color: #ff7a00; }
+.shepherd-step-custom.shepherd-element[data-popper-placement^='right']  > .popper__arrow::after { border-right-color: #ff7a00; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .shepherd-step-custom { min-width: 280px; max-width: 90vw; }
+  .shepherd-step-custom .shepherd-title { padding: 12px 16px; font-size: 14px; }
+  .shepherd-step-custom .shepherd-text  { padding: 14px 16px; font-size: 13px; }
+  .shepherd-step-custom .shepherd-footer { padding: 10px 16px; gap: 6px; }
+}
+
+@media (max-width: 480px) {
+  .shepherd-step-custom { min-width: auto; max-width: 95vw; border-radius: 12px; }
+  .shepherd-step-custom .shepherd-title  { padding: 12px 14px; font-size: 13px; }
+  .shepherd-step-custom .shepherd-text   { padding: 12px 14px; font-size: 12px; }
+  .shepherd-step-custom .shepherd-footer { padding: 10px 14px; gap: 6px; flex-direction: column-reverse; }
+  .shepherd-button { width: 100% !important; }
+}
+
+/* ========== WELCOME STEP — centered via JS in ShepherdTourWrapper (tour 'show' event) ========== */
+/* Shepherd injects inline left/top styles that override CSS !important.
+   Centering is applied in ShepherdTourWrapper.tsx via requestAnimationFrame on the show event. */

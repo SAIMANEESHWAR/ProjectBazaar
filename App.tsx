@@ -9,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
 import CookieConsent from './components/CookieConsent';
 import SkipNav from './components/SkipNav';
+import { ShepherdTourWrapper } from './components/tours/ShepherdTourWrapper';
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -669,7 +670,9 @@ const App: React.FC = () => {
                 <PeerInterviewBackendSync />
                 <SocketProvider>
                   <NavigationContext.Provider value={{ page, navigateTo }}>
-                    <AppContent />
+                    <ShepherdTourWrapper>
+                      <AppContent />
+                    </ShepherdTourWrapper>
                     <CookieConsent />
                   </NavigationContext.Provider>
                 </SocketProvider>

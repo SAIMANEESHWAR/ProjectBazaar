@@ -225,6 +225,7 @@ interface FeatureCardConfig {
     target: FeatureCardTarget;
     showAnimation?: boolean;
     animationData?: unknown;
+    dataTour?: string;
 }
 
 interface UpcomingActivityItem {
@@ -240,6 +241,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         gridClass: 'xl:col-span-7 xl:h-[220px]',
         target: { mode: 'jobHunt', view: 'job-hunt' },
         animationData: studentCardAnimation,
+        dataTour: 'job-hunt-card',
     },
     {
         title: 'Preparation Mode',
@@ -248,6 +250,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         gridClass: 'xl:col-span-5 xl:h-[220px]',
         target: { mode: 'preparation', view: 'prep-hub' },
         animationData: preparationModeELearningAnimation,
+        dataTour: 'prep-mode-card',
     },
     {
         title: 'Live AI Interviews',
@@ -256,6 +259,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'live-mock-interview' },
         showAnimation: false,
+        dataTour: 'live-ai-card',
     },
     {
         title: 'Hackathons',
@@ -264,6 +268,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'hackathons' },
         showAnimation: false,
+        dataTour: 'hackathons-card',
     },
     {
         title: 'ATS Scorer',
@@ -272,6 +277,7 @@ const FEATURE_CARDS: FeatureCardConfig[] = [
         gridClass: 'xl:col-span-4 xl:h-[180px]',
         target: { mode: 'buyer', view: 'ats-scorer' },
         showAnimation: false,
+        dataTour: 'ats-card',
     },
     {
         title: 'Coding Questions',
@@ -333,6 +339,7 @@ const DashboardFeatureCard: React.FC<{
     <button
         type="button"
         onClick={onClick}
+        {...(card.dataTour ? { 'data-tour': card.dataTour } : {})}
         className={`${card.accentClass} relative flex h-full w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-gray-200 p-6 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
     >
         <span className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/28 text-base leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] backdrop-blur-md">
