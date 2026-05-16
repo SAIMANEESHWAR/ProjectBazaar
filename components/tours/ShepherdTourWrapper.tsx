@@ -4,6 +4,13 @@ import type { Tour } from 'shepherd.js';
 import 'shepherd.js/dist/css/shepherd.css';
 import './shepherd-tour.css';
 import { useAuth, useNavigation } from '../../App';
+import {
+  hasPendingOnboardingTour,
+  isOnboardingTourComplete,
+  markOnboardingTourComplete,
+  resolveUserId,
+  tourDoneKey,
+} from '../../lib/onboardingTour';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -13,6 +20,7 @@ const TOUR_TARGET_SELECTORS = [
   '[data-tour="job-hunt-card"]',
   '[data-tour="prep-mode-card"]',
   '[data-tour="live-ai-card"]',
+  '[data-tour="hackathons-card"]',
   '[data-tour="ats-card"]',
 ] as const;
 
@@ -20,7 +28,45 @@ const DOM_WAIT_TIMEOUT_MS  = 8_000;
 const DOM_SETTLE_DELAY_MS  = 300;
 const MAX_RETRIES          = 1;
 
-const tourKey = (uid: string) => `tourDone_${uid}`;
+const TOUR_STEPS = [
+  {
+    id: 'step-01-job-hunt',
+    title: 'Job Hunt',
+    text: 'Browse roles and track applications quickly. Tap this card to open listings, filters, and your application pipeline.',
+    attachTo: { element: '[data-tour="job-hunt-card"]', on: 'bottom' as const },
+    icon: '↗',
+  },
+  {
+    id: 'step-02-prep',
+    title: 'Preparation Mode',
+    text: 'Practice DSA, system design, and interview rounds in one hub. Use this card to start structured prep modules.',
+    attachTo: { element: '[data-tour="prep-mode-card"]', on: 'bottom' as const },
+    icon: '◆',
+  },
+  {
+    id: 'step-03-live-ai',
+    title: 'Live AI Interviews',
+    text: 'Simulate real interviews with instant feedback. Open this card to start a voice mock interview anytime.',
+    attachTo: { element: '[data-tour="live-ai-card"]', on: 'top' as const },
+    icon: '◎',
+  },
+  {
+    id: 'step-04-hackathons',
+    title: 'Hackathons',
+    text: 'Find upcoming hackathons and register faster. This card takes you to live events, deadlines, and sign-up links.',
+    attachTo: { element: '[data-tour="hackathons-card"]', on: 'top' as const },
+    icon: '★',
+  },
+  {
+    id: 'step-05-ats',
+    title: 'ATS Scorer',
+    text: 'Check your resume match score before applying. Upload or paste your resume here to see how well it fits a role.',
+    attachTo: { element: '[data-tour="ats-card"]', on: 'top' as const },
+    icon: '✓',
+  },
+] as const;
+
+const TOTAL_STEPS = TOUR_STEPS.length;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -41,14 +87,9 @@ declare global {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (A) CONTROLLER LOGIC
-// Unified async controller — both auto-start and manual trigger run through here.
-// All cancellation is handled via a single AbortController signal.
-// No global flags, no mixed patterns.
+// CONTROLLER
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Waits until all selectors are present in the DOM, or timeout/abort occurs.
- *  Uses rAF when tab is visible, setTimeout(100) when hidden — both paths check abort. */
 function waitForSelectors(
   selectors: readonly string[],
   timeoutMs: number,
@@ -67,7 +108,6 @@ function waitForSelectors(
         return resolve('ready');
       }
 
-      // rAF is suspended in background tabs — fall back to setTimeout there
       if (document.visibilityState === 'hidden') {
         setTimeout(tick, 100);
       } else {
@@ -76,17 +116,14 @@ function waitForSelectors(
     };
 
     requestAnimationFrame(tick);
-
-    // Also resolve immediately if aborted externally while waiting
     signal.addEventListener('abort', () => resolve('aborted'), { once: true });
   });
 }
 
-/** Waits until the tab is visible, or aborts. Returns false if aborted. */
 function waitForVisible(signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
-    if (signal.aborted)                              return resolve(false);
-    if (document.visibilityState === 'visible')      return resolve(true);
+    if (signal.aborted)                         return resolve(false);
+    if (document.visibilityState === 'visible') return resolve(true);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
@@ -106,7 +143,6 @@ function waitForVisible(signal: AbortSignal): Promise<boolean> {
   });
 }
 
-/** Waits for a settled delay via setTimeout, abort-aware. */
 function settleDelay(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve(false);
@@ -114,6 +150,41 @@ function settleDelay(ms: number, signal: AbortSignal): Promise<boolean> {
     const id = setTimeout(() => resolve(true), ms);
     signal.addEventListener('abort', () => { clearTimeout(id); resolve(false); }, { once: true });
   });
+}
+
+function shouldAutoStartTour(userId: string, force?: boolean): boolean {
+  if (force) return true;
+  if (!hasPendingOnboardingTour()) return false;
+  return !isOnboardingTourComplete(userId);
+}
+
+function applyStepChrome(tour: Tour): void {
+  const current = tour.getCurrentStep();
+  if (!current?.el) return;
+
+  const index = tour.steps.indexOf(current);
+  if (index < 0) return;
+
+  const meta = TOUR_STEPS[index];
+  if (!meta) return;
+
+  current.el.dataset.shepherdStepId = meta.id;
+
+  const iconEl = current.el.querySelector('.shepherd-step-icon');
+  if (iconEl) iconEl.textContent = meta.icon;
+
+  const footer = current.el.querySelector('.shepherd-footer');
+  if (!footer) return;
+
+  let progress = footer.querySelector('.shepherd-step-progress');
+  if (!progress) {
+    progress = document.createElement('span');
+    progress.className = 'shepherd-step-progress';
+    progress.setAttribute('aria-live', 'polite');
+    footer.prepend(progress);
+  }
+
+  progress.textContent = `${index + 1} out of ${TOTAL_STEPS}`;
 }
 
 interface ControllerContext {
@@ -126,202 +197,166 @@ interface ControllerContext {
   retryCount?: number;
 }
 
-/** Single pipeline used by BOTH auto-start and manual trigger.
- *
- *  Stages:
- *  1. Pre-flight guards (logged in, on dashboard, not done)
- *  2. Wait for all DOM targets (with limited retry on timeout)
- *  3. Wait for tab visibility
- *  4. Settle delay (let animations finish)
- *  5. Final guard battery
- *  6. Start tour
- */
 async function runTourController(ctx: ControllerContext): Promise<void> {
   const { tour, userId, isLoggedIn, page, signal, force, retryCount = 0 } = ctx;
 
-  // ── Stage 1: Pre-flight ──────────────────────────────────────────────────
-  if (signal.aborted)              return;
-  if (!isLoggedIn)                 return;
-  if (page !== 'dashboard')        return;
-  if (!userId)                     return;
+  if (signal.aborted) return;
+  if (!isLoggedIn) return;
+  if (page !== 'dashboard') return;
+  if (!userId) return;
+  if (!shouldAutoStartTour(userId, force)) return;
 
-  const key = tourKey(userId);
-  if (!force && localStorage.getItem(key) === 'true') return;
-
-  // ── Stage 2: DOM readiness ───────────────────────────────────────────────
   const domResult = await waitForSelectors(TOUR_TARGET_SELECTORS, DOM_WAIT_TIMEOUT_MS, signal);
 
   if (domResult === 'aborted') return;
 
   if (domResult === 'timeout') {
-    // Retry once if we haven't already
     if (retryCount < MAX_RETRIES) {
       return runTourController({ ...ctx, retryCount: retryCount + 1 });
     }
-    // Exceeded retries — silent fail, release so next visit retries
     return;
   }
 
-  // ── Stage 3: Tab visibility ──────────────────────────────────────────────
   const visible = await waitForVisible(signal);
   if (!visible || signal.aborted) return;
 
-  // ── Stage 4: Settle delay (animations, skeleton → content transitions) ───
   const settled = await settleDelay(DOM_SETTLE_DELAY_MS, signal);
   if (!settled || signal.aborted) return;
 
-  // ── Stage 5: Final guard battery (state may have changed during waits) ───
   if (
-    signal.aborted                             ||
-    !isLoggedIn                                ||
-    page !== 'dashboard'                       ||
-    (!force && localStorage.getItem(key) === 'true') ||
+    signal.aborted ||
+    !isLoggedIn ||
+    page !== 'dashboard' ||
+    !shouldAutoStartTour(userId, force) ||
     tour.isActive()
   ) return;
 
-  // ── Stage 6: Start ───────────────────────────────────────────────────────
   tour.start();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (B) REACT INTEGRATION
+// REACT
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ShepherdTourWrapper: React.FC<ShepherdTourWrapperProps> = ({ children }) => {
   const tourRef = useRef<Tour | null>(null);
-  // Stable snapshot of current auth/nav for use inside async closures
-  const stateRef   = useRef({ isLoggedIn: false, userId: null as string | null, page: 'home' });
-  // AbortController for the currently running auto-start pipeline
+  const stateRef = useRef({ isLoggedIn: false, userId: null as string | null, page: 'home' });
   const autoAbortRef = useRef<AbortController | null>(null);
 
   const { isLoggedIn, userId } = useAuth();
   const { page } = useNavigation();
 
-  // Keep stateRef in sync so async closures always read current values
   useEffect(() => {
     stateRef.current = { isLoggedIn, userId: userId ?? null, page };
   }, [isLoggedIn, userId, page]);
 
-  // ── EFFECT 1: Build tour ONCE on mount ────────────────────────────────────
   useEffect(() => {
     const tour = new Shepherd.Tour({
-      useModalOverlay: true,
+      useModalOverlay: false,
       defaultStepOptions: {
-        classes: 'shepherd-step-custom shepherd-theme-arrows',
+        classes: 'shepherd-step-custom',
         scrollTo: false,
-        canClickTarget: false,
+        canClickTarget: true,
+        cancelIcon: { enabled: true },
+        arrow: true,
       },
     });
 
-    const navButtons = (isLast = false) => [
+    const navButton = (isLast: boolean) => [
       {
-        text: 'Skip Tour',
-        action() { tour.cancel(); },
-      },
-      {
-        text: isLast ? 'Done' : 'Next →',
-        action() { isLast ? tour.complete() : tour.next(); },
+        text: isLast ? 'Done' : 'Next',
+        action() {
+          if (isLast) tour.complete();
+          else tour.next();
+        },
       },
     ];
 
-    tour.addStep({
-      id: 'step-01-job-hunt',
-      title: '1 of 4 — Find Your Dream Job',
-      text: 'Search 300+ real job listings. Filter by role, location, and work setting.',
-      attachTo: { element: '[data-tour="job-hunt-card"]', on: 'bottom' },
-      buttons: navButtons(),
+    TOUR_STEPS.forEach((step, index) => {
+      tour.addStep({
+        id: step.id,
+        title: step.title,
+        text: step.text,
+        attachTo: step.attachTo,
+        buttons: navButton(index === TOUR_STEPS.length - 1),
+      });
     });
 
-    tour.addStep({
-      id: 'step-02-prep',
-      title: '2 of 4 — Ace Your Interviews',
-      text: 'Practice DSA, mock interviews, and quizzes — 12 modules in one place.',
-      attachTo: { element: '[data-tour="prep-mode-card"]', on: 'bottom' },
-      buttons: navButtons(),
-    });
-
-    tour.addStep({
-      id: 'step-03-live-ai',
-      title: '3 of 4 — Practice with AI',
-      text: 'Simulate real interviews with AI voice and instant feedback.',
-      attachTo: { element: '[data-tour="live-ai-card"]', on: 'bottom' },
-      buttons: navButtons(),
-    });
-
-    tour.addStep({
-      id: 'step-04-ats',
-      title: '4 of 4 — Build & Score Your Resume',
-      text: 'Create an ATS-friendly resume with AI and check your job match score.',
-      attachTo: { element: '[data-tour="ats-card"]', on: 'bottom' },
-      buttons: navButtons(true),
+    tour.on('show', () => {
+      const header = tour.getCurrentStep()?.el?.querySelector('.shepherd-header');
+      if (header && !header.querySelector('.shepherd-header-top')) {
+        const topRow = document.createElement('div');
+        topRow.className = 'shepherd-header-top';
+        const icon = document.createElement('span');
+        icon.className = 'shepherd-step-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        topRow.appendChild(icon);
+        header.insertBefore(topRow, header.firstChild);
+      }
+      applyStepChrome(tour);
     });
 
     const markDone = () => {
-      const id = stateRef.current.userId;
-      if (id) localStorage.setItem(tourKey(id), 'true');
+      const id = resolveUserId(stateRef.current.userId);
+      if (id) markOnboardingTourComplete(id);
     };
 
     tour.on('complete', () => {
       markDone();
 
-      const toast = document.createElement('div');
-      toast.textContent = "🎉 You're ready to explore CodeXCareer!";
-      Object.assign(toast.style, {
+      const toastDiv = document.createElement('div');
+      toastDiv.textContent = "You're ready to explore CodeXCareer!";
+      Object.assign(toastDiv.style, {
         position:      'fixed',
         bottom:        '32px',
         left:          '50%',
         transform:     'translateX(-50%) translateY(80px)',
-        background:    'linear-gradient(90deg, #ff7a00, #ff9533)',
+        background:    '#1a1a1c',
         color:         '#ffffff',
-        padding:       '16px 32px',
-        borderRadius:  '50px',
-        fontSize:      '15px',
+        padding:       '14px 28px',
+        borderRadius:  '999px',
+        fontSize:      '14px',
         fontWeight:    '600',
-        boxShadow:     '0 8px 32px rgba(255,122,0,0.4)',
+        border:        '1px solid rgba(255,255,255,0.12)',
+        boxShadow:     '0 12px 40px rgba(0,0,0,0.35)',
         zIndex:        '99999',
         whiteSpace:    'nowrap',
         transition:    'transform 400ms cubic-bezier(0.34,1.56,0.64,1), opacity 300ms ease',
         opacity:       '0',
         pointerEvents: 'none',
       });
-      document.body.appendChild(toast);
+      document.body.appendChild(toastDiv);
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          toast.style.transform = 'translateX(-50%) translateY(0)';
-          toast.style.opacity   = '1';
+          toastDiv.style.transform = 'translateX(-50%) translateY(0)';
+          toastDiv.style.opacity   = '1';
         });
       });
 
       setTimeout(() => {
-        toast.style.transform = 'translateX(-50%) translateY(80px)';
-        toast.style.opacity   = '0';
-        setTimeout(() => toast.remove(), 400);
+        toastDiv.style.transform = 'translateX(-50%) translateY(80px)';
+        toastDiv.style.opacity   = '0';
+        setTimeout(() => toastDiv.remove(), 400);
       }, 2500);
     });
 
-    // Only mark done on user-initiated skip/cancel, not programmatic ones.
-    // We detect programmatic cancel by checking if tour is being force-restarted
-    // via window.startTour — that flow cancels without needing markDone.
     tour.on('cancel', markDone);
 
     tourRef.current = tour;
 
-    // ── Manual trigger — reuses same controller pipeline ──────────────────
     window.startTour = async (options) => {
       if (!tourRef.current) return;
 
       const { isLoggedIn: li, userId: uid, page: pg } = stateRef.current;
-      if (!uid) return;
+      const resolvedId = resolveUserId(uid);
+      if (!resolvedId) return;
 
-      // Abort any running auto-start before force-starting
       if (autoAbortRef.current) {
         autoAbortRef.current.abort();
         autoAbortRef.current = null;
       }
 
-      // Cancel active tour without triggering markDone
-      // We remove and re-add the cancel listener around this call
       if (tourRef.current.isActive()) {
         tour.off('cancel', markDone);
         tourRef.current.cancel();
@@ -329,14 +364,14 @@ export const ShepherdTourWrapper: React.FC<ShepherdTourWrapperProps> = ({ childr
       }
 
       if (options?.force) {
-        localStorage.removeItem(tourKey(uid));
+        localStorage.removeItem(tourDoneKey(resolvedId));
       }
 
       const manualAbort = new AbortController();
 
       await runTourController({
         tour:       tourRef.current,
-        userId:     uid,
+        userId:     resolvedId,
         isLoggedIn: li,
         page:       pg,
         signal:     manualAbort.signal,
@@ -345,27 +380,22 @@ export const ShepherdTourWrapper: React.FC<ShepherdTourWrapperProps> = ({ childr
     };
 
     return () => {
-      // Abort any in-flight auto-start
       autoAbortRef.current?.abort();
       autoAbortRef.current = null;
       if (tour.isActive()) tour.cancel();
       window.startTour = undefined;
     };
-  }, []); // runs ONCE
+  }, []);
 
-  // ── EFFECT 2: Auto-start trigger ─────────────────────────────────────────
-  // Fires whenever login state, page, or userId changes.
-  // Cancels any previous in-flight attempt before starting a new one.
   useEffect(() => {
-    // Abort previous pipeline if still running (e.g. user navigated away + back)
     if (autoAbortRef.current) {
       autoAbortRef.current.abort();
       autoAbortRef.current = null;
     }
 
-    // Hard guards — don't even start the pipeline
     if (!isLoggedIn || page !== 'dashboard' || !userId) return;
-    if (localStorage.getItem(tourKey(userId)) === 'true') return;
+    if (!hasPendingOnboardingTour()) return;
+    if (isOnboardingTourComplete(userId)) return;
     if (!tourRef.current) return;
 
     const ac = new AbortController();
@@ -378,7 +408,6 @@ export const ShepherdTourWrapper: React.FC<ShepherdTourWrapperProps> = ({ childr
       page,
       signal:     ac.signal,
     }).finally(() => {
-      // Release the ref once the pipeline settles (success, fail, or abort)
       if (autoAbortRef.current === ac) autoAbortRef.current = null;
     });
 

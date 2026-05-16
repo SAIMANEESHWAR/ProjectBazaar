@@ -15,6 +15,7 @@ import {
   validateGoogleOAuthState,
 } from '@/lib/googleDirectAuth';
 import { LOGIN_API_URL } from '@/lib/apiConfig';
+import { scheduleOnboardingTour } from '@/lib/onboardingTour';
 
 type FieldType = 'text' | 'email' | 'password';
 
@@ -443,6 +444,7 @@ const AuthPage: React.FC = () => {
         const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
         localStorage.setItem('userData', JSON.stringify(data.data));
+        scheduleOnboardingTour();
 
         login(data.data.userId, data.data.email, userRole);
       }
