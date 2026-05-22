@@ -64,7 +64,7 @@ export const ResumeHeroCard: React.FC<ResumeHeroCardProps> = ({
 
         <button
           type="button"
-          onClick={() => navigateTo('buildResume')}
+          onClick={() => navigateTo('auth')}
           className={cn(
             'group inline-flex items-center gap-1.5 text-[#00788C] dark:text-[#2dd4a8] font-semibold text-base',
             'transition-colors duration-200 hover:text-[#005F6E] dark:hover:text-[#1F8268]'

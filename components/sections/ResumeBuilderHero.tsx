@@ -26,7 +26,7 @@ export const ResumeBuilderHero: React.FC = () => {
             <div className="flex flex-wrap gap-4">
               <button
                 type="button"
-                onClick={() => navigateTo('buildResume')}
+                onClick={() => navigateTo('auth')}
                 className={cn(
                   'group inline-flex items-center gap-2 text-base font-semibold text-[#2dd4a8] transition-all duration-200',
                   'hover:text-[#1F8268] hover:underline underline-offset-4'

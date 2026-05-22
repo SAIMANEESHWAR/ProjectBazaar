@@ -233,7 +233,7 @@ export const InterviewPrepBlackHero: React.FC = () => {
             </motion.button>
             <motion.button
               type="button"
-              onClick={() => navigateTo('codingQuestions')}
+              onClick={() => navigateTo('auth')}
               className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1e293b] px-8 text-[15px] font-medium text-white shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#273549]"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

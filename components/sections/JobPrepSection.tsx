@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigation } from "../../App";
 
 interface InterviewCardData {
   id: number;
@@ -236,6 +237,8 @@ const InterviewCard: React.FC<{
   card: InterviewCardData;
   active: boolean;
 }> = ({ card, active }) => {
+  const { navigateTo } = useNavigation();
+
   return (
     <div
       className={cn(
@@ -270,10 +273,7 @@ const InterviewCard: React.FC<{
         <button
           type="button"
           className="px-6 py-2 rounded-full bg-[#1F8268] text-white font-bold text-sm hover:bg-[#196b56] transition-colors shadow-lg"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
+          onClick={() => navigateTo('auth')}
         >
           Practice Interview
         </button>
