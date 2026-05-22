@@ -47,7 +47,7 @@ const OpenRouterLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
     <img src={OPENROUTER_LOGO_URL} alt="OpenRouter" className={className} aria-hidden="true" />
 );
 
-type SettingsLlmProviderId = 'openai' | 'openrouter' | 'gemini' | 'claude';
+type SettingsLlmProviderId = 'openai' | 'openrouter' | 'gemini' | 'claude' | 'groq';
 
 // Models per provider for ATS (id = API model id, label = display name)
 const LLM_MODELS: Record<SettingsLlmProviderId, { id: string; label: string }[]> = {
@@ -74,6 +74,11 @@ const LLM_MODELS: Record<SettingsLlmProviderId, { id: string; label: string }[]>
         { id: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
         { id: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
         { id: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
+    ],
+    groq: [
+        { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
+        { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile' },
+        { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
     ],
 };
 
@@ -272,6 +277,9 @@ const SettingsPage: React.FC = () => {
     const [hasOpenrouterKey, setHasOpenrouterKey] = useState(false);
     const [hasGeminiKey, setHasGeminiKey] = useState(false);
     const [hasClaudeKey, setHasClaudeKey] = useState(false);
+    const [hasGroqKey, setHasGroqKey] = useState(false);
+    const [atsActiveProvider, setAtsActiveProvider] = useState<string>('openai');
+    const [savingAtsActiveProvider, setSavingAtsActiveProvider] = useState(false);
     const [selectedLlmProvider, setSelectedLlmProvider] = useState<SettingsLlmProviderId>('openai');
     const [selectedLlmModel, setSelectedLlmModel] = useState<string>('gpt-4o-mini');
     const [llmSavedModels, setLlmSavedModels] = useState<Record<string, string>>({});
@@ -458,6 +466,10 @@ const SettingsPage: React.FC = () => {
                     setHasOpenrouterKey(!!data.hasOpenrouterKey);
                     setHasGeminiKey(!!data.hasGeminiKey);
                     setHasClaudeKey(!!data.hasClaudeKey);
+                    setHasGroqKey(!!data.hasGroqKey);
+                    if (typeof data.atsActiveProvider === 'string' && data.atsActiveProvider) {
+                        setAtsActiveProvider(data.atsActiveProvider);
+                    }
                     if (data.savedModels && typeof data.savedModels === 'object') {
                         setLlmSavedModels(data.savedModels);
                     }
@@ -538,6 +550,40 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    const atsKeyCount =
+        (hasOpenAiKey ? 1 : 0) +
+        (hasOpenrouterKey ? 1 : 0) +
+        (hasGeminiKey ? 1 : 0) +
+        (hasClaudeKey ? 1 : 0);
+
+    const saveAtsActiveProvider = async (providerId: string) => {
+        if (!userId || providerId === atsActiveProvider) return;
+        setLlmKeyError(null);
+        setSavingAtsActiveProvider(true);
+        try {
+            const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'updateSettings',
+                    userId,
+                    atsActiveProvider: providerId,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAtsActiveProvider(providerId);
+                setLlmKeyMessage('ATS Scorer will use this provider.');
+            } else {
+                setLlmKeyError(data.message || 'Could not update active provider.');
+            }
+        } catch {
+            setLlmKeyError('Network error. Please try again.');
+        } finally {
+            setSavingAtsActiveProvider(false);
+        }
+    };
+
     const saveLlmApiKey = async (provider: string, apiKey: string) => {
         const key = (apiKey || '').trim();
         if (!userId) {
@@ -552,7 +598,9 @@ const SettingsPage: React.FC = () => {
                   ? hasOpenrouterKey
                   : p === 'gemini'
                     ? hasGeminiKey
-                    : hasClaudeKey;
+                    : p === 'groq'
+                      ? hasGroqKey
+                      : hasClaudeKey;
         const savingKey = !!key;
         const savingModelOnly = !key && hasKeyForProvider && selectedLlmModel;
         if (!savingKey && !savingModelOnly) {
@@ -569,6 +617,9 @@ const SettingsPage: React.FC = () => {
             };
             if (savingKey) payload.llmApiKeys = { [p]: key };
             if (selectedLlmModel && (savingKey || savingModelOnly)) payload.llmModels = { [p]: selectedLlmModel };
+            if (savingKey && p !== 'groq' && atsKeyCount === 0) {
+                payload.atsActiveProvider = p;
+            }
             const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -576,11 +627,15 @@ const SettingsPage: React.FC = () => {
             });
             const data = await res.json();
             if (data.success) {
-                setLlmKeyMessage(`${provider} key and model saved. You can use ATS Score in the Resume Builder.`);
+                setLlmKeyMessage(`${provider} key and model saved. Used by ATS Scorer, Resume Builder, and Live AI Interview.`);
                 if (p === 'openai') setHasOpenAiKey(savingKey ? !!key : hasOpenAiKey);
                 if (p === 'openrouter') setHasOpenrouterKey(savingKey ? !!key : hasOpenrouterKey);
                 if (p === 'gemini') setHasGeminiKey(savingKey ? !!key : hasGeminiKey);
                 if (p === 'claude') setHasClaudeKey(savingKey ? !!key : hasClaudeKey);
+                if (p === 'groq') setHasGroqKey(savingKey ? !!key : hasGroqKey);
+                if (savingKey && p !== 'groq' && (atsKeyCount === 0 || !atsActiveProvider)) {
+                    setAtsActiveProvider(p);
+                }
                 setLlmSavedModels((prev) => ({ ...prev, [p]: selectedLlmModel }));
                 setLlmKeyInput('');
             } else {
@@ -1764,7 +1819,7 @@ const SettingsPage: React.FC = () => {
                         </div>
                     </SectionCard>
 
-                    <SectionCard title="AI & ATS (Resume Builder)" description="Add at least one API key to unlock ATS Score in the Resume Builder. Keys are tested before saving and stored securely.">
+                    <SectionCard title="AI & LLM API keys" description="Add API keys here only — used by ATS Scorer, Resume Builder ATS, and Live AI Interview. Keys are tested before saving and stored securely on the server.">
                         <div className="space-y-6">
                             {llmKeyMessage && (
                                 <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">{llmKeyMessage}</div>
@@ -1774,13 +1829,14 @@ const SettingsPage: React.FC = () => {
                             )}
                             <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Select LLM provider</label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Add or update API key for</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                                         {[
                                             { id: 'openai' as const, name: 'OpenAI (GPT)', Logo: OpenAILogo, saved: hasOpenAiKey },
                                             { id: 'openrouter' as const, name: 'OpenRouter', Logo: OpenRouterLogo, saved: hasOpenrouterKey },
                                             { id: 'gemini' as const, name: 'Google Gemini', Logo: GeminiLogo, saved: hasGeminiKey },
                                             { id: 'claude' as const, name: 'Anthropic Claude', Logo: ClaudeLogo, saved: hasClaudeKey },
+                                            { id: 'groq' as const, name: 'Groq', Logo: OpenAILogo, saved: hasGroqKey },
                                         ].map(({ id, name, Logo, saved }) => (
                                             <button
                                                 key={id}
@@ -1816,8 +1872,54 @@ const SettingsPage: React.FC = () => {
                                             <option key={m.id} value={m.id}>{m.label}</option>
                                         ))}
                                     </select>
-                                    <p className="text-xs text-gray-500 mt-1">Model used for ATS scoring when this provider is selected.</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Model used when this provider is selected below.
+                                    </p>
                                 </div>
+                                {atsKeyCount >= 2 && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                            Provider for ATS Scorer
+                                        </label>
+                                        <select
+                                            value={atsActiveProvider}
+                                            onChange={(e) => void saveAtsActiveProvider(e.target.value)}
+                                            disabled={savingAtsActiveProvider}
+                                            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 disabled:opacity-60"
+                                        >
+                                            {hasOpenAiKey && (
+                                                <option value="openai">OpenAI (GPT)</option>
+                                            )}
+                                            {hasOpenrouterKey && (
+                                                <option value="openrouter">OpenRouter</option>
+                                            )}
+                                            {hasGeminiKey && (
+                                                <option value="gemini">Google Gemini</option>
+                                            )}
+                                            {hasClaudeKey && (
+                                                <option value="claude">Anthropic Claude</option>
+                                            )}
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            You have multiple API keys. Choose which provider and model ATS Scorer uses.
+                                        </p>
+                                    </div>
+                                )}
+                                {atsKeyCount === 1 && (
+                                    <p className="text-xs text-gray-600 rounded-lg bg-white border border-gray-200 px-3 py-2">
+                                        ATS Scorer uses your saved{' '}
+                                        <strong>
+                                            {hasOpenAiKey
+                                                ? 'OpenAI'
+                                                : hasOpenrouterKey
+                                                  ? 'OpenRouter'
+                                                  : hasGeminiKey
+                                                    ? 'Gemini'
+                                                    : 'Claude'}
+                                        </strong>{' '}
+                                        key and model above.
+                                    </p>
+                                )}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">API key</label>
                                     <div className="flex flex-wrap gap-2">
@@ -1838,9 +1940,13 @@ const SettingsPage: React.FC = () => {
                                                         ? hasGeminiKey
                                                           ? 'Enter new key to replace'
                                                           : 'AIza...'
-                                                        : hasClaudeKey
-                                                          ? 'Enter new key to replace'
-                                                          : 'sk-ant-...'
+                                                        : selectedLlmProvider === 'groq'
+                                                          ? hasGroqKey
+                                                            ? 'Enter new key to replace'
+                                                            : 'gsk_...'
+                                                          : hasClaudeKey
+                                                            ? 'Enter new key to replace'
+                                                            : 'sk-ant-...'
                                             }
                                             className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                                         />
@@ -1856,7 +1962,8 @@ const SettingsPage: React.FC = () => {
                                                     !(hasOpenAiKey && selectedLlmProvider === 'openai') &&
                                                     !(hasOpenrouterKey && selectedLlmProvider === 'openrouter') &&
                                                     !(hasGeminiKey && selectedLlmProvider === 'gemini') &&
-                                                    !(hasClaudeKey && selectedLlmProvider === 'claude'))
+                                                    !(hasClaudeKey && selectedLlmProvider === 'claude') &&
+                                                    !(hasGroqKey && selectedLlmProvider === 'groq'))
                                             }
                                             className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
                                         >
@@ -1864,7 +1971,7 @@ const SettingsPage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
-                                {(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey) && (
+                                {(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey || hasGroqKey) && (
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         {hasOpenAiKey && (
                                             <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
@@ -1886,10 +1993,17 @@ const SettingsPage: React.FC = () => {
                                                 <ClaudeLogo className="w-3.5 h-3.5 text-green-700" /> Claude ✓
                                             </span>
                                         )}
+                                        {hasGroqKey && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                                                Groq ✓
+                                            </span>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                            <p className="text-xs text-gray-500">Get keys from OpenAI, OpenRouter, Google AI Studio, or Anthropic. Your keys are stored securely and used only for ATS scoring.</p>
+                            <p className="text-xs text-gray-500">
+                                Get keys from OpenAI, OpenRouter, Google AI Studio, Anthropic, or Groq. Keys stay on the server and power ATS Scorer and Live AI Interview.
+                            </p>
                         </div>
                     </SectionCard>
 

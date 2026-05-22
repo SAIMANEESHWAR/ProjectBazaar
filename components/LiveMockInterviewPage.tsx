@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   Phone,
   Search,
+  Settings as SettingsIcon,
   Sparkles,
   Square,
   Timer,
@@ -59,6 +60,7 @@ import {
 import interviewerFlowAnimation from '../lottiefiles/ai-animation-interviewer-Flow.json';
 import PeerInterviewSection from './PeerInterviewSection';
 import { ShimmerButton } from './ui/shimmer-button';
+import { getLlmKeysStatus } from '../services/atsService';
 import {
   evaluateInterviewWithProvider,
   generateInterviewQuestionsWithProvider,
@@ -88,7 +90,6 @@ const initialPrereqStatuses = (): PrereqItemStatus[] =>
 
 const PAGE_BG = 'bg-white dark:bg-[#12111a]';
 const LV_TITLE = 'text-[#1a1c2e] dark:text-white';
-const LIVE_INTERVIEW_API_KEY_SESSION_KEY = 'liveMockInterviewApiKey';
 /** Set by PeerInterviewRequestsDashboard before navigating back so the peer tab is selected. */
 const LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY = 'bazaar_live_mock_interview_mode';
 
@@ -232,11 +233,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [finishedFullSession, setFinishedFullSession] = useState(false);
   const [transcriptForResult, setTranscriptForResult] = useState('');
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('openrouter');
-  const [llmApiKey, setLlmApiKey] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    return window.sessionStorage.getItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY) ?? '';
-  });
-  const [llmModel, setLlmModel] = useState('');
+  const [hasOpenrouterKey, setHasOpenrouterKey] = useState(false);
+  const [hasGroqKey, setHasGroqKey] = useState(false);
+  const [llmSavedModels, setLlmSavedModels] = useState<Record<string, string>>({});
+  const hasLiveInterviewKey =
+    llmProvider === 'openrouter' ? hasOpenrouterKey : hasGroqKey;
+  const liveInterviewModel =
+    llmSavedModels[llmProvider] ||
+    (llmProvider === 'groq' ? 'llama-3.1-8b-instant' : 'openai/gpt-4o-mini');
+  const goToSettings = useCallback(() => {
+    if (embedded) {
+      setActiveView('settings');
+      return;
+    }
+    navigateTo('dashboard');
+  }, [embedded, setActiveView, navigateTo]);
   const [aiEvaluation, setAiEvaluation] = useState<LiveInterviewEvaluation | null>(null);
   const [aiEvalLoading, setAiEvalLoading] = useState(false);
   const [aiEvalError, setAiEvalError] = useState<string | null>(null);
@@ -374,14 +385,25 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   }, [phase, currentSegment?.id]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const value = llmApiKey.trim();
-    if (value) {
-      window.sessionStorage.setItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY, value);
-    } else {
-      window.sessionStorage.removeItem(LIVE_INTERVIEW_API_KEY_SESSION_KEY);
+    if (!userId) {
+      setHasOpenrouterKey(false);
+      setHasGroqKey(false);
+      setLlmSavedModels({});
+      return;
     }
-  }, [llmApiKey]);
+    getLlmKeysStatus(userId)
+      .then((status) => {
+        if (!status.success) return;
+        setHasOpenrouterKey(!!status.hasOpenrouterKey);
+        setHasGroqKey(!!status.hasGroqKey);
+        if (status.savedModels) setLlmSavedModels(status.savedModels);
+        if (status.hasOpenrouterKey) setLlmProvider('openrouter');
+        else if (status.hasGroqKey) setLlmProvider('groq');
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }, [userId]);
 
   const toGeneratedScript = useCallback((questions: string[]): InterviewSegment[] => {
     return questions.map((question, idx) => ({
@@ -413,11 +435,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         let questions: string[];
         let sessionLabelText = values.sessionLabelText;
 
-        if (llmApiKey.trim()) {
+        if (userId && hasLiveInterviewKey) {
           const generated = await generateInterviewQuestionsWithProvider({
+            userId,
             provider: llmProvider,
-            apiKey: llmApiKey.trim(),
-            model: llmModel.trim() || undefined,
+            model: liveInterviewModel,
             mode,
             role: values.role,
             company: values.company,
@@ -459,9 +481,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       }
     },
     [
-      llmApiKey,
+      userId,
+      hasLiveInterviewKey,
       llmProvider,
-      llmModel,
+      liveInterviewModel,
       questionCount,
       timeMinutes,
       toGeneratedScript,
@@ -1172,14 +1195,14 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
     const persistResult = async () => {
       let evaluationPayload: LiveInterviewEvaluation = mockEvaluationPayload;
-      if (llmApiKey.trim()) {
+      if (userId && hasLiveInterviewKey) {
         setAiEvalLoading(true);
         setAiEvalError(null);
         try {
           const aiScored = await evaluateInterviewWithProvider({
+            userId,
             provider: llmProvider,
-            apiKey: llmApiKey.trim(),
-            model: llmModel.trim() || undefined,
+            model: liveInterviewModel,
             track,
             level,
             sessionLabel: liveSessionTitle,
@@ -1213,8 +1236,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         }, {});
         await saveLiveInterviewResult({
           userId,
-          provider: llmApiKey.trim() ? llmProvider : undefined,
-          model: llmApiKey.trim() ? llmModel.trim() || undefined : undefined,
+          provider: hasLiveInterviewKey ? llmProvider : undefined,
+          model: hasLiveInterviewKey ? liveInterviewModel : undefined,
           track,
           level,
           sessionLabel: liveSessionTitle,
@@ -1239,9 +1262,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     isLoggedIn,
     userId,
     mockEvaluationPayload,
-    llmApiKey,
+    hasLiveInterviewKey,
     llmProvider,
-    llmModel,
+    liveInterviewModel,
     track,
     level,
     liveSessionTitle,
@@ -1549,47 +1572,60 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     </div>
   );
 
-  const renderQuestionGenerationApiPanel = () => (
+  const renderLiveInterviewLlmBanner = () => (
     <div className="max-w-2xl mx-auto mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/70 p-4 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-        Question generation API (optional)
+        AI question generation &amp; scoring
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setLlmProvider('openrouter')}
-          className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
-            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-            : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-            }`}
-        >
-          OpenRouter
-        </button>
-        <button
-          type="button"
-          onClick={() => setLlmProvider('groq')}
-          className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
-            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-            : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-            }`}
-        >
-          Groq
-        </button>
-      </div>
-      <input
-        type="password"
-        value={llmApiKey}
-        onChange={(e) => setLlmApiKey(e.target.value)}
-        placeholder={`Paste your ${llmProvider === 'groq' ? 'Groq' : 'OpenRouter'} API key`}
-        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
-      />
-      <input
-        type="text"
-        value={llmModel}
-        onChange={(e) => setLlmModel(e.target.value)}
-        placeholder="Model override (optional)"
-        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
-      />
+      {!userId ? (
+        <p className="text-sm text-amber-800 dark:text-amber-200">
+          Sign in and add an OpenRouter or Groq key in Settings to enable AI-generated questions and scoring.
+        </p>
+      ) : !hasLiveInterviewKey ? (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-orange-900 dark:text-orange-200">
+            Add a <strong>{llmProvider === 'groq' ? 'Groq' : 'OpenRouter'}</strong> API key in Settings to use AI features.
+          </p>
+          <button
+            type="button"
+            onClick={goToSettings}
+            className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-[#f97316] hover:brightness-105 shrink-0"
+          >
+            <SettingsIcon className="h-4 w-4" aria-hidden />
+            Open Settings
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setLlmProvider('openrouter')}
+              disabled={!hasOpenrouterKey}
+              className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
+                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                } disabled:opacity-40`}
+            >
+              OpenRouter {hasOpenrouterKey ? '✓' : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLlmProvider('groq')}
+              disabled={!hasGroqKey}
+              className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
+                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
+                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                } disabled:opacity-40`}
+            >
+              Groq {hasGroqKey ? '✓' : ''}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Using saved key and model ({liveInterviewModel}) from Settings.
+          </p>
+        </>
+      )}
     </div>
   );
 
@@ -1908,7 +1944,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   {renderRoleCompanyHeadline()}
                   {renderRoleCompanySearch()}
                   {renderRoleCompanyGrid()}
-                  {renderQuestionGenerationApiPanel()}
+                  {renderLiveInterviewLlmBanner()}
                 </div>
               ) : (
                 <>
@@ -1948,7 +1984,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               </div>
 
               {renderSetupBody()}
-              {renderQuestionGenerationApiPanel()}
+              {renderLiveInterviewLlmBanner()}
                 </>
               )}
             </motion.div>
@@ -2088,49 +2124,22 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     </label>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-3">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      Optional AI scoring provider
+                      AI scoring
                     </p>
-                    <div className="grid sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setLlmProvider('openrouter')}
-                        className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
-                          ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-                          : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                          }`}
-                      >
-                        OpenRouter
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLlmProvider('groq')}
-                        className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
-                          ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-                          : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                          }`}
-                      >
-                        Groq
-                      </button>
-                    </div>
-                    <input
-                      type="password"
-                      value={llmApiKey}
-                      onChange={(e) => setLlmApiKey(e.target.value)}
-                      placeholder={`Paste your ${llmProvider === 'groq' ? 'Groq' : 'OpenRouter'} API key (optional)`}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
-                    />
-                    <input
-                      type="text"
-                      value={llmModel}
-                      onChange={(e) => setLlmModel(e.target.value)}
-                      placeholder="Model override (optional)"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Leave API key empty to use existing mock rubric.
-                    </p>
+                    {hasLiveInterviewKey ? (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Results will use your saved <strong>{llmProvider}</strong> key ({liveInterviewModel}) from Settings.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Without a key in Settings, results use the demo rubric.{' '}
+                        <button type="button" onClick={goToSettings} className="text-[#f97316] font-semibold hover:underline">
+                          Add API key
+                        </button>
+                      </p>
+                    )}
                   </div>
 
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -2931,7 +2940,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
                   <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-5 bg-gray-50 dark:bg-gray-800/50">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                      Coach note {llmApiKey.trim() ? '(AI)' : '(demo)'}
+                      Coach note {hasLiveInterviewKey ? '(AI)' : '(demo)'}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{displayedResults.coachNote}</p>
                   </div>

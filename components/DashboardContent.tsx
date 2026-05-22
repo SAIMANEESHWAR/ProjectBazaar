@@ -975,7 +975,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'ats-scorer':
-                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
+                return (
+                  <ATSScorer
+                    onBack={() => setActiveView('dashboard')}
+                    onNavigateToSettings={() => setActiveView('settings')}
+                  />
+                );
             case 'career-guidance':
                 return <CareerGuidanceComingSoon />;
             case 'company-posts':
@@ -1082,7 +1087,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'ats-scorer':
-                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
+                return (
+                  <ATSScorer
+                    onBack={() => setActiveView('dashboard')}
+                    onNavigateToSettings={() => setActiveView('settings')}
+                  />
+                );
             case 'career-guidance':
                 return <CareerGuidanceComingSoon />;
             case 'mock-assessment':

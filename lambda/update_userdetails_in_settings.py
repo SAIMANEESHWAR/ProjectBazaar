@@ -185,6 +185,22 @@ def _test_gemini_key(api_key):
         return False, str(e)
 
 
+def _test_groq_key(api_key):
+    """Validate Groq API key with models list."""
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
 def _test_claude_key(api_key):
     """Validate Claude API key with a minimal message."""
     data = json.dumps({
@@ -225,7 +241,9 @@ def _test_llm_key(provider, api_key):
         return _test_gemini_key(key)
     if p == "claude":
         return _test_claude_key(key)
-    return False, "provider must be openai, openrouter, gemini, or claude"
+    if p == "groq":
+        return _test_groq_key(key)
+    return False, "provider must be openai, openrouter, gemini, claude, or groq"
 
 
 def handle_test_llm_api_key(body):
@@ -247,7 +265,32 @@ LLM_PROVIDERS = [
     {"id": "openrouter", "name": "OpenRouter"},
     {"id": "gemini", "name": "Google Gemini"},
     {"id": "claude", "name": "Anthropic Claude"},
+    {"id": "groq", "name": "Groq"},
 ]
+
+LIVE_INTERVIEW_DEFAULT_MODELS = {
+    "openrouter": "openai/gpt-4o-mini",
+    "groq": "llama-3.1-8b-instant",
+}
+
+# Providers used by ATS Scorer / Resume Builder (not Groq)
+ATS_PROVIDER_ORDER = ("openai", "gemini", "claude", "openrouter")
+
+
+def _ats_providers_with_keys(keys):
+    if not isinstance(keys, dict):
+        return []
+    return [p for p in ATS_PROVIDER_ORDER if (keys.get(p) or "").strip()]
+
+
+def _resolve_ats_active_provider(keys, stored_active):
+    with_keys = _ats_providers_with_keys(keys)
+    if not with_keys:
+        return None
+    active = (stored_active or "").strip().lower()
+    if active in with_keys:
+        return active
+    return with_keys[0]
 
 
 def handle_get_llm_keys_status(body):
@@ -272,11 +315,15 @@ def handle_get_llm_keys_status(body):
             "hasOpenrouterKey": False,
             "hasGeminiKey": False,
             "hasClaudeKey": False,
+            "hasGroqKey": False,
+            "hasAnyAtsKey": False,
+            "atsActiveProvider": None,
             "providers": providers,
             "savedModels": {},
         })
 
-    keys = existing["Item"].get("llmApiKeys") or {}
+    item = existing["Item"]
+    keys = item.get("llmApiKeys") or {}
     if not isinstance(keys, dict):
         keys = {}
     models = existing["Item"].get("llmModels") or {}
@@ -286,12 +333,21 @@ def handle_get_llm_keys_status(body):
     has_openrouter = bool(keys.get("openrouter"))
     has_gemini = bool(keys.get("gemini"))
     has_claude = bool(keys.get("claude"))
-    by_id = {"openai": has_openai, "openrouter": has_openrouter, "gemini": has_gemini, "claude": has_claude}
+    has_groq = bool(keys.get("groq"))
+    by_id = {
+        "openai": has_openai,
+        "openrouter": has_openrouter,
+        "gemini": has_gemini,
+        "claude": has_claude,
+        "groq": has_groq,
+    }
     providers = [
         {"id": p["id"], "name": p["name"], "hasKey": by_id.get(p["id"], False)}
         for p in LLM_PROVIDERS
     ]
     saved_models = {k: v for k, v in models.items() if v}
+    ats_active = _resolve_ats_active_provider(keys, item.get("atsActiveProvider"))
+    has_any_ats = bool(_ats_providers_with_keys(keys))
 
     return response(200, {
         "success": True,
@@ -299,9 +355,155 @@ def handle_get_llm_keys_status(body):
         "hasOpenrouterKey": has_openrouter,
         "hasGeminiKey": has_gemini,
         "hasClaudeKey": has_claude,
+        "hasGroqKey": has_groq,
+        "hasAnyAtsKey": has_any_ats,
+        "atsActiveProvider": ats_active,
         "providers": providers,
         "savedModels": saved_models,
     })
+
+
+def _get_user_llm_key_and_model(user_id, provider):
+    """Load stored API key and optional model for a provider."""
+    try:
+        existing = table.get_item(Key={"userId": user_id})
+    except Exception as e:
+        return None, None, str(e)
+    item = existing.get("Item")
+    if not item:
+        return None, None, "User not found"
+    keys = item.get("llmApiKeys") or {}
+    if not isinstance(keys, dict):
+        keys = {}
+    api_key = (keys.get(provider) or "").strip()
+    if not api_key:
+        return None, None, f"No {provider} API key saved. Add one in Settings."
+    models = item.get("llmModels") or {}
+    if not isinstance(models, dict):
+        models = {}
+    model = (models.get(provider) or "").strip() or LIVE_INTERVIEW_DEFAULT_MODELS.get(provider)
+    return api_key, model, None
+
+
+def _call_openai_compatible_chat(api_key, endpoint, model, user_content, temperature=0.2):
+    data = json.dumps({
+        "model": model,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+        "messages": [{"role": "user", "content": user_content}],
+    }).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    if "openrouter.ai" in endpoint:
+        headers["HTTP-Referer"] = "https://codexcareer.com"
+        headers["X-Title"] = "CodeXCareer Live Interview"
+    req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=90) as resp:
+        out = json.loads(resp.read().decode("utf-8"))
+    err = out.get("error")
+    if err:
+        msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+        raise RuntimeError(msg)
+    raw = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    if not isinstance(raw, str) or not raw.strip():
+        raise RuntimeError("LLM response missing content")
+    return raw.strip()
+
+
+def _build_live_evaluate_prompt(body):
+    return "\n".join([
+        "You are an interview coach. Score this mock interview and return ONLY valid JSON.",
+        'Schema:',
+        '{"overall":"82/100","dimensions":[{"label":"Structure","score":16,"max":20}],"strengths":["..."],"improvements":["..."],"coachNote":"..."}',
+        "Rules:",
+        "- Exactly 5 dimensions. max always 20.",
+        "- score integer from 0 to 20.",
+        "- strengths 2-4 concise bullets.",
+        "- improvements 2-4 concise bullets.",
+        "- coachNote <= 60 words.",
+        "",
+        f"Track: {body.get('track', '')}",
+        f"Level: {body.get('level', '')}",
+        f"Session label: {body.get('sessionLabel', '')}",
+        f"Duration (sec): {body.get('durationSec', 0)}",
+        "Transcript:",
+        body.get("transcript", ""),
+    ])
+
+
+def _build_live_questions_prompt(body):
+    setup_mode = body.get("setupMode") or body.get("mode") or ""
+    if setup_mode in ("evaluate", "generateQuestions"):
+        setup_mode = ""
+    return "\n".join([
+        "Generate interview questions and return ONLY valid JSON.",
+        'Schema:',
+        '{"questions":["..."],"sessionLabel":"..."}',
+        f"mode: {setup_mode}",
+        f"questionCount: {body.get('questionCount', 0)}",
+        f"timeMinutes: {body.get('timeMinutes', 0)}",
+        f"role: {body.get('role', '')}",
+        f"company: {body.get('company', '')}",
+        f"jobTitle: {body.get('jobTitle', '')}",
+        f"jobDescription: {body.get('jdText', '')}",
+        f"resume: {body.get('resumeText', '')}",
+        "Rules:",
+        "- Return exactly questionCount items.",
+        "- Questions should be concise and interview-realistic.",
+        "- Mix behavioral and technical where applicable.",
+    ])
+
+
+def handle_invoke_live_interview_llm(body):
+    """Server-side LLM for Live Mock Interview (keys never sent to browser)."""
+    user_id = (body.get("userId") or "").strip()
+    provider = (body.get("provider") or "").lower().strip()
+    invoke_mode = (body.get("invokeMode") or "").strip()
+    # Backward compat: legacy clients sent invoke mode as "mode" when not role/company/jd
+    legacy_mode = (body.get("mode") or "").strip()
+    if legacy_mode in ("evaluate", "generateQuestions"):
+        invoke_mode = legacy_mode
+
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+    if provider not in ("openrouter", "groq"):
+        return response(400, {"success": False, "message": "provider must be openrouter or groq"})
+    if invoke_mode not in ("evaluate", "generateQuestions"):
+        return response(400, {
+            "success": False,
+            "message": "invokeMode must be evaluate or generateQuestions",
+        })
+
+    api_key, model, err = _get_user_llm_key_and_model(user_id, provider)
+    if err:
+        return response(403, {"success": False, "message": err})
+
+    model_override = (body.get("model") or "").strip()
+    if model_override:
+        model = model_override
+
+    endpoint = (
+        "https://api.groq.com/openai/v1/chat/completions"
+        if provider == "groq"
+        else "https://openrouter.ai/api/v1/chat/completions"
+    )
+
+    try:
+        if invoke_mode == "evaluate":
+            prompt = _build_live_evaluate_prompt(body)
+            raw = _call_openai_compatible_chat(api_key, endpoint, model, prompt, temperature=0.2)
+            return response(200, {"success": True, "content": raw})
+        prompt = _build_live_questions_prompt(body)
+        raw = _call_openai_compatible_chat(api_key, endpoint, model, prompt, temperature=0.4)
+        return response(200, {"success": True, "content": raw})
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore") or str(e)
+        return response(502, {"success": False, "message": f"LLM request failed: {detail[:300]}"})
+    except Exception as e:
+        print(f"invokeLiveInterviewLlm error: {e}")
+        return response(502, {"success": False, "message": str(e)})
 
 
 def handle_get_ats_score_history(body):
@@ -424,6 +626,8 @@ def handle_update_settings(body):
         "llmApiKeys",
         # Preferred model per provider for ATS (e.g. gpt-4o-mini, gemini-1.5-flash)
         "llmModels",
+        # Which saved ATS provider to use when user has multiple keys (openai|gemini|claude|openrouter)
+        "atsActiveProvider",
         # Saved resume JSON + PDF export options (Settings → Resume; generateResumePdf reads both)
         "savedResumeProfile",
         "resumeExportSettings",
@@ -495,6 +699,28 @@ def handle_update_settings(body):
         merged = {**current_keys, **new_keys}
         merged = {k: v for k, v in merged.items() if v}
         updates["llmApiKeys"] = merged if merged else None  # remove attribute if all cleared
+        # When saving a new ATS key, default active provider to that provider if none set
+        saved_ats_providers = [p for p, v in new_keys.items() if p in ATS_PROVIDER_ORDER and (v or "").strip()]
+        if saved_ats_providers and "atsActiveProvider" not in updates:
+            current_active = current_user.get("atsActiveProvider")
+            if not _resolve_ats_active_provider(merged, current_active):
+                updates["atsActiveProvider"] = saved_ats_providers[0]
+
+    if "atsActiveProvider" in updates:
+        active = (updates.get("atsActiveProvider") or "").strip().lower()
+        if active and active not in ATS_PROVIDER_ORDER:
+            return response(400, {
+                "success": False,
+                "message": "atsActiveProvider must be openai, gemini, claude, or openrouter",
+            })
+        merged_keys = updates.get("llmApiKeys")
+        if merged_keys is None:
+            merged_keys = current_user.get("llmApiKeys") or {}
+        if active and active not in _ats_providers_with_keys(merged_keys):
+            return response(400, {
+                "success": False,
+                "message": f"No saved API key for {active}. Add that provider first.",
+            })
 
     # Merge llmModels so saving one provider's model does not wipe others
     if "llmModels" in updates:
@@ -1004,6 +1230,9 @@ def lambda_handler(event, context):
 
         if action == "getAtsScoreHistory":
             return handle_get_ats_score_history(body)
+
+        if action == "invokeLiveInterviewLlm":
+            return handle_invoke_live_interview_llm(body)
 
         if action == "generateResumePdf":
             return handle_generate_resume_pdf(body)
