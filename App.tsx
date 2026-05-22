@@ -23,6 +23,8 @@ const FAQSection = lazy(() => import('./components/sections/FAQSection'));
 const HackathonCarouselSection = lazy(() => import('./components/sections/HackathonCarouselSection'));
 const InterviewPrepHowItWorks = lazy(() => import('./components/sections/InterviewPrepHowItWorks'));
 const JobPrepSection = lazy(() => import('./components/sections/JobPrepSection'));
+const ResumeBuilderHero = lazy(() => import('./components/sections/ResumeBuilderHero'));
+const ResumeHeroCard = lazy(() => import('./components/sections/ResumeHeroCard'));
 const TopSellers = lazy(() => import('./components/TopSellers'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
@@ -380,6 +382,8 @@ const AppContent: React.FC = () => {
             <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
               <Hero />
               <JobPrepSection />
+              <ResumeBuilderHero />
+              <ResumeHeroCard />
               <InterviewPrepHowItWorks />
               <PlatformCardsSection />
               <LanguagesSkillsSection />
