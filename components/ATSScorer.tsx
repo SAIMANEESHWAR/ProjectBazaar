@@ -5,6 +5,7 @@ import {
   Eye,
   FileText,
   History,
+  Info,
   Loader2,
   Settings,
   Sparkles,

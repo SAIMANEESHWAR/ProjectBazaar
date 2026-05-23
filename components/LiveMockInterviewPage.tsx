@@ -2882,7 +2882,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 <div className="p-6 sm:p-8 space-y-8">
                   <div className="rounded-2xl border border-gray-200 dark:border-gray-600 p-6 bg-gradient-to-b from-orange-50/90 to-white dark:from-orange-500/10 dark:to-gray-900/50 text-center">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Overall {llmApiKey.trim() ? 'AI' : 'demo'} score
+                      Overall {hasLiveInterviewKey ? 'AI' : 'demo'} score
                     </p>
                     <p className="text-5xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#f97316] to-amber-600 mt-2 tabular-nums">
                       {displayedResults.overall}

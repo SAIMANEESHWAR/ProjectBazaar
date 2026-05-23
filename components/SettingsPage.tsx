@@ -611,7 +611,13 @@ const SettingsPage: React.FC = () => {
         setLlmKeyMessage(null);
         setLlmSavingProvider(provider);
         try {
-            const payload: { action: string; userId: string; llmApiKeys?: Record<string, string>; llmModels?: Record<string, string> } = {
+            const payload: {
+                action: string;
+                userId: string;
+                llmApiKeys?: Record<string, string>;
+                llmModels?: Record<string, string>;
+                atsActiveProvider?: string;
+            } = {
                 action: 'updateSettings',
                 userId,
             };
