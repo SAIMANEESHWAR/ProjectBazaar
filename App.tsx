@@ -1,4 +1,20 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import {
+  AuthContext,
+  NavigationContext,
+  useAuth,
+  useNavigation,
+  type Page,
+  type UserRole,
+} from './context/appContext';
+
+export type { Page, UserRole } from './context/appContext';
+export {
+  AuthContext,
+  NavigationContext,
+  useAuth,
+  useNavigation,
+} from './context/appContext';
 import { SITE_ORIGIN } from './lib/apiConfig';
 import { trackPageView } from './lib/analytics';
 import { DashboardProvider } from './context/DashboardContext';
@@ -46,8 +62,6 @@ const BlogPage = lazy(() => import('./components/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/BlogPostPage'));
 
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'liveMockInterview' | 'blog' | 'blogPost' | 'privacy' | 'terms' | 'notFound';
-type UserRole = 'user' | 'admin';
 
 interface PremiumContextType {
   isPremium: boolean;
@@ -62,24 +76,8 @@ interface ThemeContextType {
   isLanding: boolean;
 }
 
-interface NavigationContextType {
-  page: Page;
-  navigateTo: (page: Page) => void;
-}
-
-interface AuthContextType {
-  isLoggedIn: boolean;
-  userId: string | null;
-  userEmail: string | null;
-  userRole: UserRole | null;
-  login: (userId: string, email: string, role?: UserRole) => void;
-  logout: () => void;
-}
-
 export const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-export const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const usePremium = (): PremiumContextType => {
   const context = useContext(PremiumContext);
@@ -93,22 +91,6 @@ export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
-
-export const useNavigation = (): NavigationContextType => {
-  const context = useContext(NavigationContext);
-  if (context === undefined) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
-  }
-  return context;
-};
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

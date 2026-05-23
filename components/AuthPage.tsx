@@ -1,5 +1,5 @@
 import React, { useState, ChangeEvent, FormEvent, ReactNode, useEffect } from 'react';
-import { useNavigation, useAuth } from '../App';
+import { useNavigation, useAuth } from '../context/appContext';
 import {
   Ripple,
   AuthTabs,

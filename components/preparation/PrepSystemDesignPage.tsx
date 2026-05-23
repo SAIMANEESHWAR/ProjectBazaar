@@ -4,26 +4,13 @@ import PrepFilterDropdown from "./PrepFilterDropdown";
 import PrepViewToggle, { useViewMode } from "./PrepViewToggle";
 import { RefreshCw } from "lucide-react";
 import { invalidateCache } from "../../lib/apiCache";
-import SDDiagramRenderer from "./SDDiagramRenderer";
-import { DiagramData } from "../../data/systemDesignData";
+import PrepSystemDesignDetailSidebar from "./PrepSystemDesignDetailSidebar";
+import { type SDQuestion } from "./SDDetailPanel";
+
+export type { SDQuestion } from "./SDDetailPanel";
+export { SDDetailPanel } from "./SDDetailPanel";
 
 type DesignTab = "hld" | "lld";
-
-interface SDQuestion {
-  id: string;
-  title: string;
-  description: string;
-  section: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  designType: string;
-  isSolved?: boolean;
-  isBookmarked?: boolean;
-  content?: string;
-  diagramUrl?: string;
-  diagramData?: DiagramData;
-  additionalImageUrls?: string[];
-  topics?: string[];
-}
 
 export interface PrepSystemDesignPageProps {
   toggleSidebar?: () => void;
@@ -32,174 +19,28 @@ export interface PrepSystemDesignPageProps {
 type FilterTab = "all" | "solved" | "revision";
 const ITEMS_PER_PAGE = 15;
 
-// ─── Tabbed detail panel (Solution / Diagram / Additional Images) ─────────────
-type MediaTab = "solution" | "diagram" | "images";
-
-export function SDDetailPanel({ q }: { q: SDQuestion }) {
-  const rawContent = q.content ?? "";
-  const embeddedRegex = /__DIAGRAM_DATA_START__([\s\S]*?)__DIAGRAM_DATA_END__/;
-  const embMatch = rawContent.match(embeddedRegex);
-
-  let displayContent = rawContent;
-  let embeddedData: DiagramData | null = null;
-  if (embMatch) {
-    displayContent = rawContent.replace(embeddedRegex, "").trim();
-    try {
-      embeddedData = JSON.parse(embMatch[1]);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const finalDiagramData = q.diagramData || embeddedData;
-  const hasDiagram = !!(finalDiagramData || q.diagramUrl);
-  const hasImages = !!q.additionalImageUrls?.length;
-  const hasSolution = !!displayContent;
-
-  const visibleTabs: { id: MediaTab; label: string }[] = [
-    ...(hasSolution ? [{ id: "solution" as MediaTab, label: "Solution" }] : []),
-    ...(hasDiagram ? [{ id: "diagram" as MediaTab, label: "Diagram" }] : []),
-    ...(hasImages
-      ? [
-          {
-            id: "images" as MediaTab,
-            label: `Images (${q.additionalImageUrls!.length})`,
-          },
-        ]
-      : []),
-  ];
-
-  const [activeTab, setActiveTab] = useState<MediaTab>(
-    visibleTabs[0]?.id ?? "solution",
-  );
-  const solutionText = displayContent.startsWith("Solution:")
-    ? displayContent.substring(9).trim()
-    : displayContent;
-  const isPointwise = /\(\d+\)/.test(solutionText);
-
-  return (
-    <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-3">
-      <div>
-        <p className="font-semibold text-gray-900 dark:text-white mb-1">
-          Description
-        </p>
-        <p className="text-gray-600 dark:text-gray-300">{q.description}</p>
-      </div>
-
-      {visibleTabs.length > 1 && (
-        <div className="flex gap-0 border-b border-gray-600 dark:border-gray-700">
-          {visibleTabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
-                activeTab === t.id
-                  ? "text-orange-400 border-orange-400"
-                  : "text-gray-400 border-transparent hover:text-gray-200"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeTab === "solution" && hasSolution && (
-        <div>
-          {visibleTabs.length === 1 && (
-            <p className="font-semibold text-gray-900 dark:text-white mb-1">
-              Solution
-            </p>
-          )}
-          {isPointwise ? (
-            <ul className="list-none space-y-1.5 mt-1">
-              {solutionText
-                .split(/\s*(?=\(\d+\))/)
-                .filter((p) => p.trim())
-                .map((point, idx) => (
-                  <li
-                    key={idx}
-                    className="flex gap-2 text-gray-600 dark:text-gray-300 text-sm"
-                  >
-                    <span className="shrink-0 text-orange-500 font-bold">
-                      •
-                    </span>
-                    <span>{point.replace(/^\(\d+\)\s*/, "")}</span>
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
-              {solutionText}
-            </p>
-          )}
-        </div>
-      )}
-
-      {activeTab === "diagram" && (
-        <div className="mt-1">
-          {finalDiagramData ? (
-            <SDDiagramRenderer data={finalDiagramData} />
-          ) : q.diagramUrl ? (
-            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(q.diagramUrl) ? (
-              <img
-                src={q.diagramUrl}
-                alt="Architecture diagram"
-                className="max-w-full rounded-lg border border-gray-600 shadow-sm max-h-80 object-contain"
-              />
-            ) : (
-              <a
-                href={q.diagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-orange-400 hover:underline text-sm"
-              >
-                View diagram ↗
-              </a>
-            )
-          ) : null}
-        </div>
-      )}
-
-      {activeTab === "images" &&
-        q.additionalImageUrls &&
-        q.additionalImageUrls.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-            {q.additionalImageUrls.map((url, i) => (
-              <div
-                key={i}
-                className="rounded-lg overflow-hidden border border-gray-600 bg-gray-900"
-              >
-                <img
-                  src={url}
-                  alt={`Additional image ${i + 1}`}
-                  className="w-full object-contain max-h-64"
-                  onError={(e) => {
-                    const el = e.target as HTMLImageElement;
-                    if (el.parentElement)
-                      el.parentElement.innerHTML =
-                        '<p class="text-xs text-red-400 p-3">Image failed to load</p>';
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-      {q.topics && q.topics.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {q.topics.map((t) => (
-            <span
-              key={t}
-              className="px-2.5 py-0.5 text-[10px] font-bold bg-gray-800 dark:bg-gray-700 text-white rounded-full shadow-sm border border-gray-700 dark:border-gray-600 transition-transform hover:scale-105"
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion {
+  const id =
+    (raw.id as string) ??
+    (raw.contentId as string) ??
+    (raw.itemId as string) ??
+    (raw._id as string) ??
+    "";
+  return {
+    id,
+    title: String(raw.title ?? ""),
+    description: String(raw.description ?? ""),
+    section: String(raw.section ?? ""),
+    difficulty: (raw.difficulty as SDQuestion["difficulty"]) ?? "Medium",
+    designType: String(raw.designType ?? ""),
+    isSolved: Boolean(raw.isSolved),
+    isBookmarked: Boolean(raw.isBookmarked),
+    content: raw.content as string | undefined,
+    diagramUrl: raw.diagramUrl as string | undefined,
+    diagramData: raw.diagramData as SDQuestion["diagramData"],
+    additionalImageUrls: raw.additionalImageUrls as string[] | undefined,
+    topics: raw.topics as string[] | undefined,
+  };
 }
 
 const HLD_SECTIONS = ["System Design", "Distributed Systems"];
@@ -259,7 +100,7 @@ export default function PrepSystemDesignPage({
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [viewMode, setViewMode] = useViewMode();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<SDQuestion | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const sections = designTab === "hld" ? HLD_SECTIONS : LLD_SECTIONS;
@@ -286,7 +127,11 @@ export default function PrepSystemDesignPage({
           filters,
         );
         if (!cancelled.current && resp.success) {
-          setQuestions(resp.items || []);
+          setQuestions(
+            (resp.items || []).map((item) =>
+              normalizeSDQuestion(item as unknown as Record<string, unknown>),
+            ),
+          );
           setTotalCount(resp.total ?? 0);
           setTotalPages(resp.totalPages ?? 1);
         }
@@ -331,7 +176,7 @@ export default function PrepSystemDesignPage({
     setDifficultyFilter("all");
     setSearch("");
     setCurrentPage(1);
-    setExpandedId(null);
+    setSelectedQuestion(null);
   }, [designTab]);
 
   const handleSort = (key: SortKey) => {
@@ -362,6 +207,34 @@ export default function PrepSystemDesignPage({
     );
     prepUserApi.toggleBookmarked("system_design", id).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!selectedQuestion) return;
+    const updated = questions.find((q) => q.id === selectedQuestion.id);
+    if (updated) {
+      setSelectedQuestion((prev) =>
+        prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+      );
+    }
+  }, [questions, selectedQuestion?.id]);
+
+  const selectedIndex = selectedQuestion
+    ? questions.findIndex((q) => q.id === selectedQuestion.id)
+    : -1;
+
+  const openQuestion = useCallback((q: SDQuestion) => {
+    setSelectedQuestion(q);
+  }, []);
+
+  const goToAdjacentQuestion = useCallback(
+    (direction: "next" | "prev") => {
+      if (selectedIndex < 0) return;
+      const nextIndex = direction === "next" ? selectedIndex + 1 : selectedIndex - 1;
+      const adjacent = questions[nextIndex];
+      if (adjacent) setSelectedQuestion(adjacent);
+    },
+    [selectedIndex, questions],
+  );
 
   return (
     <div>
@@ -625,15 +498,12 @@ export default function PrepSystemDesignPage({
                       const isSolved = q.isSolved ?? false;
                       const isRevision = q.isBookmarked ?? false;
                       const gi = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
-                      const isExpanded = expandedId === q.id;
+                      const isSelected = selectedQuestion?.id === q.id;
                       return (
-                        <>
                           <tr
                             key={q.id}
-                            onClick={() =>
-                              setExpandedId(isExpanded ? null : q.id)
-                            }
-                            className="border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 cursor-pointer"
+                            onClick={() => openQuestion(q)}
+                            className={`border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 cursor-pointer ${isSelected ? "bg-orange-50/60 dark:bg-orange-500/10" : ""}`}
                           >
                             <td className="px-5 py-4 text-sm text-gray-400 dark:text-gray-500 font-medium">
                               {gi + 1}
@@ -728,20 +598,9 @@ export default function PrepSystemDesignPage({
                                     />
                                   </svg>
                                 )}
-                              </button>
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr
-                              key={`${q.id}-detail`}
-                              className="bg-black/80 dark:bg-black/80"
-                            >
-                              <td colSpan={6} className="px-5 py-4">
-                                <SDDetailPanel q={q} />
-                              </td>
-                            </tr>
-                          )}
-                        </>
+                            </button>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -752,12 +611,12 @@ export default function PrepSystemDesignPage({
                 {questions.map((q) => {
                   const isSolved = q.isSolved ?? false;
                   const isRevision = q.isBookmarked ?? false;
-                  const isExpanded = expandedId === q.id;
+                  const isSelected = selectedQuestion?.id === q.id;
                   return (
                     <div
                       key={q.id}
-                      onClick={() => setExpandedId(isExpanded ? null : q.id)}
-                      className="group border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-white dark:bg-gray-800 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 cursor-pointer"
+                      onClick={() => openQuestion(q)}
+                      className={`group border rounded-xl p-5 bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200 cursor-pointer ${isSelected ? "border-orange-300 dark:border-orange-500/50 bg-orange-50/40 dark:bg-orange-500/10 shadow-md" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"}`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span
@@ -847,11 +706,6 @@ export default function PrepSystemDesignPage({
                       <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-300 rounded-full ring-1 ring-cyan-100 dark:ring-cyan-800">
                         {q.section}
                       </span>
-                      {isExpanded && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                          <SDDetailPanel q={q} />
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -997,6 +851,19 @@ export default function PrepSystemDesignPage({
             )}
           </div>
         )
+      )}
+
+      {selectedQuestion && (
+        <PrepSystemDesignDetailSidebar
+          question={selectedQuestion}
+          onClose={() => setSelectedQuestion(null)}
+          onNext={() => goToAdjacentQuestion("next")}
+          onPrev={() => goToAdjacentQuestion("prev")}
+          hasNext={selectedIndex >= 0 && selectedIndex < questions.length - 1}
+          hasPrev={selectedIndex > 0}
+          onToggleSolved={() => toggleSolved(selectedQuestion.id)}
+          onToggleBookmark={() => toggleRevision(selectedQuestion.id)}
+        />
       )}
     </div>
   );
