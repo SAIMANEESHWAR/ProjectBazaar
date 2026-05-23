@@ -245,39 +245,37 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Data Structures & Algorithms</h1>
-        <p className="text-gray-600 mt-1">Practice DSA problems with company tags and acceptance rates</p>
-      </div>
+      <header>
+        <h1 className="prep-title-page text-2xl font-bold">Data Structures & Algorithms</h1>
+        <p className="prep-subtitle">Practice DSA problems with company tags and acceptance rates</p>
+      </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Total</p>
           <p className="text-2xl font-bold text-gray-900">{stats?.totalDSA ?? problems.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Easy</p>
           <p className="text-2xl font-bold text-green-700">{stats?.dsaEasy ?? problems.filter((p) => p.difficulty === 'Easy').length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Medium</p>
           <p className="text-2xl font-bold text-yellow-700">{stats?.dsaMedium ?? problems.filter((p) => p.difficulty === 'Medium').length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Hard</p>
           <p className="text-2xl font-bold text-red-700">{stats?.dsaHard ?? problems.filter((p) => p.difficulty === 'Hard').length}</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="prep-tabs">
         {TABS.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
-              ? 'bg-orange-500 text-white'
-              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
+            className={`prep-tab ${activeTab === tab ? 'prep-tab--active' : ''}`}
           >
             {tab}
           </button>
@@ -291,7 +289,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             placeholder="Search problems..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="prep-input w-full pl-10 pr-4"
           />
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -340,15 +338,15 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       </div>
 
       {!loading && problems.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <p className="text-gray-500 font-medium">No problems match your filters.</p>
+        <div className="prep-card prep-empty">
+          <p>No problems match your filters.</p>
         </div>
       ) : (
         <>
           {viewMode === 'table' && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="prep-table-wrap overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="prep-table w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
@@ -374,7 +372,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                           <tr
                             key={problem.id}
                             onClick={() => openProblem(problem)}
-                            className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer ${isSelected ? 'bg-orange-50/60' : ''}`}
+                            className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer ${isSelected ? 'prep-row--selected' : ''}`}
                           >
                             <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
                             <td className="px-5 py-4">

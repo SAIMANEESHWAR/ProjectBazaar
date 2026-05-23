@@ -341,12 +341,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                 {dashboardMode === 'preparation' && isExpanded && (
                     <div className="px-4 pb-2">
                         <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-300 ${isDark
-                            ? 'bg-[#1c1c1e] border border-[#2c2c2e]'
+                            ? 'bg-[var(--prep-surface-muted,#1f1f1f)] border border-[var(--prep-border-muted,rgba(255,255,255,0.1))]'
                             : 'bg-orange-50 border border-orange-100'
                             }`}>
                             <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-white' : 'bg-orange-500'}`} />
-                                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-white' : 'text-orange-600'}`}>Prep Mode</span>
+                                <div className={`w-2 h-2 rounded-full animate-pulse ${isDark ? 'bg-[var(--prep-text-primary,#fdfdfd)]' : 'bg-orange-500'}`} />
+                                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-[var(--prep-text-primary,#fdfdfd)]' : 'text-orange-600'}`}>Prep Mode</span>
                             </div>
                             <button
                                 onClick={togglePrepDarkMode}

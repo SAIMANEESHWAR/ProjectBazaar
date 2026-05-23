@@ -63,8 +63,8 @@ function IconButton({
   variant?: 'default' | 'accent';
 }) {
   const variants = {
-    default: 'bg-[#1F1F1F] text-[#FDFDFD] hover:bg-[#2A2A2A]',
-    accent: 'bg-[#1A1A1A] text-orange-500 hover:bg-[#252525]',
+    default: 'bg-[var(--prep-surface-muted)] text-[var(--prep-text-primary)] hover:opacity-90',
+    accent: 'bg-[var(--prep-surface-raised)] text-[var(--prep-accent)] hover:opacity-90',
   };
   return (
     <button
@@ -108,7 +108,7 @@ function ActionButton({
         'group inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-medium transition-all duration-150 active:scale-[0.97]',
         active
           ? activeStyles[activeTone]
-          : 'border-white/5 bg-[#1F1F1F] text-[#FDFDFD] hover:bg-[#2A2A2A]',
+          : 'border-[var(--prep-border-muted)] bg-[var(--prep-surface-muted)] text-[var(--prep-text-primary)] hover:opacity-90',
         className
       )}
       {...props}
@@ -258,7 +258,7 @@ export default function PrepDetailSidebar({
       />
       <aside
         className={cn(
-          'fixed top-0 right-0 z-[201] flex h-full w-full max-w-[min(100vw,560px)] flex-col border-l border-white/10 bg-[#0A0A0A] text-[#FDFDFD] shadow-2xl will-change-transform',
+          'prep-detail-sidebar fixed top-0 right-0 z-[201] flex h-full w-full max-w-[min(100vw,560px)] flex-col shadow-2xl will-change-transform',
           panelClassName
         )}
         style={{
@@ -273,10 +273,10 @@ export default function PrepDetailSidebar({
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: contentVisible ? 1 : 0, y: contentVisible ? 0 : -8 }}
           transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1], delay: 0.05 }}
-          className="flex shrink-0 flex-col gap-3 border-b border-white/10 px-5 py-5 md:px-6 md:py-5"
+          className="flex shrink-0 flex-col gap-3 border-b border-[var(--prep-border-muted)] px-5 py-5 md:px-6 md:py-5"
         >
           <div className="flex items-start justify-between gap-4">
-            <h2 className="min-w-0 flex-1 text-left text-xl font-semibold leading-snug tracking-tight text-[#FDFDFD] md:text-2xl">
+            <h2 className="min-w-0 flex-1 text-left text-xl font-semibold leading-snug tracking-tight text-[var(--prep-text-primary)] md:text-2xl">
               {title}
             </h2>
             <div className="mt-0.5 flex shrink-0 items-center gap-2">

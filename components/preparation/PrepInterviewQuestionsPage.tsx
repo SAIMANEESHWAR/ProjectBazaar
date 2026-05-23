@@ -214,34 +214,34 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Interview Questions</h1>
-        <p className="text-gray-600 mt-1">Practice technical and behavioral interview questions</p>
-      </div>
+      <header>
+        <h1 className="prep-title-page text-2xl font-bold">Interview Questions</h1>
+        <p className="prep-subtitle">Practice technical and behavioral interview questions</p>
+      </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Total</p>
           <p className="text-2xl font-bold text-gray-900">{contentStats.total}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-orange-500 rounded-full" style={{ width: '100%' }} />
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Easy</p>
           <p className="text-2xl font-bold text-green-700">{contentStats.easy}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-green-500 rounded-full" style={{ width: `${easyProgress}%` }} />
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Medium</p>
           <p className="text-2xl font-bold text-yellow-700">{contentStats.medium}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${mediumProgress}%` }} />
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Hard</p>
           <p className="text-2xl font-bold text-red-700">{contentStats.hard}</p>
           <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -250,18 +250,16 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="prep-tabs">
         {TABS.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => {
               setActiveTab(tab);
               setCurrentPage(1);
             }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
-              ? 'bg-orange-500 text-white'
-              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
+            className={`prep-tab ${activeTab === tab ? 'prep-tab--active' : ''}`}
           >
             {tab}
           </button>
@@ -278,7 +276,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="prep-input w-full pl-10 pr-4"
           />
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -326,10 +324,10 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="prep-table-wrap overflow-hidden">
         {viewMode === 'table' && (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="prep-table w-full">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
@@ -357,7 +355,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                       <tr
                         key={q.id}
                         onClick={() => openQuestion(q)}
-                        className={`border-b border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer ${isSelected ? 'bg-orange-50/60' : ''}`}
+                        className={`border-b border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer ${isSelected ? 'prep-row--selected' : ''}`}
                       >
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}
