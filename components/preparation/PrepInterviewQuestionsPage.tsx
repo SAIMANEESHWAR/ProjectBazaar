@@ -3,8 +3,34 @@ import type { InterviewQuestion } from '../../data/preparationMockData';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import PrepQuestionDetailSidebar from './PrepQuestionDetailSidebar';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+
+type InterviewQuestionWithDetails = InterviewQuestion & {
+  answer?: string;
+  hints?: string[];
+};
+
+function normalizeInterviewQuestion(raw: Record<string, unknown>): InterviewQuestionWithDetails {
+  const id =
+    (raw.id as string) ??
+    (raw.contentId as string) ??
+    (raw.itemId as string) ??
+    (raw._id as string) ??
+    '';
+  return {
+    id,
+    question: String(raw.question ?? ''),
+    difficulty: (raw.difficulty as InterviewQuestion['difficulty']) ?? 'Medium',
+    category: String(raw.category ?? 'General'),
+    role: String(raw.role ?? 'General'),
+    isSolved: Boolean(raw.isSolved),
+    isBookmarked: Boolean(raw.isBookmarked),
+    answer: raw.answer as string | undefined,
+    hints: Array.isArray(raw.hints) ? (raw.hints as string[]) : undefined,
+  };
+}
 
 interface PrepInterviewQuestionsPageProps {
   toggleSidebar?: () => void;
@@ -51,7 +77,7 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<InterviewQuestionWithDetails | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Server-side pagination: fetch only the current page with filters
@@ -69,7 +95,9 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
 
       const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', filters);
       if (!cancelled.current && resp.success) {
-        const items = (resp.items || []) as InterviewQuestion[];
+        const items = (resp.items || []).map((item) =>
+          normalizeInterviewQuestion(item as unknown as Record<string, unknown>)
+        );
         setQuestions(items);
         setTotalCount(resp.total ?? 0);
         setTotalPages(resp.totalPages ?? 1);
@@ -134,6 +162,50 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
     );
     prepUserApi.toggleBookmarked('interview_questions', id).catch(() => { });
   }, []);
+
+  useEffect(() => {
+    if (!selectedQuestion) return;
+    const updated = questions.find((q) => q.id === selectedQuestion.id);
+    if (updated) {
+      setSelectedQuestion((prev) =>
+        prev && prev.id === updated.id ? { ...prev, ...updated } : prev
+      );
+    }
+  }, [questions, selectedQuestion?.id]);
+
+  const selectedIndex = useMemo(
+    () =>
+      selectedQuestion
+        ? displayedQuestions.findIndex((q) => q.id === selectedQuestion.id)
+        : -1,
+    [selectedQuestion, displayedQuestions]
+  );
+
+  const openQuestion = useCallback((q: InterviewQuestionWithDetails) => {
+    setSelectedQuestion(q);
+  }, []);
+
+  const goToAdjacentQuestion = useCallback(
+    (direction: 'next' | 'prev') => {
+      if (selectedIndex < 0) return;
+      const nextIndex = direction === 'next' ? selectedIndex + 1 : selectedIndex - 1;
+      const adjacent = displayedQuestions[nextIndex];
+      if (adjacent) setSelectedQuestion(adjacent);
+    },
+    [selectedIndex, displayedQuestions]
+  );
+
+  const toSidebarQuestion = (q: InterviewQuestionWithDetails) => ({
+    id: q.id,
+    question: q.question,
+    difficulty: q.difficulty,
+    category: q.category,
+    role: q.role,
+    isSolved: q.isSolved,
+    isBookmarked: q.isBookmarked,
+    answer: q.answer,
+    hints: q.hints,
+  });
 
   const totalProgress = contentStats.total || 1;
   const easyProgress = (contentStats.easy / totalProgress) * 100;
@@ -280,15 +352,12 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                 ) : displayedQuestions.length === 0 ? (
                   <tr><td colSpan={5} className="py-12 text-center text-gray-500">No questions match your filters.</td></tr>
                 ) : displayedQuestions.map((q, idx) => {
-                  const isExpanded = expandedId === q.id;
-                  const answer = (q as any).answer as string | undefined;
-                  const hints = (q as any).hints as string[] | undefined;
+                  const isSelected = selectedQuestion?.id === q.id;
                   return (
-                    <>
                       <tr
                         key={q.id}
-                        onClick={() => setExpandedId(isExpanded ? null : q.id)}
-                        className="border-b border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer"
+                        onClick={() => openQuestion(q)}
+                        className={`border-b border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer ${isSelected ? 'bg-orange-50/60' : ''}`}
                       >
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}
@@ -331,31 +400,6 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                           </button>
                         </td>
                       </tr>
-                      {isExpanded && (
-                        <tr key={`${q.id}-answer`} className="bg-black/80 dark:bg-black/80 border-b border-gray-200 dark:border-gray-800">
-                          <td colSpan={6} className="py-4 px-4">
-                            <div className="pl-4 border-l-3 border-orange-400">
-                              {answer ? (
-                                <>
-                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Answer</p>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{answer}</p>
-                                </>
-                              ) : (
-                                <p className="text-sm text-gray-400 italic">No answer available yet.</p>
-                              )}
-                              {hints && hints.length > 0 && (
-                                <div className="mt-3">
-                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Hints</p>
-                                  <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-0.5">
-                                    {hints.map((h, i) => <li key={i}>{h}</li>)}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
                   );
                 })}
               </tbody>
@@ -366,11 +410,9 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
           <div className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {displayedQuestions.map((q) => {
-                const isExpanded = expandedId === q.id;
-                const answer = (q as any).answer as string | undefined;
-                const hints = (q as any).hints as string[] | undefined;
+                const isSelected = selectedQuestion?.id === q.id;
                 return (
-                  <div key={q.id} onClick={() => setExpandedId(isExpanded ? null : q.id)} className="group border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
+                  <div key={q.id} onClick={() => openQuestion(q)} className={`group border rounded-xl p-5 hover:shadow-md transition-all duration-200 cursor-pointer ${isSelected ? 'border-orange-300 bg-orange-50/40 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}>
                     <div className="flex items-start justify-between">
                       <DifficultyBadge difficulty={q.difficulty} />
                       <button
@@ -404,26 +446,6 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                         <span className="text-xs">{q.isSolved ? 'Solved' : 'Mark solved'}</span>
                       </button>
                     </div>
-                    {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        {answer ? (
-                          <>
-                            <p className="text-xs font-semibold text-gray-900 mb-1">Answer</p>
-                            <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{answer}</p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">No answer available yet.</p>
-                        )}
-                        {hints && hints.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-xs font-semibold text-gray-900 mb-0.5">Hints</p>
-                            <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
-                              {hints.map((h, i) => <li key={i}>{h}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -484,6 +506,19 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
           </div>
         )}
       </div>
+
+      {selectedQuestion && (
+        <PrepQuestionDetailSidebar
+          question={toSidebarQuestion(selectedQuestion)}
+          onClose={() => setSelectedQuestion(null)}
+          onNext={() => goToAdjacentQuestion('next')}
+          onPrev={() => goToAdjacentQuestion('prev')}
+          hasNext={selectedIndex >= 0 && selectedIndex < displayedQuestions.length - 1}
+          hasPrev={selectedIndex > 0}
+          onToggleSolved={() => toggleSolved(selectedQuestion.id)}
+          onToggleBookmark={() => toggleBookmark(selectedQuestion.id)}
+        />
+      )}
     </div>
   );
 }
