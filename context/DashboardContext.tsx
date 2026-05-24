@@ -66,6 +66,30 @@ export type DashboardView =
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
+/** Views that belong to preparation mode (keep in sync with Sidebar prep nav). */
+export const PREP_VIEWS: DashboardView[] = [
+    'prep-hub',
+    'prep-interview-questions',
+    'prep-dsa',
+    'prep-quizzes',
+    'prep-cold-dms',
+    'prep-collections',
+    'prep-mass-recruitment',
+    'prep-job-portals',
+    'prep-notes',
+    'prep-roadmaps',
+    'prep-position-resources',
+    'prep-activity',
+    'prep-system-design',
+    'prep-hld',
+    'prep-lld',
+    'prep-fundamentals',
+    'prep-language',
+    'prep-oops',
+];
+
+export const isPrepView = (view: DashboardView): boolean => PREP_VIEWS.includes(view);
+
 interface DashboardContextType {
     dashboardMode: DashboardMode;
     activeView: DashboardView;
@@ -95,8 +119,18 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     const [activeView, setActiveViewState] = useState<DashboardView>(() => {
         if (typeof window !== 'undefined') {
-            const storedView = localStorage.getItem('activeView');
-            return (storedView as DashboardView) || 'dashboard';
+            const storedMode = localStorage.getItem('dashboardMode') as DashboardMode | null;
+            const storedView = (localStorage.getItem('activeView') as DashboardView) || 'dashboard';
+            const validModes: DashboardMode[] = ['buyer', 'seller', 'preparation', 'jobHunt'];
+            const mode = storedMode && validModes.includes(storedMode) ? storedMode : 'buyer';
+
+            if (mode === 'preparation' && !isPrepView(storedView)) {
+                return 'prep-hub';
+            }
+            if (mode !== 'preparation' && isPrepView(storedView)) {
+                return 'dashboard';
+            }
+            return storedView;
         }
         return 'dashboard';
     });

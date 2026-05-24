@@ -91,10 +91,15 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
     const cancelled = { current: false };
     (async () => {
       setLoading(true);
-      await fetchDashboard(cancelled);
-      if (!cancelled.current) {
-        await prepUserApi.updateStreak();
-        setLoading(false);
+      try {
+        await fetchDashboard(cancelled);
+        if (!cancelled.current) {
+          await prepUserApi.updateStreak();
+        }
+      } catch { /* API only */ } finally {
+        if (!cancelled.current) {
+          setLoading(false);
+        }
       }
     })();
     return () => { cancelled.current = true; };

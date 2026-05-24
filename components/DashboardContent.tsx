@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import Lottie from 'lottie-react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard, isPrepView } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
 import codingCardAnimation from '../lottiefiles/coding.json';
 import studentCardAnimation from '../lottiefiles/student_card.json';
@@ -523,11 +523,19 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     }, [setDashboardMode, setActiveView, setBrowseView]);
 
-    // Live AI Interview is not part of Prep Mode navigation; normalize stale localStorage / deep state.
+    // Keep dashboard mode and active view in sync (stale localStorage, collapsed sidebar, etc.).
     useLayoutEffect(() => {
-        if (dashboardMode === 'preparation' && activeView === 'live-mock-interview') {
-            setActiveView('prep-hub');
+        if (dashboardMode === 'preparation') {
+            if (
+                activeView === 'live-mock-interview'
+                || (!isPrepView(activeView) && activeView !== 'settings' && activeView !== 'live-peer-requests')
+            ) {
+                setActiveView('prep-hub');
+            }
+        } else if (isPrepView(activeView)) {
+            setActiveView('dashboard');
         }
+
         const jobHuntAllowedViews: DashboardView[] = ['job-hunt', 'settings', 'live-peer-requests'];
         if (dashboardMode === 'jobHunt' && !jobHuntAllowedViews.includes(activeView)) {
             setActiveView('job-hunt');
@@ -751,7 +759,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const renderBuyerContent = () => {
         const openFeatureFromCard = (target: FeatureCardTarget) => {
             setDashboardMode(target.mode);
-            setActiveView(target.view);
         };
 
         switch (activeView) {

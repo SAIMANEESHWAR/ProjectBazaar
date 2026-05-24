@@ -127,6 +127,7 @@ const prepNavGroups: PrepNavGroup[] = [
     {
         label: 'Platform',
         items: [
+            { name: 'Preparation Hub', view: 'prep-hub' as DashboardView, icon: DashboardIcon },
             { name: 'My Activity', view: 'prep-activity' as DashboardView, icon: ActivityIcon },
         ],
     },
