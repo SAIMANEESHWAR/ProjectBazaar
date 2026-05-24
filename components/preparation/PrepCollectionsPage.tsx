@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import type { Collection } from '../../data/preparationMockData';
+import type { Collection } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';

@@ -1,20 +1,8 @@
 import Editor from "@monaco-editor/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
-import {
-  interviewQuestions,
-  dsaProblems,
-  quizzes,
-  coldDMTemplates,
-  massRecruitmentCompanies,
-  jobPortals,
-  handwrittenNotes,
-  roadmaps,
-  positionResources,
-} from "../../data/preparationMockData";
-import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
-import { DiagramData } from "../../data/systemDesignData";
-import { prepAdminApi } from "../../services/preparationApi";
+import { prepAdminApi, type ContentType } from "../../services/preparationApi";
+import { DiagramData } from "../../data/prepDiagramTypes";
 
 type PrepTab =
   | "overview"
@@ -787,21 +775,22 @@ const PrepContentManagementPage: React.FC = () => {
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const [iqData, setIqData] = useState(interviewQuestions);
-  const [dsaData, setDsaData] = useState(dsaProblems);
-  const [quizData, setQuizData] = useState(quizzes);
-  const [dmData, setDmData] = useState(coldDMTemplates);
-  const [jpData, setJpData] = useState(jobPortals);
-  const [noteData, setNoteData] = useState(handwrittenNotes);
-  const [rmData, setRmData] = useState(roadmaps);
-  const [mrData, setMrData] = useState(massRecruitmentCompanies);
-  const [posData, setPosData] = useState(positionResources);
+  const [iqData, setIqData] = useState<any[]>([]);
+  const [dsaData, setDsaData] = useState<any[]>([]);
+  const [quizData, setQuizData] = useState<any[]>([]);
+  const [dmData, setDmData] = useState<any[]>([]);
+  const [jpData, setJpData] = useState<any[]>([]);
+  const [noteData, setNoteData] = useState<any[]>([]);
+  const [rmData, setRmData] = useState<any[]>([]);
+  const [mrData, setMrData] = useState<any[]>([]);
+  const [posData, setPosData] = useState<any[]>([]);
   const [hldData, setHldData] = useState<AdminSDQuestion[]>([]);
   const [lldData, setLldData] = useState<AdminSDQuestion[]>([]);
   const [sdLoading, setSdLoading] = useState(false);
   const [sdError, setSdError] = useState<string | null>(null);
-  const [oopsData, setOopsData] = useState(oopsConcepts);
-  const [langData, setLangData] = useState(languageConcepts);
+  const [oopsData, setOopsData] = useState<any[]>([]);
+  const [langData, setLangData] = useState<any[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
 
   // SD modal state
   const [sdModal, setSdModal] = useState<{
@@ -817,6 +806,46 @@ const PrepContentManagementPage: React.FC = () => {
     designType: "hld" | "lld";
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const loadTabContent = useCallback(async (tab: PrepTab) => {
+    const tabMap: Partial<Record<PrepTab, { type: ContentType; setter: React.Dispatch<React.SetStateAction<any[]>> }>> = {
+      "interview-questions": { type: "interview_questions", setter: setIqData },
+      dsa: { type: "dsa_problems", setter: setDsaData },
+      quizzes: { type: "quizzes", setter: setQuizData },
+      "cold-dms": { type: "cold_dm_templates", setter: setDmData },
+      "job-portals": { type: "job_portals", setter: setJpData },
+      notes: { type: "handwritten_notes", setter: setNoteData },
+      roadmaps: { type: "roadmaps", setter: setRmData },
+      "mass-recruitment": { type: "mass_recruitment", setter: setMrData },
+      positions: { type: "position_resources", setter: setPosData },
+      oops: { type: "fundamentals", setter: setOopsData },
+      language: { type: "fundamentals", setter: setLangData },
+    };
+
+    const config = tabMap[tab];
+    if (!config) return;
+
+    setContentLoading(true);
+    try {
+      const resp = await prepAdminApi.listContent(config.type, { limit: 500 });
+      if (resp.success) {
+        config.setter(resp.items ?? []);
+      }
+    } catch {
+      config.setter([]);
+    }
+    setContentLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (
+      activeTab !== "overview" &&
+      activeTab !== "hld" &&
+      activeTab !== "lld"
+    ) {
+      loadTabContent(activeTab);
+    }
+  }, [activeTab, loadTabContent]);
 
   const loadSdContent = useCallback(async (designType: "hld" | "lld") => {
     setSdLoading(true);
@@ -1033,6 +1062,10 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
+      {contentLoading && activeTab !== "overview" && (
+        <p className="text-sm text-gray-500 mb-4">Loading content…</p>
+      )}
+
       <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-4">
         {tabs.map((tab) => (
           <button
@@ -1216,7 +1249,7 @@ const PrepContentManagementPage: React.FC = () => {
                     <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">
                       {p.topic}
                     </span>
-                    {p.company.slice(0, 2).map((c) => (
+                    {p.company.slice(0, 2).map((c: string) => (
                       <span
                         key={c}
                         className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200"
@@ -1278,7 +1311,7 @@ const PrepContentManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-1 flex-wrap">
-                          {p.company.slice(0, 2).map((c) => (
+                          {p.company.slice(0, 2).map((c: string) => (
                             <span
                               key={c}
                               className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"

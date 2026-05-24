@@ -1,36 +1,8 @@
+/** Seed data for upload scripts only — not imported by prep UI. */
 import { ALL_DIAGRAM_DATA } from './systemDesignDiagrams';
+import type { DiagramData } from './prepDiagramTypes';
 
-export interface DiagramNode {
-  id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  label: string;
-  fill: string;
-  icon?: string;
-  lottieUrl?: string;
-}
-
-export interface DiagramEdge {
-  from: string;
-  to: string;
-  label: string;
-  dashed: boolean;
-}
-
-export interface DiagramLegend {
-  color: string;
-  label: string;
-  icon?: string;
-}
-
-export interface DiagramData {
-  nodes: DiagramNode[];
-  edges: DiagramEdge[];
-  legend: DiagramLegend[];
-  subtitle?: string;
-}
+export type { DiagramData, DiagramNode, DiagramEdge, DiagramLegend } from './prepDiagramTypes';
 
 export interface SDQuestion {
   id: string;

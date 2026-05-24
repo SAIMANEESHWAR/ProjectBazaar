@@ -1,6 +1,6 @@
 import { useState } from "react";
 import SDDiagramRenderer from "./SDDiagramRenderer";
-import { DiagramData } from "../../data/systemDesignData";
+import { DiagramData } from "../../data/prepDiagramTypes";
 
 export interface SDQuestion {
   id: string;

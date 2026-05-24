@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { prepUserApi } from "../../services/preparationApi";
+import { fetchDistinctFieldValues } from "../../lib/prepContentHelpers";
 import PrepFilterDropdown from "./PrepFilterDropdown";
 import PrepViewToggle, { useViewMode } from "./PrepViewToggle";
 import { RefreshCw } from "lucide-react";
@@ -19,16 +20,19 @@ export interface PrepSystemDesignPageProps {
 type FilterTab = "all" | "solved" | "revision";
 const ITEMS_PER_PAGE = 15;
 
-function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion {
+function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion | null {
   const id =
     (raw.id as string) ??
     (raw.contentId as string) ??
     (raw.itemId as string) ??
     (raw._id as string) ??
     "";
+  const title = String(raw.title ?? "").trim();
+  if (!title) return null;
+
   return {
     id,
-    title: String(raw.title ?? ""),
+    title,
     description: String(raw.description ?? ""),
     section: String(raw.section ?? ""),
     difficulty: (raw.difficulty as SDQuestion["difficulty"]) ?? "Medium",
@@ -42,15 +46,6 @@ function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion {
     topics: raw.topics as string[] | undefined,
   };
 }
-
-const HLD_SECTIONS = ["System Design", "Distributed Systems"];
-const LLD_SECTIONS = [
-  "Object-Oriented Design",
-  "System Design",
-  "Game Design",
-  "Data Structures",
-  "Design Patterns",
-];
 
 const difficultyClass = (d: string) => {
   if (d === "Easy")
@@ -102,8 +97,19 @@ export default function PrepSystemDesignPage({
   const [viewMode, setViewMode] = useViewMode();
   const [selectedQuestion, setSelectedQuestion] = useState<SDQuestion | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sections, setSections] = useState<string[]>([]);
 
-  const sections = designTab === "hld" ? HLD_SECTIONS : LLD_SECTIONS;
+  useEffect(() => {
+    let cancelled = false;
+    fetchDistinctFieldValues("system_design", "section", 500, {
+      designType: designTab,
+    }).then((values) => {
+      if (!cancelled) setSections(values);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [designTab]);
 
   const fetchQuestions = useCallback(
     async (cancelled = { current: false }) => {
@@ -128,9 +134,11 @@ export default function PrepSystemDesignPage({
         );
         if (!cancelled.current && resp.success) {
           setQuestions(
-            (resp.items || []).map((item) =>
-              normalizeSDQuestion(item as unknown as Record<string, unknown>),
-            ),
+            (resp.items || [])
+              .map((item) =>
+                normalizeSDQuestion(item as unknown as Record<string, unknown>),
+              )
+              .filter((item): item is SDQuestion => item !== null),
           );
           setTotalCount(resp.total ?? 0);
           setTotalPages(resp.totalPages ?? 1);

@@ -2,7 +2,7 @@ import * as LucideIcons from 'lucide-react';
 import { motion } from 'framer-motion';
 import Lottie from 'lottie-react';
 import { useEffect, useState } from 'react';
-import { DiagramData } from '../../data/systemDesignData';
+import { DiagramData } from '../../data/prepDiagramTypes';
 
 interface SDDiagramRendererProps {
     data: DiagramData;

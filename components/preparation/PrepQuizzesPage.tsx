@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { Quiz } from '../../data/preparationMockData';
+import type { Quiz } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw, Lock } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import { isNonEmptyString } from '../../lib/prepContentHelpers';
 
 interface PrepQuizzesPageProps {
   toggleSidebar?: () => void;
@@ -35,15 +36,27 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useViewMode('grid');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchQuizzes = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
     try {
-      const resp = await prepUserApi.listContent('quizzes', { limit: 200 });
-      if (!cancelled.current && resp.success && resp.items.length > 0) {
-        setQuizzes((resp.items || []) as unknown as Quiz[]);
+      const resp = await prepUserApi.listContentWithProgress<Quiz>('quizzes', { limit: 200 });
+      if (!cancelled.current) {
+        setQuizzes(
+          resp.success
+            ? ((resp.items || []) as unknown as Quiz[]).filter(
+                (quiz) =>
+                  isNonEmptyString(quiz.title) && isNonEmptyString(quiz.description),
+              )
+            : [],
+        );
       }
-    } catch { /* API only */ }
+    } catch {
+      if (!cancelled.current) setQuizzes([]);
+    }
+    if (!cancelled.current) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -132,10 +145,7 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
           className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
           <option value="all">All roles</option>
-          <option value="Students">Students</option>
-          <option value="Freshers">Freshers</option>
-          <option value="Professionals">Professionals</option>
-          {roles.filter(r => !['Students', 'Freshers', 'Professionals'].includes(r)).map((role) => (
+          {roles.map((role) => (
             <option key={role} value={role}>
               {role}
             </option>
@@ -161,7 +171,9 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
         </div>
       </div>
 
-      {viewMode === 'grid' && (
+      {loading ? (
+        <p className="text-gray-500 py-12 text-center">Loading quizzes…</p>
+      ) : viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredQuizzes.map((quiz) => (
             <div
@@ -197,7 +209,9 @@ export default function PrepQuizzesPage(_props: PrepQuizzesPageProps) {
         </div>
       )}
 
-      {viewMode === 'table' && (
+      {loading ? (
+        <p className="text-gray-500 py-12 text-center">Loading quizzes…</p>
+      ) : viewMode === 'table' && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">

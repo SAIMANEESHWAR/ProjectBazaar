@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { HandwrittenNote } from '../../data/preparationMockData';
+import type { HandwrittenNote } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
@@ -25,15 +25,20 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useViewMode('grid');
   const [notes, setNotes] = useState<HandwrittenNote[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchNotes = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
     try {
       const resp = await prepUserApi.listContent('handwritten_notes', { limit: 200 });
-      if (!cancelled.current && resp.success && resp.items.length > 0) {
-        setNotes((resp.items || []) as unknown as HandwrittenNote[]);
+      if (!cancelled.current) {
+        setNotes(resp.success ? ((resp.items || []) as unknown as HandwrittenNote[]) : []);
       }
-    } catch { /* API only */ }
+    } catch {
+      if (!cancelled.current) setNotes([]);
+    }
+    if (!cancelled.current) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -95,7 +100,9 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
         </div>
       </div>
 
-      {viewMode === 'grid' && (
+      {loading ? (
+        <p className="text-gray-500 py-12 text-center">Loading notes…</p>
+      ) : viewMode === 'grid' && (
         <>
           {filteredNotes.length === 0 ? (
             <div className="text-center py-12 text-gray-500">No notes found.</div>

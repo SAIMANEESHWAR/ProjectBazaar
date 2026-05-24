@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { InterviewQuestion } from '../../data/preparationMockData';
+import type { InterviewQuestion } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDifficultyStats, isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepQuestionDetailSidebar from './PrepQuestionDetailSidebar';
@@ -93,19 +94,24 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
       if (search.trim()) filters.search = search.trim();
       if (activeTab === 'Solved') filters.solvedOnly = true;
 
-      const resp = await prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', filters);
+      const [resp, difficultyStats] = await Promise.all([
+        prepUserApi.listContentWithProgress<InterviewQuestion>('interview_questions', filters),
+        fetchDifficultyStats('interview_questions'),
+      ]);
       if (!cancelled.current && resp.success) {
-        const items = (resp.items || []).map((item) =>
-          normalizeInterviewQuestion(item as unknown as Record<string, unknown>)
-        );
+        const items = (resp.items || [])
+          .map((item) =>
+            normalizeInterviewQuestion(item as unknown as Record<string, unknown>),
+          )
+          .filter((q) => isNonEmptyString(q.question));
         setQuestions(items);
         setTotalCount(resp.total ?? 0);
         setTotalPages(resp.totalPages ?? 1);
         setContentStats({
-          total: resp.total ?? 0,
-          easy: items.filter((q) => q.difficulty === 'Easy').length,
-          medium: items.filter((q) => q.difficulty === 'Medium').length,
-          hard: items.filter((q) => q.difficulty === 'Hard').length,
+          total: difficultyStats.total || resp.total || 0,
+          easy: difficultyStats.easy,
+          medium: difficultyStats.medium,
+          hard: difficultyStats.hard,
         });
       }
     } catch { /* API only */ }

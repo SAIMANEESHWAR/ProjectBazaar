@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "seed:prep": "npx tsx scripts/uploadPrepSeed.ts"
+    "seed:prep": "npx tsx scripts/uploadPrepSeed.ts",
+    "clear:prep": "npx tsx scripts/clearPrepContent.ts"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

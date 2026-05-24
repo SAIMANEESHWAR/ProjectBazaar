@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { ColdDMTemplate } from '../../data/preparationMockData';
+import type { ColdDMTemplate } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDistinctFieldValues, isNonEmptyString } from '../../lib/prepContentHelpers';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepColdDMDetailSidebar from './PrepColdDMDetailSidebar';
@@ -50,19 +51,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-
-  const STATIC_CATEGORIES = [
-    'BTech Freshers',
-    'Internships',
-    'Referral',
-    'Networking',
-    'Professionals',
-    'Startups',
-    'Freelance',
-    'Skill Showcase',
-    'Follow-up',
-    'Feedback',
-  ];
+  const [categories, setCategories] = useState<string[]>([]);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -80,9 +69,14 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
 
       if (resp.success) {
         setTemplates(
-          (resp.items || []).map((item) =>
-            normalizeColdDMTemplate(item as unknown as Record<string, unknown>)
-          )
+          (resp.items || [])
+            .map((item) =>
+              normalizeColdDMTemplate(item as unknown as Record<string, unknown>),
+            )
+            .filter(
+              (template) =>
+                isNonEmptyString(template.title) && isNonEmptyString(template.content),
+            ),
         );
         setTotalPages(resp.totalPages || 1);
         setTotalItems(resp.total || 0);
@@ -102,6 +96,10 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
     await fetchTemplates();
     setTimeout(() => setIsRefreshing(false), 500);
   };
+
+  useEffect(() => {
+    fetchDistinctFieldValues('cold_dm_templates', 'category').then(setCategories);
+  }, []);
 
   useEffect(() => {
     fetchTemplates();
@@ -186,7 +184,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
           className="px-4 py-3 border border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-all duration-200 bg-white min-w-[180px]"
         >
           <option value="all">All Categories</option>
-          {STATIC_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>

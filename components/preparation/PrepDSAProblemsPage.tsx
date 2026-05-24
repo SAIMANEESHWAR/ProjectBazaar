@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { DSAProblem } from '../../data/preparationMockData';
+import type { DSAProblem } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDifficultyStats, fetchDistinctFieldValues, isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepDSADetailSidebar, { type PrepDSADetail } from './PrepDSADetailSidebar';
@@ -39,7 +40,7 @@ function normalizeDSAProblem(raw: Record<string, unknown>): DSAProblemWithDetail
             output: String(e.output ?? ''),
           };
         })
-        .filter((ex): ex is { input: string; output: string } => !!ex && (ex.input || ex.output))
+        .filter((ex): ex is { input: string; output: string } => Boolean(ex && (ex.input || ex.output)))
     : undefined;
 
   return {
@@ -65,7 +66,6 @@ interface PrepDSAProblemsPageProps {
 }
 
 const TABS = ['All problems', 'Real World Scenarios', 'Problem Sets', 'Solved', 'Revision', 'Folders'] as const;
-const TOPICS = ['Arrays', 'Dynamic Programming', 'Trees', 'Stack', 'Linked List', 'Graph', 'Design', 'Binary Search'];
 const ITEMS_PER_PAGE = 10;
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
 
@@ -101,6 +101,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [totalCount, setTotalCount] = useState(0);
   const [apiTotalPages, setApiTotalPages] = useState(1);
   const [stats, setStats] = useState<{ totalDSA: number; dsaEasy: number; dsaMedium: number; dsaHard: number } | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>(null);
@@ -122,31 +123,37 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       if (search.trim()) filters.search = search.trim();
       if (activeTab === 'Solved') filters.solvedOnly = true;
 
-      const [resp, dashboard] = await Promise.all([
+      const [resp, difficultyStats] = await Promise.all([
         prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', filters),
-        prepUserApi.getDashboard(),
+        fetchDifficultyStats('dsa_problems'),
       ]);
       if (!cancelled.current && resp.success) {
-        const items = (resp.items ?? []).map((item) =>
-          normalizeDSAProblem(item as unknown as Record<string, unknown>)
-        );
+        const items = (resp.items ?? [])
+          .map((item) =>
+            normalizeDSAProblem(item as unknown as Record<string, unknown>),
+          )
+          .filter((problem) => isNonEmptyString(problem.title));
         setProblems(items);
         setTotalCount(resp.total ?? 0);
         setApiTotalPages(resp.totalPages ?? 1);
-      }
-      if (!cancelled.current && dashboard?.contentCounts) {
-        const cc = dashboard.contentCounts;
-        const total = (cc.dsa_problems as number) ?? 0;
         setStats({
-          totalDSA: total,
-          dsaEasy: Math.floor(total * 0.35),
-          dsaMedium: Math.floor(total * 0.5),
-          dsaHard: Math.floor(total * 0.15),
+          totalDSA: difficultyStats.total,
+          dsaEasy: difficultyStats.easy,
+          dsaMedium: difficultyStats.medium,
+          dsaHard: difficultyStats.hard,
         });
       }
     } catch { /* API only */ }
     if (!cancelled.current) setLoading(false);
   }, [currentPage, topicFilter, difficultyFilter, search, activeTab]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchDistinctFieldValues('dsa_problems', 'topic').then((values) => {
+      if (!cancelled.current) setTopics(values);
+    });
+    return () => { cancelled.current = true; };
+  }, []);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -303,7 +310,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
         <PrepFilterDropdown
           value={topicFilter}
           onChange={setTopicFilter}
-          options={[{ value: 'all', label: 'All Topics' }, ...TOPICS.map(t => ({ value: t, label: t }))]}
+          options={[{ value: 'all', label: 'All Topics' }, ...topics.map(t => ({ value: t, label: t }))]}
         />
         <PrepFilterDropdown
           value={difficultyFilter}

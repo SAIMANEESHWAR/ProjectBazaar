@@ -1,5 +1,5 @@
 import { Copy, Check } from 'lucide-react';
-import type { ColdDMTemplate } from '../../data/preparationMockData';
+import type { ColdDMTemplate } from '../../data/preparationTypes';
 import PrepDetailSidebar, { PrepDetailActionButton } from './PrepDetailSidebar';
 
 interface PrepColdDMDetailSidebarProps {

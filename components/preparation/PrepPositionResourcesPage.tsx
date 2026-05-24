@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { subTabConfig, type SubTabKey } from '../../data/positionResourcesData';
+import { positionResourcesSubTabConfig, type PrepSubTabKey } from '../../data/prepConfig';
 import { prepUserApi } from '../../services/preparationApi';
+import { isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
@@ -21,16 +22,12 @@ interface PRQuestionFromAPI {
   isBookmarked?: boolean;
 }
 
-const roleMeta = [
-  { id: 'backend', label: 'Backend Developer role', role: 'Backend Developer' },
-  { id: 'frontend', label: 'Frontend Developer role', role: 'Frontend Developer' },
-  { id: 'data-science', label: 'Data Science & ML role', role: 'Data Science & ML' },
-  { id: 'system-design', label: 'System Design & Architecture role', role: 'System Design & Architecture' },
-  { id: 'devops', label: 'DevOps & Cloud role', role: 'DevOps & Cloud' },
-  { id: 'mobile', label: 'Mobile Developer role', role: 'Mobile Developer', isNew: true },
-  { id: 'cybersecurity', label: 'Cybersecurity role', role: 'Cybersecurity', isNew: true },
-  { id: 'blockchain', label: 'Blockchain & Web3 role', role: 'Blockchain & Web3', isNew: true },
-];
+interface RoleTab {
+  id: string;
+  label: string;
+  role: string;
+  isNew?: boolean;
+}
 
 const ITEMS_PER_PAGE = 15;
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
@@ -52,17 +49,57 @@ const difficultyClass = (d: string) => {
 };
 
 const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
-  const [selectedRoleId, setSelectedRoleId] = useState(roleMeta[0].id);
-  const [activeSubTab, setActiveSubTab] = useState<SubTabKey>('interview');
+  const [roles, setRoles] = useState<RoleTab[]>([]);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<PrepSubTabKey>('interview');
   const [allQuestions, setAllQuestions] = useState<PRQuestionFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const fetchRoles = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const resp = await prepUserApi.listContent('position_resources', { limit: 500 });
+      if (!cancelled.current && resp.success) {
+        const map = new Map<string, RoleTab>();
+        for (const item of resp.items ?? []) {
+          const raw = item as Record<string, unknown>;
+          const id = String(raw.roleId ?? '').trim();
+          const label = String(raw.roleLabel ?? id).trim();
+          if (!id || map.has(id)) continue;
+          map.set(id, {
+            id,
+            label,
+            role: label.replace(/\s+role$/i, ''),
+          });
+        }
+        const list = [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+        setRoles(list);
+        if (list.length > 0) {
+          setSelectedRoleId((current) =>
+            current && list.some((role) => role.id === current) ? current : list[0].id
+          );
+        }
+      }
+    } catch {
+      if (!cancelled.current) setRoles([]);
+    } finally {
+      if (!cancelled.current) setRolesLoading(false);
+    }
+  }, []);
+
   const fetchQuestions = useCallback(async (cancelled = { current: false }) => {
+    if (!selectedRoleId) {
+      if (!cancelled.current) {
+        setAllQuestions([]);
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     try {
       const resp = await prepUserApi.listContentWithProgress<PRQuestionFromAPI>('position_resources', {
@@ -71,11 +108,21 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
         limit: 500,
       });
       if (!cancelled.current && resp.success) {
-        setAllQuestions(resp.items || []);
+        setAllQuestions(
+          (resp.items || []).filter((item) =>
+            isNonEmptyString((item as PRQuestionFromAPI).question),
+          ),
+        );
       }
     } catch { /* API only */ }
     if (!cancelled.current) setLoading(false);
   }, [selectedRoleId, activeSubTab]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchRoles(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchRoles]);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -95,7 +142,10 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const selectedRole = useMemo(() => roleMeta.find((r) => r.id === selectedRoleId) ?? roleMeta[0], [selectedRoleId]);
+  const selectedRole = useMemo(
+    () => roles.find((r) => r.id === selectedRoleId) ?? roles[0],
+    [roles, selectedRoleId]
+  );
 
   const questions = useMemo(() => {
     if (!sortKey) return allQuestions;
@@ -118,10 +168,10 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
 
   const showCategory = activeSubTab !== 'interview';
 
-  const subTab = subTabConfig.find((t) => t.key === activeSubTab)!;
-  const roleName = selectedRole.role.replace(/ role$/, '');
-  const sectionTitle = subTab.titleTemplate.replace('{role}', roleName);
-  const sectionSubtitle = subTab.subtitleTemplate.replace('{role}', roleName);
+  const subTab = positionResourcesSubTabConfig.find((t) => t.key === activeSubTab)!;
+  const roleName = (selectedRole?.role ?? '').replace(/ role$/, '');
+  const sectionTitle = subTab.titleTemplate.replace('{role}', roleName || 'Position');
+  const sectionSubtitle = subTab.subtitleTemplate.replace('{role}', roleName || 'this position');
 
   const toggleSolved = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
@@ -144,7 +194,7 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
       {/* Role Tabs */}
       <div className="mb-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
-          {roleMeta.map((role) => (
+          {roles.map((role) => (
             <button key={role.id} onClick={() => { setSelectedRoleId(role.id); setActiveSubTab('interview'); }}
               className={`relative px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${selectedRoleId === role.id ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               {role.label.replace(/ role$/, '')}
@@ -159,7 +209,7 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
       {/* Sub Tabs */}
       <div className="mb-6 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
-          {subTabConfig.map((tab) => (
+          {positionResourcesSubTabConfig.map((tab) => (
             <button key={tab.key} onClick={() => setActiveSubTab(tab.key)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${activeSubTab === tab.key ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               {tab.label}
@@ -198,14 +248,22 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
       </div>
 
       {/* Loading */}
-      {loading && (
+      {(rolesLoading || loading) && (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="text-gray-500">Loading questions...</p>
+          <p className="text-gray-500">{rolesLoading ? 'Loading roles...' : 'Loading questions...'}</p>
         </div>
       )}
 
-      {!loading && questions.length === 0 ? (
+      {!rolesLoading && roles.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+          <div className="text-gray-400 mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          </div>
+          <p className="text-gray-500 font-medium">No position roles available yet.</p>
+          <p className="text-gray-400 text-sm mt-1">Check back soon for updates.</p>
+        </div>
+      ) : !rolesLoading && !loading && questions.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <div className="text-gray-400 mb-3">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -213,7 +271,7 @@ const PrepPositionResourcesPage = (_props: PrepPositionResourcesPageProps) => {
           <p className="text-gray-500 font-medium">No questions available for this category yet.</p>
           <p className="text-gray-400 text-sm mt-1">Check back soon for updates.</p>
         </div>
-      ) : !loading && (
+      ) : !rolesLoading && !loading && (
         <>
           {viewMode === 'table' && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">

@@ -1,3 +1,9 @@
+/** Seed data for upload scripts only — not imported by prep UI. Use data/prepConfig.ts for tab config. */
+export type MRSubTabKey = 'interview' | 'dsa' | 'aptitude' | 'sql' | 'corecs';
+
+/** @deprecated Import massRecruitmentSubTabConfig from data/prepConfig.ts in app UI. */
+export { massRecruitmentSubTabConfig as mrSubTabConfig } from './prepConfig';
+
 export interface MRQuestion {
   id: string;
   question: string;
@@ -17,16 +23,6 @@ export interface CompanyData {
   sqlQuestions: MRQuestion[];
   coreCSQuestions: MRQuestion[];
 }
-
-export type MRSubTabKey = 'interview' | 'dsa' | 'aptitude' | 'sql' | 'corecs';
-
-export const mrSubTabConfig: { key: MRSubTabKey; label: string; titleTemplate: string; subtitleTemplate: string }[] = [
-  { key: 'interview', label: 'Interview Questions', titleTemplate: 'Interview Questions for {company}', subtitleTemplate: 'Most asked interview questions in interviews at {company}. Prepare with role-specific questions.' },
-  { key: 'dsa', label: 'DSA', titleTemplate: 'DSA Questions for {company}', subtitleTemplate: 'Most asked DSA questions in interviews at {company}. Practice problem-solving skills.' },
-  { key: 'aptitude', label: 'Aptitude', titleTemplate: 'Aptitude Questions for {company}', subtitleTemplate: 'Most asked aptitude questions in assessments at {company}. Sharpen your logical reasoning.' },
-  { key: 'sql', label: 'SQL', titleTemplate: 'SQL Questions for {company}', subtitleTemplate: 'Most asked SQL questions in interviews at {company}. Master database querying.' },
-  { key: 'corecs', label: 'Core CS', titleTemplate: 'Core CS Subjects for {company}', subtitleTemplate: 'Most asked Core CS Subjects questions in interviews at {company}. Build a strong foundation in computer science fundamentals.' },
-];
 
 const q = (prefix: string, id: number, question: string, category: string, difficulty: 'Easy' | 'Medium' | 'Hard'): MRQuestion => ({
   id: `${prefix}-${id}`,

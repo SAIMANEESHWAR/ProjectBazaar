@@ -664,3 +664,61 @@
   color: var(--prep-text-tertiary);
   font-size: var(--prep-font-size-sm);
 }
+
+/* Activity heatmap — theme-aware (avoids light gray cells on dark bg) */
+.prep-mode .prep-heatmap-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--prep-radius-xs);
+  transition: transform var(--prep-duration-instant) ease,
+    box-shadow var(--prep-duration-instant) ease;
+}
+
+.prep-mode .prep-heatmap-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 1px var(--prep-accent);
+}
+
+.prep-mode .prep-heatmap-cell--0 {
+  background-color: var(--prep-surface-muted);
+  border: 1px solid var(--prep-border-muted);
+}
+
+.prep-mode .prep-heatmap-cell--1 {
+  background-color: rgba(249, 115, 22, 0.28);
+}
+
+.prep-mode .prep-heatmap-cell--2 {
+  background-color: rgba(249, 115, 22, 0.45);
+}
+
+.prep-mode .prep-heatmap-cell--3 {
+  background-color: rgba(249, 115, 22, 0.62);
+}
+
+.prep-mode .prep-heatmap-cell--4 {
+  background-color: var(--prep-accent);
+}
+
+.prep-mode .prep-activity-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--prep-text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.prep-mode .prep-progress-track {
+  height: 8px;
+  background-color: var(--prep-surface-muted);
+  border-radius: var(--prep-radius-pill);
+  overflow: hidden;
+  border: 1px solid var(--prep-border-muted);
+}
+
+.prep-mode .prep-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--prep-accent) 0%, #f59e0b 100%);
+  border-radius: var(--prep-radius-pill);
+  transition: width var(--prep-duration-normal) var(--prep-ease);
+}

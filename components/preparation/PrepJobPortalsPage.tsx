@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { JobPortal } from '../../data/preparationMockData';
+import type { JobPortal } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDistinctFieldValues } from '../../lib/prepContentHelpers';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
@@ -25,6 +26,8 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
 
   const fetchPortals = useCallback(async () => {
     try {
@@ -52,6 +55,16 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
   }, [currentPage, itemsPerPage, search, category, region, activeTab]);
 
   useEffect(() => {
+  Promise.all([
+      fetchDistinctFieldValues('job_portals', 'category'),
+      fetchDistinctFieldValues('job_portals', 'region'),
+    ]).then(([cats, regs]) => {
+      setCategories(cats);
+      setRegions(regs);
+    });
+  }, []);
+
+  useEffect(() => {
     fetchPortals();
   }, [fetchPortals]);
 
@@ -62,9 +75,6 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Use static categories for the dropdown since pagination will otherwise break them
-  const categories = ['General', 'Networking', 'Research', 'Startups', 'Internships', 'Competitions', 'Tech'];
-  const regions = ['India', 'Global'];
 
   const toggleFavorite = useCallback((id: string) => {
     setPortals((prev) =>
