@@ -32,6 +32,6 @@
   },
 
   "include": ["./**/*"],
-  "exclude": ["node_modules", "dist", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "vite.config.ts", "scripts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
