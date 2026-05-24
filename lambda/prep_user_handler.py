@@ -12,7 +12,8 @@ from botocore.exceptions import ClientError
 
 # ========================== CONFIG ==========================
 REGION = "ap-south-2"
-S3_BUCKET = "projectbazaar-prep-notes"
+S3_REGION = "ap-south-2"
+S3_BUCKET = "projectbazaar-admin-coursesandnotes"
 
 # Content tables (read-only from user side)
 TABLE_INTERVIEW_QUESTIONS = "PrepInterviewQuestions"
@@ -63,7 +64,7 @@ CORS_HEADERS = {
 
 # ========================== AWS CLIENTS ==========================
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_client = boto3.client("s3", region_name=S3_REGION)
 _tables = {}
 
 
@@ -141,7 +142,7 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
     limit = int(query_params.get("limit", 50))
 
     FILTERABLE_ATTRS = ["difficulty", "category", "topic", "role", "section",
-                        "companyId", "roleId", "subType", "designType"]
+                        "companyId", "roleId", "subType", "designType", "contentKind"]
 
     try:
         filter_expressions = []

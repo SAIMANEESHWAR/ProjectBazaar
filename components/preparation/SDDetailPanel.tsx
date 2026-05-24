@@ -1,6 +1,9 @@
 import { useState } from "react";
 import SDDiagramRenderer from "./SDDiagramRenderer";
 import { DiagramData } from "../../data/prepDiagramTypes";
+import PrepRichContentRenderer, {
+  isRichHtmlContent,
+} from "./PrepRichContentRenderer";
 
 export interface SDQuestion {
   id: string;
@@ -9,12 +12,16 @@ export interface SDQuestion {
   section: string;
   difficulty: "Easy" | "Medium" | "Hard";
   designType: string;
+  contentKind?: "concept" | "question" | "practice" | "resource";
   isSolved?: boolean;
   isBookmarked?: boolean;
   content?: string;
   diagramUrl?: string;
   diagramData?: DiagramData;
   additionalImageUrls?: string[];
+  resourceLinks?: string[];
+  pdfUrl?: string;
+  thumbnailUrl?: string;
   topics?: string[];
 }
 
@@ -109,7 +116,12 @@ export function SDDetailPanel({
       {activeTab === "solution" && hasSolution && (
         <div>
           {visibleTabs.length === 1 && <p className={labelClass}>Solution</p>}
-          {isPointwise ? (
+          {isRichHtmlContent(solutionText) ? (
+            <PrepRichContentRenderer
+              html={solutionText}
+              variant={isNocturnal ? "nocturnal" : "default"}
+            />
+          ) : isPointwise ? (
             <ul className="list-none space-y-2 mt-1">
               {solutionText
                 .split(/\s*(?=\(\d+\))/)

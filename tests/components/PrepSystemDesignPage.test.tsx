@@ -87,6 +87,20 @@ describe('SDDetailPanel', () => {
     expect(screen.getByAltText('Additional image 2')).toBeInTheDocument();
   });
 
+  it('renders HTML solution content via rich renderer', () => {
+    render(
+      <SDDetailPanel
+        q={{
+          ...baseQuestion,
+          content: '<h3>Approach</h3><p>Use <strong>hashing</strong> for keys.</p>',
+        }}
+      />
+    );
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Approach' })).toBeInTheDocument();
+    expect(screen.getByText('hashing')).toBeInTheDocument();
+  });
+
   it('falls back to embedded diagram data from legacy content', () => {
     const embedded = '__DIAGRAM_DATA_START__{"nodes":[{"id":"1","label":"Gateway","x":120,"y":80,"w":140,"h":48,"fill":"#111827"}],"edges":[],"legend":[],"subtitle":"Legacy Diagram"}__DIAGRAM_DATA_END__';
     render(

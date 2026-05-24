@@ -6,6 +6,8 @@ import PrepViewToggle, { useViewMode } from "./PrepViewToggle";
 import { RefreshCw } from "lucide-react";
 import { invalidateCache } from "../../lib/apiCache";
 import PrepSystemDesignDetailSidebar from "./PrepSystemDesignDetailSidebar";
+import PrepSystemDesignConceptsView from "./PrepSystemDesignConceptsView";
+import PrepSystemDesignResourcesView from "./PrepSystemDesignResourcesView";
 import { type SDQuestion } from "./SDDetailPanel";
 
 export type { SDQuestion } from "./SDDetailPanel";
@@ -18,6 +20,7 @@ export interface PrepSystemDesignPageProps {
   designTab?: DesignTab;
 }
 type FilterTab = "all" | "solved" | "revision";
+type ContentView = "concepts" | "questions" | "resources";
 const ITEMS_PER_PAGE = 15;
 
 function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion | null {
@@ -37,12 +40,16 @@ function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion | null {
     section: String(raw.section ?? ""),
     difficulty: (raw.difficulty as SDQuestion["difficulty"]) ?? "Medium",
     designType: String(raw.designType ?? ""),
+    contentKind: (raw.contentKind as SDQuestion["contentKind"]) ?? "question",
     isSolved: Boolean(raw.isSolved),
     isBookmarked: Boolean(raw.isBookmarked),
     content: raw.content as string | undefined,
     diagramUrl: raw.diagramUrl as string | undefined,
     diagramData: raw.diagramData as SDQuestion["diagramData"],
     additionalImageUrls: raw.additionalImageUrls as string[] | undefined,
+    resourceLinks: raw.resourceLinks as string[] | undefined,
+    pdfUrl: raw.pdfUrl as string | undefined,
+    thumbnailUrl: raw.thumbnailUrl as string | undefined,
     topics: raw.topics as string[] | undefined,
   };
 }
@@ -83,6 +90,10 @@ export default function PrepSystemDesignPage({
   designTab: designTabProp = "hld",
 }: PrepSystemDesignPageProps) {
   const designTab = designTabProp;
+  const [contentView, setContentView] = useState<ContentView>("concepts");
+  const [concepts, setConcepts] = useState<SDQuestion[]>([]);
+  const [resources, setResources] = useState<SDQuestion[]>([]);
+  const [selectedConcept, setSelectedConcept] = useState<SDQuestion | null>(null);
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("all");
@@ -111,6 +122,52 @@ export default function PrepSystemDesignPage({
     };
   }, [designTab]);
 
+  const fetchConcepts = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
+    try {
+      const resp = await prepUserApi.listContent<SDQuestion>("system_design", {
+        designType: designTab,
+        contentKind: "concept",
+        limit: 500,
+      });
+      if (!cancelled.current && resp.success) {
+        setConcepts(
+          (resp.items || [])
+            .map((item) =>
+              normalizeSDQuestion(item as unknown as Record<string, unknown>),
+            )
+            .filter((item): item is SDQuestion => item !== null),
+        );
+      }
+    } catch {
+      /* API only */
+    }
+    if (!cancelled.current) setLoading(false);
+  }, [designTab]);
+
+  const fetchResources = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
+    try {
+      const resp = await prepUserApi.listContent<SDQuestion>("system_design", {
+        designType: designTab,
+        contentKind: "resource",
+        limit: 500,
+      });
+      if (!cancelled.current && resp.success) {
+        setResources(
+          (resp.items || [])
+            .map((item) =>
+              normalizeSDQuestion(item as unknown as Record<string, unknown>),
+            )
+            .filter((item): item is SDQuestion => item !== null),
+        );
+      }
+    } catch {
+      /* API only */
+    }
+    if (!cancelled.current) setLoading(false);
+  }, [designTab]);
+
   const fetchQuestions = useCallback(
     async (cancelled = { current: false }) => {
       setLoading(true);
@@ -119,6 +176,7 @@ export default function PrepSystemDesignPage({
           page: currentPage,
           limit: ITEMS_PER_PAGE,
           designType: designTab,
+          contentKind: "question",
         };
         if (sectionFilter !== "all") filters.section = sectionFilter;
         if (difficultyFilter !== "all") filters.difficulty = difficultyFilter;
@@ -162,16 +220,20 @@ export default function PrepSystemDesignPage({
 
   useEffect(() => {
     const cancelled = { current: false };
-    fetchQuestions(cancelled);
+    if (contentView === "questions") fetchQuestions(cancelled);
+    else if (contentView === "resources") fetchResources(cancelled);
+    else fetchConcepts(cancelled);
     return () => {
       cancelled.current = true;
     };
-  }, [fetchQuestions]);
+  }, [fetchQuestions, fetchConcepts, fetchResources, contentView]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     invalidateCache("prep:system_design");
-    await fetchQuestions();
+    if (contentView === "questions") await fetchQuestions();
+    else if (contentView === "resources") await fetchResources();
+    else await fetchConcepts();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -185,6 +247,8 @@ export default function PrepSystemDesignPage({
     setSearch("");
     setCurrentPage(1);
     setSelectedQuestion(null);
+    setSelectedConcept(null);
+    setContentView("concepts");
   }, [designTab]);
 
   const handleSort = (key: SortKey) => {
@@ -249,12 +313,10 @@ export default function PrepSystemDesignPage({
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {label} Questions
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">{label}</h1>
           <p className="text-gray-500 mt-1">
-            Practice {shortLabel} concepts and prepare for system design
-            interviews
+            Learn {shortLabel} concepts and practice system design interview
+            questions
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -298,6 +360,54 @@ export default function PrepSystemDesignPage({
         </div>
       </div>
 
+      <div className="mb-5 flex gap-2">
+        {(
+          [
+            ["concepts", "Concepts"],
+            ["questions", "Interview Questions"],
+            ["resources", "Resources"],
+          ] as [ContentView, string][]
+        ).map(([key, lbl]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              setContentView(key);
+              setSelectedConcept(null);
+              setSelectedQuestion(null);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              contentView === key
+                ? "bg-orange-500 text-white shadow-sm"
+                : "bg-white border border-gray-200 text-gray-600 hover:bg-orange-50"
+            }`}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {contentView === "concepts" && (
+        <PrepSystemDesignConceptsView
+          concepts={concepts}
+          loading={loading}
+          viewMode={viewMode}
+          selectedConcept={selectedConcept}
+          onSelectConcept={setSelectedConcept}
+          shortLabel={shortLabel}
+        />
+      )}
+
+      {contentView === "resources" && (
+        <PrepSystemDesignResourcesView
+          resources={resources}
+          loading={loading}
+          viewMode={viewMode}
+        />
+      )}
+
+      {contentView === "questions" && (
+      <>
       {/* Filter tabs */}
       <div className="mb-5 flex gap-1 border-b border-gray-200">
         {(
@@ -859,6 +969,9 @@ export default function PrepSystemDesignPage({
             )}
           </div>
         )
+      )}
+
+      </>
       )}
 
       {selectedQuestion && (

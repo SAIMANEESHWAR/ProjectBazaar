@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PrepSystemDesignMediaUpload",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::projectbazaar-admin-coursesandnotes/system-design/*"
+    },
+    {
+      "Sid": "PrepHandwrittenNotesUpload",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::projectbazaar-admin-coursesandnotes/notes/*"
+    },
+    {
+      "Sid": "PrepMediaRead",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::projectbazaar-admin-coursesandnotes/system-design/*",
+        "arn:aws:s3:::projectbazaar-admin-coursesandnotes/notes/*"
+      ]
+    }
+  ]
+}

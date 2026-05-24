@@ -727,3 +727,78 @@
   border-radius: var(--prep-radius-pill);
   transition: width var(--prep-duration-normal) var(--prep-ease);
 }
+
+/* Rich HTML content (system design concepts & solutions) */
+.prep-rich-content {
+  color: var(--prep-text-primary, #374151);
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+.prep-rich-content h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.75rem;
+  color: #111827;
+}
+
+.prep-rich-content h2 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 1.125rem 0 0.625rem;
+  color: #111827;
+}
+
+.prep-rich-content h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+  color: #111827;
+}
+
+.prep-rich-content p {
+  margin: 0.625rem 0;
+}
+
+.prep-rich-content ul,
+.prep-rich-content ol {
+  margin: 0.625rem 0;
+  padding-left: 1.5rem;
+}
+
+.prep-rich-content li {
+  margin: 0.375rem 0;
+}
+
+.prep-rich-content blockquote {
+  border-left: 3px solid #f97316;
+  margin: 1rem 0;
+  padding-left: 1rem;
+  color: #4b5563;
+}
+
+.prep-rich-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.prep-rich-content a {
+  color: #ea580c;
+  text-decoration: underline;
+}
+
+.prep-rich-content--nocturnal {
+  color: #e5e5e5;
+}
+
+.prep-rich-content--nocturnal h1,
+.prep-rich-content--nocturnal h2,
+.prep-rich-content--nocturnal h3 {
+  color: #fafafa;
+}
+
+.prep-rich-content--nocturnal blockquote {
+  color: #a3a3a3;
+}

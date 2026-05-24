@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import uuid
 import math
@@ -11,16 +13,15 @@ from botocore.exceptions import ClientError
 
 # ========================== CONFIG ==========================
 REGION = "ap-south-2"
-S3_BUCKET = "projectbazaar-prep-notes"
+S3_REGION = "ap-south-2"
+S3_BUCKET = "projectbazaar-admin-coursesandnotes"
 # S3 key prefixes:
 #   notes/          — handwritten notes (PDF uploads via get_note_upload_url)
-#   system-design/  — system design media images (PNG/JPEG via get_sd_media_upload_url)
+#   system-design/  — system design media (images, PDFs, thumbnails via upload_sd_media)
 #
 # Required IAM policy for the Lambda execution role:
-#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/notes/*
-#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/system-design/*
-# Bucket CORS must allow PUT from the admin origin.
-# Override bucket via VITE_PREP_SD_MEDIA_BUCKET env var on the frontend.
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-admin-coursesandnotes/notes/*
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-admin-coursesandnotes/system-design/*
 
 TABLE_INTERVIEW_QUESTIONS = "PrepInterviewQuestions"
 TABLE_DSA_PROBLEMS = "PrepDSAProblems"
@@ -57,7 +58,7 @@ CORS_HEADERS = {
 
 # ========================== AWS CLIENTS ==========================
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_client = boto3.client("s3", region_name=S3_REGION)
 _tables = {}
 
 
@@ -276,18 +277,33 @@ def normalize_system_design(raw: dict, now: str) -> dict:
     else:
         additional_image_urls = []
 
+    raw_content_kind = raw.get("contentKind") or raw.get("content_kind") or "question"
+    content_kind = str(raw_content_kind).strip().lower() if isinstance(raw_content_kind, str) else "question"
+    if content_kind not in ("concept", "question", "practice", "resource"):
+        content_kind = "question"
+
+    raw_links = raw.get("resourceLinks", [])
+    if isinstance(raw_links, list):
+        resource_links = [str(u).strip() for u in raw_links if u and str(u).strip()]
+    else:
+        resource_links = []
+
     normalized = {
         "id": str(raw.get("id") or generate_id("sd")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "type": design_type.upper(),
         "designType": design_type,
+        "contentKind": content_kind,
         "section": str(raw.get("section", "")).strip() or "System Design",
         "difficulty": str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium",
         "topics": [str(t).strip() for t in raw.get("topics", []) if t],
         "content": str(raw.get("content", "")).strip(),
         "diagramUrl": str(raw.get("diagramUrl", "")).strip(),
         "additionalImageUrls": additional_image_urls,
+        "resourceLinks": resource_links,
+        "pdfUrl": str(raw.get("pdfUrl", "")).strip(),
+        "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -362,6 +378,10 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
                 Attr("designType").eq(normalized_design_type)
                 | Attr("type").eq(normalized_design_type.upper())
             )
+        content_kind = query_params.get("contentKind") or query_params.get("content_kind")
+        if content_kind and str(content_kind).lower() != "all":
+            normalized_content_kind = str(content_kind).strip().lower()
+            filter_expressions.append(Attr("contentKind").eq(normalized_content_kind))
 
         scan_kwargs = {}
         if filter_expressions:
@@ -575,22 +595,58 @@ def handle_get_note_upload_url(data: dict) -> dict:
 
 ALLOWED_SD_MEDIA_CONTENT_TYPES = {
     "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
+    "application/pdf",
 }
 
+SD_MEDIA_PREFIX = {
+    "image": "system-design/images",
+    "pdf": "system-design/pdfs",
+    "thumbnail": "system-design/thumbnails",
+}
 
-def handle_get_sd_media_upload_url(data: dict) -> dict:
-    """Generate a presigned S3 URL for uploading a system-design media image."""
-    filename = data.get("filename", "")
-    content_type = data.get("contentType", "image/png")
+# API Gateway payload limit is ~10 MB; keep raw file size under 8 MB.
+MAX_SD_MEDIA_BYTES = 8 * 1024 * 1024
 
+
+def _normalize_sd_media_kind(media_kind: str) -> str:
+    kind = str(media_kind or "image").strip().lower()
+    return kind if kind in SD_MEDIA_PREFIX else "image"
+
+
+def _validate_sd_media_request(filename: str, content_type: str, media_kind: str):
+    """Return (s3_key, public_url) or an api_response error dict."""
     if not filename:
         return api_response(400, {"success": False, "message": "filename is required"})
 
     if content_type not in ALLOWED_SD_MEDIA_CONTENT_TYPES:
-        return api_response(400, {"success": False, "message": f"Unsupported content type '{content_type}'. Allowed: {', '.join(sorted(ALLOWED_SD_MEDIA_CONTENT_TYPES))}"})
+        return api_response(400, {
+            "success": False,
+            "message": f"Unsupported content type '{content_type}'. Allowed: {', '.join(sorted(ALLOWED_SD_MEDIA_CONTENT_TYPES))}",
+        })
 
-    s3_key = f"system-design/{generate_id('img')}/{filename}"
-    public_url = f"https://{S3_BUCKET}.s3.{REGION}.amazonaws.com/{s3_key}"
+    if media_kind == "pdf" and content_type != "application/pdf":
+        return api_response(400, {"success": False, "message": "PDF uploads must use contentType application/pdf"})
+    if media_kind == "thumbnail" and not content_type.startswith("image/"):
+        return api_response(400, {"success": False, "message": "Thumbnail uploads must be an image type"})
+    if media_kind == "image" and content_type == "application/pdf":
+        return api_response(400, {"success": False, "message": "Use mediaKind pdf for PDF uploads"})
+
+    prefix = SD_MEDIA_PREFIX[media_kind]
+    s3_key = f"{prefix}/{generate_id('sdm')}/{filename}"
+    public_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{s3_key}"
+    return s3_key, public_url
+
+
+def handle_get_sd_media_upload_url(data: dict) -> dict:
+    """Generate a presigned S3 URL for system-design media (images, PDFs, thumbnails)."""
+    filename = data.get("filename", "")
+    content_type = data.get("contentType", "image/png")
+    media_kind = _normalize_sd_media_kind(data.get("mediaKind") or data.get("media_kind"))
+
+    validated = _validate_sd_media_request(filename, content_type, media_kind)
+    if not isinstance(validated, tuple):
+        return validated
+    s3_key, public_url = validated
 
     try:
         presigned_url = s3_client.generate_presigned_url(
@@ -607,6 +663,51 @@ def handle_get_sd_media_upload_url(data: dict) -> dict:
         })
     except ClientError as e:
         return api_response(500, {"success": False, "message": "Error generating upload URL", "error": str(e)})
+
+
+def handle_upload_sd_media(data: dict) -> dict:
+    """Upload system-design media via Lambda (avoids browser S3 CORS)."""
+    filename = data.get("filename", "")
+    content_type = data.get("contentType", "image/png")
+    media_kind = _normalize_sd_media_kind(data.get("mediaKind") or data.get("media_kind"))
+    file_b64 = data.get("fileBase64") or data.get("file_base64") or ""
+
+    if not file_b64:
+        return api_response(400, {"success": False, "message": "fileBase64 is required"})
+
+    if isinstance(file_b64, str) and "," in file_b64 and file_b64.strip().startswith("data:"):
+        file_b64 = file_b64.split(",", 1)[1]
+
+    validated = _validate_sd_media_request(filename, content_type, media_kind)
+    if not isinstance(validated, tuple):
+        return validated
+    s3_key, public_url = validated
+
+    try:
+        file_bytes = base64.b64decode(file_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return api_response(400, {"success": False, "message": "Invalid base64 file data"})
+
+    if len(file_bytes) > MAX_SD_MEDIA_BYTES:
+        return api_response(400, {
+            "success": False,
+            "message": f"File too large (max {MAX_SD_MEDIA_BYTES // (1024 * 1024)} MB)",
+        })
+
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=file_bytes,
+            ContentType=content_type,
+        )
+        return api_response(200, {
+            "success": True,
+            "s3Key": s3_key,
+            "publicUrl": public_url,
+        })
+    except ClientError as e:
+        return api_response(500, {"success": False, "message": "Error uploading file", "error": str(e)})
 
 
 def handle_get_content_stats() -> dict:
@@ -698,6 +799,9 @@ def lambda_handler(event, context):
         if action == "get_sd_media_upload_url":
             return handle_get_sd_media_upload_url(body)
 
+        if action == "upload_sd_media":
+            return handle_upload_sd_media(body)
+
         if action == "get_content_stats":
             return handle_get_content_stats()
 
@@ -708,7 +812,8 @@ def lambda_handler(event, context):
             "availableActions": [
                 "list_content", "get_content", "put_content", "put_content_single",
                 "delete_content", "bulk_delete_content", "full_sync_content",
-                "get_note_upload_url", "get_sd_media_upload_url", "get_content_stats",
+                "get_note_upload_url", "get_sd_media_upload_url", "upload_sd_media",
+                "get_content_stats",
             ],
         })
 
