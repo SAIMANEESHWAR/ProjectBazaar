@@ -296,10 +296,10 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             placeholder="Search problems..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="prep-input w-full pl-10 pr-4"
+            className="prep-input prep-input--search w-full pr-4"
           />
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--prep-text-tertiary)]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

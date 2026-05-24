@@ -264,6 +264,11 @@
   box-shadow: 0 0 0 2px var(--prep-accent-muted);
 }
 
+.prep-mode input.prep-input.prep-input--search,
+.prep-mode .prep-input.prep-input--search {
+  padding-left: 3rem;
+}
+
 .prep-mode .prep-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
