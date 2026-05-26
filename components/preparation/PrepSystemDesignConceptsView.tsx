@@ -15,8 +15,6 @@ function groupBySection(items: SDQuestion[]) {
   }));
 }
 
-}
-
 export interface PrepSystemDesignConceptsViewProps {
   concepts: SDQuestion[];
   loading: boolean;
