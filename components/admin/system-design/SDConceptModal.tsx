@@ -33,6 +33,7 @@ export default function SDConceptModal({
   onClose,
 }: SDConceptModalProps) {
   const kindLabel = CONTENT_KIND_LABELS[contentKind];
+  const isConcept = contentKind === "concept";
   const sections = designType === "hld" ? SD_SECTIONS_HLD : SD_SECTIONS_LLD;
   const [form, setForm] = useState({
     title: item?.title ?? "",
@@ -56,9 +57,9 @@ export default function SDConceptModal({
     await onSave({
       ...(item?.id ? { id: item.id } : {}),
       title: form.title.trim(),
-      description: form.description.trim(),
+      description: isConcept ? "" : form.description.trim(),
       section: form.section,
-      difficulty: form.difficulty,
+      difficulty: isConcept ? "Medium" : form.difficulty,
       designType,
       contentKind,
       topics: topicList,
@@ -101,21 +102,23 @@ export default function SDConceptModal({
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Short Description <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                required
-                rows={2}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                placeholder="Brief summary shown on cards"
-              />
-            </div>
+            {!isConcept && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Short Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  placeholder="Brief summary shown on cards"
+                />
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={isConcept ? "" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
                 <select
@@ -128,18 +131,20 @@ export default function SDConceptModal({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-                <select
-                  value={form.difficulty}
-                  onChange={(e) => set("difficulty", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  {["Easy", "Medium", "Hard"].map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
+              {!isConcept && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                  <select
+                    value={form.difficulty}
+                    onChange={(e) => set("difficulty", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    {["Easy", "Medium", "Hard"].map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div>

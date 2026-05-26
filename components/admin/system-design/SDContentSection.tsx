@@ -87,6 +87,7 @@ export default function SDContentSection({
 }: SDContentSectionProps) {
   const isGrid = viewMode === "grid";
   const isResource = contentKind === "resource";
+  const isConcept = contentKind === "concept";
 
   const resourceMeta = (item: AdminSDItem) => {
     const linkCount = item.resourceLinks?.length ?? 0;
@@ -136,11 +137,14 @@ export default function SDContentSection({
                 </div>
               )}
               <div className="flex items-start justify-between mb-3">
-                <DiffBadge d={q.difficulty} />
+                {!isConcept && <DiffBadge d={q.difficulty} />}
+                {isConcept && <span className="text-xs text-gray-400">Concept</span>}
                 <ActionBtns name={q.title} onEdit={() => onEdit(q)} onDelete={() => onDelete(q)} />
               </div>
               <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+              {!isConcept && (
+                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+              )}
               <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">{q.section}</span>
               {isResource && meta && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -170,7 +174,9 @@ export default function SDContentSection({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                {!isConcept && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                )}
                 {showImagesColumn && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Images</th>}
                 {isResource && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assets</th>}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -184,10 +190,14 @@ export default function SDContentSection({
                   <td className="px-6 py-4 text-sm text-gray-400">{i + 1}</td>
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-gray-900">{q.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                    {!isConcept && (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{q.description}</p>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{q.section}</td>
-                  <td className="px-6 py-4"><DiffBadge d={q.difficulty} /></td>
+                  {!isConcept && (
+                    <td className="px-6 py-4"><DiffBadge d={q.difficulty} /></td>
+                  )}
                   {showImagesColumn && <td className="px-6 py-4 text-sm text-gray-500">{q.additionalImageUrls?.length ?? 0}</td>}
                   {isResource && meta && (
                     <td className="px-6 py-4 text-xs text-gray-500">

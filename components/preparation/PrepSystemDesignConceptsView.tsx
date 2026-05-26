@@ -15,11 +15,7 @@ function groupBySection(items: SDQuestion[]) {
   }));
 }
 
-const diffBadge = (d: string) => {
-  if (d === "Easy") return "bg-green-100 text-green-700";
-  if (d === "Medium") return "bg-yellow-100 text-yellow-700";
-  return "bg-red-100 text-red-700";
-};
+}
 
 export interface PrepSystemDesignConceptsViewProps {
   concepts: SDQuestion[];
@@ -52,15 +48,11 @@ export default function PrepSystemDesignConceptsView({
         </button>
         <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-8">
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${diffBadge(selectedConcept.difficulty)}`}>
-              {selectedConcept.difficulty}
-            </span>
             <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-50 text-cyan-700">
               {selectedConcept.section}
             </span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedConcept.title}</h2>
-          <p className="text-gray-500 mb-6">{selectedConcept.description}</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">{selectedConcept.title}</h2>
           {selectedConcept.content ? (
             <PrepRichContentRenderer html={selectedConcept.content} />
           ) : (
@@ -105,7 +97,6 @@ export default function PrepSystemDesignConceptsView({
             <tr className="border-b border-gray-200 bg-gray-50/50">
               <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Title</th>
               <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Section</th>
-              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Difficulty</th>
             </tr>
           </thead>
           <tbody>
@@ -117,11 +108,6 @@ export default function PrepSystemDesignConceptsView({
               >
                 <td className="py-3 px-4 font-medium text-gray-900">{concept.title}</td>
                 <td className="py-3 px-4 text-sm text-gray-600">{concept.section}</td>
-                <td className="py-3 px-4">
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>
-                    {concept.difficulty}
-                  </span>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -143,11 +129,7 @@ export default function PrepSystemDesignConceptsView({
                 onClick={() => onSelectConcept(concept)}
                 className="text-left bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all duration-200"
               >
-                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${diffBadge(concept.difficulty)}`}>
-                  {concept.difficulty}
-                </span>
-                <h3 className="mt-3 font-semibold text-gray-900">{concept.title}</h3>
-                <p className="mt-1 text-sm text-gray-500 line-clamp-2">{concept.description}</p>
+                <h3 className="font-semibold text-gray-900">{concept.title}</h3>
               </button>
             ))}
           </div>
