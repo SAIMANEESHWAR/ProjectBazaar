@@ -238,7 +238,6 @@ export const ResumePreviewTemplateView = React.forwardRef<HTMLDivElement, Resume
             <div className="header-right">
               {(data.contacts ?? []).map((c, i) => (
                 <a key={i} href={c.href} target="_blank" rel="noreferrer">
-                  {c.icon ? `${c.icon} ` : ''}
                   {hl(c.label, terms)}
                 </a>
               ))}

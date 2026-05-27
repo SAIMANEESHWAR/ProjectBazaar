@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Download, Loader2, Printer, Sparkles, Upload, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Printer, Sparkles, Upload, X } from 'lucide-react';
 import { useAuth } from '../../App';
 import type { JobPortal } from '../../data/preparationMockData';
 import {
@@ -195,33 +195,6 @@ const TailorResumeModal: React.FC<TailorResumeModalProps> = ({ portal, onClose }
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Network error.');
       setStep('form');
-    }
-  };
-
-  const downloadTailoredPdf = () => {
-    if (!fixOutcome) return;
-    const name = fixOutcome.pdfFileName || 'tailored-resume.pdf';
-    if (fixOutcome.pdfBase64) {
-      try {
-        const bin = atob(fixOutcome.pdfBase64);
-        const len = bin.length;
-        const u8 = new Uint8Array(len);
-        for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
-        const blob = new Blob([u8], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        a.rel = 'noopener';
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch {
-        setErrorMessage('Could not download PDF.');
-      }
-      return;
-    }
-    if (fixOutcome.pdfUrl) {
-      window.open(fixOutcome.pdfUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -510,16 +483,6 @@ const TailorResumeModal: React.FC<TailorResumeModalProps> = ({ portal, onClose }
               {compareTab === 'tailored' ? (
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2 justify-end">
-                    {(fixOutcome.pdfUrl || fixOutcome.pdfBase64) ? (
-                      <button
-                        type="button"
-                        onClick={downloadTailoredPdf}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
-                      >
-                        <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        Download PDF
-                      </button>
-                    ) : null}
                     <button
                       type="button"
                       onClick={printTailored}
