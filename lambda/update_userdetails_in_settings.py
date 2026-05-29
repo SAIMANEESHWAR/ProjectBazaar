@@ -609,6 +609,7 @@ def handle_update_settings(body):
         "hourlyRate",
         "emailNotifications",
         "pushNotifications",
+        "jobEmailNotificationsEnabled",
         # Integration data fields
         "githubData",
         "driveData",
