@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
 import { JobHuntShellProvider } from '../context/JobHuntShellContext';
 import { cachedFetchUserData, cachedFetchUserProfile, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem, invalidateUserCache } from '../services/buyerApi';
+import { useSocket } from '../context/SocketContext';
 
 // Re-export DashboardView for compatibility
 export type { DashboardView } from '../context/DashboardContext';
@@ -311,11 +312,23 @@ const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose }) => {
 
 const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
+    const { subscribe } = useSocket();
     // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [showWelcomeToast, setShowWelcomeToast] = useState(false);
     const [userName, setUserName] = useState<string>('');
+    const [jobToastMessage, setJobToastMessage] = useState('');
+    const [showJobToast, setShowJobToast] = useState(false);
+
+    useEffect(() => {
+        const unsub = subscribe('new_job', (data: { title?: string; company?: string; message?: string }) => {
+            const msg = data.message || `New Job: ${data.title || 'Job'} at ${data.company || 'a company'}`;
+            setJobToastMessage(`🔔 ${msg}`);
+            setShowJobToast(true);
+        });
+        return unsub;
+    }, [subscribe]);
 
 
 
@@ -362,6 +375,12 @@ const DashboardPage: React.FC = () => {
                         message={`Welcome, ${userName}!`}
                         isVisible={showWelcomeToast}
                         onClose={() => setShowWelcomeToast(false)}
+                    />
+                    {/* New Job Toast */}
+                    <Toast
+                        message={jobToastMessage}
+                        isVisible={showJobToast}
+                        onClose={() => setShowJobToast(false)}
                     />
                     {/* Overlay for mobile */}
                     {isSidebarOpen && (

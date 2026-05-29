@@ -51,6 +51,12 @@ FIRECRAWL_MODEL = os.environ.get("FIRECRAWL_MODEL", "spark-1-pro")
 POLL_INTERVAL = max(1, int(os.environ.get("POLL_INTERVAL_SEC", "5")))
 MAX_WAIT_SEC = max(60, int(os.environ.get("MAX_WAIT_SEC", "900")))
 
+USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
+SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "noreply@codexcareer.com")
+SOCKET_SERVER_URL = os.environ.get("SOCKET_SERVER_URL", "https://projectbazaarsocketserver.onrender.com").rstrip("/")
+INTERNAL_SECRET = os.environ.get("INTERNAL_SECRET", "")
+SES_REGION = os.environ.get("SES_REGION", "ap-south-2")
+
 # Firecrawl fills job_listings[]; partition key, created_at, scraped_at, and raw are set in normalize_item().
 DEFAULT_PROMPT = (
     "PRIORITY: Finish within ~10 minutes and use well under ~2000 Firecrawl credits (free tier is ~2500 total—stay frugal). "
@@ -424,10 +430,12 @@ def ingest_listings_from_response(job_resp: Dict[str, Any]) -> Tuple[int, int]:
         )
     inserted = 0
     skipped = 0
+    newly_inserted_items: List[Dict[str, Any]] = []
     for job in listings:
         item = normalize_item(job)
         if insert_if_new(item):
             inserted += 1
+            newly_inserted_items.append(item)
         else:
             skipped += 1
     logger.info(
@@ -437,6 +445,11 @@ def ingest_listings_from_response(job_resp: Dict[str, Any]) -> Tuple[int, int]:
         inserted,
         skipped,
     )
+    if newly_inserted_items:
+        try:
+            notify_users_of_new_jobs(newly_inserted_items)
+        except Exception as exc:
+            logger.error("notify_users_of_new_jobs failed (non-fatal): %s", exc)
     return inserted, skipped
 
 
@@ -547,6 +560,160 @@ def run_sync_fetch_and_ingest(
     raise TimeoutError(
         f"Firecrawl job {job_id} did not complete within {MAX_WAIT_SEC}s (last_status={last_status})"
     )
+
+
+def get_users_for_notifications() -> List[Dict[str, Any]]:
+    """Scan Users table and return items where jobEmailNotificationsEnabled is True."""
+    users_table = dynamodb.Table(USERS_TABLE)
+    results: List[Dict[str, Any]] = []
+    try:
+        from boto3.dynamodb.conditions import Attr
+        resp = users_table.scan(
+            FilterExpression=Attr("jobEmailNotificationsEnabled").eq(True),
+            ProjectionExpression="userId, #em",
+            ExpressionAttributeNames={"#em": "email"},
+        )
+        results.extend(resp.get("Items", []))
+        while "LastEvaluatedKey" in resp:
+            resp = users_table.scan(
+                FilterExpression=Attr("jobEmailNotificationsEnabled").eq(True),
+                ProjectionExpression="userId, #em",
+                ExpressionAttributeNames={"#em": "email"},
+                ExclusiveStartKey=resp["LastEvaluatedKey"],
+            )
+            results.extend(resp.get("Items", []))
+    except Exception as exc:
+        logger.error("get_users_for_notifications failed: %s", exc)
+    logger.info("Found %s users with jobEmailNotificationsEnabled=true", len(results))
+    return results
+
+
+def _build_job_email_html(job: Dict[str, Any]) -> str:
+    title = job.get("job_title") or "New Job"
+    company = job.get("company") or "Unknown Company"
+    location = job.get("location") or ""
+    salary = job.get("salary") or ""
+    job_type = job.get("job_type") or ""
+    description = (job.get("description") or "")[:300]
+    apply_link = job.get("apply_link") or "#"
+    logo = job.get("company_logo") or ""
+
+    logo_html = (
+        f'<img src="{logo}" alt="{company} logo" style="max-height:50px;max-width:120px;object-fit:contain;" />'
+        if logo else ""
+    )
+    meta_parts = [p for p in [location, job_type, salary] if p]
+    meta_html = " &nbsp;|&nbsp; ".join(meta_parts) if meta_parts else ""
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="background:#f97316;padding:24px 32px;">
+          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">CodeXCareer</h1>
+          <p style="margin:4px 0 0;color:#fff7ed;font-size:13px;">New Job Alert</p>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          {f'<div style="margin-bottom:16px;">{logo_html}</div>' if logo_html else ""}
+          <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">{title}</h2>
+          <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#374151;">{company}</p>
+          {f'<p style="margin:0 0 16px;font-size:13px;color:#6b7280;">{meta_html}</p>' if meta_html else ""}
+          {f'<p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.6;">{description}{"…" if len(job.get("description",""))>300 else ""}</p>' if description else ""}
+          <a href="{apply_link}" style="display:inline-block;background:#f97316;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600;">View &amp; Apply</a>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">You received this because you enabled job email notifications on CodeXCareer.
+          <br>To unsubscribe, visit Settings &rarr; Notifications and disable &ldquo;Email me when new jobs are posted&rdquo;.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_email_via_ses(to_email: str, job: Dict[str, Any]) -> bool:
+    title = job.get("job_title") or "New Job"
+    company = job.get("company") or "Unknown Company"
+    try:
+        ses = boto3.client("ses", region_name=SES_REGION)
+        ses.send_email(
+            Source=SES_SENDER_EMAIL,
+            Destination={"ToAddresses": [to_email]},
+            Message={
+                "Subject": {"Data": f"New Job: {title} at {company}", "Charset": "UTF-8"},
+                "Body": {
+                    "Html": {"Data": _build_job_email_html(job), "Charset": "UTF-8"},
+                    "Text": {
+                        "Data": f"New Job: {title} at {company}\n\nApply: {job.get('apply_link') or 'Visit CodeXCareer'}",
+                        "Charset": "UTF-8",
+                    },
+                },
+            },
+        )
+        return True
+    except Exception as exc:
+        logger.error("SES send_email failed to=%s error=%s", to_email, exc)
+        return False
+
+
+def send_socket_notification(job: Dict[str, Any]) -> None:
+    title = job.get("job_title") or "New Job"
+    company = job.get("company") or "Unknown Company"
+    payload = json.dumps({
+        "event": "new_job",
+        "data": {
+            "id": job.get(JOBS_PARTITION_KEY),
+            "title": title,
+            "company": company,
+            "location": job.get("location"),
+            "job_type": job.get("job_type"),
+            "company_logo": job.get("company_logo"),
+            "apply_link": job.get("apply_link"),
+            "message": f"New Job: {title} at {company}",
+        },
+    }).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if INTERNAL_SECRET:
+        headers["x-internal-secret"] = INTERNAL_SECRET
+    req = urllib.request.Request(
+        f"{SOCKET_SERVER_URL}/broadcast",
+        data=payload,
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            logger.info("Socket broadcast sent status=%s", resp.status)
+    except Exception as exc:
+        logger.warning("send_socket_notification failed: %s", exc)
+
+
+def notify_users_of_new_jobs(new_jobs: List[Dict[str, Any]]) -> None:
+    if not new_jobs:
+        return
+    users = get_users_for_notifications()
+    if not users:
+        logger.info("No users opted in for job email notifications; skipping emails.")
+        return
+
+    # Send one notification per user using the first new job as the highlight
+    highlight = new_jobs[0]
+    emails_sent = 0
+    for user in users:
+        email = user.get("email", "")
+        if not email or not isinstance(email, str):
+            continue
+        if send_email_via_ses(email, highlight):
+            emails_sent += 1
+
+    logger.info("Job notification emails sent=%s for %s new jobs", emails_sent, len(new_jobs))
+
+    # Broadcast to all online users via socket server
+    send_socket_notification(highlight)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

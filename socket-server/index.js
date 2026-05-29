@@ -61,7 +61,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// API endpoint for Lambdas to trigger socket events
+// API endpoint for Lambdas to trigger socket events (targeted to a single user)
 app.post('/notify', (req, res) => {
     const { userId, event, data } = req.body;
     const socketId = userSockets.get(userId);
@@ -72,6 +72,20 @@ app.post('/notify', (req, res) => {
     }
 
     res.status(404).json({ success: false, message: 'User not connected' });
+});
+
+// Broadcast an event to all connected clients (used for new job postings)
+app.post('/broadcast', (req, res) => {
+    const secret = process.env.INTERNAL_SECRET;
+    if (secret && req.headers['x-internal-secret'] !== secret) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    const { event, data } = req.body;
+    if (!event) {
+        return res.status(400).json({ success: false, message: 'event is required' });
+    }
+    io.emit(event, data);
+    res.json({ success: true, message: 'Broadcast sent', connectedUsers: userSockets.size });
 });
 
 const PORT = process.env.PORT || 3001;

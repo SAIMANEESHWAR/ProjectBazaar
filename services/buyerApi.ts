@@ -1441,3 +1441,27 @@ export const invalidateProjectCache = (projectId?: string) => {
   invalidateCache('all-projects');
   if (projectId) invalidateCache(`project:${projectId}`);
 };
+
+const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
+
+export const updateEmailNotificationPreference = async (userId: string, enabled: boolean): Promise<void> => {
+  const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'updateSettings', userId, jobEmailNotificationsEnabled: enabled }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || 'Failed to update notification preference');
+  invalidateUserCache(userId);
+};
+
+export const getUserNotificationPreferences = async (userId: string): Promise<{ jobEmailNotificationsEnabled: boolean }> => {
+  const res = await fetch(GET_USER_DETAILS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
+  });
+  const data = await res.json();
+  const user = data.success !== false ? (data.data || data.user || data) : {};
+  return { jobEmailNotificationsEnabled: Boolean(user?.jobEmailNotificationsEnabled) };
+};

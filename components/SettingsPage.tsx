@@ -170,6 +170,7 @@ const SettingsPage: React.FC = () => {
 
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(false);
+    const [jobEmailNotifications, setJobEmailNotifications] = useState(false);
 
     const [fullName, setFullName] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -344,6 +345,7 @@ const SettingsPage: React.FC = () => {
                     setHourlyRate(user.hourlyRate || user.hourly_rate || '');
                     setEmailNotifications(user.emailNotifications ?? true);
                     setPushNotifications(user.pushNotifications ?? false);
+                    setJobEmailNotifications(user.jobEmailNotificationsEnabled ?? false);
 
                     // Become a Freelancer
                     setIsFreelancer(user.isFreelancer === true);
@@ -1364,6 +1366,7 @@ const SettingsPage: React.FC = () => {
         if (field === 'isFreelancer') setIsFreelancer(value);
         if (field === 'emailNotifications') setEmailNotifications(value);
         if (field === 'pushNotifications') setPushNotifications(value);
+        if (field === 'jobEmailNotificationsEnabled') setJobEmailNotifications(value);
 
         if (!userId) return;
 
@@ -1384,6 +1387,7 @@ const SettingsPage: React.FC = () => {
                 if (field === 'isFreelancer') setIsFreelancer(!value);
                 if (field === 'emailNotifications') setEmailNotifications(!value);
                 if (field === 'pushNotifications') setPushNotifications(!value);
+                if (field === 'jobEmailNotificationsEnabled') setJobEmailNotifications(!value);
                 setSaveError(data.message || 'Failed to update setting');
             } else {
                 setSaveMessage('Setting updated successfully.');
@@ -1395,6 +1399,7 @@ const SettingsPage: React.FC = () => {
             if (field === 'isFreelancer') setIsFreelancer(!value);
             if (field === 'emailNotifications') setEmailNotifications(!value);
             if (field === 'pushNotifications') setPushNotifications(!value);
+            if (field === 'jobEmailNotificationsEnabled') setJobEmailNotifications(!value);
             setSaveError('Network error updating setting');
         }
     };
@@ -1428,6 +1433,7 @@ const SettingsPage: React.FC = () => {
                 userId,
                 emailNotifications,
                 pushNotifications,
+                jobEmailNotificationsEnabled: jobEmailNotifications,
             };
 
             if (fullName.trim()) requestBody.fullName = fullName.trim();
@@ -1822,6 +1828,9 @@ const SettingsPage: React.FC = () => {
                         <div className="space-y-4">
                             <ToggleSwitch label="Email Notifications" description="Get emails about new projects and offers." enabled={emailNotifications} setEnabled={(val) => handleToggleUpdate('emailNotifications', val)} />
                             <ToggleSwitch label="Push Notifications" description="Receive push notifications on your device." enabled={pushNotifications} setEnabled={(val) => handleToggleUpdate('pushNotifications', val)} />
+                            <div className="border-t border-gray-100 pt-4">
+                                <ToggleSwitch label="📧 Email me when new jobs are posted" description="Receive an email whenever fresh job listings are scraped and added to the Job Hunt board." enabled={jobEmailNotifications} setEnabled={(val) => handleToggleUpdate('jobEmailNotificationsEnabled', val)} />
+                            </div>
                         </div>
                     </SectionCard>
 
