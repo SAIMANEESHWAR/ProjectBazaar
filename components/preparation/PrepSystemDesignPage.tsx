@@ -299,6 +299,8 @@ export default function PrepSystemDesignPage({
     setSelectedQuestion(q);
   }, []);
 
+  const listViewMode = viewMode === "folder" ? "table" : viewMode;
+
   const goToAdjacentQuestion = useCallback(
     (direction: "next" | "prev") => {
       if (selectedIndex < 0) return;
@@ -340,7 +342,15 @@ export default function PrepSystemDesignPage({
               Refresh questions
             </div>
           </div>
-          <PrepViewToggle view={viewMode} onChange={setViewMode} />
+          <PrepViewToggle
+            view={viewMode}
+            onChange={setViewMode}
+            modes={
+              contentView === "concepts"
+                ? ["table", "grid", "folder"]
+                : ["table", "grid"]
+            }
+          />
           <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -403,7 +413,7 @@ export default function PrepSystemDesignPage({
         <PrepSystemDesignResourcesView
           resources={resources}
           loading={loading}
-          viewMode={viewMode}
+          viewMode={listViewMode}
         />
       )}
 
@@ -560,7 +570,7 @@ export default function PrepSystemDesignPage({
       ) : (
         !loading && (
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm overflow-hidden">
-            {viewMode === "table" ? (
+            {listViewMode === "table" ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
