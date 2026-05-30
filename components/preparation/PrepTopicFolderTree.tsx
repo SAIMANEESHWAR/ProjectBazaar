@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import { File, Folder, FolderOpen } from "lucide-react";
 import { type SDQuestion } from "./SDDetailPanel";
 import { groupByTopic } from "./prepTopicGrouping";
 
@@ -72,22 +72,17 @@ export default function PrepTopicFolderTree({
                 type="button"
                 aria-expanded={isOpen}
                 onClick={() => toggleTopic(group.topic)}
-                className="prep-topic-tree__folder"
+                className={`prep-topic-tree__folder ${isOpen ? "prep-topic-tree__folder--open" : ""}`}
               >
                 <span className="prep-topic-tree__folder-icon" aria-hidden>
                   {isOpen ? (
-                    <FolderOpen className="h-5 w-5" strokeWidth={1.75} />
+                    <FolderOpen className="h-[18px] w-[18px]" strokeWidth={1.5} />
                   ) : (
-                    <Folder className="h-5 w-5" strokeWidth={1.75} />
+                    <Folder className="h-[18px] w-[18px]" strokeWidth={1.5} />
                   )}
                 </span>
                 <span className="prep-topic-tree__folder-title">{group.topic}</span>
                 <span className="prep-topic-tree__count">{group.items.length}</span>
-                <ChevronRight
-                  className={`prep-topic-tree__chevron ${isOpen ? "prep-topic-tree__chevron--open" : ""}`}
-                  strokeWidth={2}
-                  aria-hidden
-                />
               </button>
 
               <div
@@ -106,6 +101,9 @@ export default function PrepTopicFolderTree({
                           onClick={() => onSelect(item)}
                           className="prep-topic-tree__item"
                         >
+                          <span className="prep-topic-tree__file-icon" aria-hidden>
+                            <File className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                          </span>
                           <span className="prep-topic-tree__item-label">{item.title}</span>
                         </button>
                       </li>
