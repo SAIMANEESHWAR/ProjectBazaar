@@ -261,11 +261,86 @@ const KEYWORDS: Record<string, string[]> = {
     "xor",
     "xor_eq",
   ],
+  sql: [
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "INSERT",
+    "INTO",
+    "UPDATE",
+    "DELETE",
+    "CREATE",
+    "TABLE",
+    "DROP",
+    "ALTER",
+    "INDEX",
+    "JOIN",
+    "INNER",
+    "LEFT",
+    "RIGHT",
+    "OUTER",
+    "FULL",
+    "CROSS",
+    "ON",
+    "AS",
+    "AND",
+    "OR",
+    "NOT",
+    "NULL",
+    "IS",
+    "IN",
+    "EXISTS",
+    "GROUP",
+    "BY",
+    "ORDER",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "DISTINCT",
+    "COUNT",
+    "SUM",
+    "AVG",
+    "MIN",
+    "MAX",
+    "PRIMARY",
+    "KEY",
+    "FOREIGN",
+    "REFERENCES",
+    "UNIQUE",
+    "CHECK",
+    "DEFAULT",
+    "VALUES",
+    "SET",
+    "UNION",
+    "ALL",
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END",
+    "BETWEEN",
+    "LIKE",
+    "ASC",
+    "DESC",
+    "VIEW",
+    "DATABASE",
+    "SCHEMA",
+    "TRUNCATE",
+    "COMMIT",
+    "ROLLBACK",
+    "BEGIN",
+    "TRANSACTION",
+    "GRANT",
+    "REVOKE",
+    "CONSTRAINT",
+    "AUTO_INCREMENT",
+  ],
 };
 
 function highlightKeywords(code: string, language: string): string {
   const words = KEYWORDS[language] ?? KEYWORDS.javascript;
-  const pattern = new RegExp(`\\b(${words.join("|")})\\b`, "g");
+  const flags = language === "sql" ? "gi" : "g";
+  const pattern = new RegExp(`\\b(${words.join("|")})\\b`, flags);
   return code.replace(pattern, '<span class="prep-code-kw">$1</span>');
 }
 
@@ -286,10 +361,28 @@ function highlightNumbers(code: string): string {
 }
 
 export function highlightPrepCode(code: string, language: string): string {
-  let html = escapeHtml(code);
+  const sqlComments = new Map<string, string>();
+  let source = code;
+
+  if (language === "sql") {
+    let index = 0;
+    source = source.replace(/(--[^\n]*)/g, (match) => {
+      const key = `__SQLCMT_${index}__`;
+      sqlComments.set(key, match);
+      index += 1;
+      return key;
+    });
+  }
+
+  let html = escapeHtml(source);
   html = highlightComments(html);
   html = highlightStrings(html);
   html = highlightKeywords(html, language);
   html = highlightNumbers(html);
+
+  for (const [key, comment] of sqlComments) {
+    html = html.replace(key, `<span class="prep-code-cmt">${escapeHtml(comment)}</span>`);
+  }
+
   return html;
 }

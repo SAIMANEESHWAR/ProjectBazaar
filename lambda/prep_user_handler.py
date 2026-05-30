@@ -27,6 +27,7 @@ TABLE_ROADMAPS = "PrepRoadmaps"
 TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
+TABLE_CORE_SUBJECTS = "PrepCoreSubjects"
 
 # User-specific tables: partition key attribute name (value = userId).
 PK_USER = "userId"
@@ -52,6 +53,7 @@ CONTENT_TYPE_TABLE_MAP = {
     "position_resources": TABLE_POSITION_RESOURCES,
     "system_design": TABLE_SYSTEM_DESIGN,
     "fundamentals": TABLE_FUNDAMENTALS,
+    "core_subjects": TABLE_CORE_SUBJECTS,
 }
 
 # CORS: allow browser requests from any origin (enable in API Gateway too if needed)
@@ -142,7 +144,7 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
     limit = int(query_params.get("limit", 50))
 
     FILTERABLE_ATTRS = ["difficulty", "category", "topic", "role", "section",
-                        "companyId", "roleId", "subType", "designType", "contentKind"]
+                        "companyId", "roleId", "subType", "designType", "contentKind", "subject", "slug"]
 
     try:
         filter_expressions = []
@@ -179,6 +181,14 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         elif sort_by == "difficulty":
             diff_order = {"Easy": 0, "Medium": 1, "Hard": 2}
             items.sort(key=lambda x: diff_order.get(x.get("difficulty"), 0), reverse=reverse)
+        elif sort_by == "displayOrder":
+            items.sort(
+                key=lambda x: (
+                    int(x.get("displayOrder", 0) or 0),
+                    (x.get("title") or "").lower(),
+                ),
+                reverse=reverse,
+            )
         else:
             items.sort(key=lambda x: x.get("createdAt", ""), reverse=reverse)
 

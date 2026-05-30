@@ -24,6 +24,16 @@ export interface SystemDesignAdminPanelProps {
   onRetry: (tabId: SDTabId) => void;
   onEdit: (item: AdminSDItem, tabId: SDTabId) => void;
   onDelete: (item: AdminSDItem, tabId: SDTabId) => void;
+  onMoveItem: (item: AdminSDItem, tabId: SDTabId, direction: "up" | "down", scopeItems?: AdminSDItem[]) => void;
+  onMoveTopic: (topic: string, tabId: SDTabId, direction: "up" | "down") => void;
+  onReorderItems: (
+    fromIndex: number,
+    toIndex: number,
+    tabId: SDTabId,
+    scopeItems?: AdminSDItem[],
+  ) => void;
+  onReorderTopics: (fromIndex: number, toIndex: number, tabId: SDTabId) => void;
+  reordering: boolean;
 }
 
 export default function SystemDesignAdminPanel({
@@ -40,6 +50,11 @@ export default function SystemDesignAdminPanel({
   onRetry,
   onEdit,
   onDelete,
+  onMoveItem,
+  onMoveTopic,
+  onReorderItems,
+  onReorderTopics,
+  reordering,
 }: SystemDesignAdminPanelProps) {
   const tabId = getSdTabId(designType, subSection);
   const cfg = SD_TAB_CONFIG[tabId];
@@ -106,6 +121,13 @@ export default function SystemDesignAdminPanel({
         onRetry={() => onRetry(tabId)}
         onEdit={(item) => onEdit(item, tabId)}
         onDelete={(item) => onDelete(item, tabId)}
+        onMoveItem={(item, direction, scopeItems) => onMoveItem(item, tabId, direction, scopeItems)}
+        onMoveTopic={(topic, direction) => onMoveTopic(topic, tabId, direction)}
+        onReorderItems={(fromIndex, toIndex, scopeItems) =>
+          onReorderItems(fromIndex, toIndex, tabId, scopeItems)
+        }
+        onReorderTopics={(fromIndex, toIndex) => onReorderTopics(fromIndex, toIndex, tabId)}
+        reordering={reordering}
         showImagesColumn={isQuestion}
         contentKind={cfg.contentKind}
       />

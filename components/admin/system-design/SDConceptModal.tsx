@@ -9,6 +9,7 @@ import {
   SD_SECTIONS_LLD,
 } from "./types";
 import { uploadSdMediaFile } from "./uploadMedia";
+import SdImageDropzone from "./SdImageDropzone";
 
 const CONTENT_KIND_LABELS: Record<Exclude<SDContentKind, "question" | "resource">, string> = {
   concept: "Concept",
@@ -19,6 +20,9 @@ interface SDConceptModalProps {
   designType: SDDesignType;
   contentKind: Exclude<SDContentKind, "question" | "resource">;
   item?: AdminSDItem | null;
+  defaultDisplayOrder?: number;
+  /** When set, modal runs in Core Subjects mode (same editor as LLD concepts). */
+  coreSubject?: { slug: string; title: string };
   saving: boolean;
   onSave: (
     data: Omit<AdminSDItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
@@ -30,21 +34,25 @@ export default function SDConceptModal({
   designType,
   contentKind,
   item,
+  defaultDisplayOrder = 10,
+  coreSubject,
   saving,
   onSave,
   onClose,
 }: SDConceptModalProps) {
   const kindLabel = CONTENT_KIND_LABELS[contentKind];
   const isConcept = contentKind === "concept";
+  const isCoreSubject = Boolean(coreSubject);
   const sections = designType === "hld" ? SD_SECTIONS_HLD : SD_SECTIONS_LLD;
   const [form, setForm] = useState({
     title: item?.title ?? "",
     description: item?.description ?? "",
-    section: item?.section ?? sections[0],
+    section: item?.section ?? coreSubject?.title ?? sections[0],
     difficulty: item?.difficulty ?? "Medium",
     topics: (item?.topics ?? []).join(", "),
     content: item?.content ?? "",
     thumbnailUrl: item?.thumbnailUrl ?? "",
+    displayOrder: item?.displayOrder ?? defaultDisplayOrder,
   });
   const [pendingThumbnail, setPendingThumbnail] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -82,7 +90,7 @@ export default function SDConceptModal({
       ...(item?.id ? { id: item.id } : {}),
       title: form.title.trim(),
       description: isConcept ? "" : form.description.trim(),
-      section: form.section,
+      section: isCoreSubject ? coreSubject!.title : form.section,
       difficulty: isConcept ? "Medium" : form.difficulty,
       designType,
       contentKind,
@@ -91,17 +99,21 @@ export default function SDConceptModal({
       diagramUrl: "",
       additionalImageUrls: [],
       thumbnailUrl,
+      displayOrder: Number(form.displayOrder) || 0,
     });
   };
 
   const busy = saving || uploading;
+  const modalTitle = isCoreSubject
+    ? `${item ? "Edit" : "Add"} ${coreSubject!.title} Concept`
+    : `${item ? "Edit" : "Add"} ${designType.toUpperCase()} ${kindLabel}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            {item ? "Edit" : "Add"} {designType.toUpperCase()} {kindLabel}
+            {modalTitle}
           </h3>
           <button
             type="button"
@@ -145,18 +157,30 @@ export default function SDConceptModal({
             )}
 
             <div className={isConcept ? "" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                <select
-                  value={form.section}
-                  onChange={(e) => set("section", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  {sections.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+              {!isCoreSubject && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                  <select
+                    value={form.section}
+                    onChange={(e) => set("section", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    {sections.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isCoreSubject && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <input
+                    readOnly
+                    value={coreSubject!.title}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700"
+                  />
+                </div>
+              )}
               {!isConcept && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
@@ -175,7 +199,7 @@ export default function SDConceptModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Topics <span className="text-xs text-gray-400">(comma-separated)</span>
+                Topics <span className="text-xs text-gray-400">(comma-separated — used for topic grouping)</span>
               </label>
               <input
                 value={form.topics}
@@ -186,47 +210,37 @@ export default function SDConceptModal({
             </div>
 
             {isConcept && (
-              <div className="rounded-xl border border-gray-200 p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Grid Card Image
-                </label>
-                <p className="text-xs text-gray-500 mb-3">
-                  Shown at the top of the concept card in grid view. Recommended 16:9, at least 640×360px.
-                </p>
-                {(form.thumbnailUrl || pendingThumbnail) && (
-                  <div className="mb-3 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                    {pendingThumbnail ? (
-                      <img
-                        src={URL.createObjectURL(pendingThumbnail)}
-                        alt="Pending card image"
-                        className="w-full h-36 object-cover"
-                      />
-                    ) : (
-                      <img src={form.thumbnailUrl} alt="Card image" className="w-full h-36 object-cover" />
-                    )}
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  disabled={busy}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file) setPendingThumbnail(file);
-                  }}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-orange-50 file:text-orange-700"
-                />
-                {form.thumbnailUrl && !pendingThumbnail && (
-                  <button
-                    type="button"
-                    onClick={() => set("thumbnailUrl", "")}
-                    className="mt-2 text-xs text-red-600"
-                  >
-                    Remove image
-                  </button>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={form.displayOrder}
+                    onChange={(e) => set("displayOrder", e.target.value)}
+                    disabled={busy}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Lower numbers appear first in grid, folder, and topic views.
+                  </p>
+                </div>
               </div>
+            )}
+
+            {isConcept && (
+              <SdImageDropzone
+                label="Topic Group Image"
+                hint="Used as the topic group cover in grid view (one image per topic). Upload on any concept in that topic. Recommended 16:9, at least 640×360px."
+                existingUrl={form.thumbnailUrl || undefined}
+                pendingFile={pendingThumbnail}
+                disabled={busy}
+                onFileSelect={setPendingThumbnail}
+                onRemove={() => set("thumbnailUrl", "")}
+              />
             )}
 
             <div>

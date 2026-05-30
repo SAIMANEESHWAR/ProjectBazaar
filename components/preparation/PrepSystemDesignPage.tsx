@@ -51,6 +51,10 @@ function normalizeSDQuestion(raw: Record<string, unknown>): SDQuestion | null {
     resourceLinks: raw.resourceLinks as string[] | undefined,
     pdfUrl: raw.pdfUrl as string | undefined,
     thumbnailUrl: raw.thumbnailUrl as string | undefined,
+    displayOrder:
+      typeof raw.displayOrder === "number"
+        ? raw.displayOrder
+        : Number(raw.displayOrder) || 0,
     topics: raw.topics as string[] | undefined,
   };
 }
@@ -106,7 +110,7 @@ export default function PrepSystemDesignPage({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [viewMode, setViewMode] = useViewMode("folder");
+  const [viewMode, setViewMode] = useViewMode("grid");
   const [selectedQuestion, setSelectedQuestion] = useState<SDQuestion | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sections, setSections] = useState<string[]>([]);
@@ -129,6 +133,8 @@ export default function PrepSystemDesignPage({
       const resp = await prepUserApi.listContent<SDQuestion>("system_design", {
         designType: designTab,
         contentKind: "concept",
+        sortBy: "displayOrder",
+        sortOrder: "asc",
         limit: 500,
       });
       if (!cancelled.current && resp.success) {

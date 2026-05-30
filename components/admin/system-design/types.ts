@@ -20,6 +20,7 @@ export interface AdminSDItem {
   resourceLinks?: string[];
   pdfUrl?: string;
   thumbnailUrl?: string;
+  displayOrder?: number;
   createdAt?: string;
   updatedAt?: string;
 }

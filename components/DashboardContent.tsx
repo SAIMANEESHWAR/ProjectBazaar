@@ -67,6 +67,7 @@ import PrepPositionResourcesPage from './preparation/PrepPositionResourcesPage';
 import PrepActivityPage from './preparation/PrepActivityPage';
 import PrepSystemDesignPage from './preparation/PrepSystemDesignPage';
 import PrepFundamentalsPage from './preparation/PrepFundamentalsPage';
+import PrepCoreSubjectsPage from './preparation/PrepCoreSubjectsPage';
 
 interface ApiProject {
     projectId: string;
@@ -1223,6 +1224,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <PrepFundamentalsPage {...{ section: 'oops' as const, toggleSidebar }} />;
             case 'prep-language':
                 return <PrepFundamentalsPage {...{ section: 'language' as const, toggleSidebar }} />;
+            case 'prep-core-subjects':
+                return <PrepCoreSubjectsPage toggleSidebar={toggleSidebar} />;
             case 'prep-activity':
                 return <PrepActivityPage toggleSidebar={toggleSidebar} />;
             default:

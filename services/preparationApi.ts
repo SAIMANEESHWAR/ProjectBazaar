@@ -37,7 +37,8 @@ export type ContentType =
   | "roadmaps"
   | "position_resources"
   | "system_design"
-  | "fundamentals";
+  | "fundamentals"
+  | "core_subjects";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

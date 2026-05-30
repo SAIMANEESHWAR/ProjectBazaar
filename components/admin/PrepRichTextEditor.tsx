@@ -431,7 +431,7 @@ export default function PrepRichTextEditor({
       </div>
 
       <p className="px-4 pb-2 text-xs text-gray-400">
-        Use {"{ }"} for tabbed code snippets (Java, Python, etc.). Select lines like 1. Item and click 1. to convert to a numbered list.
+        Use {"{ }"} for tabbed code snippets (Java, Python, SQL, etc.). Select lines like 1. Item and click 1. to convert to a numbered list.
       </p>
 
       {uploadError && (

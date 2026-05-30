@@ -92,4 +92,11 @@ describe("prepCodeSyntaxHighlight", () => {
     expect(html).toContain('class="prep-code-kw">public</span>');
     expect(html).toContain('class="prep-code-kw">class</span>');
   });
+
+  it("highlights SQL keywords and comments", () => {
+    const html = highlightPrepCode("SELECT name FROM users -- filter\nWHERE id = 1", "sql");
+    expect(html).toContain('class="prep-code-kw">SELECT</span>');
+    expect(html).toContain('class="prep-code-kw">FROM</span>');
+    expect(html).toContain('class="prep-code-cmt">-- filter</span>');
+  });
 });

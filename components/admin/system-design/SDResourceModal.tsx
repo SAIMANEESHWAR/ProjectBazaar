@@ -3,6 +3,7 @@ import PrepRichTextEditor from "../PrepRichTextEditor";
 import { isRichHtmlEmpty } from "../../preparation/PrepRichContentRenderer";
 import { type AdminSDItem, type SDDesignType, SD_SECTIONS_HLD, SD_SECTIONS_LLD } from "./types";
 import { uploadSdMediaFile } from "./uploadMedia";
+import SdImageDropzone from "./SdImageDropzone";
 
 interface SDResourceModalProps {
   designType: SDDesignType;
@@ -222,34 +223,14 @@ export default function SDResourceModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-gray-200 p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Thumbnail</label>
-                {(form.thumbnailUrl || pendingThumbnail) && (
-                  <div className="mb-3 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                    {pendingThumbnail ? (
-                      <img src={URL.createObjectURL(pendingThumbnail)} alt="Pending thumbnail" className="w-full h-32 object-cover" />
-                    ) : (
-                      <img src={form.thumbnailUrl} alt="Thumbnail" className="w-full h-32 object-cover" />
-                    )}
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  disabled={busy}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file) setPendingThumbnail(file);
-                  }}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-orange-50 file:text-orange-700"
-                />
-                {form.thumbnailUrl && !pendingThumbnail && (
-                  <button type="button" onClick={() => set("thumbnailUrl", "")} className="mt-2 text-xs text-red-600">
-                    Remove thumbnail
-                  </button>
-                )}
-              </div>
+              <SdImageDropzone
+                label="Thumbnail"
+                existingUrl={form.thumbnailUrl || undefined}
+                pendingFile={pendingThumbnail}
+                disabled={busy}
+                onFileSelect={setPendingThumbnail}
+                onRemove={() => set("thumbnailUrl", "")}
+              />
 
               <div className="rounded-xl border border-gray-200 p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">PDF Document</label>
