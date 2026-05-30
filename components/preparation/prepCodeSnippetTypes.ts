@@ -15,6 +15,7 @@ export const PREP_CODE_LANGUAGES = [
   { id: "javascript", label: "JavaScript" },
   { id: "typescript", label: "TypeScript" },
   { id: "cpp", label: "C++" },
+  { id: "sql", label: "SQL" },
 ] as const;
 
 export type PrepCodeLanguageId = (typeof PREP_CODE_LANGUAGES)[number]["id"];
@@ -63,6 +64,15 @@ int main() {
     cout << "Area1: " << area1 << endl;
     return 0;
 }`,
+  sql: `-- Write your SQL here
+SELECT e.employee_id,
+       e.name,
+       d.department_name,
+       e.salary
+FROM employees e
+INNER JOIN departments d ON e.department_id = d.department_id
+WHERE e.salary > 50000
+ORDER BY e.salary DESC;`,
 };
 
 export function getDefaultCodeTemplate(language: PrepCodeLanguageId): string {
