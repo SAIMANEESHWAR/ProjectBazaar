@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useAuth } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
+import { isActiveSubscription } from '../lib/premiumSubscriptionDisplay';
+import PremiumAvatarIndicator from './PremiumAvatarIndicator';
+import PremiumBadge from './PremiumBadge';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
 import { useDashboard } from '../context/DashboardContext';
@@ -165,6 +169,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle, onClose }) => {
     const { userEmail, userId, logout } = useAuth();
+    const { subscription } = useSubscription();
+    const hasPremium = isActiveSubscription(subscription);
     // Use global state
     const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode } = useDashboard();
     const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
@@ -570,13 +576,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                             <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
                                         )}
                                     </span>
-                                    {userProfileImage && (
+                                    {hasPremium && subscription ? (
+                                        <PremiumAvatarIndicator subscription={subscription} />
+                                    ) : userProfileImage ? (
                                         <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
-                                    )}
+                                    ) : null}
                                 </span>
                                 <span className="ml-3 min-w-0 flex-1">
-                                    <span className={`block truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        {userFullName || 'User'}
+                                    <span className={`flex items-center gap-2 truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                        <span className="truncate">{userFullName || 'User'}</span>
+                                        {hasPremium && <PremiumBadge showTooltip={false} className="shrink-0" />}
                                     </span>
                                     <span className={`block truncate text-xs ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>
                                         {userEmail ?? 'user@example.com'}
@@ -616,11 +625,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                         <span>{userFullName ? userFullName.charAt(0).toUpperCase() : userEmail?.charAt(0).toUpperCase() || 'U'}</span>
                                     )}
                                 </div>
-                                {userProfileImage && (
+                                {hasPremium && subscription ? (
+                                    <PremiumAvatarIndicator subscription={subscription} />
+                                ) : userProfileImage ? (
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
-                                )}
+                                ) : null}
                                 <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
-                                    Settings
+                                    {hasPremium ? 'Premium · Settings' : 'Settings'}
                                     <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
                                 </div>
                             </button>

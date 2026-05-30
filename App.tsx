@@ -26,6 +26,14 @@ import PageLoader from './components/PageLoader';
 import CookieConsent from './components/CookieConsent';
 import SkipNav from './components/SkipNav';
 import { ShepherdTourWrapper } from './components/tours/ShepherdTourWrapper';
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
+import { clearSubscriptionCookie } from './lib/subscriptionCookie';
+import SubscriptionFeatureGate from './components/subscription/SubscriptionFeatureGate';
+import type { SubscriptionFeatureId } from './lib/subscriptionFeatures';
+import { PremiumProvider, usePremium } from './context/PremiumContext';
+export { usePremium, PremiumContext } from './context/PremiumContext';
+import { hasPendingPlan, clearPendingPlan } from './lib/pendingPlanStorage';
+import SubscriptionCheckoutPage from './components/SubscriptionCheckoutPage';
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -42,6 +50,7 @@ const JobPrepSection = lazy(() => import('./components/sections/JobPrepSection')
 const ResumeBuilderHero = lazy(() => import('./components/sections/ResumeBuilderHero'));
 const ResumeHeroCard = lazy(() => import('./components/sections/ResumeHeroCard'));
 const TopSellers = lazy(() => import('./components/TopSellers'));
+const PricingPlansSection = lazy(() => import('./components/sections/PricingPlansSection'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
@@ -60,15 +69,7 @@ const ResumeBuilderPage = lazy(() => import('./components/resume-builder').then(
 const LiveMockInterviewPage = lazy(() => import('./components/LiveMockInterviewPage'));
 const BlogPage = lazy(() => import('./components/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/BlogPostPage'));
-
 type Theme = 'light' | 'dark';
-
-interface PremiumContextType {
-  isPremium: boolean;
-  credits: number;
-  setCredits: (credits: number) => void;
-  setIsPremium: (isPremium: boolean) => void;
-}
 
 interface ThemeContextType {
   theme: Theme;
@@ -76,16 +77,7 @@ interface ThemeContextType {
   isLanding: boolean;
 }
 
-export const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export const usePremium = (): PremiumContextType => {
-  const context = useContext(PremiumContext);
-  if (!context) {
-    throw new Error('usePremium must be used within a PremiumProvider');
-  }
-  return context;
-};
 
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
@@ -95,36 +87,19 @@ export const useTheme = (): ThemeContextType => {
   return context;
 };
 
-const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isPremium, setIsPremiumState] = useState<boolean>(() => {
-    const stored = localStorage.getItem('isPremium');
-    return stored === 'true';
-  });
+/** Sync legacy isPremium with subscription cookie/API */
+const PremiumSubscriptionSync: React.FC = () => {
+  const { subscription } = useSubscription();
+  const { setIsPremium } = usePremium();
 
-  const [credits, setCreditsState] = useState<number>(() => {
-    const stored = localStorage.getItem('premiumCredits');
-    return stored ? parseInt(stored, 10) : 0;
-  });
+  useEffect(() => {
+    const active =
+      subscription?.status === 'active' &&
+      (!subscription.endDate || new Date(subscription.endDate).getTime() > Date.now());
+    setIsPremium(Boolean(active));
+  }, [subscription, setIsPremium]);
 
-  const setIsPremium = (premium: boolean) => {
-    setIsPremiumState(premium);
-    localStorage.setItem('isPremium', premium.toString());
-    if (premium && credits === 0) {
-      setCreditsState(100);
-      localStorage.setItem('premiumCredits', '100');
-    }
-  };
-
-  const setCredits = (newCredits: number) => {
-    setCreditsState(newCredits);
-    localStorage.setItem('premiumCredits', newCredits.toString());
-  };
-
-  return (
-    <PremiumContext.Provider value={{ isPremium, credits, setCredits, setIsPremium }}>
-      {children}
-    </PremiumContext.Provider>
-  );
+  return null;
 };
 
 const LANDING_THEME_KEY = 'landingTheme';
@@ -193,6 +168,7 @@ const PAGE_TITLES: Record<Page, string> = {
   privacy: 'Privacy Policy — CodeXCareer',
   terms: 'Terms & Conditions — CodeXCareer',
   notFound: 'Page Not Found — CodeXCareer',
+  subscriptionCheckout: 'Checkout — CodeXCareer',
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
@@ -238,6 +214,7 @@ function updatePageMeta(page: Page) {
     privacy: '/privacy',
     terms: '/terms',
     notFound: '/404',
+    subscriptionCheckout: '/subscription/checkout',
   };
   const path = pageToPath[page] || '/';
   const absoluteUrl = `${base}${path}`;
@@ -273,6 +250,17 @@ function updatePageMeta(page: Page) {
   }
 }
 
+const SubscriptionFeatureGateWrapper: React.FC<{
+  featureId: SubscriptionFeatureId;
+  children: React.ReactNode;
+}> = ({ featureId, children }) => (
+  <div className="min-h-screen bg-gray-50">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
+      <SubscriptionFeatureGate featureId={featureId}>{children}</SubscriptionFeatureGate>
+    </div>
+  </div>
+);
+
 const AppContent: React.FC = () => {
   const { page } = useNavigation();
   const { isLoggedIn, userRole } = useAuth();
@@ -307,6 +295,8 @@ const AppContent: React.FC = () => {
     switch (page) {
       case 'auth':
         return <AuthPage />;
+      case 'subscriptionCheckout':
+        return <SubscriptionCheckoutPage />;
       case 'admin':
         return isLoggedIn && userRole === 'admin' ? <AdminDashboard /> : <AuthPage />;
       case 'dashboard':
@@ -329,9 +319,17 @@ const AppContent: React.FC = () => {
           </DashboardLayoutWrapper>
         );
       case 'buildPortfolio':
-        return <BuildPortfolioPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="portfolio">
+            <BuildPortfolioPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'buildResume':
-        return <ResumeBuilderPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="resume-builder">
+            <ResumeBuilderPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'mockAssessment':
         return <MockAssessmentPage initialView="list" />;
       case 'mockLeaderboard':
@@ -343,9 +341,17 @@ const AppContent: React.FC = () => {
       case 'mockHistory':
         return <MockAssessmentPage initialView="history" />;
       case 'codingQuestions':
-        return <CodingInterviewQuestionsPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="coding">
+            <CodingInterviewQuestionsPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'liveMockInterview':
-        return <LiveMockInterviewPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="live-ai">
+            <LiveMockInterviewPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'blog':
         return <BlogPage />;
       case 'blogPost':
@@ -371,6 +377,7 @@ const AppContent: React.FC = () => {
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
               <TopSellers />
+              <PricingPlansSection />
               <FAQSection />
             </main>
             <FlickeringFooter />
@@ -446,6 +453,7 @@ const App: React.FC = () => {
         '/privacy-policy': 'privacy',
         '/terms': 'terms',
         '/terms-and-conditions': 'terms',
+        '/subscription/checkout': 'subscriptionCheckout',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -470,6 +478,7 @@ const App: React.FC = () => {
         'privacy': 'privacy',
         'terms': 'terms',
         'notFound': 'notFound',
+        'subscriptionCheckout': 'subscriptionCheckout',
       };
 
       // Extract base path (remove query params, hash, and trailing slashes)
@@ -508,7 +517,13 @@ const App: React.FC = () => {
         // Check auth requirements for protected routes
         const storedAuth = localStorage.getItem('authSession');
 
-        if ((targetPage === 'admin' || targetPage === 'dashboard' || targetPage === 'seller') && storedAuth !== 'true') {
+        if (
+          (targetPage === 'admin' ||
+            targetPage === 'dashboard' ||
+            targetPage === 'seller' ||
+            targetPage === 'subscriptionCheckout') &&
+          storedAuth !== 'true'
+        ) {
           setPage('auth');
           localStorage.setItem('currentPage', 'auth');
           return;
@@ -557,9 +572,15 @@ const App: React.FC = () => {
 
           // Only auto-navigate if we're on home page or auth page
           // Don't override 404 pages - they should stay as 404
-          if (page === 'home' || page === 'auth') {
+          const currentPage = localStorage.getItem('currentPage') as Page | null;
+          const stayOnCheckout =
+            currentPage === 'subscriptionCheckout' || hasPendingPlan();
+
+          if ((page === 'home' || page === 'auth') && !stayOnCheckout) {
             if (role === 'admin') {
               setPage('admin');
+            } else if (hasPendingPlan()) {
+              setPage('subscriptionCheckout');
             } else {
               setPage('dashboard');
             }
@@ -600,9 +621,10 @@ const App: React.FC = () => {
       'blog': '/blog',
       'blogPost': '/blog',
       'privacy': '/privacy',
-      'terms': '/terms',
-      'notFound': '/404'
-    };
+        'terms': '/terms',
+        'notFound': '/404',
+        'subscriptionCheckout': '/subscription/checkout',
+      };
 
     const url = pageMap[targetPage] || '/';
     // Use replaceState for 404 to avoid cluttering history, pushState for others
@@ -625,8 +647,9 @@ const App: React.FC = () => {
 
     if (role === 'admin') {
       navigateTo('admin');
+    } else if (hasPendingPlan()) {
+      navigateTo('subscriptionCheckout');
     } else {
-      // Ensure buyer dashboard is shown after login (handled in dashboard via justLoggedIn)
       sessionStorage.setItem('justLoggedIn', 'true');
       navigateTo('dashboard');
     }
@@ -643,6 +666,8 @@ const App: React.FC = () => {
     localStorage.removeItem('authSession');
     localStorage.removeItem('oauthIdToken');
     localStorage.removeItem('currentPage');
+    clearSubscriptionCookie();
+    clearPendingPlan();
     sessionStorage.clear();
 
     navigateTo('home');
@@ -655,15 +680,18 @@ const App: React.FC = () => {
           <DashboardProvider>
             <PeerInterviewQueueProvider>
               <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
-                <PeerInterviewBackendSync />
-                <SocketProvider>
-                  <NavigationContext.Provider value={{ page, navigateTo }}>
-                    <ShepherdTourWrapper>
-                      <AppContent />
-                    </ShepherdTourWrapper>
-                    <CookieConsent />
-                  </NavigationContext.Provider>
-                </SocketProvider>
+                <SubscriptionProvider>
+                  <PremiumSubscriptionSync />
+                  <PeerInterviewBackendSync />
+                  <SocketProvider>
+                    <NavigationContext.Provider value={{ page, navigateTo }}>
+                      <ShepherdTourWrapper>
+                        <AppContent />
+                      </ShepherdTourWrapper>
+                      <CookieConsent />
+                    </NavigationContext.Provider>
+                  </SocketProvider>
+                </SubscriptionProvider>
               </AuthContext.Provider>
             </PeerInterviewQueueProvider>
           </DashboardProvider>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth, useNavigation, usePremium } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
 import type { ResumeInfo } from '../context/ResumeInfoContext';
 import {
     defaultResumeExportSettings,
@@ -164,6 +165,7 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ label, description, enabled
 const SettingsPage: React.FC = () => {
     const { userEmail, userId } = useAuth();
     const { isPremium, credits, setIsPremium } = usePremium();
+    const { subscription } = useSubscription();
     const { navigateTo } = useNavigation();
     const [profileImg, setProfileImg] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'user' | 'freelancer' | 'resume'>('user');
@@ -2044,7 +2046,11 @@ const SettingsPage: React.FC = () => {
                                             {isPremium ? 'Premium Member' : 'Free Plan'}
                                         </p>
                                         <p className="text-sm text-gray-500">
-                                            {isPremium ? 'Unlimited projects & features' : 'Up to 5 projects'}
+                                            {isPremium && subscription
+                                                ? `${subscription.planName || subscription.planId} plan · ${subscription.enabledFeatures.length} features`
+                                                : isPremium
+                                                  ? 'Active subscription'
+                                                  : 'Upgrade to unlock career prep features'}
                                         </p>
                                     </div>
                                 </div>

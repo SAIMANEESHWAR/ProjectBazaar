@@ -52,6 +52,8 @@ import ChatRoom from './ChatRoom';
 import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
+import SubscriptionFeatureGate from './subscription/SubscriptionFeatureGate';
+import { getFeatureIdForView } from '../lib/subscriptionFeatures';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
 import PrepDSAProblemsPage from './preparation/PrepDSAProblemsPage';
 import PrepQuizzesPage from './preparation/PrepQuizzesPage';
@@ -1240,6 +1242,17 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         return renderSellerContent();
     };
 
+    const renderGatedModeContent = () => {
+        const content = renderModeContent();
+        const featureId = getFeatureIdForView(activeView);
+        if (!featureId) return content;
+        return (
+            <SubscriptionFeatureGate featureId={featureId}>
+                {content}
+            </SubscriptionFeatureGate>
+        );
+    };
+
     const isPreparationMode = dashboardMode === 'preparation';
     const isPrepDark = isPreparationMode && prepDarkMode;
 
@@ -1259,7 +1272,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                 : 'container mx-auto px-6 py-8'
                         }
                     >
-                        {renderModeContent()}
+                        {renderGatedModeContent()}
                     </div>
                 </div>
             ) : isToolViewWithStickyHeader ? (
@@ -1276,7 +1289,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                             toggleSidebar={toggleSidebar}
                         />
                     </div>
-                    {renderModeContent()}
+                    {renderGatedModeContent()}
                 </div>
             ) : (
                 <div className="container mx-auto px-6 py-8">
@@ -1288,7 +1301,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         isSidebarOpen={isSidebarOpen}
                         toggleSidebar={toggleSidebar}
                     />
-                    {renderModeContent()}
+                    {renderGatedModeContent()}
                 </div>
             )}
         </main>

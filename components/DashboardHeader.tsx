@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { LogOut } from 'lucide-react';
 import type { DashboardView } from './DashboardPage';
 import { useCart, useWishlist } from './DashboardPage';
-import { usePremium, useAuth, useNavigation } from '../App';
+import { useAuth, useNavigation } from '../App';
+import PremiumBadge from './PremiumBadge';
 import { useDashboard } from '../context/DashboardContext';
 import { useMessagesUnread } from '../context/MessagesUnreadContext';
 import { playNotification } from '../utils/sounds';
@@ -163,7 +164,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     'cart',
   ].includes(activeView);
 
-  const { isPremium, credits } = usePremium();
   const { userId, userEmail } = useAuth();
   const { cartCount } = useCart();
   const { wishlist } = useWishlist();
@@ -506,12 +506,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </div>
           )}
 
-          {isPremium && (
-            <div className="px-4 py-2 bg-orange-50 rounded-xl">
-              <p className="text-xs">Credits</p>
-              <p className="font-bold text-orange-600">{credits}</p>
-            </div>
-          )}
+          <PremiumBadge />
 
           {/* 💬 MESSAGES */}
           <div className="relative group order-1">

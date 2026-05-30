@@ -22,7 +22,8 @@ export type Page =
   | 'blogPost'
   | 'privacy'
   | 'terms'
-  | 'notFound';
+  | 'notFound'
+  | 'subscriptionCheckout';
 
 export type UserRole = 'user' | 'admin';
 
