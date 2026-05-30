@@ -8,6 +8,7 @@ import { invalidateCache } from "../../lib/apiCache";
 import PrepSystemDesignDetailSidebar from "./PrepSystemDesignDetailSidebar";
 import PrepSystemDesignConceptsView from "./PrepSystemDesignConceptsView";
 import PrepSystemDesignResourcesView from "./PrepSystemDesignResourcesView";
+import { richHtmlToPlainText } from "./PrepRichContentRenderer";
 import { type SDQuestion } from "./SDDetailPanel";
 
 export type { SDQuestion } from "./SDDetailPanel";
@@ -631,7 +632,7 @@ export default function PrepSystemDesignPage({
                                 {q.title}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
-                                {q.description}
+                                {richHtmlToPlainText(q.description)}
                               </p>
                             </td>
                             <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
@@ -819,7 +820,7 @@ export default function PrepSystemDesignPage({
                         {q.title}
                       </h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {q.description}
+                        {richHtmlToPlainText(q.description)}
                       </p>
                       <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/50 text-cyan-600 dark:text-cyan-300 rounded-full ring-1 ring-cyan-100 dark:ring-cyan-800">
                         {q.section}

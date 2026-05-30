@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import React, { useState, useRef } from "react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import PrepRichTextEditor from "../PrepRichTextEditor";
+import { isRichHtmlEmpty } from "../../preparation/PrepRichContentRenderer";
 import { uploadSdMediaFile } from "./uploadMedia";
 import {
   type AdminSDItem,
@@ -141,6 +142,11 @@ export default function SDQuestionModal({
     setImageUploadError(null);
     setImageUploadInfo(null);
 
+    if (isRichHtmlEmpty(form.description)) {
+      setImageUploadError("Description is required.");
+      return;
+    }
+
     const parsedDiagram = parseDiagramDataShape(form.diagramData);
     if (parsedDiagram.error) {
       setDiagramError(parsedDiagram.error);
@@ -246,16 +252,15 @@ export default function SDQuestionModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description <span className="text-red-500">*</span>
               </label>
-              <textarea
-                required
-                rows={2}
+              <PrepRichTextEditor
                 value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                placeholder="Short description of the problem"
+                onChange={(html) => set("description", html)}
+                placeholder="Describe the problem — headings, lists, code blocks…"
+                minHeight="160px"
+                disabled={saving || uploadingImages}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -487,7 +492,7 @@ export default function SDQuestionModal({
             </button>
             <button
               type="submit"
-              disabled={saving || uploadingImages}
+              disabled={saving || uploadingImages || isRichHtmlEmpty(form.description)}
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
             >
               {(saving || uploadingImages) && (

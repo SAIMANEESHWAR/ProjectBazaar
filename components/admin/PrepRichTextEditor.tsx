@@ -1,10 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Editor } from "@tiptap/core";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { uploadSdMediaFile } from "./system-design/uploadMedia";
+import {
+  PrepCodeSnippetExtension,
+  insertPrepCodeSnippet,
+} from "./prepCodeSnippetExtension";
+
+const MANUAL_NUMBERED_LINE = /^\s*\d+[.)]\s*(.*)$/;
+
+function parseManualNumberedLines(text: string): string[] | null {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+
+  const items: string[] = [];
+  for (const line of lines) {
+    const match = line.match(MANUAL_NUMBERED_LINE);
+    if (!match) return null;
+    items.push(match[1].trim());
+  }
+  return items;
+}
+
+function toggleOrderedListSmart(editor: Editor) {
+  const { from, to, empty } = editor.state.selection;
+
+  if (!empty) {
+    const selectedText = editor.state.doc.textBetween(from, to, "\n");
+    const items = parseManualNumberedLines(selectedText);
+    if (items) {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent({
+          type: "orderedList",
+          content: items.map((text) => ({
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: text ? [{ type: "text", text }] : [],
+              },
+            ],
+          })),
+        })
+        .run();
+      return;
+    }
+  }
+
+  editor.chain().focus().toggleOrderedList().run();
+}
 
 /** Inline images with a visible remove control (no S3 delete — only removes from content). */
 const PrepImage = Image.extend({
@@ -99,7 +153,9 @@ export default function PrepRichTextEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        codeBlock: false,
       }),
+      PrepCodeSnippetExtension,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
@@ -274,9 +330,15 @@ export default function PrepRichTextEditor({
     },
     {
       label: "1.",
-      title: "Numbered list",
-      action: () => editor.chain().focus().toggleOrderedList().run(),
+      title: "Numbered list (select 1. lines to convert)",
+      action: () => toggleOrderedListSmart(editor),
       isActive: editor.isActive("orderedList"),
+    },
+    {
+      label: "{ }",
+      title: "Insert multi-language code snippet",
+      action: () => insertPrepCodeSnippet(editor),
+      isActive: editor.isActive("prepCodeSnippet"),
     },
     {
       label: "❝",
@@ -369,7 +431,7 @@ export default function PrepRichTextEditor({
       </div>
 
       <p className="px-4 pb-2 text-xs text-gray-400">
-        Drag and drop images, use Img to upload, or click × on an image to remove it from content.
+        Use {"{ }"} for tabbed code snippets (Java, Python, etc.). Select lines like 1. Item and click 1. to convert to a numbered list.
       </p>
 
       {uploadError && (
@@ -394,7 +456,10 @@ export default function PrepRichTextEditor({
         .prep-rich-editor .ProseMirror p { margin: 0.5rem 0; line-height: 1.6; }
         .prep-rich-editor .ProseMirror ul,
         .prep-rich-editor .ProseMirror ol { margin: 0.5rem 0; padding-left: 1.5rem; }
-        .prep-rich-editor .ProseMirror li { margin: 0.25rem 0; }
+        .prep-rich-editor .ProseMirror ul { list-style-type: disc; }
+        .prep-rich-editor .ProseMirror ol { list-style-type: decimal; }
+        .prep-rich-editor .ProseMirror li { margin: 0.25rem 0; display: list-item; }
+        .prep-rich-editor .prep-code-snippet-node { margin: 0.75rem 0; }
         .prep-rich-editor .ProseMirror blockquote {
           border-left: 3px solid #f97316;
           margin: 0.75rem 0;

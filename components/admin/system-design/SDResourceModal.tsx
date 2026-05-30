@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import PrepRichTextEditor from "../PrepRichTextEditor";
+import { isRichHtmlEmpty } from "../../preparation/PrepRichContentRenderer";
 import { type AdminSDItem, type SDDesignType, SD_SECTIONS_HLD, SD_SECTIONS_LLD } from "./types";
 import { uploadSdMediaFile } from "./uploadMedia";
 
@@ -60,6 +61,11 @@ export default function SDResourceModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploadError(null);
+
+    if (isRichHtmlEmpty(form.description)) {
+      setUploadError("Short description is required.");
+      return;
+    }
 
     const links = form.resourceLinks.map((l) => l.trim()).filter(Boolean);
     const hasResource = links.length > 0 || form.pdfUrl || pendingPdf || form.content.trim();
@@ -142,16 +148,15 @@ export default function SDResourceModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Short Description <span className="text-red-500">*</span>
               </label>
-              <textarea
-                required
-                rows={2}
+              <PrepRichTextEditor
                 value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                placeholder="Brief summary shown on resource cards"
+                onChange={(html) => set("description", html)}
+                placeholder="Brief summary — lists, code snippets…"
+                minHeight="140px"
+                disabled={saving}
               />
             </div>
 
@@ -292,7 +297,7 @@ export default function SDResourceModal({
             <button type="button" onClick={onClose} disabled={busy} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-60">
               Cancel
             </button>
-            <button type="submit" disabled={busy} className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-60 flex items-center gap-2">
+            <button type="submit" disabled={busy || isRichHtmlEmpty(form.description)} className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-60 flex items-center gap-2">
               {busy && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {uploading ? "Uploading…" : item ? "Save Changes" : "Add Resource"}
             </button>

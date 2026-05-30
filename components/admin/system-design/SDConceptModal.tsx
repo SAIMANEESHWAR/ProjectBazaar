@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import PrepRichTextEditor from "../PrepRichTextEditor";
+import { isRichHtmlEmpty } from "../../preparation/PrepRichContentRenderer";
 import {
   type AdminSDItem,
   type SDContentKind,
@@ -49,6 +50,9 @@ export default function SDConceptModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConcept && isRichHtmlEmpty(form.description)) {
+      return;
+    }
     const topicList = form.topics
       .split(",")
       .map((t) => t.trim())
@@ -104,16 +108,15 @@ export default function SDConceptModal({
 
             {!isConcept && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Short Description <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  required
-                  rows={2}
+                <PrepRichTextEditor
                   value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                  placeholder="Brief summary shown on cards"
+                  onChange={(html) => set("description", html)}
+                  placeholder="Brief summary — lists, code snippets…"
+                  minHeight="140px"
+                  disabled={saving}
                 />
               </div>
             )}
@@ -184,7 +187,11 @@ export default function SDConceptModal({
             </button>
             <button
               type="submit"
-              disabled={saving || !form.content.trim()}
+              disabled={
+                saving ||
+                !form.content.trim() ||
+                (!isConcept && isRichHtmlEmpty(form.description))
+              }
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
             >
               {saving && (

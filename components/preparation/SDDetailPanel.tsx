@@ -91,7 +91,15 @@ export function SDDetailPanel({
     >
       <div>
         <p className={labelClass}>Description</p>
-        <p className={bodyClass}>{q.description}</p>
+        {isRichHtmlContent(q.description) ? (
+          <PrepRichContentRenderer
+            html={q.description}
+            variant={variant}
+            className={isNocturnal ? "text-[15px]" : "text-sm"}
+          />
+        ) : (
+          <p className={bodyClass}>{q.description}</p>
+        )}
       </div>
 
       {visibleTabs.length > 1 && (

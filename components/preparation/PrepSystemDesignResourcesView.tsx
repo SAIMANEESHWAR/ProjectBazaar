@@ -1,5 +1,8 @@
 import { useState } from "react";
-import PrepRichContentRenderer from "./PrepRichContentRenderer";
+import PrepRichContentRenderer, {
+  isRichHtmlContent,
+  richHtmlToPlainText,
+} from "./PrepRichContentRenderer";
 import { type SDQuestion } from "./SDDetailPanel";
 
 export interface PrepSystemDesignResourcesViewProps {
@@ -46,7 +49,14 @@ export default function PrepSystemDesignResourcesView({
               ← Back to resources
             </button>
             <h2 className="text-xl font-bold text-gray-900">{selected.title}</h2>
-            <p className="text-sm text-gray-500 mt-1">{selected.description}</p>
+            {isRichHtmlContent(selected.description) ? (
+              <PrepRichContentRenderer
+                html={selected.description}
+                className="text-sm text-gray-500 mt-1"
+              />
+            ) : (
+              <p className="text-sm text-gray-500 mt-1">{selected.description}</p>
+            )}
           </div>
           {selected.thumbnailUrl && (
             <img
@@ -118,7 +128,7 @@ export default function PrepSystemDesignResourcesView({
             )}
             <div className="p-4">
               <h4 className="font-semibold text-gray-900 text-sm">{r.title}</h4>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{r.description}</p>
+              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{richHtmlToPlainText(r.description)}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {(r.resourceLinks?.length ?? 0) > 0 && (
                   <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
@@ -155,7 +165,7 @@ export default function PrepSystemDesignResourcesView({
             >
               <td className="px-5 py-4">
                 <p className="text-sm font-semibold text-gray-900">{r.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{r.description}</p>
+                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{richHtmlToPlainText(r.description)}</p>
               </td>
               <td className="px-5 py-4 text-sm text-gray-500">{r.section}</td>
               <td className="px-5 py-4 text-xs text-gray-500">
