@@ -131,7 +131,7 @@ export default function SDContentSection({
             const meta = isResource ? resourceMeta(q) : null;
             return (
             <CardShell key={q.id}>
-              {isResource && q.thumbnailUrl && (
+              {(isResource || isConcept) && q.thumbnailUrl && (
                 <div className="mb-3 -mx-5 -mt-5 rounded-t-xl overflow-hidden border-b border-gray-100">
                   <img src={q.thumbnailUrl} alt="" className="w-full h-28 object-cover" />
                 </div>

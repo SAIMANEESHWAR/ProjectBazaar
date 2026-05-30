@@ -8,6 +8,7 @@ import {
   SD_SECTIONS_HLD,
   SD_SECTIONS_LLD,
 } from "./types";
+import { uploadSdMediaFile } from "./uploadMedia";
 
 const CONTENT_KIND_LABELS: Record<Exclude<SDContentKind, "question" | "resource">, string> = {
   concept: "Concept",
@@ -43,16 +44,35 @@ export default function SDConceptModal({
     difficulty: item?.difficulty ?? "Medium",
     topics: (item?.topics ?? []).join(", "),
     content: item?.content ?? "",
+    thumbnailUrl: item?.thumbnailUrl ?? "",
   });
+  const [pendingThumbnail, setPendingThumbnail] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploadError(null);
     if (!isConcept && isRichHtmlEmpty(form.description)) {
       return;
     }
+
+    setUploading(true);
+    let thumbnailUrl = form.thumbnailUrl;
+    try {
+      if (pendingThumbnail) {
+        thumbnailUrl = await uploadSdMediaFile(pendingThumbnail, "thumbnail");
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Image upload failed.");
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+
     const topicList = form.topics
       .split(",")
       .map((t) => t.trim())
@@ -70,8 +90,11 @@ export default function SDConceptModal({
       content: form.content,
       diagramUrl: "",
       additionalImageUrls: [],
+      thumbnailUrl,
     });
   };
+
+  const busy = saving || uploading;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
@@ -116,7 +139,7 @@ export default function SDConceptModal({
                   onChange={(html) => set("description", html)}
                   placeholder="Brief summary — lists, code snippets…"
                   minHeight="140px"
-                  disabled={saving}
+                  disabled={busy}
                 />
               </div>
             )}
@@ -162,6 +185,50 @@ export default function SDConceptModal({
               />
             </div>
 
+            {isConcept && (
+              <div className="rounded-xl border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Grid Card Image
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Shown at the top of the concept card in grid view. Recommended 16:9, at least 640×360px.
+                </p>
+                {(form.thumbnailUrl || pendingThumbnail) && (
+                  <div className="mb-3 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                    {pendingThumbnail ? (
+                      <img
+                        src={URL.createObjectURL(pendingThumbnail)}
+                        alt="Pending card image"
+                        className="w-full h-36 object-cover"
+                      />
+                    ) : (
+                      <img src={form.thumbnailUrl} alt="Card image" className="w-full h-36 object-cover" />
+                    )}
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) setPendingThumbnail(file);
+                  }}
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-orange-50 file:text-orange-700"
+                />
+                {form.thumbnailUrl && !pendingThumbnail && (
+                  <button
+                    type="button"
+                    onClick={() => set("thumbnailUrl", "")}
+                    className="mt-2 text-xs text-red-600"
+                  >
+                    Remove image
+                  </button>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {kindLabel} Content <span className="text-red-500">*</span>
@@ -171,16 +238,18 @@ export default function SDConceptModal({
                 onChange={(html) => set("content", html)}
                 placeholder="Write the full concept article — headings, lists, images…"
                 minHeight="360px"
-                disabled={saving}
+                disabled={busy}
               />
             </div>
           </div>
+
+          {uploadError && <p className="px-6 text-xs text-red-600">{uploadError}</p>}
 
           <div className="flex justify-end gap-3 p-6 pt-4 border-t border-gray-100 bg-white">
             <button
               type="button"
               onClick={onClose}
-              disabled={saving}
+              disabled={busy}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-60"
             >
               Cancel
@@ -188,13 +257,13 @@ export default function SDConceptModal({
             <button
               type="submit"
               disabled={
-                saving ||
+                busy ||
                 !form.content.trim() ||
                 (!isConcept && isRichHtmlEmpty(form.description))
               }
               className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {saving && (
+              {busy && (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               )}
               {item ? "Save Changes" : `Add ${kindLabel}`}
