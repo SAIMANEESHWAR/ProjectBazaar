@@ -246,7 +246,7 @@ const AuthPage: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthWorking, setOauthWorking] = useState(false);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
@@ -376,16 +376,19 @@ const AuthPage: React.FC = () => {
 
       if (data.success && data.data) {
         // Signup successful, now login the user
-        await handleLoginAfterSignup();
+        const loggedIn = await handleLoginAfterSignup();
+        if (!loggedIn) {
+          setLoading(false);
+        }
+        return;
       } else {
         setError(data.error?.message || 'Signup failed. Please try again.');
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
       console.error('Signup error:', err);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleLogin = async () => {
@@ -413,18 +416,18 @@ const AuthPage: React.FC = () => {
         localStorage.setItem('userData', JSON.stringify(data.data));
 
         login(data.data.userId, data.data.email, userRole);
+        return;
       } else {
         setError(data.error?.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
       console.error('Login error:', err);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
-  const handleLoginAfterSignup = async () => {
+  const handleLoginAfterSignup = async (): Promise<boolean> => {
     try {
       const response = await fetch(LOGIN_API_URL, {
         method: 'POST',
@@ -447,10 +450,15 @@ const AuthPage: React.FC = () => {
         scheduleOnboardingTour();
 
         login(data.data.userId, data.data.email, userRole);
+        return true;
       }
+
+      setError('Account created but login failed. Please try logging in manually.');
+      return false;
     } catch (err) {
       console.error('Auto-login after signup error:', err);
       setError('Account created but login failed. Please try logging in manually.');
+      return false;
     }
   };
 
@@ -670,6 +678,7 @@ const AuthPage: React.FC = () => {
               formFields={formFields}
               goTo={() => { }}
               handleSubmit={handleSubmit}
+              loading={loading}
               accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
               onAccountToggle={toggleAuthMode}
             />

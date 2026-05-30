@@ -338,6 +338,7 @@ type AnimatedFormProps = {
   goTo?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   accountToggleText?: string;
   onAccountToggle?: () => void;
+  loading?: boolean;
 };
 
 type Errors = {
@@ -357,6 +358,7 @@ const AnimatedForm = memo(function AnimatedForm({
   goTo,
   accountToggleText,
   onAccountToggle,
+  loading = false,
 }: AnimatedFormProps) {
   const [visible, setVisible] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -535,12 +537,29 @@ const AnimatedForm = memo(function AnimatedForm({
           overflow='visible'
         >
           <button
-            className='bg-black relative group/btn block w-full text-white
-            rounded-md h-10 font-medium shadow-lg outline-hidden hover:cursor-pointer
-            hover:bg-gray-900 transition-colors duration-200 border border-gray-800'
+            className={cn(
+              'bg-black relative group/btn block w-full text-white rounded-md h-10 font-medium shadow-lg outline-hidden transition-colors duration-200 border border-gray-800',
+              loading
+                ? 'opacity-80 cursor-not-allowed'
+                : 'hover:cursor-pointer hover:bg-gray-900'
+            )}
             type='submit'
+            disabled={loading}
+            aria-busy={loading}
           >
-            {submitButton} &rarr;
+            {loading ? (
+              <span className='flex items-center justify-center gap-2'>
+                <span
+                  className='inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white'
+                  aria-hidden
+                />
+                {submitButton}…
+              </span>
+            ) : (
+              <>
+                {submitButton} &rarr;
+              </>
+            )}
             <BottomGradient />
           </button>
         </BoxReveal>
@@ -615,6 +634,7 @@ interface AuthTabsProps {
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   accountToggleText?: string;
   onAccountToggle?: () => void;
+  loading?: boolean;
 }
 
 const AuthTabs = memo(function AuthTabs({
@@ -623,6 +643,7 @@ const AuthTabs = memo(function AuthTabs({
   handleSubmit,
   accountToggleText,
   onAccountToggle,
+  loading = false,
 }: AuthTabsProps) {
   return (
     <div className='flex max-lg:justify-center w-full md:w-auto'>
@@ -635,6 +656,7 @@ const AuthTabs = memo(function AuthTabs({
           goTo={goTo}
           accountToggleText={accountToggleText}
           onAccountToggle={onAccountToggle}
+          loading={loading}
         />
       </div>
     </div>
