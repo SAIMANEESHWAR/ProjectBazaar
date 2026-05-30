@@ -1,6 +1,7 @@
+import { useMemo, useState } from "react";
 import PrepRichContentRenderer from "./PrepRichContentRenderer";
 import PrepTopicFolderTree from "./PrepTopicFolderTree";
-import { getPrimaryTopic } from "./prepTopicGrouping";
+import { getPrimaryTopic, getGroupThumbnail, groupByTopic } from "./prepTopicGrouping";
 import { type ViewMode } from "./PrepViewToggle";
 import { type SDQuestion } from "./SDDetailPanel";
 
@@ -21,6 +22,13 @@ export default function PrepSystemDesignConceptsView({
   onSelectConcept,
   shortLabel,
 }: PrepSystemDesignConceptsViewProps) {
+  const [selectedTopicGroup, setSelectedTopicGroup] = useState<string | null>(null);
+  const topicGroups = useMemo(() => groupByTopic(concepts), [concepts]);
+  const activeGroup = useMemo(
+    () => topicGroups.find((group) => group.topic === selectedTopicGroup) ?? null,
+    [topicGroups, selectedTopicGroup],
+  );
+
   if (selectedConcept) {
     return (
       <div>
@@ -134,58 +142,93 @@ export default function PrepSystemDesignConceptsView({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-      {concepts.map((concept) => {
-        const topic = getPrimaryTopic(concept);
-
-        return (
+    <div>
+      {selectedTopicGroup && activeGroup ? (
+        <>
           <button
-            key={concept.id}
             type="button"
-            onClick={() => onSelectConcept(concept)}
-            className="group text-left bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 dark:hover:border-white/20 transition-all duration-200"
+            onClick={() => setSelectedTopicGroup(null)}
+            className="mb-4 text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 font-medium"
           >
-            <div className="relative h-40 overflow-hidden">
-              {concept.thumbnailUrl ? (
-                <img
-                  src={concept.thumbnailUrl}
-                  alt=""
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4">
-                  <span className="text-lg font-bold text-white/95 line-clamp-2">{topic}</span>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
-            </div>
-
-            <div className="p-4">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                  {topic}
-                </span>
-              </div>
-
-              <h3 className="font-semibold text-gray-900 dark:text-neutral-100 leading-snug line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                {concept.title}
-              </h3>
-
-              {concept.section && (
-                <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-500">
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <span className="line-clamp-1">{concept.section}</span>
-                </div>
-              )}
-            </div>
+            ← Back to all topics
           </button>
-        );
-      })}
+
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{activeGroup.topic}</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-neutral-400">
+              {activeGroup.items.length} concept{activeGroup.items.length === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {activeGroup.items.map((concept) => (
+              <button
+                key={concept.id}
+                type="button"
+                onClick={() => onSelectConcept(concept)}
+                className="group text-left bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-4 hover:shadow-md hover:border-orange-300 dark:hover:border-orange-500/40 transition-all duration-200"
+              >
+                <h3 className="font-semibold text-gray-900 dark:text-neutral-100 leading-snug group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                  {concept.title}
+                </h3>
+                {concept.section && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-neutral-500 line-clamp-1">
+                    {concept.section}
+                  </p>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {topicGroups.map((group) => {
+            const thumbnailUrl = getGroupThumbnail(group.items);
+
+            return (
+              <button
+                key={group.topic}
+                type="button"
+                onClick={() => setSelectedTopicGroup(group.topic)}
+                className="group text-left bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 dark:hover:border-white/20 transition-all duration-200"
+              >
+                <div className="relative h-40 overflow-hidden">
+                  {thumbnailUrl ? (
+                    <img
+                      src={thumbnailUrl}
+                      alt=""
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4">
+                      <span className="text-lg font-bold text-white/95 line-clamp-2">{group.topic}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
+                </div>
+
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      Topic
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-neutral-400">
+                      {group.items.length} concept{group.items.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  <h3 className="font-semibold text-gray-900 dark:text-neutral-100 leading-snug line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                    {group.topic}
+                  </h3>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

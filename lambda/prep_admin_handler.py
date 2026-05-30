@@ -304,6 +304,7 @@ def normalize_system_design(raw: dict, now: str) -> dict:
         "resourceLinks": resource_links,
         "pdfUrl": str(raw.get("pdfUrl", "")).strip(),
         "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+        "displayOrder": int(raw.get("displayOrder", 0) or 0),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -401,7 +402,15 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
             searchable = ["question", "title", "name", "description", "content", "role"]
             items = [i for i in items if any(search in str(i.get(f, "")).lower() for f in searchable)]
 
-        items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        if content_type == "system_design":
+            items.sort(
+                key=lambda x: (
+                    int(x.get("displayOrder", 0) or 0),
+                    (x.get("title") or "").lower(),
+                )
+            )
+        else:
+            items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
 
         total = len(items)
         total_pages = max(1, math.ceil(total / limit))

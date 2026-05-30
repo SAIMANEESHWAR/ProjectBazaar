@@ -22,6 +22,7 @@ export interface SDQuestion {
   resourceLinks?: string[];
   pdfUrl?: string;
   thumbnailUrl?: string;
+  displayOrder?: number;
   topics?: string[];
 }
 

@@ -24,6 +24,8 @@ export interface SystemDesignAdminPanelProps {
   onRetry: (tabId: SDTabId) => void;
   onEdit: (item: AdminSDItem, tabId: SDTabId) => void;
   onDelete: (item: AdminSDItem, tabId: SDTabId) => void;
+  onMoveItem: (item: AdminSDItem, tabId: SDTabId, direction: "up" | "down", scopeItems?: AdminSDItem[]) => void;
+  reordering: boolean;
 }
 
 export default function SystemDesignAdminPanel({
@@ -40,6 +42,8 @@ export default function SystemDesignAdminPanel({
   onRetry,
   onEdit,
   onDelete,
+  onMoveItem,
+  reordering,
 }: SystemDesignAdminPanelProps) {
   const tabId = getSdTabId(designType, subSection);
   const cfg = SD_TAB_CONFIG[tabId];
@@ -106,6 +110,8 @@ export default function SystemDesignAdminPanel({
         onRetry={() => onRetry(tabId)}
         onEdit={(item) => onEdit(item, tabId)}
         onDelete={(item) => onDelete(item, tabId)}
+        onMoveItem={(item, direction, scopeItems) => onMoveItem(item, tabId, direction, scopeItems)}
+        reordering={reordering}
         showImagesColumn={isQuestion}
         contentKind={cfg.contentKind}
       />

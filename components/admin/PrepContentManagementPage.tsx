@@ -5,6 +5,11 @@ import SDQuestionModal from "./system-design/SDQuestionModal";
 import SDResourceModal from "./system-design/SDResourceModal";
 import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
 import {
+  computeSdMoveUpdates,
+  nextDisplayOrder,
+  sortByDisplayOrder,
+} from "./system-design/sdDisplayOrder";
+import {
   type AdminSDItem,
   type SDDesignType,
   type SDSubSection,
@@ -227,6 +232,7 @@ const PrepContentManagementPage: React.FC = () => {
     item?: AdminSDItem | null;
   }>({ open: false, tabId: "hld-questions" });
   const [sdSaving, setSdSaving] = useState(false);
+  const [sdReordering, setSdReordering] = useState(false);
   // Delete confirmation modal state (for SD; other tabs use window.confirm for now)
   const [deleteModal, setDeleteModal] = useState<{
     id: string;
@@ -287,7 +293,10 @@ const PrepContentManagementPage: React.FC = () => {
         limit: 200,
       });
       if (resp.success) {
-        setSdData((prev) => ({ ...prev, [tabId]: resp.items ?? [] }));
+        setSdData((prev) => ({
+          ...prev,
+          [tabId]: sortByDisplayOrder(resp.items ?? []),
+        }));
       } else {
         setSdError(`Failed to load ${SD_TAB_CONFIG[tabId].label}. Please try again.`);
       }
@@ -385,18 +394,31 @@ const PrepContentManagementPage: React.FC = () => {
     },
   ) => {
     setSdSaving(true);
+    const tabId = sdModal?.tabId ?? (formData.id ? tabIdForItem(formData as AdminSDItem) : activeSdTabId);
+    const isEdit = !!sdModal?.item?.id;
+    const payload = {
+      ...formData,
+      displayOrder:
+        typeof formData.displayOrder === "number" && Number.isFinite(formData.displayOrder)
+          ? formData.displayOrder
+          : isEdit
+            ? sdModal?.item?.displayOrder ?? 0
+            : nextDisplayOrder(sdData[tabId]),
+    };
     const item = await prepAdminApi.putContentSingle<AdminSDItem>(
       "system_design",
-      formData as Record<string, unknown>,
+      payload as Record<string, unknown>,
     );
     setSdSaving(false);
     if (item) {
-      const isEdit = !!sdModal?.item?.id;
-      const tabId = sdModal?.tabId ?? tabIdForItem(item);
-      setSdData((prev) => ({ ...prev, [tabId]:
-        isEdit
-          ? prev[tabId].map((q) => (q.id === item.id ? item : q))
-          : [item, ...prev[tabId]],
+      const resolvedTabId = sdModal?.tabId ?? tabIdForItem(item);
+      setSdData((prev) => ({
+        ...prev,
+        [resolvedTabId]: sortByDisplayOrder(
+          isEdit
+            ? prev[resolvedTabId].map((q) => (q.id === item.id ? item : q))
+            : [...prev[resolvedTabId], item],
+        ),
       }));
       showToast(
         `"${item.title}" ${isEdit ? "updated" : "added"} successfully`,
@@ -405,6 +427,50 @@ const PrepContentManagementPage: React.FC = () => {
       setSdModal({ open: false, tabId: sdModal?.tabId ?? "hld-questions" });
     } else {
       showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const handleSdMove = async (
+    item: AdminSDItem,
+    tabId: SDTabId,
+    direction: "up" | "down",
+    scopeItems?: AdminSDItem[],
+  ) => {
+    const list = scopeItems ?? sdData[tabId];
+    const updates = computeSdMoveUpdates(list, item.id, direction);
+    if (!updates?.length) return;
+
+    setSdReordering(true);
+    try {
+      const saved = await Promise.all(
+        updates.map((entry) =>
+          prepAdminApi.putContentSingle<AdminSDItem>(
+            "system_design",
+            entry as unknown as Record<string, unknown>,
+          ),
+        ),
+      );
+
+      if (saved.some((entry) => !entry)) {
+        showToast("Reorder failed. Please try again.", "info");
+        await loadSdTab(tabId);
+        return;
+      }
+
+      setSdData((prev) => {
+        const byId = new Map(saved.filter(Boolean).map((entry) => [entry!.id, entry!]));
+        return {
+          ...prev,
+          [tabId]: sortByDisplayOrder(
+            prev[tabId].map((entry) => byId.get(entry.id) ?? entry),
+          ),
+        };
+      });
+    } catch {
+      showToast("Reorder failed. Please try again.", "info");
+      await loadSdTab(tabId);
+    } finally {
+      setSdReordering(false);
     }
   };
 
@@ -1476,6 +1542,8 @@ const PrepContentManagementPage: React.FC = () => {
           onRetry={loadSdTab}
           onEdit={openSdEditModal}
           onDelete={openSdDeleteModal}
+          onMoveItem={handleSdMove}
+          reordering={sdReordering}
         />
       )}
 
@@ -1502,6 +1570,7 @@ const PrepContentManagementPage: React.FC = () => {
             designType={SD_TAB_CONFIG[sdModal.tabId].designType}
             contentKind={SD_TAB_CONFIG[sdModal.tabId].contentKind as "concept" | "practice"}
             item={sdModal.item ?? null}
+            defaultDisplayOrder={nextDisplayOrder(sdData[sdModal.tabId])}
             saving={sdSaving}
             onSave={handleSdSave}
             onClose={() => setSdModal({ open: false, tabId: sdModal.tabId })}

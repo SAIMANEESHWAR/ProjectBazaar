@@ -179,6 +179,14 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         elif sort_by == "difficulty":
             diff_order = {"Easy": 0, "Medium": 1, "Hard": 2}
             items.sort(key=lambda x: diff_order.get(x.get("difficulty"), 0), reverse=reverse)
+        elif sort_by == "displayOrder":
+            items.sort(
+                key=lambda x: (
+                    int(x.get("displayOrder", 0) or 0),
+                    (x.get("title") or "").lower(),
+                ),
+                reverse=reverse,
+            )
         else:
             items.sort(key=lambda x: x.get("createdAt", ""), reverse=reverse)
 
