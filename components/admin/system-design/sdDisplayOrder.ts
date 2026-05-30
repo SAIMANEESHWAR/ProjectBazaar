@@ -34,3 +34,69 @@ export function computeSdMoveUpdates(
     { ...adjacent, displayOrder: currentOrder },
   ];
 }
+
+type TopicGroup = { topic: string; items: AdminSDItem[] };
+
+function renumberTopicGroups(groups: TopicGroup[]): AdminSDItem[] {
+  return groups.flatMap((group, groupIndex) =>
+    sortByDisplayOrder(group.items).map((item, itemIndex) => ({
+      ...item,
+      displayOrder: groupIndex * 1000 + (itemIndex + 1) * 10,
+    })),
+  );
+}
+
+export function computeTopicMoveUpdates(
+  groups: TopicGroup[],
+  topic: string,
+  direction: "up" | "down",
+): AdminSDItem[] | null {
+  const index = groups.findIndex((group) => group.topic === topic);
+  if (index < 0) return null;
+
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (swapIndex < 0 || swapIndex >= groups.length) return null;
+
+  const swappedGroups = [...groups];
+  [swappedGroups[index], swappedGroups[swapIndex]] = [
+    swappedGroups[swapIndex],
+    swappedGroups[index],
+  ];
+
+  const groupA = groups[index];
+  const groupB = groups[swapIndex];
+  const aSorted = sortByDisplayOrder(groupA.items);
+  const bSorted = sortByDisplayOrder(groupB.items);
+  const aOrders = aSorted.map(getDisplayOrder);
+  const bOrders = bSorted.map(getDisplayOrder);
+  const aMin = Math.min(...aOrders);
+  const aMax = Math.max(...aOrders);
+  const bMin = Math.min(...bOrders);
+  const bMax = Math.max(...bOrders);
+
+  if (aMin === bMin && aMax === bMax) {
+    return renumberTopicGroups(swappedGroups);
+  }
+
+  const aSpan = aMax - aMin || 1;
+  const bSpan = bMax - bMin || 1;
+  const updates: AdminSDItem[] = [];
+
+  aSorted.forEach((item) => {
+    const relative = (getDisplayOrder(item) - aMin) / aSpan;
+    updates.push({
+      ...item,
+      displayOrder: Math.round(bMin + relative * bSpan),
+    });
+  });
+
+  bSorted.forEach((item) => {
+    const relative = (getDisplayOrder(item) - bMin) / bSpan;
+    updates.push({
+      ...item,
+      displayOrder: Math.round(aMin + relative * bSpan),
+    });
+  });
+
+  return updates;
+}

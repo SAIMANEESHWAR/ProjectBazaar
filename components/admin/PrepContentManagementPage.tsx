@@ -6,9 +6,11 @@ import SDResourceModal from "./system-design/SDResourceModal";
 import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
 import {
   computeSdMoveUpdates,
+  computeTopicMoveUpdates,
   nextDisplayOrder,
   sortByDisplayOrder,
 } from "./system-design/sdDisplayOrder";
+import { groupByTopic } from "../../lib/prepTopicGrouping";
 import {
   type AdminSDItem,
   type SDDesignType,
@@ -430,14 +432,10 @@ const PrepContentManagementPage: React.FC = () => {
     }
   };
 
-  const handleSdMove = async (
-    item: AdminSDItem,
+  const applySdDisplayOrderUpdates = async (
     tabId: SDTabId,
-    direction: "up" | "down",
-    scopeItems?: AdminSDItem[],
+    updates: AdminSDItem[] | null,
   ) => {
-    const list = scopeItems ?? sdData[tabId];
-    const updates = computeSdMoveUpdates(list, item.id, direction);
     if (!updates?.length) return;
 
     setSdReordering(true);
@@ -472,6 +470,27 @@ const PrepContentManagementPage: React.FC = () => {
     } finally {
       setSdReordering(false);
     }
+  };
+
+  const handleSdMove = async (
+    item: AdminSDItem,
+    tabId: SDTabId,
+    direction: "up" | "down",
+    scopeItems?: AdminSDItem[],
+  ) => {
+    const list = scopeItems ?? sdData[tabId];
+    const updates = computeSdMoveUpdates(list, item.id, direction);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdMoveTopic = async (
+    topic: string,
+    tabId: SDTabId,
+    direction: "up" | "down",
+  ) => {
+    const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
+    const updates = computeTopicMoveUpdates(groups, topic, direction);
+    await applySdDisplayOrderUpdates(tabId, updates);
   };
 
   const overviewStats = [
@@ -1543,6 +1562,7 @@ const PrepContentManagementPage: React.FC = () => {
           onEdit={openSdEditModal}
           onDelete={openSdDeleteModal}
           onMoveItem={handleSdMove}
+          onMoveTopic={handleSdMoveTopic}
           reordering={sdReordering}
         />
       )}

@@ -101,6 +101,7 @@ export interface SDContentSectionProps {
   onEdit: (item: AdminSDItem) => void;
   onDelete: (item: AdminSDItem) => void;
   onMoveItem?: (item: AdminSDItem, direction: "up" | "down", scopeItems?: AdminSDItem[]) => void;
+  onMoveTopic?: (topic: string, direction: "up" | "down") => void;
   reordering?: boolean;
   showImagesColumn?: boolean;
   contentKind?: SDContentKind;
@@ -120,6 +121,7 @@ export default function SDContentSection({
   onEdit,
   onDelete,
   onMoveItem,
+  onMoveTopic,
   reordering = false,
   showImagesColumn = false,
   contentKind,
@@ -253,43 +255,61 @@ export default function SDContentSection({
       ) : isGrid ? (
         groupByTopics && !selectedTopicGroup ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 p-5">
-            {topicGroups.map((group) => {
+            {topicGroups.map((group, groupIndex) => {
               const thumbnailUrl = getGroupThumbnail(group.items);
               return (
-                <button
+                <div
                   key={group.topic}
-                  type="button"
-                  onClick={() => setSelectedTopicGroup(group.topic)}
-                  className="group text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-200"
+                  className="relative group text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                 >
-                  <div className="relative h-36 overflow-hidden">
-                    {thumbnailUrl ? (
-                      <img
-                        src={thumbnailUrl}
-                        alt=""
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                  {onMoveTopic && (
+                    <div
+                      className="absolute top-3 right-3 z-10 rounded-lg bg-white/95 border border-gray-200 shadow-sm p-0.5"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <OrderBtns
+                        canMoveUp={groupIndex > 0}
+                        canMoveDown={groupIndex < topicGroups.length - 1}
+                        disabled={reordering}
+                        onMoveUp={() => onMoveTopic(group.topic, "up")}
+                        onMoveDown={() => onMoveTopic(group.topic, "down")}
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4">
-                        <span className="text-base font-bold text-white/95 line-clamp-2">{group.topic}</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-50 text-emerald-700">
-                        Topic
-                      </span>
-                      <span className="text-[11px] font-medium text-gray-500">
-                        {group.items.length} concept{group.items.length === 1 ? "" : "s"}
-                      </span>
                     </div>
-                    <h4 className="font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">
-                      {group.topic}
-                    </h4>
-                  </div>
-                </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTopicGroup(group.topic)}
+                    className="w-full text-left"
+                  >
+                    <div className="relative h-36 overflow-hidden">
+                      {thumbnailUrl ? (
+                        <img
+                          src={thumbnailUrl}
+                          alt=""
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4">
+                          <span className="text-base font-bold text-white/95 line-clamp-2">{group.topic}</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-50 text-emerald-700">
+                          Topic
+                        </span>
+                        <span className="text-[11px] font-medium text-gray-500 pr-10">
+                          {group.items.length} concept{group.items.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">
+                        {group.topic}
+                      </h4>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -357,21 +377,33 @@ export default function SDContentSection({
       ) : (
         <div className="overflow-x-auto">
           {groupByTopics && !selectedTopicGroup ? (
-            <div className="p-5 space-y-8">
-              {topicGroups.map((group) => (
-                <div key={group.topic}>
+            <div className="p-5 space-y-3">
+              {topicGroups.map((group, groupIndex) => (
+                <div
+                  key={group.topic}
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 hover:border-orange-300 hover:bg-orange-50/40 transition-colors"
+                >
+                  {onMoveTopic && (
+                    <OrderBtns
+                      canMoveUp={groupIndex > 0}
+                      canMoveDown={groupIndex < topicGroups.length - 1}
+                      disabled={reordering}
+                      onMoveUp={() => onMoveTopic(group.topic, "up")}
+                      onMoveDown={() => onMoveTopic(group.topic, "down")}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => setSelectedTopicGroup(group.topic)}
-                    className="mb-3 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left hover:border-orange-300 hover:bg-orange-50/40 transition-colors"
+                    className="flex flex-1 items-center justify-between text-left min-w-0"
                   >
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900">{group.topic}</h4>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-semibold text-gray-900 truncate">{group.topic}</h4>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {group.items.length} concept{group.items.length === 1 ? "" : "s"}
                       </p>
                     </div>
-                    <span className="text-xs font-medium text-orange-600">View →</span>
+                    <span className="text-xs font-medium text-orange-600 shrink-0 ml-3">View →</span>
                   </button>
                 </div>
               ))}
