@@ -13,6 +13,7 @@ import {
   Map,
   FileStack,
   RefreshCw,
+  GraduationCap,
 } from 'lucide-react';
 import { prepUserApi, type DashboardData, type PrepActivity } from '../../services/preparationApi';
 import { ShinyButton } from '../ui/ShinyButton';
@@ -32,6 +33,7 @@ function buildFeatureCards(counts: Record<string, number>, collectionsCount: num
     { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: counts.quizzes ?? 0, Icon: ClipboardList },
     { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: counts.system_design ?? 0, Icon: Building2 },
     { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: counts.fundamentals ?? 0, Icon: BookOpen },
+    { id: 'core-subjects', view: 'prep-core-subjects', title: 'Core Subjects', description: 'DBMS, OS & Computer Networks from basics to advanced', count: counts.core_subjects ?? 0, Icon: GraduationCap },
     { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: counts.position_resources ?? 0, Icon: Target },
     { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: counts.mass_recruitment ?? 0, Icon: Users },
     { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: counts.cold_dm_templates ?? 0, Icon: Mail },

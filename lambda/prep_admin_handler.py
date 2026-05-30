@@ -34,6 +34,7 @@ TABLE_ROADMAPS = "PrepRoadmaps"
 TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
+TABLE_CORE_SUBJECTS = "PrepCoreSubjects"
 
 CONTENT_TYPE_TABLE_MAP = {
     "interview_questions": TABLE_INTERVIEW_QUESTIONS,
@@ -47,6 +48,7 @@ CONTENT_TYPE_TABLE_MAP = {
     "position_resources": TABLE_POSITION_RESOURCES,
     "system_design": TABLE_SYSTEM_DESIGN,
     "fundamentals": TABLE_FUNDAMENTALS,
+    "core_subjects": TABLE_CORE_SUBJECTS,
 }
 
 CORS_HEADERS = {
@@ -327,6 +329,69 @@ def normalize_fundamental(raw: dict, now: str) -> dict:
     }
 
 
+def _slugify(value: str) -> str:
+    slug = "".join(ch if ch.isalnum() else "-" for ch in value.strip().lower())
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-") or "subject"
+
+
+def normalize_core_subject(raw: dict, now: str) -> dict:
+    content_kind_raw = raw.get("contentKind") or raw.get("content_kind") or "concept"
+    content_kind = str(content_kind_raw).strip().lower()
+    if content_kind not in ("concept", "category"):
+        content_kind = "concept"
+
+    if content_kind == "category":
+        title = str(raw.get("title", "")).strip()
+        slug_raw = str(raw.get("slug") or raw.get("subject") or title).strip().lower()
+        slug = _slugify(slug_raw)
+        return {
+            "id": str(raw.get("id") or generate_id("csc")),
+            "title": title,
+            "description": str(raw.get("description", "")).strip(),
+            "subject": slug,
+            "slug": slug,
+            "contentKind": "category",
+            "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+            "displayOrder": int(raw.get("displayOrder", 0) or 0),
+            "createdAt": raw.get("createdAt") or now,
+            "updatedAt": now,
+        }
+
+    subject_raw = str(raw.get("subject") or raw.get("subcategory") or "").strip()
+    subject = _slugify(subject_raw) if subject_raw else "general"
+
+    raw_topics = raw.get("topics", [])
+    topics = (
+        [str(t).strip() for t in raw_topics if t and str(t).strip()]
+        if isinstance(raw_topics, list)
+        else []
+    )
+
+    difficulty = str(raw.get("difficulty", "Medium")).strip()
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
+
+    section = str(raw.get("section", "")).strip() or subject.replace("-", " ").title()
+
+    return {
+        "id": str(raw.get("id") or generate_id("cs")),
+        "title": str(raw.get("title", "")).strip(),
+        "description": str(raw.get("description", "")).strip(),
+        "subject": subject,
+        "section": section,
+        "contentKind": "concept",
+        "difficulty": difficulty,
+        "topics": topics,
+        "content": str(raw.get("content", "")).strip(),
+        "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+        "displayOrder": int(raw.get("displayOrder", 0) or 0),
+        "createdAt": raw.get("createdAt") or now,
+        "updatedAt": now,
+    }
+
+
 NORMALIZER_MAP = {
     "interview_questions": normalize_interview_question,
     "dsa_problems": normalize_dsa_problem,
@@ -339,6 +404,7 @@ NORMALIZER_MAP = {
     "position_resources": normalize_position_resource,
     "system_design": normalize_system_design,
     "fundamentals": normalize_fundamental,
+    "core_subjects": normalize_core_subject,
 }
 
 
@@ -383,6 +449,12 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         if content_kind and str(content_kind).lower() != "all":
             normalized_content_kind = str(content_kind).strip().lower()
             filter_expressions.append(Attr("contentKind").eq(normalized_content_kind))
+        subject = query_params.get("subject")
+        if subject and str(subject).lower() != "all":
+            filter_expressions.append(Attr("subject").eq(str(subject).strip().lower()))
+        slug = query_params.get("slug")
+        if slug and str(slug).lower() != "all":
+            filter_expressions.append(Attr("slug").eq(str(slug).strip().lower()))
 
         scan_kwargs = {}
         if filter_expressions:
@@ -402,7 +474,7 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
             searchable = ["question", "title", "name", "description", "content", "role"]
             items = [i for i in items if any(search in str(i.get(f, "")).lower() for f in searchable)]
 
-        if content_type == "system_design":
+        if content_type in ("system_design", "core_subjects"):
             items.sort(
                 key=lambda x: (
                     int(x.get("displayOrder", 0) or 0),
@@ -758,7 +830,7 @@ def lambda_handler(event, context):
     Content types:
       interview_questions, dsa_problems, quizzes, cold_dm_templates,
       mass_recruitment, job_portals, handwritten_notes, roadmaps,
-      position_resources, system_design, fundamentals
+      position_resources, system_design, fundamentals, core_subjects
     """
     http_method = (
         event.get("httpMethod")

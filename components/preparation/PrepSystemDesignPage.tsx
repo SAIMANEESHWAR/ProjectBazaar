@@ -110,7 +110,7 @@ export default function PrepSystemDesignPage({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [viewMode, setViewMode] = useViewMode("folder");
+  const [viewMode, setViewMode] = useViewMode("grid");
   const [selectedQuestion, setSelectedQuestion] = useState<SDQuestion | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sections, setSections] = useState<string[]>([]);

@@ -12,6 +12,10 @@ export interface PrepSystemDesignConceptsViewProps {
   selectedConcept: SDQuestion | null;
   onSelectConcept: (concept: SDQuestion | null) => void;
   shortLabel: string;
+  /** Breadcrumb root label (defaults to "{shortLabel} concepts"). */
+  listLabel?: string;
+  onNavigateRoot?: () => void;
+  onNavigateTopic?: () => void;
 }
 
 export default function PrepSystemDesignConceptsView({
@@ -21,6 +25,9 @@ export default function PrepSystemDesignConceptsView({
   selectedConcept,
   onSelectConcept,
   shortLabel,
+  listLabel,
+  onNavigateRoot,
+  onNavigateTopic,
 }: PrepSystemDesignConceptsViewProps) {
   const [selectedTopicGroup, setSelectedTopicGroup] = useState<string | null>(null);
   const topicGroups = useMemo(() => groupByTopic(concepts), [concepts]);
@@ -29,16 +36,67 @@ export default function PrepSystemDesignConceptsView({
     [topicGroups, selectedTopicGroup],
   );
 
+  const handleSelectConcept = (concept: SDQuestion) => {
+    setSelectedTopicGroup((current) => current ?? getPrimaryTopic(concept));
+    onSelectConcept(concept);
+  };
+
+  const handleBreadcrumbNavigate = (target: "root" | "topic") => {
+    if (target === "root") {
+      if (onNavigateRoot) {
+        onNavigateRoot();
+        return;
+      }
+      onSelectConcept(null);
+      setSelectedTopicGroup(null);
+      return;
+    }
+
+    if (onNavigateTopic) {
+      onNavigateTopic();
+      return;
+    }
+    onSelectConcept(null);
+  };
+
   if (selectedConcept) {
+    const topic = getPrimaryTopic(selectedConcept);
+    const rootLabel = listLabel ?? `${shortLabel} concepts`;
+    const breadcrumbSegments = [
+      { label: rootLabel, target: "root" as const },
+      { label: topic, target: "topic" as const },
+      { label: selectedConcept.title, target: "current" as const },
+    ];
+
     return (
       <div>
-        <button
-          type="button"
-          onClick={() => onSelectConcept(null)}
-          className="mb-4 text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 font-medium"
+        <nav
+          aria-label="Concept location"
+          className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"
         >
-          ← Back to {shortLabel} concepts
-        </button>
+          {breadcrumbSegments.map((segment, index) => (
+            <span key={segment.label} className="inline-flex items-center gap-1.5 min-w-0">
+              {index > 0 && (
+                <span className="text-[var(--prep-text-tertiary)] shrink-0" aria-hidden>
+                  /
+                </span>
+              )}
+              {segment.target === "current" ? (
+                <span className="font-medium text-[var(--prep-text-primary)] truncate">
+                  {segment.label}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleBreadcrumbNavigate(segment.target)}
+                  className="text-[var(--prep-text-tertiary)] hover:text-orange-500 transition-colors truncate"
+                >
+                  {segment.label}
+                </button>
+              )}
+            </span>
+          ))}
+        </nav>
         <div className="bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/10 rounded-xl p-6 md:p-8">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-50 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">
@@ -96,7 +154,7 @@ export default function PrepSystemDesignConceptsView({
 
   if (viewMode === "folder") {
     return (
-      <PrepTopicFolderTree items={concepts} onSelect={onSelectConcept} />
+      <PrepTopicFolderTree items={concepts} onSelect={handleSelectConcept} />
     );
   }
 
@@ -121,7 +179,7 @@ export default function PrepSystemDesignConceptsView({
             {concepts.map((concept) => (
               <tr
                 key={concept.id}
-                onClick={() => onSelectConcept(concept)}
+                onClick={() => handleSelectConcept(concept)}
                 className="border-b border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors"
               >
                 <td className="py-3 px-4 font-medium text-gray-900 dark:text-neutral-100">
@@ -165,7 +223,7 @@ export default function PrepSystemDesignConceptsView({
               <button
                 key={concept.id}
                 type="button"
-                onClick={() => onSelectConcept(concept)}
+                onClick={() => handleSelectConcept(concept)}
                 className="group text-left bg-white dark:bg-[#111111] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-4 hover:shadow-md hover:border-orange-300 dark:hover:border-orange-500/40 transition-all duration-200"
               >
                 <h3 className="font-semibold text-gray-900 dark:text-neutral-100 leading-snug group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">

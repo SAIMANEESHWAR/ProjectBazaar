@@ -134,6 +134,7 @@ const viewTitles: Record<DashboardView, string> = {
   'prep-fundamentals': 'Fundamentals',
   'prep-language': 'Language Fundamentals',
   'prep-oops': 'OOPs Concepts',
+  'prep-core-subjects': 'Core Subjects',
   'prep-activity': 'My Activity',
   'job-hunt': 'Job Hunt',
 };

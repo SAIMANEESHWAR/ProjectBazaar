@@ -21,6 +21,8 @@ interface SDConceptModalProps {
   contentKind: Exclude<SDContentKind, "question" | "resource">;
   item?: AdminSDItem | null;
   defaultDisplayOrder?: number;
+  /** When set, modal runs in Core Subjects mode (same editor as LLD concepts). */
+  coreSubject?: { slug: string; title: string };
   saving: boolean;
   onSave: (
     data: Omit<AdminSDItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
@@ -33,17 +35,19 @@ export default function SDConceptModal({
   contentKind,
   item,
   defaultDisplayOrder = 10,
+  coreSubject,
   saving,
   onSave,
   onClose,
 }: SDConceptModalProps) {
   const kindLabel = CONTENT_KIND_LABELS[contentKind];
   const isConcept = contentKind === "concept";
+  const isCoreSubject = Boolean(coreSubject);
   const sections = designType === "hld" ? SD_SECTIONS_HLD : SD_SECTIONS_LLD;
   const [form, setForm] = useState({
     title: item?.title ?? "",
     description: item?.description ?? "",
-    section: item?.section ?? sections[0],
+    section: item?.section ?? coreSubject?.title ?? sections[0],
     difficulty: item?.difficulty ?? "Medium",
     topics: (item?.topics ?? []).join(", "),
     content: item?.content ?? "",
@@ -86,7 +90,7 @@ export default function SDConceptModal({
       ...(item?.id ? { id: item.id } : {}),
       title: form.title.trim(),
       description: isConcept ? "" : form.description.trim(),
-      section: form.section,
+      section: isCoreSubject ? coreSubject!.title : form.section,
       difficulty: isConcept ? "Medium" : form.difficulty,
       designType,
       contentKind,
@@ -100,13 +104,16 @@ export default function SDConceptModal({
   };
 
   const busy = saving || uploading;
+  const modalTitle = isCoreSubject
+    ? `${item ? "Edit" : "Add"} ${coreSubject!.title} Concept`
+    : `${item ? "Edit" : "Add"} ${designType.toUpperCase()} ${kindLabel}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            {item ? "Edit" : "Add"} {designType.toUpperCase()} {kindLabel}
+            {modalTitle}
           </h3>
           <button
             type="button"
@@ -150,18 +157,30 @@ export default function SDConceptModal({
             )}
 
             <div className={isConcept ? "" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                <select
-                  value={form.section}
-                  onChange={(e) => set("section", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  {sections.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+              {!isCoreSubject && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                  <select
+                    value={form.section}
+                    onChange={(e) => set("section", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    {sections.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isCoreSubject && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <input
+                    readOnly
+                    value={coreSubject!.title}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700"
+                  />
+                </div>
+              )}
               {!isConcept && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
@@ -180,7 +199,7 @@ export default function SDConceptModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Topics <span className="text-xs text-gray-400">(comma-separated)</span>
+                Topics <span className="text-xs text-gray-400">(comma-separated — used for topic grouping)</span>
               </label>
               <input
                 value={form.topics}

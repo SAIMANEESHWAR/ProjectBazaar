@@ -62,7 +62,8 @@ export type DashboardView =
     | 'prep-lld'
     | 'prep-fundamentals'
     | 'prep-language'
-    | 'prep-oops';
+    | 'prep-oops'
+    | 'prep-core-subjects';
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
@@ -86,6 +87,7 @@ export const PREP_VIEWS: DashboardView[] = [
     'prep-fundamentals',
     'prep-language',
     'prep-oops',
+    'prep-core-subjects',
 ];
 
 export const isPrepView = (view: DashboardView): boolean => PREP_VIEWS.includes(view);

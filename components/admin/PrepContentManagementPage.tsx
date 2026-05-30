@@ -4,6 +4,17 @@ import SDConceptModal from "./system-design/SDConceptModal";
 import SDQuestionModal from "./system-design/SDQuestionModal";
 import SDResourceModal from "./system-design/SDResourceModal";
 import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
+import CoreSubjectsAdminPanel from "./core-subjects/CoreSubjectsAdminPanel";
+import CoreSubjectCategoryModal from "./core-subjects/CoreSubjectCategoryModal";
+import {
+  mapCoreSubjectFromApi,
+  mapCoreSubjectToApi,
+  mapCoreSubjectCategoryFromApi,
+  mapCoreSubjectCategoryToApi,
+  getCoreSubjectTitle,
+  type AdminCoreSubjectItem,
+  type CoreSubject,
+} from "./core-subjects/coreSubjectsAdmin";
 import {
   computeReorderUpdates,
   computeSdMoveUpdates,
@@ -38,7 +49,8 @@ type PrepTab =
   | "positions"
   | "system-design"
   | "oops"
-  | "language";
+  | "language"
+  | "core-subjects";
 
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -47,6 +59,7 @@ const tabs: { id: PrepTab; label: string }[] = [
   { id: "system-design", label: "System Design" },
   { id: "oops", label: "OOPs" },
   { id: "language", label: "Language" },
+  { id: "core-subjects", label: "Core Subjects" },
   { id: "quizzes", label: "Quizzes" },
   { id: "cold-dms", label: "Cold DMs" },
   { id: "job-portals", label: "Job Portals" },
@@ -227,6 +240,13 @@ const PrepContentManagementPage: React.FC = () => {
   const [sdError, setSdError] = useState<string | null>(null);
   const [oopsData, setOopsData] = useState<any[]>([]);
   const [langData, setLangData] = useState<any[]>([]);
+  const [coreSubjectsData, setCoreSubjectsData] = useState<AdminCoreSubjectItem[]>([]);
+  const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
+  const [csSubject, setCsSubject] = useState("");
+  const [csCategoriesLoading, setCsCategoriesLoading] = useState(false);
+  const [csLoading, setCsLoading] = useState(false);
+  const [csError, setCsError] = useState<string | null>(null);
+  const [csReordering, setCsReordering] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
 
   // SD modal state
@@ -244,6 +264,25 @@ const PrepContentManagementPage: React.FC = () => {
     tabId: SDTabId;
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [csModal, setCsModal] = useState<{
+    open: boolean;
+    item?: AdminCoreSubjectItem | null;
+  }>({ open: false });
+  const [csSaving, setCsSaving] = useState(false);
+  const [csDeleteModal, setCsDeleteModal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [csCategoryModal, setCsCategoryModal] = useState<{
+    open: boolean;
+    item?: CoreSubject | null;
+  }>({ open: false });
+  const [csCategorySaving, setCsCategorySaving] = useState(false);
+  const [csCategoryDeleteModal, setCsCategoryDeleteModal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const loadTabContent = useCallback(async (tab: PrepTab) => {
     const tabMap: Partial<Record<PrepTab, { type: ContentType; setter: React.Dispatch<React.SetStateAction<any[]>> }>> = {
@@ -275,14 +314,77 @@ const PrepContentManagementPage: React.FC = () => {
     setContentLoading(false);
   }, []);
 
+  const loadCoreSubjects = useCallback(async () => {
+    setCsLoading(true);
+    setCsCategoriesLoading(true);
+    setCsError(null);
+    try {
+      const [catResp, conceptResp] = await Promise.all([
+        prepAdminApi.listContent("core_subjects", {
+          limit: 200,
+          contentKind: "category",
+          sortBy: "displayOrder",
+          sortOrder: "asc",
+        }),
+        prepAdminApi.listContent("core_subjects", {
+          limit: 500,
+          contentKind: "concept",
+          sortBy: "displayOrder",
+          sortOrder: "asc",
+        }),
+      ]);
+
+      const categories = catResp.success
+        ? (catResp.items ?? []).map((item) =>
+            mapCoreSubjectCategoryFromApi(item as Record<string, unknown>),
+          )
+        : [];
+
+      setCoreSubjectCategories(categories);
+      setCsSubject((current) => {
+        if (current && categories.some((cat) => cat.subject === current)) return current;
+        return categories[0]?.subject ?? "";
+      });
+
+      if (conceptResp.success) {
+        setCoreSubjectsData(
+          (conceptResp.items ?? []).map((item) =>
+            mapCoreSubjectFromApi(item as Record<string, unknown>, categories),
+          ),
+        );
+      } else {
+        setCsError("Failed to load core subject concepts. Please try again.");
+        setCoreSubjectsData([]);
+      }
+
+      if (!catResp.success) {
+        setCsError("Failed to load subjects. Please try again.");
+      }
+    } catch {
+      setCsError("Network error loading core subjects.");
+      setCoreSubjectsData([]);
+      setCoreSubjectCategories([]);
+      setCsSubject("");
+    }
+    setCsLoading(false);
+    setCsCategoriesLoading(false);
+  }, []);
+
   useEffect(() => {
     if (
       activeTab !== "overview" &&
-      activeTab !== "system-design"
+      activeTab !== "system-design" &&
+      activeTab !== "core-subjects"
     ) {
       loadTabContent(activeTab);
     }
   }, [activeTab, loadTabContent]);
+
+  useEffect(() => {
+    if (activeTab === "core-subjects") {
+      loadCoreSubjects();
+    }
+  }, [activeTab, loadCoreSubjects]);
 
   const activeSdTabId = getSdTabId(sdDesignType, sdSubSection);
 
@@ -516,6 +618,225 @@ const PrepContentManagementPage: React.FC = () => {
     await applySdDisplayOrderUpdates(tabId, updates);
   };
 
+  const activeCoreSubjectItems = coreSubjectsData.filter(
+    (item) => item.subject === csSubject,
+  );
+
+  const openCsAddModal = () => {
+    if (!csSubject) {
+      showToast("Add a subject first, then add concepts under it.", "info");
+      return;
+    }
+    setCsModal({ open: true, item: null });
+  };
+
+  const openCsCategoryAddModal = () => {
+    setCsCategoryModal({ open: true, item: null });
+  };
+
+  const openCsCategoryEditModal = (category: CoreSubject) => {
+    setCsCategoryModal({ open: true, item: category });
+  };
+
+  const openCsCategoryDeleteModal = (category: CoreSubject) => {
+    setCsCategoryDeleteModal({ id: category.id, name: category.title });
+  };
+
+  const handleCsCategoryDeleteConfirm = async () => {
+    if (!csCategoryDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent(
+      "core_subjects",
+      csCategoryDeleteModal.id,
+    );
+    setDeleteLoading(false);
+    if (ok) {
+      setCoreSubjectCategories((prev) =>
+        prev.filter((item) => item.id !== csCategoryDeleteModal.id),
+      );
+      if (csSubject && coreSubjectCategories.find((c) => c.id === csCategoryDeleteModal.id)?.subject === csSubject) {
+        const remaining = coreSubjectCategories.filter((c) => c.id !== csCategoryDeleteModal.id);
+        setCsSubject(remaining[0]?.subject ?? "");
+      }
+      showToast(`"${csCategoryDeleteModal.name}" deleted`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setCsCategoryDeleteModal(null);
+  };
+
+  const handleCsCategorySave = async (formData: Omit<CoreSubject, "id"> & { id?: string }) => {
+    setCsCategorySaving(true);
+    const isEdit = !!csCategoryModal?.item?.id;
+    const payload = mapCoreSubjectCategoryToApi({
+      ...formData,
+      displayOrder:
+        formData.displayOrder ??
+        (isEdit
+          ? csCategoryModal?.item?.displayOrder ?? 0
+          : (coreSubjectCategories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0) + 10)),
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "core_subjects",
+      payload,
+    );
+    setCsCategorySaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectCategoryFromApi(item);
+      setCoreSubjectCategories((prev) => {
+        const next = isEdit
+          ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+          : [...prev, mapped];
+        return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+      });
+      if (!csSubject) setCsSubject(mapped.subject);
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsCategoryModal({ open: false });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const openCsEditModal = (item: AdminCoreSubjectItem) => {
+    setCsModal({ open: true, item });
+  };
+
+  const openCsDeleteModal = (item: AdminCoreSubjectItem) => {
+    setCsDeleteModal({ id: item.id, name: item.title });
+  };
+
+  const handleCsDeleteConfirm = async () => {
+    if (!csDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent("core_subjects", csDeleteModal.id);
+    setDeleteLoading(false);
+    if (ok) {
+      setCoreSubjectsData((prev) => prev.filter((item) => item.id !== csDeleteModal.id));
+      showToast(`"${csDeleteModal.name}" deleted successfully`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setCsDeleteModal(null);
+  };
+
+  const handleCsSave = async (
+    formData: Omit<AdminSDItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
+  ) => {
+    setCsSaving(true);
+    const isEdit = !!csModal?.item?.id;
+    const subject = csModal?.item?.subject ?? csSubject;
+    const subjectTitle = getCoreSubjectTitle(subject, coreSubjectCategories);
+    const payload = mapCoreSubjectToApi({
+      ...(formData.id ? { id: formData.id } : csModal?.item?.id ? { id: csModal.item.id } : {}),
+      title: formData.title,
+      description: formData.description,
+      section: subjectTitle,
+      difficulty: formData.difficulty,
+      designType: "lld",
+      contentKind: "concept",
+      topics: formData.topics ?? [],
+      content: formData.content,
+      diagramUrl: "",
+      additionalImageUrls: [],
+      thumbnailUrl: formData.thumbnailUrl,
+      subject,
+      displayOrder:
+        typeof formData.displayOrder === "number" && Number.isFinite(formData.displayOrder)
+          ? formData.displayOrder
+          : isEdit
+            ? csModal?.item?.displayOrder ?? 0
+            : nextDisplayOrder(activeCoreSubjectItems),
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "core_subjects",
+      payload,
+    );
+    setCsSaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectFromApi(item, coreSubjectCategories);
+      setCoreSubjectsData((prev) =>
+        sortByDisplayOrder(
+          isEdit
+            ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+            : [...prev, mapped],
+        ),
+      );
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsModal({ open: false });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const applyCoreDisplayOrderUpdates = async (updates: AdminCoreSubjectItem[] | null) => {
+    if (!updates?.length) return;
+
+    setCsReordering(true);
+    try {
+      const saved = await Promise.all(
+        updates.map((entry) =>
+          prepAdminApi.putContentSingle<Record<string, unknown>>(
+            "core_subjects",
+            mapCoreSubjectToApi(entry),
+          ),
+        ),
+      );
+
+      if (saved.some((entry) => !entry)) {
+        showToast("Reorder failed. Please try again.", "info");
+        await loadCoreSubjects();
+        return;
+      }
+
+      setCoreSubjectsData((prev) => {
+        const byId = new Map(
+          saved.filter(Boolean).map((entry) => [
+            String(entry!.id),
+            mapCoreSubjectFromApi(entry as Record<string, unknown>, coreSubjectCategories),
+          ]),
+        );
+        return sortByDisplayOrder(prev.map((entry) => byId.get(entry.id) ?? entry));
+      });
+    } catch {
+      showToast("Reorder failed. Please try again.", "info");
+      await loadCoreSubjects();
+    } finally {
+      setCsReordering(false);
+    }
+  };
+
+  const handleCsMove = async (
+    item: AdminCoreSubjectItem,
+    direction: "up" | "down",
+    scopeItems?: AdminCoreSubjectItem[],
+  ) => {
+    const list = scopeItems ?? activeCoreSubjectItems;
+    const updates = computeSdMoveUpdates(list, item.id, direction);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsMoveTopic = async (topic: string, direction: "up" | "down") => {
+    const groups = groupByTopic(sortByDisplayOrder(activeCoreSubjectItems));
+    const updates = computeTopicMoveUpdates(groups, topic, direction);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsReorderItems = async (
+    fromIndex: number,
+    toIndex: number,
+    scopeItems?: AdminCoreSubjectItem[],
+  ) => {
+    const list = scopeItems ?? activeCoreSubjectItems;
+    const updates = computeReorderUpdates(list, fromIndex, toIndex);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsReorderTopics = async (fromIndex: number, toIndex: number) => {
+    const groups = groupByTopic(sortByDisplayOrder(activeCoreSubjectItems));
+    const updates = computeTopicReorderUpdates(groups, fromIndex, toIndex);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
   const overviewStats = [
     {
       label: "Interview Questions",
@@ -538,6 +859,11 @@ const PrepContentManagementPage: React.FC = () => {
       label: "Language Concepts",
       value: langData.length,
       color: "bg-fuchsia-500",
+    },
+    {
+      label: "Core Subjects",
+      value: coreSubjectCategories.length,
+      color: "bg-teal-500",
     },
     { label: "Quizzes", value: quizData.length, color: "bg-purple-500" },
     {
@@ -1569,6 +1895,32 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
+      {activeTab === "core-subjects" && (
+        <CoreSubjectsAdminPanel
+          categories={coreSubjectCategories}
+          categoriesLoading={csCategoriesLoading}
+          selectedSubject={csSubject}
+          onSubjectChange={setCsSubject}
+          onAddCategory={openCsCategoryAddModal}
+          onEditCategory={openCsCategoryEditModal}
+          onDeleteCategory={openCsCategoryDeleteModal}
+          items={activeCoreSubjectItems}
+          loading={csLoading}
+          error={csError}
+          viewMode={viewMode}
+          onViewChange={setViewMode}
+          onAdd={openCsAddModal}
+          onRetry={loadCoreSubjects}
+          onEdit={openCsEditModal}
+          onDelete={openCsDeleteModal}
+          onMoveItem={handleCsMove}
+          onMoveTopic={handleCsMoveTopic}
+          onReorderItems={handleCsReorderItems}
+          onReorderTopics={handleCsReorderTopics}
+          reordering={csReordering}
+        />
+      )}
+
       {activeTab === "system-design" && (
         <SystemDesignAdminPanel
           designType={sdDesignType}
@@ -1589,6 +1941,23 @@ const PrepContentManagementPage: React.FC = () => {
           onReorderItems={handleSdReorderItems}
           onReorderTopics={handleSdReorderTopics}
           reordering={sdReordering}
+        />
+      )}
+
+      {/* ─── Core Subjects Add/Edit Modal ─── */}
+      {csModal.open && (
+        <SDConceptModal
+          designType="lld"
+          contentKind="concept"
+          item={csModal.item ?? null}
+          defaultDisplayOrder={nextDisplayOrder(activeCoreSubjectItems)}
+          coreSubject={{
+            slug: csModal.item?.subject ?? csSubject,
+            title: getCoreSubjectTitle(csModal.item?.subject ?? csSubject, coreSubjectCategories),
+          }}
+          saving={csSaving}
+          onSave={handleCsSave}
+          onClose={() => setCsModal({ open: false })}
         />
       )}
 
@@ -1623,6 +1992,78 @@ const PrepContentManagementPage: React.FC = () => {
         ))}
 
       {/* ─── Delete Confirmation Modal ─── */}
+      {csCategoryModal.open && (
+        <CoreSubjectCategoryModal
+          item={csCategoryModal.item ?? null}
+          saving={csCategorySaving}
+          defaultDisplayOrder={
+            coreSubjectCategories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0) + 10
+          }
+          onSave={handleCsCategorySave}
+          onClose={() => setCsCategoryModal({ open: false })}
+        />
+      )}
+
+      {csCategoryDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Subject</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Delete <span className="font-medium text-gray-900">"{csCategoryDeleteModal.name}"</span>?
+              Concepts under this subject will remain in the database but won&apos;t appear until reassigned.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setCsCategoryDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCsCategoryDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {csDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Concept</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-gray-900">"{csDeleteModal.name}"</span>? This
+              action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setCsDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCsDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
