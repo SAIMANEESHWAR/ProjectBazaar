@@ -35,6 +35,32 @@ export function computeSdMoveUpdates(
   ];
 }
 
+export function computeReorderUpdates(
+  items: AdminSDItem[],
+  fromIndex: number,
+  toIndex: number,
+): AdminSDItem[] | null {
+  const sorted = sortByDisplayOrder(items);
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= sorted.length ||
+    toIndex >= sorted.length
+  ) {
+    return null;
+  }
+
+  const reordered = [...sorted];
+  const [moved] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, moved);
+
+  return reordered.map((item, index) => ({
+    ...item,
+    displayOrder: (index + 1) * 10,
+  }));
+}
+
 type TopicGroup = { topic: string; items: AdminSDItem[] };
 
 function renumberTopicGroups(groups: TopicGroup[]): AdminSDItem[] {
@@ -99,4 +125,26 @@ export function computeTopicMoveUpdates(
   });
 
   return updates;
+}
+
+export function computeTopicReorderUpdates(
+  groups: TopicGroup[],
+  fromIndex: number,
+  toIndex: number,
+): AdminSDItem[] | null {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= groups.length ||
+    toIndex >= groups.length
+  ) {
+    return null;
+  }
+
+  const reordered = [...groups];
+  const [moved] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, moved);
+
+  return renumberTopicGroups(reordered);
 }

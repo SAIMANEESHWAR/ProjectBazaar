@@ -1,7 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { type AdminSDItem, type SDContentKind } from "./types";
 import { sortByDisplayOrder } from "./sdDisplayOrder";
 import { getGroupThumbnail, groupByTopic } from "../../../lib/prepTopicGrouping";
+import { useDragReorder } from "./useDragReorder";
+
+const DragHandle: React.FC<{ label?: string }> = ({ label = "Drag to reorder" }) => (
+  <span
+    title={label}
+    aria-label={label}
+    className="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white/95 p-1.5 text-gray-400 hover:text-gray-700 hover:border-gray-300 cursor-grab active:cursor-grabbing"
+  >
+    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+      <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 6a1 1 0 11-2 0 1 1 0 012 0zm0 6a1 1 0 11-2 0 1 1 0 012 0zm8-12a1 1 0 11-2 0 1 1 0 012 0zm0 6a1 1 0 11-2 0 1 1 0 012 0zm0 6a1 1 0 11-2 0 1 1 0 012 0z" />
+    </svg>
+  </span>
+);
 
 const EditIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -102,6 +115,8 @@ export interface SDContentSectionProps {
   onDelete: (item: AdminSDItem) => void;
   onMoveItem?: (item: AdminSDItem, direction: "up" | "down", scopeItems?: AdminSDItem[]) => void;
   onMoveTopic?: (topic: string, direction: "up" | "down") => void;
+  onReorderItems?: (fromIndex: number, toIndex: number, scopeItems?: AdminSDItem[]) => void;
+  onReorderTopics?: (fromIndex: number, toIndex: number) => void;
   reordering?: boolean;
   showImagesColumn?: boolean;
   contentKind?: SDContentKind;
@@ -122,6 +137,8 @@ export default function SDContentSection({
   onDelete,
   onMoveItem,
   onMoveTopic,
+  onReorderItems,
+  onReorderTopics,
   reordering = false,
   showImagesColumn = false,
   contentKind,
@@ -146,23 +163,65 @@ export default function SDContentSection({
     setSelectedTopicGroup(null);
   }, [contentKind, title]);
 
-  const renderConceptCard = (q: AdminSDItem) => (
-    <CardShell key={q.id}>
-      {q.thumbnailUrl && (
-        <div className="mb-3 -mx-5 -mt-5 rounded-t-xl overflow-hidden border-b border-gray-100">
-          <img src={q.thumbnailUrl} alt="" className="w-full h-28 object-cover" />
-        </div>
-      )}
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xs text-gray-400">Concept</span>
-        <ActionBtns name={q.title} onEdit={() => onEdit(q)} onDelete={() => onDelete(q)} />
-      </div>
-      <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
-      <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">
-        {q.section}
-      </span>
-    </CardShell>
+  const topicDrag = useDragReorder(
+    useCallback(
+      (fromIndex, toIndex) => onReorderTopics?.(fromIndex, toIndex),
+      [onReorderTopics],
+    ),
+    reordering || !onReorderTopics,
   );
+
+  const conceptDrag = useDragReorder(
+    useCallback(
+      (fromIndex, toIndex) => {
+        if (!activeGroup) return;
+        onReorderItems?.(fromIndex, toIndex, activeGroup.items);
+      },
+      [activeGroup, onReorderItems],
+    ),
+    reordering || !onReorderItems || !activeGroup,
+  );
+
+  const renderConceptCard = (q: AdminSDItem, dragIndex?: number) => {
+    const wrapped = (
+      <CardShell>
+        {q.thumbnailUrl && (
+          <div className="mb-3 -mx-5 -mt-5 rounded-t-xl overflow-hidden border-b border-gray-100">
+            <img src={q.thumbnailUrl} alt="" className="w-full h-28 object-cover" />
+          </div>
+        )}
+        <div className="flex items-start justify-between mb-3 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {dragIndex !== undefined && onReorderItems && (
+              <div {...conceptDrag.getHandleProps(dragIndex)} onClick={(event) => event.stopPropagation()}>
+                <DragHandle />
+              </div>
+            )}
+            <span className="text-xs text-gray-400">Concept</span>
+          </div>
+          <ActionBtns name={q.title} onEdit={() => onEdit(q)} onDelete={() => onDelete(q)} />
+        </div>
+        <h4 className="font-semibold text-gray-900 text-sm">{q.title}</h4>
+        <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">
+          {q.section}
+        </span>
+      </CardShell>
+    );
+
+    if (dragIndex === undefined) {
+      return <div key={q.id}>{wrapped}</div>;
+    }
+
+    return (
+      <div
+        key={q.id}
+        {...conceptDrag.getDropProps(dragIndex)}
+        className={conceptDrag.itemClassName(dragIndex, "rounded-xl transition-all duration-150")}
+      >
+        {wrapped}
+      </div>
+    );
+  };
 
   const renderItemRow = (
     q: AdminSDItem,
@@ -254,14 +313,31 @@ export default function SDContentSection({
         </div>
       ) : isGrid ? (
         groupByTopics && !selectedTopicGroup ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 p-5">
+          <div className="p-5">
+            {onReorderTopics && (
+              <p className="mb-4 text-xs text-gray-500">
+                Drag topic cards by the grip handle to change display order.
+              </p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {topicGroups.map((group, groupIndex) => {
               const thumbnailUrl = getGroupThumbnail(group.items);
               return (
                 <div
                   key={group.topic}
-                  className="relative group text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-200"
+                  {...topicDrag.getDropProps(groupIndex)}
+                  className={topicDrag.itemClassName(
+                    groupIndex,
+                    "relative group text-left bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-200",
+                  )}
                 >
+                  <div className="absolute top-3 left-3 z-10 flex items-center gap-1">
+                    {onReorderTopics && (
+                      <div {...topicDrag.getHandleProps(groupIndex)}>
+                        <DragHandle label="Drag topic to reorder" />
+                      </div>
+                    )}
+                  </div>
                   {onMoveTopic && (
                     <div
                       className="absolute top-3 right-3 z-10 rounded-lg bg-white/95 border border-gray-200 shadow-sm p-0.5"
@@ -287,15 +363,16 @@ export default function SDContentSection({
                           src={thumbnailUrl}
                           alt=""
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                          draggable={false}
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4">
+                        <div className="w-full h-full bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-end p-4 pl-14">
                           <span className="text-base font-bold text-white/95 line-clamp-2">{group.topic}</span>
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 pl-14">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-50 text-emerald-700">
                           Topic
@@ -312,6 +389,7 @@ export default function SDContentSection({
                 </div>
               );
             })}
+            </div>
           </div>
         ) : groupByTopics && activeGroup ? (
           <div className="p-5">
@@ -327,9 +405,14 @@ export default function SDContentSection({
               <p className="mt-1 text-sm text-gray-500">
                 {activeGroup.items.length} concept{activeGroup.items.length === 1 ? "" : "s"}
               </p>
+              {onReorderItems && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Drag concept cards by the grip handle to change order inside this topic.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {activeGroup.items.map((q) => renderConceptCard(q))}
+              {activeGroup.items.map((q, index) => renderConceptCard(q, index))}
             </div>
           </div>
         ) : (

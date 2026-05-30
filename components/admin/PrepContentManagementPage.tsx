@@ -5,8 +5,10 @@ import SDQuestionModal from "./system-design/SDQuestionModal";
 import SDResourceModal from "./system-design/SDResourceModal";
 import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
 import {
+  computeReorderUpdates,
   computeSdMoveUpdates,
   computeTopicMoveUpdates,
+  computeTopicReorderUpdates,
   nextDisplayOrder,
   sortByDisplayOrder,
 } from "./system-design/sdDisplayOrder";
@@ -490,6 +492,27 @@ const PrepContentManagementPage: React.FC = () => {
   ) => {
     const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
     const updates = computeTopicMoveUpdates(groups, topic, direction);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdReorderItems = async (
+    tabId: SDTabId,
+    fromIndex: number,
+    toIndex: number,
+    scopeItems?: AdminSDItem[],
+  ) => {
+    const list = scopeItems ?? sdData[tabId];
+    const updates = computeReorderUpdates(list, fromIndex, toIndex);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdReorderTopics = async (
+    tabId: SDTabId,
+    fromIndex: number,
+    toIndex: number,
+  ) => {
+    const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
+    const updates = computeTopicReorderUpdates(groups, fromIndex, toIndex);
     await applySdDisplayOrderUpdates(tabId, updates);
   };
 
@@ -1563,6 +1586,8 @@ const PrepContentManagementPage: React.FC = () => {
           onDelete={openSdDeleteModal}
           onMoveItem={handleSdMove}
           onMoveTopic={handleSdMoveTopic}
+          onReorderItems={handleSdReorderItems}
+          onReorderTopics={handleSdReorderTopics}
           reordering={sdReordering}
         />
       )}
