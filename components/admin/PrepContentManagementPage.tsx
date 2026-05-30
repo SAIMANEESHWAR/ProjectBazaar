@@ -496,9 +496,9 @@ const PrepContentManagementPage: React.FC = () => {
   };
 
   const handleSdReorderItems = async (
-    tabId: SDTabId,
     fromIndex: number,
     toIndex: number,
+    tabId: SDTabId,
     scopeItems?: AdminSDItem[],
   ) => {
     const list = scopeItems ?? sdData[tabId];
@@ -507,9 +507,9 @@ const PrepContentManagementPage: React.FC = () => {
   };
 
   const handleSdReorderTopics = async (
-    tabId: SDTabId,
     fromIndex: number,
     toIndex: number,
+    tabId: SDTabId,
   ) => {
     const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
     const updates = computeTopicReorderUpdates(groups, fromIndex, toIndex);
