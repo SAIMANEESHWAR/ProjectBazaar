@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Lottie from 'lottie-react';
 import type { BuyerProject } from './BuyerProjectCard';
 import BuyerProjectCard from './BuyerProjectCard';
 import noShoppingCartAnimation from '../lottiefiles/no_shopping_cart.json';
 import { useCart } from './DashboardPage';
 import { useAuth } from '../App';
+import { logRazorpayError, openRazorpayCheckout } from '../lib/razorpayCheckout';
 import { createPaymentIntent } from '../services/buyerApi';
 
 interface CartPageProps {
@@ -35,22 +36,6 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack 
   
   const cartProjects = allProjects.filter(project => cart.includes(project.id));
   const totalPrice = cartProjects.reduce((sum, project) => sum + project.price, 0);
-
-  // Load Razorpay script
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup script on unmount
-      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
 
   if (isLoading) {
     return (
@@ -97,69 +82,36 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack 
         throw new Error('Razorpay key not received from server');
       }
 
-      // Step 2: Wait for Razorpay script to load
-      if (!window.Razorpay) {
-        // Wait a bit and try again
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        if (!window.Razorpay) {
-          throw new Error('Razorpay checkout is not available. Please refresh the page.');
-        }
-      }
-
-      // Step 3: Initialize Razorpay checkout with correct razorpayOrderId
-      const options = {
-        key: paymentIntentResponse.key, // Razorpay key ID (required)
-        amount: paymentIntentResponse.amount, // Amount in paise (required)
-        currency: paymentIntentResponse.currency || 'INR', // Currency (required)
-        name: paymentIntentResponse.name || 'CodeXCareer', // Business name
-        description: paymentIntentResponse.description || `Purchase of ${cartProjects.length} project(s)`, // Order description
-        order_id: paymentIntentResponse.razorpayOrderId, // IMPORTANT: Use razorpayOrderId, NOT orderId
-        handler: function (response: any) {
-          // Payment successful - webhook will handle DB updates
-          console.log('Payment successful:', response);
-          setCheckoutSuccess(true);
-          setCheckoutError(null);
-          setIsProcessing(false);
-          
-          // Reload after 2 seconds to refresh data (webhook should have updated by then)
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
-        },
+      await openRazorpayCheckout({
+        key: paymentIntentResponse.key,
+        amount: paymentIntentResponse.amount,
+        currency: paymentIntentResponse.currency || 'INR',
+        name: paymentIntentResponse.name || 'CodeXCareer',
+        description:
+          paymentIntentResponse.description ||
+          `Purchase of ${cartProjects.length} project(s)`,
+        orderId: paymentIntentResponse.razorpayOrderId,
         prefill: {
           email: userEmail || paymentIntentResponse.prefill?.email || '',
           contact: paymentIntentResponse.prefill?.contact || '',
         },
-        theme: {
-          color: '#f97316', // Orange color matching your theme
+        onSuccess: () => {
+          setCheckoutSuccess(true);
+          setCheckoutError(null);
+          setIsProcessing(false);
+          setTimeout(() => window.location.reload(), 2000);
         },
-        modal: {
-          ondismiss: function() {
-            // User closed the payment modal
-            setIsProcessing(false);
-            setCheckoutError(null);
-          },
+        onDismiss: () => {
+          setIsProcessing(false);
+          setCheckoutError(null);
         },
-        retry: {
-          enabled: true,
-          max_count: 4,
+        onFailed: (message) => {
+          setCheckoutError(message);
+          setIsProcessing(false);
         },
-      };
-
-      // Step 4: Open Razorpay checkout
-      const razorpay = new window.Razorpay(options);
-      
-      razorpay.on('payment.failed', function (response: any) {
-        // Payment failed
-        console.error('Payment failed:', response.error);
-        setCheckoutError(response.error.description || 'Payment failed. Please try again.');
-        setIsProcessing(false);
       });
-
-      razorpay.open();
-      
     } catch (error) {
-      console.error('Checkout error:', error);
+      logRazorpayError('cart_checkout', error);
       setCheckoutError(error instanceof Error ? error.message : 'An error occurred during checkout. Please try again.');
       setIsProcessing(false);
     }

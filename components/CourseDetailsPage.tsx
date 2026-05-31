@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import type { Course } from './BuyerCoursesPage';
+import { logRazorpayError, openRazorpayCheckout } from '../lib/razorpayCheckout';
 import { createCourseOrder, verifyCoursePayment, enrollFreeCourse, getPurchasedCourses } from '../services/buyerApi';
 
 interface CourseDetailsPageProps {
@@ -64,18 +65,6 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
         checkPurchaseStatus();
     }, [userId, course.courseId]);
 
-    // Load Razorpay SDK
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.async = true;
-        document.body.appendChild(script);
-
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, []);
-
     // Load PDF and extract first 3 pages
     useEffect(() => {
         if (selectedPdf) {
@@ -137,20 +126,24 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                 throw new Error(orderResponse.error || 'Failed to create order');
             }
 
-            // Initialize Razorpay checkout
-            const options = {
+            if (!orderResponse.key || !orderResponse.amount) {
+                throw new Error('Incomplete payment details from server');
+            }
+
+            await openRazorpayCheckout({
                 key: orderResponse.key,
                 amount: orderResponse.amount,
-                currency: orderResponse.currency,
+                currency: orderResponse.currency || 'INR',
                 name: orderResponse.name || 'CodeXCareer',
                 description: orderResponse.description || `Purchase: ${course.title}`,
-                order_id: orderResponse.razorpayOrderId,
+                orderId: orderResponse.razorpayOrderId,
                 prefill: orderResponse.prefill,
-                theme: {
-                    color: '#f97316', // Orange theme
+                onDismiss: () => setIsPurchasing(false),
+                onFailed: (message) => {
+                    setPurchaseError(message);
+                    setIsPurchasing(false);
                 },
-                handler: async function (response: any) {
-                    // Verify payment on backend
+                onSuccess: async (response) => {
                     try {
                         const verifyResponse = await verifyCoursePayment({
                             razorpay_payment_id: response.razorpay_payment_id,
@@ -168,27 +161,14 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                             setPurchaseError(verifyResponse.error || 'Payment verification failed');
                         }
                     } catch (err) {
-                        console.error('Payment verification error:', err);
+                        logRazorpayError('course_verify_payment', err);
                         setPurchaseError('Payment verification failed. Please contact support.');
                     }
                     setIsPurchasing(false);
                 },
-                modal: {
-                    ondismiss: function () {
-                        setIsPurchasing(false);
-                    },
-                },
-            };
-
-            const razorpay = new window.Razorpay(options);
-            razorpay.on('payment.failed', function (response: any) {
-                console.error('Payment failed:', response.error);
-                setPurchaseError(response.error.description || 'Payment failed');
-                setIsPurchasing(false);
             });
-            razorpay.open();
         } catch (error) {
-            console.error('Purchase error:', error);
+            logRazorpayError('course_purchase', error);
             setPurchaseError(error instanceof Error ? error.message : 'Failed to initiate purchase');
             setIsPurchasing(false);
         }

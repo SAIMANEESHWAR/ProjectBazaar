@@ -1,6 +1,6 @@
 import type { PlanId } from '../data/pricingPlans';
 import { PRICING_PLANS } from '../data/pricingPlans';
-import { openRazorpayCheckout } from './razorpayCheckout';
+import { logRazorpayError, openRazorpayCheckout } from './razorpayCheckout';
 import {
   createSubscriptionOrder,
   isSubscriptionApiConfigured,
@@ -31,13 +31,20 @@ export async function runSubscriptionPaymentFlow(options: {
     };
   }
 
-  const orderResponse = await createSubscriptionOrder(
-    options.userId,
-    options.planId,
-    options.userEmail
-  );
+  let orderResponse: Awaited<ReturnType<typeof createSubscriptionOrder>>;
+  try {
+    orderResponse = await createSubscriptionOrder(
+      options.userId,
+      options.planId,
+      options.userEmail
+    );
+  } catch (err) {
+    logRazorpayError('create_subscription_order_network', err);
+    return { status: 'error', message: 'Could not reach payment server. Try again.' };
+  }
 
   if (!orderResponse.success || !orderResponse.razorpayOrderId) {
+    logRazorpayError('create_subscription_order_failed', orderResponse);
     const msg = orderResponse.message || orderResponse.error?.message || 'Could not start payment';
     if (msg.toLowerCase().includes('already a premium') || orderResponse.error?.code === 'ALREADY_PREMIUM') {
       return { status: 'error', message: 'You are already a premium user' };
@@ -92,6 +99,12 @@ export async function runSubscriptionPaymentFlow(options: {
           });
         }
       },
+    }).catch((err) => {
+      logRazorpayError('open_checkout', err);
+      resolve({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Could not open payment window.',
+      });
     });
   });
 }

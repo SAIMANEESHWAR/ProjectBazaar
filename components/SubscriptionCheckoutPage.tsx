@@ -6,6 +6,7 @@ import { useSubscription } from '../context/SubscriptionContext';
 import { PRICING_PLANS, formatInr, type PlanId } from '../data/pricingPlans';
 import { getStoredAuth } from '../lib/authStorage';
 import { clearPendingPlan, getPendingPlan } from '../lib/pendingPlanStorage';
+import { getRazorpayScriptStatus } from '../lib/razorpayCheckout';
 import { runSubscriptionPaymentFlow } from '../lib/subscriptionPaymentFlow';
 import {
   createSubscription,
@@ -19,12 +20,15 @@ const SubscriptionCheckoutPage: React.FC = () => {
   const { setIsPremium } = usePremium();
   const { applySubscription } = useSubscription();
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [alreadyPremium, setAlreadyPremium] = useState(false);
   const [paymentDetailsRequired, setPaymentDetailsRequired] = useState(false);
-  const startedRef = useRef(false);
+  const [checkoutReady, setCheckoutReady] = useState(false);
+  const [razorpayScriptError, setRazorpayScriptError] = useState<string | null>(null);
+  const preflightDoneRef = useRef(false);
 
   const storedAuth = useMemo(() => getStoredAuth(), [isLoggedIn, userId, authReady]);
   const effectiveUserId = userId ?? storedAuth.userId;
@@ -40,6 +44,13 @@ const SubscriptionCheckoutPage: React.FC = () => {
     setAuthReady(true);
   }, []);
 
+  useEffect(() => {
+    const { status, error: scriptErr } = getRazorpayScriptStatus();
+    if (status === 'error' && scriptErr) {
+      setRazorpayScriptError(scriptErr);
+    }
+  }, [checkoutReady, paying]);
+
   const finishSubscription = useCallback(
     (record: Parameters<typeof subscriptionRecordToCookie>[0]) => {
       applySubscription(subscriptionRecordToCookie(record));
@@ -51,11 +62,11 @@ const SubscriptionCheckoutPage: React.FC = () => {
   );
 
   const startPayment = useCallback(async () => {
-    if (!effectiveUserId || !plan) return;
+    if (!effectiveUserId || !plan || paying) return;
 
     setError(null);
     setDemoMode(false);
-    setLoading(true);
+    setPaying(true);
 
     try {
       const outcome = await runSubscriptionPaymentFlow({
@@ -74,11 +85,6 @@ const SubscriptionCheckoutPage: React.FC = () => {
         return;
       }
       if (outcome.status === 'cancelled') {
-        clearPendingPlan();
-        navigateTo('home');
-        setTimeout(() => {
-          document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-        }, 300);
         return;
       }
       if (outcome.message.toLowerCase().includes('already a premium')) {
@@ -88,14 +94,14 @@ const SubscriptionCheckoutPage: React.FC = () => {
       }
       setError(outcome.message);
     } finally {
-      setLoading(false);
+      setPaying(false);
     }
-  }, [effectiveEmail, effectiveUserId, finishSubscription, navigateTo, plan]);
+  }, [effectiveEmail, effectiveUserId, finishSubscription, paying, plan]);
 
   const handleDevActivate = async () => {
     if (!effectiveUserId || !plan) return;
     setError(null);
-    setLoading(true);
+    setPaying(true);
     try {
       const result = await createSubscription(effectiveUserId, plan.id);
       if (!result.ok) {
@@ -109,7 +115,7 @@ const SubscriptionCheckoutPage: React.FC = () => {
       }
       finishSubscription(result.data);
     } finally {
-      setLoading(false);
+      setPaying(false);
     }
   };
 
@@ -118,8 +124,8 @@ const SubscriptionCheckoutPage: React.FC = () => {
       if (authReady) setLoading(false);
       return;
     }
-    if (startedRef.current) return;
-    startedRef.current = true;
+    if (preflightDoneRef.current) return;
+    preflightDoneRef.current = true;
 
     void (async () => {
       setLoading(true);
@@ -135,9 +141,10 @@ const SubscriptionCheckoutPage: React.FC = () => {
         setLoading(false);
         return;
       }
-      await startPayment();
+      setCheckoutReady(true);
+      setLoading(false);
     })();
-  }, [authReady, effectiveEmail, effectiveLoggedIn, effectiveUserId, plan, startPayment]);
+  }, [authReady, effectiveEmail, effectiveLoggedIn, effectiveUserId, plan]);
 
   if (!authReady) {
     return (
@@ -244,46 +251,56 @@ const SubscriptionCheckoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F7F7F7] dark:bg-[#0a0a0a] px-5">
-      <div className="text-center max-w-md w-full">
-        {loading && !error && (
+      <div className="text-center max-w-md w-full rounded-2xl border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] p-6 shadow-sm">
+        {loading && (
           <>
             <div className="w-10 h-10 mx-auto rounded-full border-2 border-[#ff7a00] border-t-transparent animate-spin mb-4" />
-            <p className="text-gray-700 dark:text-gray-300 font-medium">
-              Opening Razorpay for {plan.name}…
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {formatInr(plan.priceInr)}
-              {plan.periodLabel}
-            </p>
+            <p className="text-gray-700 dark:text-gray-300 font-medium">Preparing checkout…</p>
           </>
         )}
 
-        {error && (
-          <div className="rounded-2xl border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] p-6 shadow-sm">
-            <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>
-            {!demoMode && (
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  startedRef.current = false;
-                  void startPayment();
-                }}
-                className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#ff7a00] to-[#ff9533] disabled:opacity-60 mb-3"
-              >
-                Try again
-              </button>
+        {checkoutReady && !loading && (
+          <>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
+            <p className="text-2xl font-bold text-[#ff7a00] mb-1">
+              {formatInr(plan.priceInr)}
+              <span className="text-sm font-normal text-gray-500">{plan.periodLabel}</span>
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Click below to open secure Razorpay checkout (UPI, cards, wallets).
+            </p>
+
+            {razorpayScriptError && (
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-4 rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3">
+                {razorpayScriptError} If checkout does not open, disable ad blockers and allow{' '}
+                <span className="font-mono text-xs">checkout.razorpay.com</span>.
+              </p>
             )}
+
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>
+            )}
+
+            <button
+              type="button"
+              disabled={paying}
+              onClick={() => void startPayment()}
+              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#ff7a00] to-[#ff9533] disabled:opacity-60 mb-3"
+            >
+              {paying ? 'Opening Razorpay…' : `Pay ${formatInr(plan.priceInr)} with Razorpay`}
+            </button>
+
             {demoMode && (
               <button
                 type="button"
-                disabled={loading}
+                disabled={paying}
                 onClick={() => void handleDevActivate()}
                 className="w-full py-3 rounded-xl font-semibold border border-dashed border-gray-400 text-gray-700 dark:text-gray-300 disabled:opacity-60 mb-3"
               >
                 Activate plan (dev / test mode)
               </button>
             )}
+
             <button
               type="button"
               onClick={() => {
@@ -297,7 +314,7 @@ const SubscriptionCheckoutPage: React.FC = () => {
             >
               Back to pricing
             </button>
-          </div>
+          </>
         )}
       </div>
     </div>
