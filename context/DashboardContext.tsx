@@ -97,9 +97,11 @@ interface DashboardContextType {
     activeView: DashboardView;
     browseView: BrowseView;
     prepDarkMode: boolean;
+    selectedCoreSubjectSlug: string | null;
     setDashboardMode: (mode: DashboardMode) => void;
     setActiveView: (view: DashboardView) => void;
     setBrowseView: (view: BrowseView) => void;
+    setSelectedCoreSubjectSlug: (slug: string | null) => void;
     toggleDashboardMode: () => void;
     togglePrepDarkMode: () => void;
 }
@@ -155,6 +157,13 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         return true;
     });
 
+    const [selectedCoreSubjectSlug, setSelectedCoreSubjectSlugState] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            return sessionStorage.getItem('selectedCoreSubjectSlug');
+        }
+        return null;
+    });
+
     // Persist state changes to localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -183,10 +192,25 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     }, [prepDarkMode]);
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            if (selectedCoreSubjectSlug) {
+                sessionStorage.setItem('selectedCoreSubjectSlug', selectedCoreSubjectSlug);
+            } else {
+                sessionStorage.removeItem('selectedCoreSubjectSlug');
+            }
+        }
+    }, [selectedCoreSubjectSlug]);
+
+    const setSelectedCoreSubjectSlug = (slug: string | null) => {
+        setSelectedCoreSubjectSlugState(slug);
+    };
+
     const setDashboardMode = (mode: DashboardMode) => {
         setDashboardModeState(mode);
         if (mode === 'preparation') {
             setActiveViewState('prep-hub');
+            setSelectedCoreSubjectSlugState(null);
         } else if (mode === 'jobHunt') {
             setActiveViewState('job-hunt');
         } else {
@@ -221,9 +245,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
                 activeView,
                 browseView,
                 prepDarkMode,
+                selectedCoreSubjectSlug,
                 setDashboardMode,
                 setActiveView,
                 setBrowseView,
+                setSelectedCoreSubjectSlug,
                 toggleDashboardMode,
                 togglePrepDarkMode,
             }}

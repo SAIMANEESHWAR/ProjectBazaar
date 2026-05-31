@@ -5,6 +5,7 @@ import { useSubscription } from '../context/SubscriptionContext';
 import { isActiveSubscription } from '../lib/premiumSubscriptionDisplay';
 import PremiumAvatarIndicator from './PremiumAvatarIndicator';
 import PremiumBadge from './PremiumBadge';
+import SidebarPremiumCard from './SidebarPremiumCard';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
 import { useDashboard } from '../context/DashboardContext';
@@ -12,6 +13,8 @@ import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
 import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
+import { prepUserApi } from '../services/preparationApi';
+import { mapCoreSubjectCategoryFromApi, type CoreSubject } from '../data/coreSubjectsConfig';
 
 const DashboardIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>;
 const ProjectsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>;
@@ -112,7 +115,6 @@ const prepNavGroups: PrepNavGroup[] = [
         items: [
             { name: 'Language', view: 'prep-language' as DashboardView, icon: LanguageIcon },
             { name: 'OOPs Concepts', view: 'prep-oops' as DashboardView, icon: OOPsIcon },
-            { name: 'Core Subjects', view: 'prep-core-subjects' as DashboardView, icon: CoreSubjectsIcon },
         ],
     },
     {
@@ -139,7 +141,13 @@ const prepNavGroups: PrepNavGroup[] = [
     },
 ];
 
-const preparationNavItems = prepNavGroups.flatMap(g => g.items);
+const coreSubjectsNavItem: PrepNavItem = {
+    name: 'Core Subjects',
+    view: 'prep-core-subjects' as DashboardView,
+    icon: CoreSubjectsIcon,
+};
+
+const preparationNavItems = [...prepNavGroups.flatMap(g => g.items), coreSubjectsNavItem];
 
 const jobHuntNavItems = [
     { name: 'Browse roles', view: 'job-hunt' as DashboardView, icon: JobHuntNavIcon },
@@ -174,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const { subscription } = useSubscription();
     const hasPremium = isActiveSubscription(subscription);
     // Use global state
-    const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode } = useDashboard();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode, selectedCoreSubjectSlug, setSelectedCoreSubjectSlug } = useDashboard();
     const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
 
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
@@ -207,7 +215,48 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         : buyerNavItems
                     : sellerNavItems;
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
+    const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
+    const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+
+    const openCoreSubject = (slug: string | null) => {
+        setSelectedCoreSubjectSlug(slug);
+        setActiveView('prep-core-subjects');
+        if (window.innerWidth < 1024) onClose();
+    };
+
+    useEffect(() => {
+        if (dashboardMode !== 'preparation') return;
+        let cancelled = false;
+        prepUserApi
+            .listContent('core_subjects', {
+                limit: 200,
+                contentKind: 'category',
+                sortBy: 'displayOrder',
+                sortOrder: 'asc',
+            })
+            .then((resp) => {
+                if (cancelled || !resp.success) return;
+                setCoreSubjectCategories(
+                    (resp.items ?? []).map((item) =>
+                        mapCoreSubjectCategoryFromApi(item as Record<string, unknown>),
+                    ),
+                );
+            })
+            .catch(() => {
+                if (!cancelled) setCoreSubjectCategories([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [dashboardMode]);
+
+    useEffect(() => {
+        if (activeView === 'prep-core-subjects') {
+            setExpandedCoreSubjects(true);
+            setExpandedGroups((prev) => ({ ...prev, Fundamentals: true }));
+        }
+    }, [activeView]);
 
     useEffect(() => {
         if (prevModeRef.current !== dashboardMode) {
@@ -393,7 +442,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         <div className="space-y-1">
                             {prepNavGroups.map((group) => {
                                 const isGroupExpanded = expandedGroups[group.label] ?? true;
-                                const hasActiveItem = group.items.some(i => i.view === activeView);
+                                const isFundamentals = group.label === 'Fundamentals';
+                                const hasActiveItem =
+                                    group.items.some(i => i.view === activeView) ||
+                                    (isFundamentals && activeView === 'prep-core-subjects');
+                                const isCoreSubjectsActive = activeView === 'prep-core-subjects';
                                 return (
                                     <div key={group.label}>
                                         <button
@@ -436,6 +489,68 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                         <span className="whitespace-nowrap truncate">{item.name}</span>
                                                     </button>
                                                 ))}
+                                                {isFundamentals && (
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedCoreSubjects((prev) => !prev)}
+                                                            className={`w-full flex items-center justify-between gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isCoreSubjectsActive && !selectedCoreSubjectSlug
+                                                                ? isDark
+                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                    : 'bg-orange-500 text-white font-medium'
+                                                                : isCoreSubjectsActive
+                                                                    ? isDark
+                                                                        ? 'text-white font-medium'
+                                                                        : 'text-gray-900 font-medium'
+                                                                    : isDark
+                                                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                        : 'text-gray-600 hover:bg-orange-50'
+                                                                }`}
+                                                        >
+                                                            <span className="flex items-center gap-2.5 min-w-0">
+                                                                <div className="flex-shrink-0">{CoreSubjectsIcon}</div>
+                                                                <span className="whitespace-nowrap truncate">Core Subjects</span>
+                                                            </span>
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${expandedCoreSubjects ? 'rotate-90' : ''}`}
+                                                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                                            >
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                            </svg>
+                                                        </button>
+                                                        {expandedCoreSubjects && (
+                                                            <div className="mt-0.5 ml-4 space-y-0.5">
+                                                                {coreSubjectCategories.length === 0 ? (
+                                                                    <p className="pl-4 pr-3 py-1.5 text-xs text-[#8e8e93]">No subjects yet</p>
+                                                                ) : (
+                                                                    coreSubjectCategories.map((subject) => {
+                                                                        const isSubjectActive =
+                                                                            isCoreSubjectsActive &&
+                                                                            selectedCoreSubjectSlug === subject.subject;
+                                                                        return (
+                                                                            <button
+                                                                                type="button"
+                                                                                key={subject.id}
+                                                                                onClick={() => openCoreSubject(subject.subject)}
+                                                                                className={`w-full flex items-center pl-6 pr-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${isSubjectActive
+                                                                                    ? isDark
+                                                                                        ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                                        : 'bg-orange-500 text-white font-medium'
+                                                                                    : isDark
+                                                                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                                        : 'text-gray-600 hover:bg-orange-50'
+                                                                                    }`}
+                                                                            >
+                                                                                <span className="whitespace-nowrap truncate">{subject.title}</span>
+                                                                            </button>
+                                                                        );
+                                                                    })
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -517,6 +632,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 type="button"
                                 key={item.name}
                                 onClick={() => {
+                                    if (item.view === 'prep-core-subjects') {
+                                        setSelectedCoreSubjectSlug(null);
+                                    }
                                     setActiveView(item.view);
                                     if (window.innerWidth < 1024) {
                                         onClose();
@@ -555,6 +673,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         ))
                     )}
                 </nav>
+                {!hasPremium && (
+                    <SidebarPremiumCard
+                        expanded={isExpanded}
+                        onNavigate={() => {
+                            if (window.innerWidth < 1024) onClose();
+                        }}
+                    />
+                )}
                 <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 ${isDark ? 'border-t border-[#1c1c1e]' : 'border-t border-gray-200'}`}>
                     {isExpanded ? (
                         <div className={`flex items-center p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>

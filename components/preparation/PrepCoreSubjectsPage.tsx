@@ -11,6 +11,7 @@ import {
   type CoreSubjectTopicQuizPublic,
 } from "../../data/coreSubjectQuizTypes";
 import { prepUserApi } from "../../services/preparationApi";
+import { useDashboard } from "../../context/DashboardContext";
 import PrepCoreSubjectLearningView from "./PrepCoreSubjectLearningView";
 import { type SDQuestion } from "./SDDetailPanel";
 
@@ -45,6 +46,7 @@ function toSdQuestion(
 }
 
 export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) {
+  const { selectedCoreSubjectSlug, setSelectedCoreSubjectSlug } = useDashboard();
   const [subjects, setSubjects] = useState<CoreSubject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<CoreSubject | null>(null);
   const [records, setRecords] = useState<CoreConceptRecord[]>([]);
@@ -112,6 +114,18 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
     }
     setQuizzesByTopic(map);
   }, []);
+
+  useEffect(() => {
+    if (!selectedCoreSubjectSlug || subjects.length === 0) return;
+    const match = subjects.find((subject) => subject.subject === selectedCoreSubjectSlug);
+    if (match) setSelectedSubject(match);
+  }, [selectedCoreSubjectSlug, subjects]);
+
+  useEffect(() => {
+    if (!selectedCoreSubjectSlug) {
+      setSelectedSubject(null);
+    }
+  }, [selectedCoreSubjectSlug]);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -199,7 +213,10 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
             quizzesByTopic={quizzesByTopic}
             onToggleCompleted={handleToggleCompleted}
             onToggleRevision={handleToggleRevision}
-            onBack={() => setSelectedSubject(null)}
+            onBack={() => {
+              setSelectedSubject(null);
+              setSelectedCoreSubjectSlug(null);
+            }}
           />
         )}
       </div>
@@ -269,7 +286,10 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
                     </span>
                     <button
                       type="button"
-                      onClick={() => setSelectedSubject(subject)}
+                      onClick={() => {
+                        setSelectedCoreSubjectSlug(subject.subject);
+                        setSelectedSubject(subject);
+                      }}
                       className="prep-core-subject-card__cta"
                     >
                       Start Learning
