@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Crown } from 'lucide-react';
 import { useNavigation } from '../App';
 
 interface SidebarPremiumCardProps {
@@ -28,9 +28,7 @@ const SidebarPremiumCard: React.FC<SidebarPremiumCardProps> = ({ expanded, onNav
           title="Upgrade to Premium"
           aria-label="Upgrade to Premium"
         >
-          <span className="text-base leading-none" aria-hidden>
-            🚩
-          </span>
+          <Crown className="h-5 w-5 text-white" strokeWidth={2} aria-hidden />
           <div className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 z-50">
             Get Premium
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
@@ -43,9 +41,6 @@ const SidebarPremiumCard: React.FC<SidebarPremiumCardProps> = ({ expanded, onNav
   return (
     <div className="px-4 pb-3">
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#f5dcc8] via-[#edb88a] to-[#b8652a] p-4 shadow-md">
-        <span className="mb-2 block text-xl leading-none" aria-hidden>
-          🚩
-        </span>
         <h3 className="text-base font-bold leading-tight text-[#1a2744]">Get Premium Now!</h3>
         <p className="mt-1.5 text-xs leading-relaxed text-[#3d4a5c]">
           Reach special features by subscribing to our plan.
