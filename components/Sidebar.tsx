@@ -286,7 +286,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     return (
         <>
             <div
-                className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-500 ease-in-out ${isDark
+                className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col overflow-visible transition-all duration-500 ease-in-out ${isDark
                     ? 'bg-black border-r border-[#1c1c1e] shadow-[0_0_15px_rgba(0,0,0,0.5)]'
                     : 'bg-white border-r border-gray-200 shadow-sm'
                     } ${isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -681,9 +681,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         }}
                     />
                 )}
-                <div className={`${isExpanded ? 'px-4' : 'px-2'} py-4 ${isDark ? 'border-t border-[#1c1c1e]' : 'border-t border-gray-200'}`}>
+                <div className={`relative z-20 overflow-visible ${isExpanded ? 'px-4' : 'px-2'} py-4 ${isDark ? 'border-t border-[#1c1c1e]' : 'border-t border-gray-200'}`}>
                     {isExpanded ? (
-                        <div className={`flex items-center p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>
+                        <div className={`flex items-center overflow-visible p-2 rounded-lg ${isDark ? 'bg-[#1c1c1e]' : 'bg-orange-50'}`}>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -713,7 +713,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 <span className="ml-3 min-w-0 flex-1">
                                     <span className={`flex items-center gap-2 truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                         <span className="truncate">{userFullName || 'User'}</span>
-                                        {hasPremium && <PremiumBadge showTooltip={false} className="shrink-0" />}
+                                        {hasPremium && <PremiumBadge showTooltip className="shrink-0" />}
                                     </span>
                                     <span className={`block truncate text-xs ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>
                                         {userEmail ?? 'user@example.com'}
@@ -740,7 +740,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     setActiveView('settings');
                                     if (window.innerWidth < 1024) onClose();
                                 }}
-                                className="relative cursor-pointer hover:opacity-80 transition-opacity group"
+                                className="relative cursor-pointer hover:opacity-80 transition-opacity group/settings"
                             >
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
                                     {userProfileImage ? (
@@ -758,19 +758,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                 ) : userProfileImage ? (
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
                                 ) : null}
-                                <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
-                                    {hasPremium ? 'Premium · Settings' : 'Settings'}
-                                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                                </div>
+                                {!hasPremium && (
+                                    <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover/settings:opacity-100">
+                                        Settings
+                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                    </div>
+                                )}
                             </button>
                             <button
                                 onClick={logout}
-                                className={`p-2 rounded-full relative group ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
+                                className={`relative group/logout rounded-full p-2 ${isDark ? 'text-[#8e8e93] hover:bg-[#2c2c2e]' : 'text-gray-500 hover:bg-orange-100'}`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover/logout:opacity-100">
                                     Logout
-                                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                                    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
                                 </div>
                             </button>
                         </div>
