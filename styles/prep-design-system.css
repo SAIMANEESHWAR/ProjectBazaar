@@ -1094,6 +1094,17 @@
   margin: 0.625rem 0;
 }
 
+.prep-rich-content strong,
+.prep-rich-content b {
+  font-weight: 700;
+  color: inherit;
+}
+
+.prep-rich-content em,
+.prep-rich-content i {
+  font-style: italic;
+}
+
 .prep-rich-content ul,
 .prep-rich-content ol {
   margin: 0.625rem 0;
@@ -1189,6 +1200,12 @@
 .prep-rich-content--nocturnal h2,
 .prep-rich-content--nocturnal h3 {
   color: #fafafa;
+}
+
+.prep-rich-content--nocturnal strong,
+.prep-rich-content--nocturnal b {
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .prep-rich-content--nocturnal blockquote {

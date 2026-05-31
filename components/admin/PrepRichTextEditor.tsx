@@ -148,6 +148,7 @@ export default function PrepRichTextEditor({
   const [uploading, setUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [imageSelected, setImageSelected] = useState(false);
+  const [toolbarRevision, setToolbarRevision] = useState(0);
 
   const editor = useEditor({
     extensions: [
@@ -170,6 +171,10 @@ export default function PrepRichTextEditor({
     },
     onSelectionUpdate: ({ editor: ed }) => {
       setImageSelected(ed.isActive("image"));
+      setToolbarRevision((revision) => revision + 1);
+    },
+    onTransaction: () => {
+      setToolbarRevision((revision) => revision + 1);
     },
     editorProps: {
       handlePaste: (_view, event) => {
@@ -291,6 +296,13 @@ export default function PrepRichTextEditor({
 
   if (!editor) return null;
 
+  void toolbarRevision;
+
+  const runToolbarAction = (action: () => void) => {
+    action();
+    setToolbarRevision((revision) => revision + 1);
+  };
+
   const buttons: ToolbarButton[] = [
     {
       label: "H1",
@@ -389,7 +401,10 @@ export default function PrepRichTextEditor({
               (btn.label === "Img" && uploading) ||
               (btn.label === "✕ Img" && !imageSelected)
             }
-            onClick={btn.action}
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
+            onClick={() => runToolbarAction(btn.action)}
             className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors ${
               btn.isActive
                 ? "bg-orange-100 border-orange-300 text-orange-700"
@@ -454,12 +469,21 @@ export default function PrepRichTextEditor({
         .prep-rich-editor .ProseMirror h2 { font-size: 1.25rem; font-weight: 700; margin: 0.875rem 0 0.5rem; }
         .prep-rich-editor .ProseMirror h3 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.375rem; }
         .prep-rich-editor .ProseMirror p { margin: 0.5rem 0; line-height: 1.6; }
+        .prep-rich-editor .ProseMirror strong,
+        .prep-rich-editor .ProseMirror b {
+          font-weight: 700;
+        }
+        .prep-rich-editor .ProseMirror em,
+        .prep-rich-editor .ProseMirror i {
+          font-style: italic;
+        }
         .prep-rich-editor .ProseMirror ul,
         .prep-rich-editor .ProseMirror ol { margin: 0.5rem 0; padding-left: 1.5rem; }
         .prep-rich-editor .ProseMirror ul { list-style-type: disc; }
         .prep-rich-editor .ProseMirror ol { list-style-type: decimal; }
         .prep-rich-editor .ProseMirror li { margin: 0.25rem 0; display: list-item; }
-        .prep-rich-editor .prep-code-snippet-node { margin: 0.75rem 0; }
+        .prep-rich-editor .prep-code-snippet-node { margin: 0.75rem 0; overflow: visible; }
+        .prep-rich-editor .ProseMirror { overflow: visible; }
         .prep-rich-editor .ProseMirror blockquote {
           border-left: 3px solid #f97316;
           margin: 0.75rem 0;

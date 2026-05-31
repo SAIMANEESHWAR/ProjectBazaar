@@ -100,97 +100,120 @@ export default function PrepCodeSnippet({
 
   if (!currentTab) return null;
 
+  const languagePicker = editable ? (
+    <div className="relative shrink-0 border-l border-[#2a2d3a] pl-1">
+      <button
+        type="button"
+        title="Add language tab"
+        onClick={() => setAddingLanguage((open) => !open)}
+        className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+          addingLanguage
+            ? "border-orange-400 bg-orange-500/15 text-orange-300"
+            : "border-[#3a3f52] bg-[#232633] text-orange-400 hover:border-orange-400/60 hover:bg-[#2a2d3a]"
+        }`}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Language
+      </button>
+    </div>
+  ) : null;
+
+  const languagePickerPanel =
+    editable && addingLanguage ? (
+      <div className="flex flex-wrap gap-1.5 border-b border-[#2a2d3a] bg-[#14161f] px-3 py-2">
+        <span className="mr-1 self-center text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">
+          Add tab
+        </span>
+        {PREP_CODE_LANGUAGES.map((lang) => {
+          const exists = tabs.some((tab) => tab.language === lang.id);
+          return (
+            <button
+              key={lang.id}
+              type="button"
+              onClick={() => addLanguage(lang.id)}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                exists
+                  ? "bg-[#2a2d3a] text-[#9aa0b5] hover:text-white"
+                  : "bg-orange-500/15 text-orange-300 hover:bg-orange-500/25"
+              }`}
+            >
+              {lang.label}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
+
   const shell = (
     <div
-      className={`prep-code-snippet-shell overflow-hidden rounded-xl border border-[#2a2d3a] bg-[#161821] shadow-sm ${className}`}
+      className={`prep-code-snippet-shell rounded-xl border border-[#2a2d3a] bg-[#161821] shadow-sm ${className}`}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[#2a2d3a] bg-[#1b1d27] px-2">
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1">
-          {tabs.map((tab, index) => (
-            <div key={`${tab.language}-${index}`} className="flex shrink-0 items-center">
-              <button
-                type="button"
-                onClick={() => setActive(index)}
-                className={`relative px-3 py-2 text-sm font-medium transition-colors ${
-                  safeActive === index
-                    ? "text-white after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-orange-500"
-                    : "text-[#9aa0b5] hover:text-[#d7dbe8]"
-                }`}
-              >
-                {tab.label}
-              </button>
-              {editable && tabs.length > 1 && (
+      <div className="overflow-visible border-b border-[#2a2d3a] bg-[#1b1d27]">
+        <div className="flex items-center justify-between gap-2 px-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1">
+            {tabs.map((tab, index) => (
+              <div key={`${tab.language}-${index}`} className="flex shrink-0 items-center">
                 <button
                   type="button"
-                  title="Remove tab"
-                  onClick={() => removeTab(index)}
-                  className="mr-1 rounded p-1 text-[#6b7280] hover:bg-[#2a2d3a] hover:text-red-400"
+                  onClick={() => setActive(index)}
+                  className={`relative px-3 py-2 text-sm font-medium transition-colors ${
+                    safeActive === index
+                      ? "text-white after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-orange-500"
+                      : "text-[#9aa0b5] hover:text-[#d7dbe8]"
+                  }`}
                 >
-                  <X className="h-3 w-3" />
+                  {tab.label}
                 </button>
-              )}
-            </div>
-          ))}
+                {editable && tabs.length > 1 && (
+                  <button
+                    type="button"
+                    title="Remove tab"
+                    onClick={() => removeTab(index)}
+                    className="mr-1 rounded p-1 text-[#6b7280] hover:bg-[#2a2d3a] hover:text-red-400"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
 
-          {editable && (
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                title="Add language tab"
-                onClick={() => setAddingLanguage((open) => !open)}
-                className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-orange-400 hover:bg-[#2a2d3a]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Language
-              </button>
-              {addingLanguage && (
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-[140px] rounded-lg border border-[#2a2d3a] bg-[#1b1d27] py-1 shadow-lg">
-                  {PREP_CODE_LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.id}
-                      type="button"
-                      onClick={() => addLanguage(lang.id)}
-                      className="block w-full px-3 py-1.5 text-left text-sm text-[#d7dbe8] hover:bg-[#2a2d3a]"
-                    >
-                      {lang.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          {languagePicker}
 
-        <div className="flex shrink-0 items-center gap-1 pr-1">
-          <button
-            type="button"
-            title={copied ? "Copied!" : "Copy code"}
-            onClick={() => void copyCode()}
-            className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-white"
-          >
-            <Copy className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Expand"
-            onClick={() => setExpanded(true)}
-            className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-white"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-          {editable && onRemove && (
+          <div className="flex shrink-0 items-center gap-1 pr-1">
             <button
               type="button"
-              title="Remove snippet"
-              onClick={onRemove}
-              className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-red-400"
+              title={copied ? "Copied!" : "Copy code"}
+              onClick={() => void copyCode()}
+              className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-white"
             >
-              <Trash2 className="h-4 w-4" />
+              <Copy className="h-4 w-4" />
             </button>
-          )}
+            <button
+              type="button"
+              title="Expand"
+              onClick={() => setExpanded(true)}
+              className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-white"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+            {editable && onRemove && (
+              <button
+                type="button"
+                title="Remove snippet"
+                onClick={onRemove}
+                className="rounded-md p-2 text-[#9aa0b5] transition-colors hover:bg-[#2a2d3a] hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
+
+        {languagePickerPanel}
       </div>
 
+      <div className="overflow-hidden">
       {editable ? (
         <textarea
           value={currentTab.code}
@@ -206,6 +229,7 @@ export default function PrepCodeSnippet({
           />
         </pre>
       )}
+      </div>
     </div>
   );
 
@@ -216,7 +240,7 @@ export default function PrepCodeSnippet({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#2a2d3a] bg-[#161821] shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#2a2d3a] px-4 py-3">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 {tabs.map((tab, index) => (
                   <button
                     key={`${tab.language}-modal-${index}`}
@@ -231,6 +255,21 @@ export default function PrepCodeSnippet({
                     {tab.label}
                   </button>
                 ))}
+                {editable && (
+                  <button
+                    type="button"
+                    title="Add language tab"
+                    onClick={() => setAddingLanguage((open) => !open)}
+                    className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
+                      addingLanguage
+                        ? "border-orange-400 bg-orange-500/15 text-orange-300"
+                        : "border-[#3a3f52] text-orange-400 hover:bg-[#2a2d3a]"
+                    }`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Language
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -249,6 +288,20 @@ export default function PrepCodeSnippet({
                 </button>
               </div>
             </div>
+            {editable && addingLanguage && (
+              <div className="flex flex-wrap gap-1.5 border-b border-[#2a2d3a] bg-[#14161f] px-4 py-2">
+                {PREP_CODE_LANGUAGES.map((lang) => (
+                  <button
+                    key={`modal-${lang.id}`}
+                    type="button"
+                    onClick={() => addLanguage(lang.id)}
+                    className="rounded-md bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/25"
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="min-h-0 flex-1 overflow-auto">
               {editable ? (
                 <textarea

@@ -15,7 +15,7 @@ export default function PrepCodeSnippetNodeView({
   };
 
   return (
-    <NodeViewWrapper className="my-3">
+    <NodeViewWrapper className="my-3 overflow-visible">
       <div
         className={`rounded-xl transition-shadow ${
           selected ? "ring-2 ring-orange-400 ring-offset-2 ring-offset-white" : ""
