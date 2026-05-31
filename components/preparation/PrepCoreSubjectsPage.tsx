@@ -6,9 +6,12 @@ import {
   mapCoreSubjectCategoryFromApi,
   type CoreSubject,
 } from "../../data/coreSubjectsConfig";
+import {
+  mapCoreSubjectQuizPublicFromApi,
+  type CoreSubjectTopicQuizPublic,
+} from "../../data/coreSubjectQuizTypes";
 import { prepUserApi } from "../../services/preparationApi";
-import PrepSystemDesignConceptsView from "./PrepSystemDesignConceptsView";
-import PrepViewToggle, { useViewMode } from "./PrepViewToggle";
+import PrepCoreSubjectLearningView from "./PrepCoreSubjectLearningView";
 import { type SDQuestion } from "./SDDetailPanel";
 
 export interface PrepCoreSubjectsPageProps {
@@ -20,7 +23,10 @@ interface CoreConceptRecord {
   concept: SDQuestion;
 }
 
-function toSdQuestion(item: ReturnType<typeof mapCoreSubjectFromApi>): SDQuestion {
+function toSdQuestion(
+  item: ReturnType<typeof mapCoreSubjectFromApi>,
+  raw?: Record<string, unknown>,
+): SDQuestion {
   return {
     id: item.id,
     title: item.title,
@@ -33,17 +39,18 @@ function toSdQuestion(item: ReturnType<typeof mapCoreSubjectFromApi>): SDQuestio
     displayOrder: item.displayOrder,
     topics: item.topics,
     thumbnailUrl: item.thumbnailUrl,
+    isSolved: Boolean(raw?.isSolved),
+    isBookmarked: Boolean(raw?.isBookmarked),
   };
 }
 
 export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) {
   const [subjects, setSubjects] = useState<CoreSubject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<CoreSubject | null>(null);
-  const [selectedConcept, setSelectedConcept] = useState<SDQuestion | null>(null);
   const [records, setRecords] = useState<CoreConceptRecord[]>([]);
+  const [quizzesByTopic, setQuizzesByTopic] = useState<Record<string, CoreSubjectTopicQuizPublic>>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useViewMode("grid");
 
   const fetchData = useCallback(async (cancelled = { current: false }) => {
     setLoading(true);
@@ -55,7 +62,7 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
           sortBy: "displayOrder",
           sortOrder: "asc",
         }),
-        prepUserApi.listContent("core_subjects", {
+        prepUserApi.listContentWithProgress("core_subjects", {
           limit: 500,
           contentKind: "concept",
           sortBy: "displayOrder",
@@ -75,11 +82,9 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
       setRecords(
         conceptResp.success
           ? (conceptResp.items ?? []).map((item) => {
-              const mapped = mapCoreSubjectFromApi(
-                item as Record<string, unknown>,
-                categories,
-              );
-              return { subject: mapped.subject, concept: toSdQuestion(mapped) };
+              const raw = item as Record<string, unknown>;
+              const mapped = mapCoreSubjectFromApi(raw, categories);
+              return { subject: mapped.subject, concept: toSdQuestion(mapped, raw) };
             })
           : [],
       );
@@ -92,6 +97,22 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
     if (!cancelled.current) setLoading(false);
   }, []);
 
+  const fetchQuizzesForSubject = useCallback(async (subjectSlug: string) => {
+    const resp = await prepUserApi.listContent("quizzes", {
+      subject: subjectSlug,
+      scope: "core_subjects",
+      limit: 200,
+    });
+    const map: Record<string, CoreSubjectTopicQuizPublic> = {};
+    if (resp.success) {
+      for (const item of resp.items ?? []) {
+        const quiz = mapCoreSubjectQuizPublicFromApi(item as Record<string, unknown>);
+        if (quiz.topic) map[quiz.topic] = quiz;
+      }
+    }
+    setQuizzesByTopic(map);
+  }, []);
+
   useEffect(() => {
     const cancelled = { current: false };
     fetchData(cancelled);
@@ -100,10 +121,20 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
     };
   }, [fetchData]);
 
+  useEffect(() => {
+    if (!selectedSubject) {
+      setQuizzesByTopic({});
+      return;
+    }
+    void fetchQuizzesForSubject(selectedSubject.subject);
+  }, [selectedSubject, fetchQuizzesForSubject]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     invalidateCache("prep:core_subjects");
+    invalidateCache("prep:quizzes");
     await fetchData();
+    if (selectedSubject) await fetchQuizzesForSubject(selectedSubject.subject);
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -117,48 +148,60 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
   const conceptCountFor = (subject: CoreSubject) =>
     records.filter((record) => record.subject === subject.subject).length;
 
-  const handleSelectConcept = (concept: SDQuestion | null) => {
-    setSelectedConcept(concept);
+  const patchConcept = (conceptId: string, patch: Partial<SDQuestion>) => {
+    setRecords((prev) =>
+      prev.map((record) =>
+        record.concept.id === conceptId
+          ? { ...record, concept: { ...record.concept, ...patch } }
+          : record,
+      ),
+    );
   };
 
-  const handleBackToSubjects = () => {
-    setSelectedConcept(null);
-    setSelectedSubject(null);
+  const handleToggleCompleted = async (conceptId: string) => {
+    const current = records.find((record) => record.concept.id === conceptId)?.concept;
+    if (!current) return;
+    const next = !current.isSolved;
+    patchConcept(conceptId, { isSolved: next });
+    const result = await prepUserApi.toggleSolved("core_subjects", conceptId);
+    if (result) patchConcept(conceptId, { isSolved: result.value });
+  };
+
+  const handleToggleRevision = async (conceptId: string) => {
+    const current = records.find((record) => record.concept.id === conceptId)?.concept;
+    if (!current) return;
+    const next = !current.isBookmarked;
+    patchConcept(conceptId, { isBookmarked: next });
+    const result = await prepUserApi.toggleBookmarked("core_subjects", conceptId);
+    if (result) patchConcept(conceptId, { isBookmarked: result.value });
   };
 
   if (selectedSubject) {
     return (
       <div>
-        {!selectedConcept && (
-          <nav
-            aria-label="Core subject location"
-            className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"
+        <div className="mb-4 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            className="p-2 border border-[var(--prep-border-muted)] rounded-xl bg-[var(--prep-surface-raised)] hover:bg-[var(--prep-surface-muted)] transition-all duration-200 text-[var(--prep-text-tertiary)] hover:text-[var(--prep-text-primary)] disabled:opacity-60"
+            aria-label="Refresh core subjects"
           >
-            <button
-              type="button"
-              onClick={handleBackToSubjects}
-              className="text-[var(--prep-text-tertiary)] hover:text-orange-500 transition-colors"
-            >
-              Core Subjects
-            </button>
-            <span className="text-[var(--prep-text-tertiary)]">/</span>
-            <span className="font-medium text-[var(--prep-text-primary)]">
-              {selectedSubject.title}
-            </span>
-          </nav>
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+        {loading ? (
+          <p className="text-sm text-[var(--prep-text-tertiary)]">Loading concepts…</p>
+        ) : (
+          <PrepCoreSubjectLearningView
+            subjectTitle={selectedSubject.title}
+            concepts={conceptsForSubject}
+            quizzesByTopic={quizzesByTopic}
+            onToggleCompleted={handleToggleCompleted}
+            onToggleRevision={handleToggleRevision}
+            onBack={() => setSelectedSubject(null)}
+          />
         )}
-
-        <PrepSystemDesignConceptsView
-          concepts={conceptsForSubject}
-          loading={loading}
-          viewMode={viewMode}
-          selectedConcept={selectedConcept}
-          onSelectConcept={handleSelectConcept}
-          shortLabel={selectedSubject.title}
-          listLabel="Core Subjects"
-          onNavigateRoot={handleBackToSubjects}
-          onNavigateTopic={() => setSelectedConcept(null)}
-        />
       </div>
     );
   }
@@ -175,14 +218,13 @@ export default function PrepCoreSubjectsPage(_props: PrepCoreSubjectsPageProps) 
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={() => void handleRefresh()}
             disabled={isRefreshing}
             className="p-2 border border-[var(--prep-border-muted)] rounded-xl bg-[var(--prep-surface-raised)] hover:bg-[var(--prep-surface-muted)] transition-all duration-200 text-[var(--prep-text-tertiary)] hover:text-[var(--prep-text-primary)] disabled:opacity-60"
             aria-label="Refresh core subjects"
           >
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
-          <PrepViewToggle view={viewMode} onChange={setViewMode} />
         </div>
       </div>
 

@@ -62,7 +62,7 @@ async function postSubscriptionRaw(body: Record<string, unknown>): Promise<Recor
 
 async function postSubscription<T>(body: Record<string, unknown>): Promise<ApiResponse<T>> {
   const data = await postSubscriptionRaw(body);
-  return data as ApiResponse<T>;
+  return data as unknown as ApiResponse<T>;
 }
 
 export function subscriptionRecordToCookie(

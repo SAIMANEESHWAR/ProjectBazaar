@@ -147,17 +147,54 @@ def normalize_dsa_problem(raw: dict, now: str) -> dict:
 
 
 def normalize_quiz(raw: dict, now: str) -> dict:
+    raw_questions = raw.get("questions", [])
+    questions = []
+    if isinstance(raw_questions, list):
+        for entry in raw_questions:
+            if not isinstance(entry, dict):
+                continue
+            raw_options = entry.get("options", [])
+            options = (
+                [str(opt).strip() for opt in raw_options if str(opt).strip()]
+                if isinstance(raw_options, list)
+                else []
+            )
+            try:
+                correct_answer = int(entry.get("correctAnswer", 0))
+            except (TypeError, ValueError):
+                correct_answer = 0
+            if options and (correct_answer < 0 or correct_answer >= len(options)):
+                correct_answer = 0
+            question_text = str(entry.get("question", "")).strip()
+            if not question_text:
+                continue
+            questions.append(
+                {
+                    "question": question_text,
+                    "options": options,
+                    "correctAnswer": correct_answer,
+                    "explanation": str(entry.get("explanation", "")).strip(),
+                }
+            )
+
+    subject_raw = str(raw.get("subject", "")).strip()
+    subject = _slugify(subject_raw) if subject_raw else ""
+    scope = str(raw.get("scope", "")).strip() or "global"
+
     return {
         "id": str(raw.get("id") or generate_id("quiz")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
-        "questionCount": int(raw.get("questionCount", 0)),
+        "questionCount": len(questions) if questions else int(raw.get("questionCount", 0) or 0),
         "difficulty": raw.get("difficulty", "Medium"),
         "category": str(raw.get("category", "")).strip(),
         "role": str(raw.get("role", "")).strip(),
-        "duration": int(raw.get("duration", 0)),
-        "questions": raw.get("questions", []),
-        "passingScore": int(raw.get("passingScore", 70)),
+        "subject": subject,
+        "topic": str(raw.get("topic", "")).strip(),
+        "scope": scope,
+        "duration": int(raw.get("duration", 0) or 0),
+        "questions": questions,
+        "passingScore": int(raw.get("passingScore", 70) or 70),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -455,6 +492,9 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         slug = query_params.get("slug")
         if slug and str(slug).lower() != "all":
             filter_expressions.append(Attr("slug").eq(str(slug).strip().lower()))
+        scope = query_params.get("scope")
+        if scope and str(scope).lower() != "all":
+            filter_expressions.append(Attr("scope").eq(str(scope).strip()))
 
         scan_kwargs = {}
         if filter_expressions:

@@ -91,8 +91,9 @@ export async function openRazorpayCheckout(params: OpenRazorpayCheckoutParams): 
   };
 
   const razorpay = new window.Razorpay(options);
-  razorpay.on('payment.failed', (response: { error?: { description?: string } }) => {
-    params.onFailed?.(response.error?.description || 'Payment failed. Please try again.');
+  razorpay.on('payment.failed', (response: unknown) => {
+    const failed = response as { error?: { description?: string } };
+    params.onFailed?.(failed.error?.description || 'Payment failed. Please try again.');
   });
   razorpay.open();
 }

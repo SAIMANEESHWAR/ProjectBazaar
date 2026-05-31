@@ -1,5 +1,7 @@
 import SDContentSection from "../system-design/SDContentSection";
+import { groupByTopic } from "../../../lib/prepTopicGrouping";
 import { type CoreSubject } from "../../../data/coreSubjectsConfig";
+import { type CoreSubjectTopicQuiz } from "../../../data/coreSubjectQuizTypes";
 import { type AdminCoreSubjectItem } from "./coreSubjectsAdmin";
 
 export interface CoreSubjectsAdminPanelProps {
@@ -11,6 +13,9 @@ export interface CoreSubjectsAdminPanelProps {
   onEditCategory: (category: CoreSubject) => void;
   onDeleteCategory: (category: CoreSubject) => void;
   items: AdminCoreSubjectItem[];
+  topicQuizzes: CoreSubjectTopicQuiz[];
+  onManageTopicQuiz: (topic: string, quiz: CoreSubjectTopicQuiz | null) => void;
+  onDeleteTopicQuiz: (quiz: CoreSubjectTopicQuiz) => void;
   loading: boolean;
   error: string | null;
   viewMode: "table" | "grid";
@@ -56,8 +61,13 @@ export default function CoreSubjectsAdminPanel({
   onReorderItems,
   onReorderTopics,
   reordering,
+  topicQuizzes,
+  onManageTopicQuiz,
+  onDeleteTopicQuiz,
 }: CoreSubjectsAdminPanelProps) {
   const subjectMeta = categories.find((entry) => entry.subject === selectedSubject);
+  const topicGroups = groupByTopic(items);
+  const quizByTopic = new Map(topicQuizzes.map((quiz) => [quiz.topic, quiz]));
 
   return (
     <div className="space-y-4">
@@ -130,7 +140,58 @@ export default function CoreSubjectsAdminPanel({
           Select a subject above to manage its topic-grouped concepts.
         </div>
       ) : (
-        <SDContentSection
+        <>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Topic Quizzes
+              </p>
+            </div>
+            {topicGroups.length === 0 ? (
+              <p className="text-sm text-gray-500">Add concepts with topics first, then attach a quiz per topic.</p>
+            ) : (
+              <div className="space-y-2">
+                {topicGroups.map((group) => {
+                  const quiz = quizByTopic.get(group.topic) ?? null;
+                  return (
+                    <div
+                      key={group.topic}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{group.topic}</p>
+                        <p className="text-xs text-gray-500">
+                          {quiz
+                            ? `${quiz.questionCount} questions · pass ${quiz.passingScore}%`
+                            : "No quiz yet"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onManageTopicQuiz(group.topic, quiz)}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
+                        >
+                          {quiz ? "Edit Quiz" : "Add Quiz"}
+                        </button>
+                        {quiz && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteTopicQuiz(quiz)}
+                            className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <SDContentSection
           title={`${subjectMeta?.title ?? selectedSubject} — Concepts`}
           count={items.length}
           btnLabel="Add Concept"
@@ -154,6 +215,7 @@ export default function CoreSubjectsAdminPanel({
           reordering={reordering}
           contentKind="concept"
         />
+        </>
       )}
     </div>
   );

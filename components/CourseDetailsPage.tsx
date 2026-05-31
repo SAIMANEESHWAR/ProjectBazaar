@@ -3,13 +3,6 @@ import { useAuth } from '../App';
 import type { Course } from './BuyerCoursesPage';
 import { createCourseOrder, verifyCoursePayment, enrollFreeCourse, getPurchasedCourses } from '../services/buyerApi';
 
-// Declare Razorpay type for TypeScript
-declare global {
-    interface Window {
-        Razorpay: any;
-    }
-}
-
 interface CourseDetailsPageProps {
     course: Course;
     onBack: () => void;

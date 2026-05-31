@@ -7,13 +7,6 @@ import { useCart } from './DashboardPage';
 import { useAuth } from '../App';
 import { createPaymentIntent } from '../services/buyerApi';
 
-// Declare Razorpay types
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
 interface CartPageProps {
   allProjects: BuyerProject[];
   onViewDetails?: (project: BuyerProject) => void;

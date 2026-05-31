@@ -6,6 +6,12 @@ import SDResourceModal from "./system-design/SDResourceModal";
 import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
 import CoreSubjectsAdminPanel from "./core-subjects/CoreSubjectsAdminPanel";
 import CoreSubjectCategoryModal from "./core-subjects/CoreSubjectCategoryModal";
+import CoreSubjectQuizModal from "./core-subjects/CoreSubjectQuizModal";
+import {
+  mapCoreSubjectQuizFromApi,
+  mapCoreSubjectQuizToApi,
+  type CoreSubjectTopicQuiz,
+} from "../../data/coreSubjectQuizTypes";
 import {
   mapCoreSubjectFromApi,
   mapCoreSubjectToApi,
@@ -283,6 +289,13 @@ const PrepContentManagementPage: React.FC = () => {
     id: string;
     name: string;
   } | null>(null);
+  const [csTopicQuizzes, setCsTopicQuizzes] = useState<CoreSubjectTopicQuiz[]>([]);
+  const [csQuizModal, setCsQuizModal] = useState<{
+    open: boolean;
+    topic: string;
+    quiz: CoreSubjectTopicQuiz | null;
+  }>({ open: false, topic: "", quiz: null });
+  const [csQuizSaving, setCsQuizSaving] = useState(false);
 
   const loadTabContent = useCallback(async (tab: PrepTab) => {
     const tabMap: Partial<Record<PrepTab, { type: ContentType; setter: React.Dispatch<React.SetStateAction<any[]>> }>> = {
@@ -319,7 +332,7 @@ const PrepContentManagementPage: React.FC = () => {
     setCsCategoriesLoading(true);
     setCsError(null);
     try {
-      const [catResp, conceptResp] = await Promise.all([
+      const [catResp, conceptResp, quizResp] = await Promise.all([
         prepAdminApi.listContent("core_subjects", {
           limit: 200,
           contentKind: "category",
@@ -331,6 +344,10 @@ const PrepContentManagementPage: React.FC = () => {
           contentKind: "concept",
           sortBy: "displayOrder",
           sortOrder: "asc",
+        }),
+        prepAdminApi.listContent("quizzes", {
+          limit: 500,
+          scope: "core_subjects",
         }),
       ]);
 
@@ -360,10 +377,19 @@ const PrepContentManagementPage: React.FC = () => {
       if (!catResp.success) {
         setCsError("Failed to load subjects. Please try again.");
       }
+
+      setCsTopicQuizzes(
+        quizResp.success
+          ? (quizResp.items ?? []).map((item) =>
+              mapCoreSubjectQuizFromApi(item as Record<string, unknown>),
+            )
+          : [],
+      );
     } catch {
       setCsError("Network error loading core subjects.");
       setCoreSubjectsData([]);
       setCoreSubjectCategories([]);
+      setCsTopicQuizzes([]);
       setCsSubject("");
     }
     setCsLoading(false);
@@ -621,6 +647,9 @@ const PrepContentManagementPage: React.FC = () => {
   const activeCoreSubjectItems = coreSubjectsData.filter(
     (item) => item.subject === csSubject,
   );
+  const activeCoreSubjectQuizzes = csTopicQuizzes.filter(
+    (quiz) => quiz.subject === csSubject,
+  );
 
   const openCsAddModal = () => {
     if (!csSubject) {
@@ -694,6 +723,51 @@ const PrepContentManagementPage: React.FC = () => {
       setCsCategoryModal({ open: false });
     } else {
       showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const openCsTopicQuizModal = (topic: string, quiz: CoreSubjectTopicQuiz | null) => {
+    setCsQuizModal({ open: true, topic, quiz });
+  };
+
+  const handleCsTopicQuizSave = async (
+    formData: Omit<CoreSubjectTopicQuiz, "questionCount" | "id"> & { id?: string },
+  ) => {
+    setCsQuizSaving(true);
+    const isEdit = !!csQuizModal.quiz?.id;
+    const payload = mapCoreSubjectQuizToApi({
+      ...formData,
+      subject: csSubject,
+      topic: csQuizModal.topic,
+      scope: "core_subjects",
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>("quizzes", payload);
+    setCsQuizSaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectQuizFromApi(item);
+      setCsTopicQuizzes((prev) => {
+        const next = isEdit
+          ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+          : [...prev, mapped];
+        return next.sort((a, b) => a.topic.localeCompare(b.topic));
+      });
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsQuizModal({ open: false, topic: "", quiz: null });
+    } else {
+      showToast("Quiz save failed. Please try again.", "info");
+    }
+  };
+
+  const handleCsTopicQuizDelete = async (quiz: CoreSubjectTopicQuiz) => {
+    if (!window.confirm(`Delete quiz "${quiz.title}"?`)) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent("quizzes", quiz.id);
+    setDeleteLoading(false);
+    if (ok) {
+      setCsTopicQuizzes((prev) => prev.filter((entry) => entry.id !== quiz.id));
+      showToast(`"${quiz.title}" deleted`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
     }
   };
 
@@ -1918,6 +1992,9 @@ const PrepContentManagementPage: React.FC = () => {
           onReorderItems={handleCsReorderItems}
           onReorderTopics={handleCsReorderTopics}
           reordering={csReordering}
+          topicQuizzes={activeCoreSubjectQuizzes}
+          onManageTopicQuiz={openCsTopicQuizModal}
+          onDeleteTopicQuiz={handleCsTopicQuizDelete}
         />
       )}
 
@@ -2001,6 +2078,18 @@ const PrepContentManagementPage: React.FC = () => {
           }
           onSave={handleCsCategorySave}
           onClose={() => setCsCategoryModal({ open: false })}
+        />
+      )}
+
+      {csQuizModal.open && csSubject && (
+        <CoreSubjectQuizModal
+          topic={csQuizModal.topic}
+          subjectSlug={csSubject}
+          subjectTitle={getCoreSubjectTitle(csSubject, coreSubjectCategories)}
+          quiz={csQuizModal.quiz}
+          saving={csQuizSaving}
+          onSave={handleCsTopicQuizSave}
+          onClose={() => setCsQuizModal({ open: false, topic: "", quiz: null })}
         />
       )}
 
