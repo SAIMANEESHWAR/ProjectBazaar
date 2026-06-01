@@ -1,10 +1,10 @@
-# Project Bazaar Total Ecosystem
+# CodeXCareer Total Ecosystem
 
-This section captures the "Bigger Perspective" — how the different modules of Project Bazaar (Marketplace, Learning, Growth, and Freelancing) intersect to create an end-to-end professional lifecycle.
+This section captures the "Bigger Perspective" — how the different modules of CodeXCareer (Marketplace, Learning, Growth, and Freelancing) intersect to create an end-to-end professional lifecycle.
 
 ## The Holistic Platform Journey
 
-![Project Bazaar Total Journey Infographic](/Users/m.sharan/.gemini/antigravity/brain/f106251f-f357-41a3-9b2f-76dcb0f15a3e/project_bazaar_big_perspective_flow_1772223126536.png)
+![CodeXCareer Total Journey Infographic](/Users/m.sharan/.gemini/antigravity/brain/f106251f-f357-41a3-9b2f-76dcb0f15a3e/project_bazaar_big_perspective_flow_1772223126536.png)
 
 ```mermaid
 flowchart TD
@@ -70,7 +70,7 @@ flowchart TD
 # Detailed User Flows
 
 ## High-Level Visual Flow
-![Project Bazaar User Flow Chart](/Users/m.sharan/.gemini/antigravity/brain/f106251f-f357-41a3-9b2f-76dcb0f15a3e/project_bazaar_user_flow_diagram_1772223010127.png)
+![CodeXCareer User Flow Chart](/Users/m.sharan/.gemini/antigravity/brain/f106251f-f357-41a3-9b2f-76dcb0f15a3e/project_bazaar_user_flow_diagram_1772223010127.png)
 
 ## 1. Authentication & Onboarding Flow
 

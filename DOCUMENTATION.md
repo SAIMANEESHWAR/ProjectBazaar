@@ -1,8 +1,8 @@
-# ProjectBazaar Documentation
+# CodeXCareer Documentation
 
-> **The Ultimate Marketplace for Projects, Ideas, and Collaborations**
+> **Discover projects, prepare for placements, and grow your career — in one place.**
 
-ProjectBazaar is a comprehensive platform that connects buyers and sellers in the digital project ecosystem. It empowers users to discover, build, and earn by turning academic and personal projects into real revenue.
+CodeXCareer is a comprehensive platform that connects buyers and sellers in the digital project ecosystem while providing placement preparation, career tools, and job hunt features. It empowers users to discover, build, and earn by turning academic and personal projects into real revenue.
 
 ---
 
@@ -20,7 +20,7 @@ ProjectBazaar is a comprehensive platform that connects buyers and sellers in th
 
 ## Overview
 
-ProjectBazaar serves as a bridge between project creators (sellers) and those seeking quality digital products (buyers). The platform offers a rich ecosystem that goes beyond simple transactions—providing tools for skill development, career growth, and professional networking.
+CodeXCareer serves as a bridge between project creators (sellers) and those seeking quality digital products (buyers). The platform offers a rich ecosystem that goes beyond simple transactions—providing tools for skill development, career growth, and professional networking.
 
 ### Key Value Propositions
 
@@ -37,7 +37,7 @@ ProjectBazaar serves as a bridge between project creators (sellers) and those se
 
 ### 1. 🛒 Project Marketplace
 
-The heart of ProjectBazaar—a vibrant marketplace where users can:
+The heart of CodeXCareer—a vibrant marketplace where users can:
 
 - **Browse Projects**: Explore a wide range of projects across multiple categories
 - **Place Bids**: Submit competitive offers on bid-request projects
@@ -339,7 +339,7 @@ VITE_GEMINI_API_KEY=<your-gemini-key>
 
 ## Premium Features
 
-ProjectBazaar offers a premium tier with additional benefits:
+CodeXCareer offers a premium tier with additional benefits:
 
 - **Credits System**: Premium users receive 100 credits
 - **AI-Enhanced Tools**: Advanced AI features for resume and portfolio
@@ -356,7 +356,7 @@ For questions or issues, visit the Help Center within the dashboard or contact s
 
 <div align="center">
 
-**Built with ❤️ by the ProjectBazaar Team**
+**Built with care by the CodeXCareer team**
 
 *Discover. Build. Earn.*
 

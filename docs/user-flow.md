@@ -1,4 +1,4 @@
-# Project Bazaar – User Flow
+# CodeXCareer – User Flow
 
 View this file in VS Code (with a Mermaid extension), on GitHub, or paste the code block into [Mermaid Live Editor](https://mermaid.live) to export as PNG/SVG.
 
