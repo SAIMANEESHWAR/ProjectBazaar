@@ -72,7 +72,6 @@ const LLDIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
     { name: 'Live AI Interviews', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
-    { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
     { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
@@ -80,6 +79,7 @@ const buyerNavItems = [
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'Mock Assessments', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
+    { name: 'Career Guidance', view: 'career-guidance' as DashboardView, icon: CareerGuidanceIcon },
     { name: 'Settings', view: 'settings' as DashboardView, icon: SettingsIcon },
 ];
 
@@ -710,12 +710,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                         <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
                                     ) : null}
                                 </span>
-                                <span className="ml-3 min-w-0 flex-1">
-                                    <span className={`flex items-center gap-2 truncate text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        <span className="truncate">{userFullName || 'User'}</span>
-                                        {hasPremium && <PremiumBadge showTooltip className="shrink-0" />}
+                                <span className="ml-3 min-w-0 flex-1 overflow-hidden">
+                                    <span
+                                        className={`block truncate text-sm font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
+                                        title={userFullName || 'User'}
+                                    >
+                                        {userFullName || 'User'}
                                     </span>
-                                    <span className={`block truncate text-xs ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}>
+                                    {hasPremium && (
+                                        <span className="mt-1 block">
+                                            <PremiumBadge showTooltip compact />
+                                        </span>
+                                    )}
+                                    <span
+                                        className={`mt-0.5 block truncate text-xs leading-tight ${isDark ? 'text-[#8e8e93]' : 'text-gray-500'}`}
+                                        title={userEmail ?? undefined}
+                                    >
                                         {userEmail ?? 'user@example.com'}
                                     </span>
                                 </span>

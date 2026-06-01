@@ -8,20 +8,29 @@ interface PremiumBadgeProps {
   className?: string;
   /** Show plan details on hover (default true). */
   showTooltip?: boolean;
+  /** Smaller badge for sidebar profile row. */
+  compact?: boolean;
 }
 
 const PremiumBadge: React.FC<PremiumBadgeProps> = ({
   className = '',
   showTooltip = true,
+  compact = false,
 }) => {
   const { subscription } = useSubscription();
 
   if (!isActiveSubscription(subscription)) return null;
 
   const badge = (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-[#1A1E26] px-2.5 py-1 text-xs font-semibold text-[#5E97F6] cursor-default">
+    <span
+      className={`inline-flex max-w-full items-center rounded-md bg-[#1A1E26] font-semibold text-[#5E97F6] cursor-default ${
+        compact
+          ? 'gap-1 px-1.5 py-0.5 text-[10px]'
+          : 'gap-1.5 px-2.5 py-1 text-xs'
+      }`}
+    >
       <Crown
-        className="h-3.5 w-3.5 shrink-0 text-amber-400 fill-amber-400/30"
+        className={`shrink-0 text-amber-400 fill-amber-400/30 ${compact ? 'h-3 w-3' : 'h-3.5 w-3.5'}`}
         strokeWidth={2.25}
       />
       Premium
