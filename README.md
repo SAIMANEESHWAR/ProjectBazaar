@@ -333,16 +333,16 @@ npm package name: `codex-career`.
 
 1. **Clone the repository**
 
-   ```bash
+    ```bash
    git clone https://github.com/SAIMANEESHWAR/ProjectBazaar.git
-   cd ProjectBazaar
-   ```
+    cd ProjectBazaar
+    ```
 
 2. **Install dependencies**
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 3. **Environment variables**
 
@@ -362,15 +362,15 @@ npm package name: `codex-career`.
 
 4. **Run locally**
 
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 
 5. **Production build**
 
-   ```bash
-   npm run build
-   ```
+    ```bash
+    npm run build
+    ```
 
 ### Scripts
 
@@ -420,12 +420,13 @@ ProjectBazaar/                 # repo root (product: CodeXCareer)
 | [CHAT_ARCHITECTURE.md](CHAT_ARCHITECTURE.md) | Real-time chat design |
 | [USER_FLOWS.md](USER_FLOWS.md) | User journey and ecosystem overview |
 | [lambda/SUBSCRIPTION_SETUP.md](lambda/SUBSCRIPTION_SETUP.md) | Subscriptions DynamoDB + Razorpay Lambda setup |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, PR workflow, CI, branch protection |
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please open a pull request with a clear description of your changes.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for branching, local checks (`npm run test:run`, `npm run build`), and pull request guidelines. CI runs automatically on every PR.
 
 ## License
 

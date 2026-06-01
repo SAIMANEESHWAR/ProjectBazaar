@@ -1,0 +1,80 @@
+name: Bug report
+description: Report something broken on CodeXCareer
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    value: |
+      Thanks for reporting a bug. Include steps to reproduce and your environment where possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Preparation Mode
+        - Marketplace / Cart
+        - Career tools (resume, coding, mock interview, etc.)
+        - Job Hunt
+        - Payments / Razorpay
+        - Auth / login
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: premium
+    attributes:
+      label: Premium subscriber?
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / device
+      placeholder: e.g. Chrome 120 on macOS, mobile Safari
+
+  - type: input
+    id: url
+    attributes:
+      label: Page URL (if applicable)
+      placeholder: https://codexcareer.com/...
