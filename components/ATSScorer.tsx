@@ -221,9 +221,10 @@ function AtsResultDetailView({
 
 export interface ATSScorerProps {
   onBack?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
-const ATSScorer: React.FC<ATSScorerProps> = ({ onBack }) => {
+const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _onNavigateToSettings }) => {
   const [provider, setProvider] = useState<AtsProvider>('gemini');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
