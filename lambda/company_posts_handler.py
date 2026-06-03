@@ -12,6 +12,7 @@ Routes:
   GET    /posts           — list. Query: company, category, authorUserId|authorId, limit (1–100), nextToken.
   GET    /posts/{postId}  — get one
   PATCH  /posts/{postId}  — {"action": "upvote"} | {"action": "addComment", "author": "...", "text": "..."}
+  Upvote: requires header x-user-id; each user increments upvotes at most once (tracked in upvoteUserIds, not returned to clients).
 
 nextToken for GET /posts: JSON offset into the sorted full result set (each request rescans the table).
 
@@ -313,7 +314,17 @@ def build_post_item(body, identity):
     return _clean_item_for_put(item)
 
 
-def fix_public_shape(item):
+def _upvote_id_set(raw):
+    if raw is None:
+        return set()
+    if isinstance(raw, set):
+        return {str(x) for x in raw}
+    if isinstance(raw, (list, tuple)):
+        return {str(x) for x in raw}
+    return set()
+
+
+def fix_public_shape(item, viewer_user_id=None):
     if not item:
         return None
     out = {}
@@ -322,6 +333,7 @@ def fix_public_shape(item):
             out[k] = int(v) if v == int(v) else float(v)
         else:
             out[k] = v
+    upvote_ids = _upvote_id_set(out.pop("upvoteUserIds", None))
     post_id = out.pop("postId", None)
     out.pop("allPostsPk", None)
     out.pop("authorIndexPk", None)
@@ -329,6 +341,12 @@ def fix_public_shape(item):
     # Frontend CompanyPost.authorId — DynamoDB attribute is authorUserId
     aid = out.pop("authorUserId", None)
     out["authorId"] = aid
+    vu = (
+        viewer_user_id.strip()
+        if isinstance(viewer_user_id, str) and viewer_user_id.strip()
+        else ""
+    )
+    out["hasUpvoted"] = bool(vu and vu in upvote_ids)
     return out
 
 
@@ -380,15 +398,18 @@ def handle_create(event, table):
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
             return response(409, {"error": "Conflict"})
         raise
-    return response(201, {"post": fix_public_shape(item)})
+    viewer = identity.get("userId")
+    viewer = viewer.strip() if isinstance(viewer, str) else ""
+    return response(201, {"post": fix_public_shape(item, viewer or None)})
 
 
-def handle_get_one(post_id, table):
+def handle_get_one(post_id, table, event):
     res = table.get_item(Key={"postId": post_id})
     row = res.get("Item")
     if not row:
         return response(404, {"error": "Not found"})
-    return response(200, {"post": fix_public_shape(row)})
+    viewer = (_header(event, "x-user-id") or "").strip()
+    return response(200, {"post": fix_public_shape(row, viewer or None)})
 
 
 def _list_scan_filter_expression(q):
@@ -441,7 +462,8 @@ def handle_list(event, table):
 
     items.sort(key=lambda x: str(x.get("createdAt") or ""), reverse=True)
     page = items[offset : offset + limit]
-    posts = [fix_public_shape(i) for i in page]
+    viewer = (_header(event, "x-user-id") or "").strip()
+    posts = [fix_public_shape(i, viewer or None) for i in page]
 
     next_tok = None
     if offset + limit < len(items):
@@ -467,13 +489,38 @@ def handle_patch(post_id, event, table):
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     if action == "upvote":
-        res = table.update_item(
-            Key={"postId": post_id},
-            UpdateExpression="ADD upvotes :one SET updatedAt = :u",
-            ExpressionAttributeValues={":one": 1, ":u": now},
-            ReturnValues="ALL_NEW",
-        )
-        return response(200, {"post": fix_public_shape(res.get("Attributes"))})
+        uid = (_header(event, "x-user-id") or "").strip()
+        if not uid:
+            return response(
+                400,
+                {"error": "Sign in required (header x-user-id) to mark a post as helpful"},
+            )
+        uid_set = {uid}
+        try:
+            res = table.update_item(
+                Key={"postId": post_id},
+                UpdateExpression="ADD upvotes :one, upvoteUserIds :uids SET updatedAt = :u",
+                ConditionExpression="attribute_not_exists(upvoteUserIds) OR NOT contains(upvoteUserIds, :uid)",
+                ExpressionAttributeValues={
+                    ":one": 1,
+                    ":uids": uid_set,
+                    ":u": now,
+                    ":uid": uid,
+                },
+                ReturnValues="ALL_NEW",
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            got = table.get_item(Key={"postId": post_id})
+            row = got.get("Item")
+            if not row:
+                return response(404, {"error": "Not found"})
+            return response(
+                200,
+                {"post": fix_public_shape(row, uid), "alreadyUpvoted": True},
+            )
+        return response(200, {"post": fix_public_shape(res.get("Attributes"), uid)})
 
     if action == "addComment":
         author = (body.get("author") or "").strip() if isinstance(body.get("author"), str) else ""
@@ -492,7 +539,14 @@ def handle_patch(post_id, event, table):
             ExpressionAttributeValues={":empty": [], ":c": [comment], ":u": now},
             ReturnValues="ALL_NEW",
         )
-        return response(200, {"post": fix_public_shape(res.get("Attributes")), "comment": comment})
+        voter = (_header(event, "x-user-id") or "").strip()
+        return response(
+            200,
+            {
+                "post": fix_public_shape(res.get("Attributes"), voter or None),
+                "comment": comment,
+            },
+        )
 
     return response(400, {"error": "Unknown action; use upvote or addComment"})
 
@@ -528,10 +582,10 @@ def lambda_handler(event, context):
             return handle_create(event, table)
 
         if method == "GET" and post_id:
-            return handle_get_one(post_id, table)
+            return handle_get_one(post_id, table, event)
 
         if method == "GET" and query.get("postId"):
-            return handle_get_one(query["postId"], table)
+            return handle_get_one(query["postId"], table, event)
 
         if method == "GET" and not post_id:
             return handle_list(event, table)

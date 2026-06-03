@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an improvement for CodeXCareer
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    value: |
+      Describe the problem and your proposed solution. Preparation Mode, marketplace, and career tools are all in scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need does this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should CodeXCareer solve it?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Preparation Mode
+        - Marketplace / Courses
+        - Career tools
+        - Job Hunt
+        - Seller dashboard
+        - Payments / Subscriptions
+        - Admin / content
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: premium
+    attributes:
+      label: Premium-related?
+      options:
+        - label: This affects premium-only features
+          required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional — other approaches you thought about

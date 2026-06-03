@@ -1,0 +1,93 @@
+import React from 'react';
+import { Lock } from 'lucide-react';
+import { useAuth, useNavigation } from '../../context/appContext';
+import { useSubscription } from '../../context/SubscriptionContext';
+import type { SubscriptionFeatureId } from '../../lib/subscriptionFeatures';
+import { savePendingPlan } from '../../lib/pendingPlanStorage';
+import FeatureStaticPreview from './FeatureStaticPreview';
+
+interface SubscriptionFeatureGateProps {
+  featureId: SubscriptionFeatureId;
+  children: React.ReactNode;
+}
+
+const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
+  featureId,
+  children,
+}) => {
+  const { hasFeature } = useSubscription();
+  const { isLoggedIn } = useAuth();
+  const { navigateTo } = useNavigation();
+
+  if (hasFeature(featureId)) {
+    return <>{children}</>;
+  }
+
+  const goUpgrade = () => {
+    navigateTo('home');
+    setTimeout(() => {
+      document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+    }, 400);
+  };
+
+  const goAuth = () => {
+    savePendingPlan('yearly');
+    navigateTo('auth');
+  };
+
+  return (
+    <div className="relative flex-1 min-h-0 flex flex-col w-full">
+      <p className="mb-4 text-sm text-red-500/90">
+        Note: Your current plan does not support this feature.{' '}
+        <button
+          type="button"
+          onClick={goUpgrade}
+          className="underline text-[#ff7a00] hover:text-[#ff9533] font-medium"
+        >
+          Click here to upgrade
+        </button>
+      </p>
+
+      <div className="relative flex-1 min-h-[min(720px,calc(100vh-11rem))] rounded-2xl overflow-hidden border border-gray-200/80 bg-white shadow-sm">
+        <div
+          className="h-full min-h-full overflow-hidden select-none pointer-events-none"
+          style={{ filter: 'blur(5px)' }}
+          aria-hidden
+        >
+          <FeatureStaticPreview featureId={featureId} />
+        </div>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 backdrop-blur-[1px] pointer-events-auto">
+          <div
+            className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#ff7a00] bg-white shadow-[0_0_32px_rgba(255,122,0,0.25)]"
+            aria-hidden
+          >
+            <Lock className="h-7 w-7 text-[#ff7a00]" strokeWidth={2} />
+          </div>
+          <p className="text-center text-gray-800 text-sm px-4 font-medium">
+            Click here to{' '}
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={goUpgrade}
+                className="text-[#ff7a00] font-semibold underline hover:text-[#ff9533]"
+              >
+                upgrade your plan
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={goAuth}
+                className="text-[#ff7a00] font-semibold underline hover:text-[#ff9533]"
+              >
+                Login / Sign Up
+              </button>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SubscriptionFeatureGate;

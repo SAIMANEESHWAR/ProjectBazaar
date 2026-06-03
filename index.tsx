@@ -2,13 +2,13 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./globals.css";
-import { bootAnalytics, initSentry } from "./lib/analytics";
+import { bootAnalytics } from "./lib/analytics";
 
 bootAnalytics();
 
 window.addEventListener("storage", (e) => {
   if (e.key === "cookieConsent" && e.newValue === "all") {
-    initSentry();
+    bootAnalytics();
   }
 });
 

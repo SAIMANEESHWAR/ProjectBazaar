@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { ColdDMTemplate } from '../../data/preparationMockData';
+import type { ColdDMTemplate } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDistinctFieldValues, isNonEmptyString } from '../../lib/prepContentHelpers';
 import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import PrepColdDMDetailSidebar from './PrepColdDMDetailSidebar';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
 
@@ -20,11 +22,27 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Referral': 'bg-pink-100 text-pink-700',
 };
 
+function normalizeColdDMTemplate(raw: Record<string, unknown>): ColdDMTemplate {
+  const id =
+    (raw.id as string) ??
+    (raw.contentId as string) ??
+    (raw.itemId as string) ??
+    (raw._id as string) ??
+    '';
+  return {
+    id,
+    title: String(raw.title ?? ''),
+    content: String(raw.content ?? ''),
+    category: String(raw.category ?? 'General'),
+    isCopied: Boolean(raw.isCopied),
+  };
+}
+
 const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
   const [viewMode, setViewMode] = useViewMode();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ColdDMTemplate | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -33,39 +51,33 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-
-  // Static list for the dropdown filter to prevent it disappearing on pagination
-  const STATIC_CATEGORIES = [
-    'BTech Freshers',
-    'Internships',
-    'Referral',
-    'Networking',
-    'Professionals',
-    'Startups',
-    'Freelance',
-    'Skill Showcase',
-    'Follow-up',
-    'Feedback'
-  ];
+  const [categories, setCategories] = useState<string[]>([]);
 
   const fetchTemplates = useCallback(async () => {
     try {
       const filters: Record<string, string | number> = {
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery
+        search: searchQuery,
       };
 
       if (categoryFilter !== 'all') {
         filters.category = categoryFilter;
       }
 
-      console.log('Sending filters:', filters);
       const resp = await prepUserApi.listContent<ColdDMTemplate>('cold_dm_templates', filters);
-      console.log('API Response:', resp);
 
       if (resp.success) {
-        setTemplates(resp.items || []);
+        setTemplates(
+          (resp.items || [])
+            .map((item) =>
+              normalizeColdDMTemplate(item as unknown as Record<string, unknown>),
+            )
+            .filter(
+              (template) =>
+                isNonEmptyString(template.title) && isNonEmptyString(template.content),
+            ),
+        );
         setTotalPages(resp.totalPages || 1);
         setTotalItems(resp.total || 0);
       } else {
@@ -82,19 +94,40 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
     setIsRefreshing(true);
     invalidateCache('prep:cold_dm_templates');
     await fetchTemplates();
-    // Smaller delay to ensure the spin is visible and feels "real"
     setTimeout(() => setIsRefreshing(false), 500);
   };
+
+  useEffect(() => {
+    fetchDistinctFieldValues('cold_dm_templates', 'category').then(setCategories);
+  }, []);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  const handleCopy = async (template: ColdDMTemplate) => {
+  const handleCopy = useCallback(async (template: ColdDMTemplate) => {
     await navigator.clipboard.writeText(template.content);
     setCopiedId(template.id);
     setTimeout(() => setCopiedId(null), 2000);
-  };
+  }, []);
+
+  const selectedIndex = selectedTemplate
+    ? templates.findIndex((t) => t.id === selectedTemplate.id)
+    : -1;
+
+  const openTemplate = useCallback((template: ColdDMTemplate) => {
+    setSelectedTemplate(template);
+  }, []);
+
+  const goToAdjacentTemplate = useCallback(
+    (direction: 'next' | 'prev') => {
+      if (selectedIndex < 0) return;
+      const nextIndex = direction === 'next' ? selectedIndex + 1 : selectedIndex - 1;
+      const adjacent = templates[nextIndex];
+      if (adjacent) setSelectedTemplate(adjacent);
+    },
+    [selectedIndex, templates]
+  );
 
   const getCategoryBadgeClass = (category: string) =>
     CATEGORY_COLORS[category] ?? 'bg-gray-100 text-gray-700';
@@ -151,7 +184,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
           className="px-4 py-3 border border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-all duration-200 bg-white min-w-[180px]"
         >
           <option value="all">All Categories</option>
-          {STATIC_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
@@ -163,8 +196,9 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className={`p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
-                }`}
+              className={`p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-all duration-200 focus:outline-none ${
+                isRefreshing ? 'text-orange-500' : 'text-gray-500 hover:text-gray-900'
+              }`}
               aria-label="Refresh templates"
             >
               <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -191,25 +225,30 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
                 </tr>
               </thead>
               <tbody>
-                {templates.map((template, idx) => (
-                  <React.Fragment key={template.id}>
+                {templates.map((template, idx) => {
+                  const isSelected = selectedTemplate?.id === template.id;
+                  return (
                     <tr
-                      onClick={() => setExpandedId(expandedId === template.id ? null : template.id)}
-                      className={`border-b border-gray-200 group transition-all duration-200 cursor-pointer ${expandedId === template.id ? 'bg-gray-900' : 'hover:bg-gray-900'
-                        }`}
+                      key={template.id}
+                      onClick={() => openTemplate(template)}
+                      className={`border-b border-gray-200 transition-all duration-200 cursor-pointer hover:bg-gray-50 ${
+                        isSelected ? 'bg-orange-50/60' : ''
+                      }`}
                     >
-                      <td className={`py-4 px-6 text-sm ${expandedId === template.id ? 'text-gray-400' : 'text-gray-500 group-hover:text-gray-400'}`}>{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                      <td className="py-4 px-6">
-                        <span className={`font-semibold ${expandedId === template.id ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>{template.title}</span>
+                      <td className="py-4 px-6 text-sm text-gray-500">
+                        {(currentPage - 1) * itemsPerPage + idx + 1}
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-600 hidden md:table-cell max-w-xs truncate group-hover:text-gray-300">
+                      <td className="py-4 px-6">
+                        <span className="font-semibold text-gray-900">{template.title}</span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-600 hidden md:table-cell max-w-xs truncate">
                         {template.content}
                       </td>
                       <td className="py-4 px-6">
                         <span
                           className={`prep-topic-chip inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryBadgeClass(
                             template.category
-                          )} group-hover:bg-opacity-20 group-hover:text-white`}
+                          )}`}
                         >
                           {template.category}
                         </span>
@@ -221,10 +260,11 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
                               e.stopPropagation();
                               handleCopy(template);
                             }}
-                            className={`p-2 rounded-lg transition-colors focus:outline-none ${copiedId === template.id
-                              ? 'text-green-500 bg-green-50 group-hover:bg-green-900/30 group-hover:text-green-400'
-                              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 group-hover:text-gray-300 group-hover:hover:text-white group-hover:hover:bg-gray-700'
-                              }`}
+                            className={`p-2 rounded-lg transition-colors focus:outline-none ${
+                              copiedId === template.id
+                                ? 'text-green-500 bg-green-50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                            }`}
                             aria-label="Copy template"
                           >
                             {copiedId === template.id ? (
@@ -243,17 +283,8 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
                         </div>
                       </td>
                     </tr>
-                    {expandedId === template.id && (
-                      <tr className="bg-gray-800/90 border-b border-gray-700">
-                        <td colSpan={5} className="py-5 px-6">
-                          <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap rounded-xl p-6 bg-gray-900 border border-gray-700 shadow-inner">
-                            {template.content}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -281,37 +312,85 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
       {viewMode === 'grid' && (
         <div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {templates.map((template) => (
-              <div key={template.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
-                <div className="flex items-start justify-between mb-2">
-                  <span className={`prep-topic-chip inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryBadgeClass(template.category)}`}>{template.category}</span>
-                  <div className="relative flex items-center group/tooltip">
-                    <button onClick={() => handleCopy(template)} className={`p-2 rounded-lg transition-colors focus:outline-none ${copiedId === template.id ? 'text-green-500 bg-green-50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                      {copiedId === template.id ? (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                      )}
-                    </button>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                      {copiedId === template.id ? 'Copied!' : 'Copy to clipboard'}
+            {templates.map((template) => {
+              const isSelected = selectedTemplate?.id === template.id;
+              return (
+                <div
+                  key={template.id}
+                  onClick={() => openTemplate(template)}
+                  className={`group border rounded-xl p-5 bg-white hover:shadow-md transition-all duration-200 cursor-pointer ${
+                    isSelected
+                      ? 'border-orange-300 bg-orange-50/40 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span
+                      className={`prep-topic-chip inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryBadgeClass(template.category)}`}
+                    >
+                      {template.category}
+                    </span>
+                    <div className="relative flex items-center group/tooltip">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopy(template);
+                        }}
+                        className={`p-2 rounded-lg transition-colors focus:outline-none ${
+                          copiedId === template.id
+                            ? 'text-green-500 bg-green-50'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                      >
+                        {copiedId === template.id ? (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                        {copiedId === template.id ? 'Copied!' : 'Copy to clipboard'}
+                      </div>
                     </div>
                   </div>
+                  <h4 className="font-semibold text-gray-900 text-sm mt-2">{template.title}</h4>
+                  <p className="text-xs text-gray-500 mt-1.5 line-clamp-3">{template.content}</p>
                 </div>
-                <h4 className="font-semibold text-gray-900 text-sm mt-2">{template.title}</h4>
-                <p className="text-xs text-gray-500 mt-1.5 line-clamp-3">{template.content}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {templates.length === 0 && (
             <div className="py-16 text-center text-gray-500">No templates found matching your search.</div>
           )}
           {totalPages > 1 && (
             <div className="mt-4">
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={totalItems} />
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                totalItems={totalItems}
+              />
             </div>
           )}
         </div>
+      )}
+
+      {selectedTemplate && (
+        <PrepColdDMDetailSidebar
+          template={selectedTemplate}
+          copied={copiedId === selectedTemplate.id}
+          onCopy={() => handleCopy(selectedTemplate)}
+          onClose={() => setSelectedTemplate(null)}
+          onNext={() => goToAdjacentTemplate('next')}
+          onPrev={() => goToAdjacentTemplate('prev')}
+          hasNext={selectedIndex >= 0 && selectedIndex < templates.length - 1}
+          hasPrev={selectedIndex > 0}
+        />
       )}
     </div>
   );

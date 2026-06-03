@@ -117,7 +117,7 @@ const SellerBenefits: React.FC = () => {
         >
           <div className="inline-flex items-center gap-2 border border-orange-500/30 bg-orange-500/10 text-orange-400 py-1.5 px-5 rounded-full text-sm font-medium mb-6">
             <CheckCircle2 className="w-4 h-4" />
-            Why Sell on ProjectBazaar
+            Why Sell on CodeXCareer
           </div>
           
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">

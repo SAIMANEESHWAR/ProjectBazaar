@@ -19,10 +19,8 @@ const PREP_USER_ENDPOINT =
   import.meta.env.VITE_PREP_USER_ENDPOINT ??
   "https://h5bib353ti.execute-api.ap-south-2.amazonaws.com/default/prep_user_handler";
 
-// S3 bucket used for system-design media (presigned URLs generated server-side).
-// Override via VITE_PREP_SD_MEDIA_BUCKET for non-production environments.
-export const PREP_SD_MEDIA_BUCKET =
-  import.meta.env.VITE_PREP_SD_MEDIA_BUCKET ?? "projectbazaar-prep-notes";
+// S3 bucket for prep media (must match prep_admin_handler S3_BUCKET).
+export const PREP_SD_MEDIA_BUCKET = "projectbazaar-admin-coursesandnotes";
 
 const USE_API = true;
 const CACHE_TTL = 90_000; // 90 s
@@ -39,7 +37,8 @@ export type ContentType =
   | "roadmaps"
   | "position_resources"
   | "system_design"
-  | "fundamentals";
+  | "fundamentals"
+  | "core_subjects";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -295,10 +294,12 @@ export const prepAdminApi = {
   async getSystemDesignUploadUrl(
     filename: string,
     fileContentType = "image/png",
+    mediaKind: "image" | "pdf" | "thumbnail" = "image",
   ) {
     const resp = await adminRequest("get_sd_media_upload_url", {
       filename,
       contentType: fileContentType,
+      mediaKind,
     });
     if (resp.success)
       return resp as unknown as {
@@ -306,6 +307,27 @@ export const prepAdminApi = {
         s3Key: string;
         publicUrl: string;
         expiresIn: number;
+      };
+    return null;
+  },
+
+  /** Upload via Lambda → S3 (no browser CORS to S3). Prefer this for admin UI uploads. */
+  async uploadSystemDesignMedia(
+    filename: string,
+    fileContentType: string,
+    fileBase64: string,
+    mediaKind: "image" | "pdf" | "thumbnail" = "image",
+  ) {
+    const resp = await adminRequest("upload_sd_media", {
+      filename,
+      contentType: fileContentType,
+      mediaKind,
+      fileBase64,
+    });
+    if (resp.success)
+      return resp as unknown as {
+        s3Key: string;
+        publicUrl: string;
       };
     return null;
   },

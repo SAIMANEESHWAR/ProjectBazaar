@@ -157,7 +157,7 @@ const AIExtractionAnimation: React.FC = () => {
     const getBlurClass = (id: string, row = false) => activeElements.has(id) ? 'blur-none' : row ? 'blur-[5px]' : 'blur-sm';
 
     return (
-        <div className="relative flex items-center justify-center min-h-[280px] transition-transform duration-700 transform scale-[0.28] sm:scale-[0.38] md:scale-[0.48] lg:scale-[0.52] xl:scale-[0.62] origin-center will-change-transform" style={{ backfaceVisibility: 'hidden' as const }}>
+        <div className="relative flex items-center justify-center min-h-[200px] sm:min-h-[220px] transition-transform duration-700 transform scale-[0.28] sm:scale-[0.38] md:scale-[0.48] lg:scale-[0.52] xl:scale-[0.62] origin-center will-change-transform" style={{ backfaceVisibility: 'hidden' as const }}>
             <div className="relative w-[860px] h-[390px] shrink-0">
                 {/* Canvas for dotted lines */}
                 <canvas ref={canvasRef} width="860" height="390" className="absolute top-0 left-0 w-[860px] h-[390px] pointer-events-none z-10" />
@@ -221,7 +221,7 @@ const AIExtractionAnimation: React.FC = () => {
                 {/* Row 3 */}
                 <div id="row3" className={`absolute left-[263px] w-[234px] top-[244px] bg-white border-[1.5px] border-[#e8b080] rounded-[12px] p-[12px_15px] flex items-center gap-[12px] transition-all duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] z-20 ${activeElements.has('row3') ? 'opacity-100 translate-y-0 translate-x-0' : 'opacity-0 -translate-x-3'} ${getBlurClass('row3', true)}`}>
                     <div className="w-[28px] h-[28px] bg-[#2d3748] rounded-full flex items-center justify-center text-white font-extrabold text-[12px] shrink-0">T</div>
-                    <span className="font-semibold text-[13px] text-[#222] flex-1">Bazaar Tech</span>
+                    <span className="font-semibold text-[13px] text-[#222] flex-1">CodeXCareer</span>
                     <span className="w-[9px] h-[9px] bg-[#22c55e] rounded-full shrink-0 animate-[pulse_2s_ease_infinite]"></span>
                 </div>
 

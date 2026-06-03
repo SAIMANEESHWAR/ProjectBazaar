@@ -1,0 +1,4 @@
+# fetch_jobs_firecrawl: Firecrawl via HTTPS (urllib) + DynamoDB (boto3 in Lambda runtime).
+# SAM may bundle boto3 if listed; omitting avoids duplicate layers when using default runtime.
+# Uncomment if your build requires explicit boto3:
+# boto3>=1.28.0

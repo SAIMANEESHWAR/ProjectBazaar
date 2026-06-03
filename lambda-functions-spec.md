@@ -1,4 +1,4 @@
-# Lambda Functions Specification for Project Bazaar
+# Lambda Functions Specification for CodeXCareer
 
 ## Overview
 This document specifies the Lambda functions needed for authentication (Signup and Login) and the data structure for storing user information.

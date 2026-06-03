@@ -1,19 +1,7 @@
-export interface Concept {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  category: string;
-  topic: string;
-  explanation: string;
-  codeExample: string;
-  language: string;
-}
+/** Seed data for upload scripts only — not imported by prep UI. */
+import type { Concept } from './preparationTypes';
 
-export interface ConceptGroup {
-  category: string;
-  concepts: Concept[];
-}
+export type { Concept, ConceptGroup } from './preparationTypes';
 
 export const oopsConcepts: Concept[] = [
   {
@@ -147,11 +135,4 @@ export const languageConcepts: Concept[] = [
   },
 ];
 
-export function groupByCategory(concepts: Concept[]): ConceptGroup[] {
-  const map = new Map<string, Concept[]>();
-  concepts.forEach((c) => {
-    if (!map.has(c.category)) map.set(c.category, []);
-    map.get(c.category)!.push(c);
-  });
-  return Array.from(map.entries()).map(([category, concepts]) => ({ category, concepts }));
-}
+export { groupByCategory } from '../lib/prepContentHelpers';

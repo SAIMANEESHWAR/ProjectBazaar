@@ -39,7 +39,7 @@ const successStories: SuccessStory[] = [
     afterEarnings: "₹3.1L",
     timeframe: "6 months",
     projectsSold: 67,
-    quote: "As a design student, I never thought my Figma files could earn money. ProjectBazaar changed that. My UI kits are now bought by startups worldwide!",
+    quote: "As a design student, I never thought my Figma files could earn money. CodeXCareer changed that. My UI kits are now bought by startups worldwide!",
     topProject: "Fintech Mobile UI Kit",
     rating: 5.0,
   },

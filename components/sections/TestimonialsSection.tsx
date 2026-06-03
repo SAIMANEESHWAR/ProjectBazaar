@@ -18,7 +18,7 @@ const testimonials: Testimonial[] = [
     role: 'CS Graduate',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&h=128&fit=crop',
     before: '"I had no idea where to sell my final-year project. It just sat on GitHub."',
-    after: '"I listed it on ProjectBazaar and sold it within two weeks. Now I list every project I build."',
+    after: '"I listed it on CodeXCareer and sold it within two weeks. Now I list every project I build."',
   },
   {
     id: 2,
@@ -34,7 +34,7 @@ const testimonials: Testimonial[] = [
     role: 'Freelance Developer',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128&h=128&fit=crop',
     before: '"I was tired of cold outreach and lowball gigs on generic platforms."',
-    after: '"ProjectBazaar connects me with buyers who actually want quality. My earnings doubled."',
+    after: '"CodeXCareer connects me with buyers who actually want quality. My earnings doubled."',
   },
   {
     id: 4,

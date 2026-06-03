@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import uuid
 import math
@@ -11,16 +13,15 @@ from botocore.exceptions import ClientError
 
 # ========================== CONFIG ==========================
 REGION = "ap-south-2"
-S3_BUCKET = "projectbazaar-prep-notes"
+S3_REGION = "ap-south-2"
+S3_BUCKET = "projectbazaar-admin-coursesandnotes"
 # S3 key prefixes:
 #   notes/          — handwritten notes (PDF uploads via get_note_upload_url)
-#   system-design/  — system design media images (PNG/JPEG via get_sd_media_upload_url)
+#   system-design/  — system design media (images, PDFs, thumbnails via upload_sd_media)
 #
 # Required IAM policy for the Lambda execution role:
-#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/notes/*
-#   s3:PutObject  on arn:aws:s3:::projectbazaar-prep-notes/system-design/*
-# Bucket CORS must allow PUT from the admin origin.
-# Override bucket via VITE_PREP_SD_MEDIA_BUCKET env var on the frontend.
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-admin-coursesandnotes/notes/*
+#   s3:PutObject  on arn:aws:s3:::projectbazaar-admin-coursesandnotes/system-design/*
 
 TABLE_INTERVIEW_QUESTIONS = "PrepInterviewQuestions"
 TABLE_DSA_PROBLEMS = "PrepDSAProblems"
@@ -33,6 +34,7 @@ TABLE_ROADMAPS = "PrepRoadmaps"
 TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
+TABLE_CORE_SUBJECTS = "PrepCoreSubjects"
 
 CONTENT_TYPE_TABLE_MAP = {
     "interview_questions": TABLE_INTERVIEW_QUESTIONS,
@@ -46,6 +48,7 @@ CONTENT_TYPE_TABLE_MAP = {
     "position_resources": TABLE_POSITION_RESOURCES,
     "system_design": TABLE_SYSTEM_DESIGN,
     "fundamentals": TABLE_FUNDAMENTALS,
+    "core_subjects": TABLE_CORE_SUBJECTS,
 }
 
 CORS_HEADERS = {
@@ -57,7 +60,7 @@ CORS_HEADERS = {
 
 # ========================== AWS CLIENTS ==========================
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_client = boto3.client("s3", region_name=S3_REGION)
 _tables = {}
 
 
@@ -144,17 +147,54 @@ def normalize_dsa_problem(raw: dict, now: str) -> dict:
 
 
 def normalize_quiz(raw: dict, now: str) -> dict:
+    raw_questions = raw.get("questions", [])
+    questions = []
+    if isinstance(raw_questions, list):
+        for entry in raw_questions:
+            if not isinstance(entry, dict):
+                continue
+            raw_options = entry.get("options", [])
+            options = (
+                [str(opt).strip() for opt in raw_options if str(opt).strip()]
+                if isinstance(raw_options, list)
+                else []
+            )
+            try:
+                correct_answer = int(entry.get("correctAnswer", 0))
+            except (TypeError, ValueError):
+                correct_answer = 0
+            if options and (correct_answer < 0 or correct_answer >= len(options)):
+                correct_answer = 0
+            question_text = str(entry.get("question", "")).strip()
+            if not question_text:
+                continue
+            questions.append(
+                {
+                    "question": question_text,
+                    "options": options,
+                    "correctAnswer": correct_answer,
+                    "explanation": str(entry.get("explanation", "")).strip(),
+                }
+            )
+
+    subject_raw = str(raw.get("subject", "")).strip()
+    subject = _slugify(subject_raw) if subject_raw else ""
+    scope = str(raw.get("scope", "")).strip() or "global"
+
     return {
         "id": str(raw.get("id") or generate_id("quiz")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
-        "questionCount": int(raw.get("questionCount", 0)),
+        "questionCount": len(questions) if questions else int(raw.get("questionCount", 0) or 0),
         "difficulty": raw.get("difficulty", "Medium"),
         "category": str(raw.get("category", "")).strip(),
         "role": str(raw.get("role", "")).strip(),
-        "duration": int(raw.get("duration", 0)),
-        "questions": raw.get("questions", []),
-        "passingScore": int(raw.get("passingScore", 70)),
+        "subject": subject,
+        "topic": str(raw.get("topic", "")).strip(),
+        "scope": scope,
+        "duration": int(raw.get("duration", 0) or 0),
+        "questions": questions,
+        "passingScore": int(raw.get("passingScore", 70) or 70),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -276,18 +316,34 @@ def normalize_system_design(raw: dict, now: str) -> dict:
     else:
         additional_image_urls = []
 
+    raw_content_kind = raw.get("contentKind") or raw.get("content_kind") or "question"
+    content_kind = str(raw_content_kind).strip().lower() if isinstance(raw_content_kind, str) else "question"
+    if content_kind not in ("concept", "question", "practice", "resource"):
+        content_kind = "question"
+
+    raw_links = raw.get("resourceLinks", [])
+    if isinstance(raw_links, list):
+        resource_links = [str(u).strip() for u in raw_links if u and str(u).strip()]
+    else:
+        resource_links = []
+
     normalized = {
         "id": str(raw.get("id") or generate_id("sd")),
         "title": str(raw.get("title", "")).strip(),
         "description": str(raw.get("description", "")).strip(),
         "type": design_type.upper(),
         "designType": design_type,
+        "contentKind": content_kind,
         "section": str(raw.get("section", "")).strip() or "System Design",
         "difficulty": str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium",
         "topics": [str(t).strip() for t in raw.get("topics", []) if t],
         "content": str(raw.get("content", "")).strip(),
         "diagramUrl": str(raw.get("diagramUrl", "")).strip(),
         "additionalImageUrls": additional_image_urls,
+        "resourceLinks": resource_links,
+        "pdfUrl": str(raw.get("pdfUrl", "")).strip(),
+        "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+        "displayOrder": int(raw.get("displayOrder", 0) or 0),
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -310,6 +366,69 @@ def normalize_fundamental(raw: dict, now: str) -> dict:
     }
 
 
+def _slugify(value: str) -> str:
+    slug = "".join(ch if ch.isalnum() else "-" for ch in value.strip().lower())
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-") or "subject"
+
+
+def normalize_core_subject(raw: dict, now: str) -> dict:
+    content_kind_raw = raw.get("contentKind") or raw.get("content_kind") or "concept"
+    content_kind = str(content_kind_raw).strip().lower()
+    if content_kind not in ("concept", "category"):
+        content_kind = "concept"
+
+    if content_kind == "category":
+        title = str(raw.get("title", "")).strip()
+        slug_raw = str(raw.get("slug") or raw.get("subject") or title).strip().lower()
+        slug = _slugify(slug_raw)
+        return {
+            "id": str(raw.get("id") or generate_id("csc")),
+            "title": title,
+            "description": str(raw.get("description", "")).strip(),
+            "subject": slug,
+            "slug": slug,
+            "contentKind": "category",
+            "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+            "displayOrder": int(raw.get("displayOrder", 0) or 0),
+            "createdAt": raw.get("createdAt") or now,
+            "updatedAt": now,
+        }
+
+    subject_raw = str(raw.get("subject") or raw.get("subcategory") or "").strip()
+    subject = _slugify(subject_raw) if subject_raw else "general"
+
+    raw_topics = raw.get("topics", [])
+    topics = (
+        [str(t).strip() for t in raw_topics if t and str(t).strip()]
+        if isinstance(raw_topics, list)
+        else []
+    )
+
+    difficulty = str(raw.get("difficulty", "Medium")).strip()
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
+
+    section = str(raw.get("section", "")).strip() or subject.replace("-", " ").title()
+
+    return {
+        "id": str(raw.get("id") or generate_id("cs")),
+        "title": str(raw.get("title", "")).strip(),
+        "description": str(raw.get("description", "")).strip(),
+        "subject": subject,
+        "section": section,
+        "contentKind": "concept",
+        "difficulty": difficulty,
+        "topics": topics,
+        "content": str(raw.get("content", "")).strip(),
+        "thumbnailUrl": str(raw.get("thumbnailUrl", "")).strip(),
+        "displayOrder": int(raw.get("displayOrder", 0) or 0),
+        "createdAt": raw.get("createdAt") or now,
+        "updatedAt": now,
+    }
+
+
 NORMALIZER_MAP = {
     "interview_questions": normalize_interview_question,
     "dsa_problems": normalize_dsa_problem,
@@ -322,6 +441,7 @@ NORMALIZER_MAP = {
     "position_resources": normalize_position_resource,
     "system_design": normalize_system_design,
     "fundamentals": normalize_fundamental,
+    "core_subjects": normalize_core_subject,
 }
 
 
@@ -362,6 +482,19 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
                 Attr("designType").eq(normalized_design_type)
                 | Attr("type").eq(normalized_design_type.upper())
             )
+        content_kind = query_params.get("contentKind") or query_params.get("content_kind")
+        if content_kind and str(content_kind).lower() != "all":
+            normalized_content_kind = str(content_kind).strip().lower()
+            filter_expressions.append(Attr("contentKind").eq(normalized_content_kind))
+        subject = query_params.get("subject")
+        if subject and str(subject).lower() != "all":
+            filter_expressions.append(Attr("subject").eq(str(subject).strip().lower()))
+        slug = query_params.get("slug")
+        if slug and str(slug).lower() != "all":
+            filter_expressions.append(Attr("slug").eq(str(slug).strip().lower()))
+        scope = query_params.get("scope")
+        if scope and str(scope).lower() != "all":
+            filter_expressions.append(Attr("scope").eq(str(scope).strip()))
 
         scan_kwargs = {}
         if filter_expressions:
@@ -381,7 +514,15 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
             searchable = ["question", "title", "name", "description", "content", "role"]
             items = [i for i in items if any(search in str(i.get(f, "")).lower() for f in searchable)]
 
-        items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        if content_type in ("system_design", "core_subjects"):
+            items.sort(
+                key=lambda x: (
+                    int(x.get("displayOrder", 0) or 0),
+                    (x.get("title") or "").lower(),
+                )
+            )
+        else:
+            items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
 
         total = len(items)
         total_pages = max(1, math.ceil(total / limit))
@@ -575,22 +716,58 @@ def handle_get_note_upload_url(data: dict) -> dict:
 
 ALLOWED_SD_MEDIA_CONTENT_TYPES = {
     "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
+    "application/pdf",
 }
 
+SD_MEDIA_PREFIX = {
+    "image": "system-design/images",
+    "pdf": "system-design/pdfs",
+    "thumbnail": "system-design/thumbnails",
+}
 
-def handle_get_sd_media_upload_url(data: dict) -> dict:
-    """Generate a presigned S3 URL for uploading a system-design media image."""
-    filename = data.get("filename", "")
-    content_type = data.get("contentType", "image/png")
+# API Gateway payload limit is ~10 MB; keep raw file size under 8 MB.
+MAX_SD_MEDIA_BYTES = 8 * 1024 * 1024
 
+
+def _normalize_sd_media_kind(media_kind: str) -> str:
+    kind = str(media_kind or "image").strip().lower()
+    return kind if kind in SD_MEDIA_PREFIX else "image"
+
+
+def _validate_sd_media_request(filename: str, content_type: str, media_kind: str):
+    """Return (s3_key, public_url) or an api_response error dict."""
     if not filename:
         return api_response(400, {"success": False, "message": "filename is required"})
 
     if content_type not in ALLOWED_SD_MEDIA_CONTENT_TYPES:
-        return api_response(400, {"success": False, "message": f"Unsupported content type '{content_type}'. Allowed: {', '.join(sorted(ALLOWED_SD_MEDIA_CONTENT_TYPES))}"})
+        return api_response(400, {
+            "success": False,
+            "message": f"Unsupported content type '{content_type}'. Allowed: {', '.join(sorted(ALLOWED_SD_MEDIA_CONTENT_TYPES))}",
+        })
 
-    s3_key = f"system-design/{generate_id('img')}/{filename}"
-    public_url = f"https://{S3_BUCKET}.s3.{REGION}.amazonaws.com/{s3_key}"
+    if media_kind == "pdf" and content_type != "application/pdf":
+        return api_response(400, {"success": False, "message": "PDF uploads must use contentType application/pdf"})
+    if media_kind == "thumbnail" and not content_type.startswith("image/"):
+        return api_response(400, {"success": False, "message": "Thumbnail uploads must be an image type"})
+    if media_kind == "image" and content_type == "application/pdf":
+        return api_response(400, {"success": False, "message": "Use mediaKind pdf for PDF uploads"})
+
+    prefix = SD_MEDIA_PREFIX[media_kind]
+    s3_key = f"{prefix}/{generate_id('sdm')}/{filename}"
+    public_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{s3_key}"
+    return s3_key, public_url
+
+
+def handle_get_sd_media_upload_url(data: dict) -> dict:
+    """Generate a presigned S3 URL for system-design media (images, PDFs, thumbnails)."""
+    filename = data.get("filename", "")
+    content_type = data.get("contentType", "image/png")
+    media_kind = _normalize_sd_media_kind(data.get("mediaKind") or data.get("media_kind"))
+
+    validated = _validate_sd_media_request(filename, content_type, media_kind)
+    if not isinstance(validated, tuple):
+        return validated
+    s3_key, public_url = validated
 
     try:
         presigned_url = s3_client.generate_presigned_url(
@@ -607,6 +784,51 @@ def handle_get_sd_media_upload_url(data: dict) -> dict:
         })
     except ClientError as e:
         return api_response(500, {"success": False, "message": "Error generating upload URL", "error": str(e)})
+
+
+def handle_upload_sd_media(data: dict) -> dict:
+    """Upload system-design media via Lambda (avoids browser S3 CORS)."""
+    filename = data.get("filename", "")
+    content_type = data.get("contentType", "image/png")
+    media_kind = _normalize_sd_media_kind(data.get("mediaKind") or data.get("media_kind"))
+    file_b64 = data.get("fileBase64") or data.get("file_base64") or ""
+
+    if not file_b64:
+        return api_response(400, {"success": False, "message": "fileBase64 is required"})
+
+    if isinstance(file_b64, str) and "," in file_b64 and file_b64.strip().startswith("data:"):
+        file_b64 = file_b64.split(",", 1)[1]
+
+    validated = _validate_sd_media_request(filename, content_type, media_kind)
+    if not isinstance(validated, tuple):
+        return validated
+    s3_key, public_url = validated
+
+    try:
+        file_bytes = base64.b64decode(file_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return api_response(400, {"success": False, "message": "Invalid base64 file data"})
+
+    if len(file_bytes) > MAX_SD_MEDIA_BYTES:
+        return api_response(400, {
+            "success": False,
+            "message": f"File too large (max {MAX_SD_MEDIA_BYTES // (1024 * 1024)} MB)",
+        })
+
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=file_bytes,
+            ContentType=content_type,
+        )
+        return api_response(200, {
+            "success": True,
+            "s3Key": s3_key,
+            "publicUrl": public_url,
+        })
+    except ClientError as e:
+        return api_response(500, {"success": False, "message": "Error uploading file", "error": str(e)})
 
 
 def handle_get_content_stats() -> dict:
@@ -648,7 +870,7 @@ def lambda_handler(event, context):
     Content types:
       interview_questions, dsa_problems, quizzes, cold_dm_templates,
       mass_recruitment, job_portals, handwritten_notes, roadmaps,
-      position_resources, system_design, fundamentals
+      position_resources, system_design, fundamentals, core_subjects
     """
     http_method = (
         event.get("httpMethod")
@@ -698,6 +920,9 @@ def lambda_handler(event, context):
         if action == "get_sd_media_upload_url":
             return handle_get_sd_media_upload_url(body)
 
+        if action == "upload_sd_media":
+            return handle_upload_sd_media(body)
+
         if action == "get_content_stats":
             return handle_get_content_stats()
 
@@ -708,7 +933,8 @@ def lambda_handler(event, context):
             "availableActions": [
                 "list_content", "get_content", "put_content", "put_content_single",
                 "delete_content", "bulk_delete_content", "full_sync_content",
-                "get_note_upload_url", "get_sd_media_upload_url", "get_content_stats",
+                "get_note_upload_url", "get_sd_media_upload_url", "upload_sd_media",
+                "get_content_stats",
             ],
         })
 

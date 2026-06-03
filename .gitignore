@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build outputs
 dist/
@@ -34,7 +33,6 @@ Thumbs.db
 # Vite
 .vite/
 .claude/
-.github/
 .agent/
 .crush/
 .codex/

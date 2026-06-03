@@ -1,20 +1,46 @@
-import Editor from "@monaco-editor/react";
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import type { editor as MonacoEditor } from "monaco-editor";
+import React, { useState, useEffect, useCallback } from "react";
+import { prepAdminApi, type ContentType } from "../../services/preparationApi";
+import SDConceptModal from "./system-design/SDConceptModal";
+import SDQuestionModal from "./system-design/SDQuestionModal";
+import SDResourceModal from "./system-design/SDResourceModal";
+import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
+import CoreSubjectsAdminPanel from "./core-subjects/CoreSubjectsAdminPanel";
+import CoreSubjectCategoryModal from "./core-subjects/CoreSubjectCategoryModal";
+import CoreSubjectQuizModal from "./core-subjects/CoreSubjectQuizModal";
 import {
-  interviewQuestions,
-  dsaProblems,
-  quizzes,
-  coldDMTemplates,
-  massRecruitmentCompanies,
-  jobPortals,
-  handwrittenNotes,
-  roadmaps,
-  positionResources,
-} from "../../data/preparationMockData";
-import { oopsConcepts, languageConcepts } from "../../data/fundamentalsData";
-import { DiagramData } from "../../data/systemDesignData";
-import { prepAdminApi } from "../../services/preparationApi";
+  mapCoreSubjectQuizFromApi,
+  mapCoreSubjectQuizToApi,
+  type CoreSubjectTopicQuiz,
+} from "../../data/coreSubjectQuizTypes";
+import {
+  mapCoreSubjectFromApi,
+  mapCoreSubjectToApi,
+  mapCoreSubjectCategoryFromApi,
+  mapCoreSubjectCategoryToApi,
+  getCoreSubjectTitle,
+  type AdminCoreSubjectItem,
+  type CoreSubject,
+} from "./core-subjects/coreSubjectsAdmin";
+import {
+  computeReorderUpdates,
+  computeSdMoveUpdates,
+  computeTopicMoveUpdates,
+  computeTopicReorderUpdates,
+  nextDisplayOrder,
+  sortByDisplayOrder,
+} from "./system-design/sdDisplayOrder";
+import { groupByTopic } from "../../lib/prepTopicGrouping";
+import {
+  type AdminSDItem,
+  type SDDesignType,
+  type SDSubSection,
+  type SDTabId,
+  SD_TAB_CONFIG,
+  ALL_SD_TAB_IDS,
+  emptySdDataRecord,
+  getSdTabId,
+  subSectionFromContentKind,
+} from "./system-design/types";
 
 type PrepTab =
   | "overview"
@@ -27,86 +53,19 @@ type PrepTab =
   | "roadmaps"
   | "mass-recruitment"
   | "positions"
-  | "hld"
-  | "lld"
+  | "system-design"
   | "oops"
-  | "language";
-
-interface AdminSDQuestion {
-  id: string;
-  title: string;
-  description: string;
-  section: string;
-  difficulty: string;
-  designType: "hld" | "lld";
-  topics: string[];
-  content: string;
-  diagramData?: DiagramData;
-  diagramUrl: string;
-  additionalImageUrls: string[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-const SD_SECTIONS_HLD = ["System Design", "Distributed Systems"];
-const SD_SECTIONS_LLD = [
-  "Object-Oriented Design",
-  "System Design",
-  "Game Design",
-  "Data Structures",
-  "Design Patterns",
-];
-
-const EMPTY_DIAGRAM_TEMPLATE: DiagramData = {
-  subtitle: "",
-  nodes: [
-    {
-      id: "node-1",
-      x: 60,
-      y: 80,
-      w: 140,
-      h: 48,
-      label: "ServiceA",
-      fill: "#1e3a8a",
-    },
-  ],
-  edges: [],
-  legend: [{ color: "#1e3a8a", label: "Service" }],
-};
-
-const parseDiagramDataShape = (
-  value: string,
-): { data?: DiagramData; error?: string } => {
-  if (!value.trim()) return { data: undefined };
-
-  try {
-    const parsed = JSON.parse(value) as Partial<DiagramData>;
-    if (typeof parsed !== "object" || parsed === null) {
-      return { error: "Diagram data must be a JSON object." };
-    }
-
-    const normalized: DiagramData = {
-      subtitle:
-        typeof parsed.subtitle === "string" ? parsed.subtitle : undefined,
-      nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
-      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
-      legend: Array.isArray(parsed.legend) ? parsed.legend : [],
-    };
-
-    return { data: normalized };
-  } catch {
-    return { error: "Diagram data is not valid JSON." };
-  }
-};
+  | "language"
+  | "core-subjects";
 
 const tabs: { id: PrepTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "interview-questions", label: "Interview Qs" },
   { id: "dsa", label: "DSA" },
-  { id: "hld", label: "HLD" },
-  { id: "lld", label: "LLD" },
+  { id: "system-design", label: "System Design" },
   { id: "oops", label: "OOPs" },
   { id: "language", label: "Language" },
+  { id: "core-subjects", label: "Core Subjects" },
   { id: "quizzes", label: "Quizzes" },
   { id: "cold-dms", label: "Cold DMs" },
   { id: "job-portals", label: "Job Portals" },
@@ -263,522 +222,6 @@ const CardShell: React.FC<{
   </div>
 );
 
-// ─── SD Question Add / Edit Modal ────────────────────────────────────────────
-interface SDQuestionModalProps {
-  designType: "hld" | "lld";
-  item?: AdminSDQuestion | null;
-  saving: boolean;
-  onSave: (
-    data: Omit<AdminSDQuestion, "id" | "createdAt" | "updatedAt"> & {
-      id?: string;
-    },
-  ) => Promise<void> | void;
-  onClose: () => void;
-}
-
-const SDQuestionModal: React.FC<SDQuestionModalProps> = ({
-  designType,
-  item,
-  saving,
-  onSave,
-  onClose,
-}) => {
-  const sections = designType === "hld" ? SD_SECTIONS_HLD : SD_SECTIONS_LLD;
-  const [form, setForm] = useState({
-    title: item?.title ?? "",
-    description: item?.description ?? "",
-    section: item?.section ?? sections[0],
-    difficulty: item?.difficulty ?? "Medium",
-    topics: (item?.topics ?? []).join(", "),
-    content: item?.content ?? "",
-    diagramData: item?.diagramData
-      ? JSON.stringify(item.diagramData, null, 2)
-      : "",
-    diagramUrl: item?.diagramUrl ?? "",
-    additionalImageUrls: item?.additionalImageUrls ?? [],
-  });
-  const [diagramError, setDiagramError] = useState<string | null>(null);
-  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
-  const [imageUploadInfo, setImageUploadInfo] = useState<string | null>(null);
-  const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [isDiagramFolded, setIsDiagramFolded] = useState(false);
-  const diagramEditorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(
-    null,
-  );
-
-  const set = (field: string, value: string) =>
-    setForm((f) => ({ ...f, [field]: value }));
-
-  const setDiagramTemplate = () => {
-    set("diagramData", JSON.stringify(EMPTY_DIAGRAM_TEMPLATE, null, 2));
-    setDiagramError(null);
-  };
-
-  const formatDiagramJson = () => {
-    const parsed = parseDiagramDataShape(form.diagramData);
-    if (parsed.error) {
-      setDiagramError(parsed.error);
-      return;
-    }
-    if (!parsed.data) {
-      setDiagramError("Add JSON first, then format it.");
-      return;
-    }
-    set("diagramData", JSON.stringify(parsed.data, null, 2));
-    setDiagramError(null);
-  };
-
-  const toggleFoldAllDiagramJson = () => {
-    const editor = diagramEditorRef.current;
-    if (!editor) return;
-
-    if (isDiagramFolded) {
-      editor.trigger("toolbar", "editor.unfoldAll", null);
-      setIsDiagramFolded(false);
-      return;
-    }
-
-    editor.trigger("toolbar", "editor.foldAll", null);
-    setIsDiagramFolded(true);
-  };
-
-  const addMissingDiagramKeys = () => {
-    if (!form.diagramData.trim()) {
-      setDiagramTemplate();
-      return;
-    }
-    const parsed = parseDiagramDataShape(form.diagramData);
-    if (parsed.error) {
-      setDiagramError(parsed.error);
-      return;
-    }
-    set("diagramData", JSON.stringify(parsed.data, null, 2));
-    setIsDiagramFolded(false);
-    setDiagramError(null);
-  };
-
-  const onSelectImageFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files ?? []);
-    if (selected.length === 0) return;
-
-    const validImages = selected.filter((file) =>
-      file.type.toLowerCase().startsWith("image/"),
-    );
-    const ignoredCount = selected.length - validImages.length;
-    if (ignoredCount > 0) {
-      setImageUploadError(`${ignoredCount} file(s) ignored because they are not images.`);
-    } else {
-      setImageUploadError(null);
-    }
-
-    setPendingImageFiles((prev) => [...prev, ...validImages]);
-    e.target.value = "";
-  };
-
-  const removePendingImageFile = (index: number) => {
-    setPendingImageFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const removeExistingImageUrl = (url: string) => {
-    setForm((prev) => ({
-      ...prev,
-      additionalImageUrls: prev.additionalImageUrls.filter((u) => u !== url),
-    }));
-  };
-
-  const uploadImageToS3 = async (file: File): Promise<string> => {
-    const uploadData = await prepAdminApi.getSystemDesignUploadUrl(
-      file.name,
-      file.type || "image/png",
-    );
-    if (!uploadData) {
-      throw new Error(`Failed to get upload URL for ${file.name}`);
-    }
-
-    const uploadRes = await fetch(uploadData.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-
-    if (!uploadRes.ok) {
-      throw new Error(`Upload failed for ${file.name} (${uploadRes.status})`);
-    }
-
-    return uploadData.publicUrl;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setDiagramError(null);
-    setImageUploadError(null);
-    setImageUploadInfo(null);
-
-    const parsedDiagram = parseDiagramDataShape(form.diagramData);
-    if (parsedDiagram.error) {
-      setDiagramError(parsedDiagram.error);
-      return;
-    }
-
-    let uploadedImageUrls: string[] = [];
-    if (pendingImageFiles.length > 0) {
-      setUploadingImages(true);
-      setImageUploadInfo(`Uploading ${pendingImageFiles.length} image(s)...`);
-      try {
-        uploadedImageUrls = await Promise.all(
-          pendingImageFiles.map((file) => uploadImageToS3(file)),
-        );
-      } catch (err) {
-        setUploadingImages(false);
-        setImageUploadInfo(null);
-        setImageUploadError(
-          err instanceof Error ? err.message : "Image upload failed.",
-        );
-        return;
-      }
-      setUploadingImages(false);
-      setImageUploadInfo(`${uploadedImageUrls.length} image(s) uploaded.`);
-    }
-
-    const mergedImageUrls = Array.from(
-      new Set([...form.additionalImageUrls, ...uploadedImageUrls]),
-    );
-    if (uploadedImageUrls.length > 0) {
-      setPendingImageFiles([]);
-      setForm((prev) => ({ ...prev, additionalImageUrls: mergedImageUrls }));
-    }
-
-    const topicList = form.topics
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    await onSave({
-      ...(item?.id ? { id: item.id } : {}),
-      title: form.title.trim(),
-      description: form.description.trim(),
-      section: form.section,
-      difficulty: form.difficulty,
-      designType,
-      topics: topicList,
-      content: form.content.trim(),
-      diagramData: parsedDiagram.data,
-      diagramUrl: form.diagramUrl.trim(),
-      additionalImageUrls: mergedImageUrls,
-    });
-  };
-
-  const parsedDiagram = parseDiagramDataShape(form.diagramData);
-  const diagramSummary = parsedDiagram.data
-    ? {
-        nodes: parsedDiagram.data.nodes.length,
-        edges: parsedDiagram.data.edges.length,
-        legend: parsedDiagram.data.legend.length,
-      }
-    : null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] my-2 sm:my-4 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {item ? "Edit" : "Add"} {designType.toUpperCase()} Question
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="min-h-0 flex flex-1 flex-col">
-          <div className="p-6 space-y-4 overflow-y-auto min-h-0">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                required
-                value={form.title}
-                onChange={(e) => set("title", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="e.g. Design a URL Shortener"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                required
-                rows={2}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                placeholder="Short description of the problem"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Section
-                </label>
-                <select
-                  value={form.section}
-                  onChange={(e) => set("section", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  {sections.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Difficulty
-                </label>
-                <select
-                  value={form.difficulty}
-                  onChange={(e) => set("difficulty", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  {["Easy", "Medium", "Hard"].map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Topics{" "}
-                <span className="text-xs text-gray-400">(comma-separated)</span>
-              </label>
-              <input
-                value={form.topics}
-                onChange={(e) => set("topics", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="e.g. Caching, Databases, Load Balancer"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Solution / Content
-              </label>
-              <textarea
-                rows={4}
-                value={form.content}
-                onChange={(e) => set("content", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"
-                placeholder="Solution text (optional)"
-              />
-            </div>
-
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50/60">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Diagram Data (JSON)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={setDiagramTemplate}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
-                  >
-                    Use Template
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addMissingDiagramKeys}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
-                  >
-                    Add Missing Keys
-                  </button>
-                  <button
-                    type="button"
-                    onClick={formatDiagramJson}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
-                  >
-                    Beautify
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleFoldAllDiagramJson}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-white border border-gray-200 hover:bg-gray-100"
-                  >
-                    {isDiagramFolded ? "Expand All" : "Collapse All"}
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                <Editor
-                  height="320px"
-                  defaultLanguage="json"
-                  value={form.diagramData}
-                  onChange={(value) => {
-                    set("diagramData", value ?? "");
-                    setDiagramError(null);
-                  }}
-                  onMount={(editor) => {
-                    diagramEditorRef.current = editor;
-                  }}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 13,
-                    lineNumbersMinChars: 3,
-                    automaticLayout: true,
-                    wordWrap: "on",
-                    scrollBeyondLastLine: false,
-                    folding: true,
-                    foldingHighlight: true,
-                    showFoldingControls: "always",
-                    glyphMargin: true,
-                    renderLineHighlight: "line",
-                    bracketPairColorization: { enabled: true },
-                  }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Required top-level keys: <span className="font-mono">nodes</span>,{" "}
-                <span className="font-mono">edges</span>,{" "}
-                <span className="font-mono">legend</span>, optional{" "}
-                <span className="font-mono">subtitle</span>.
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Click the fold arrow in the gutter beside a line to collapse or expand that specific JSON object/array block.
-              </p>
-              {diagramSummary && (
-                <p className="mt-1 text-xs text-emerald-700">
-                  Parsed: {diagramSummary.nodes} nodes, {diagramSummary.edges} edges, {diagramSummary.legend} legend entries.
-                </p>
-              )}
-              {diagramError && (
-                <p className="mt-1 text-xs text-red-600">{diagramError}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Legacy Diagram URL <span className="text-xs text-gray-400">(optional fallback)</span>
-              </label>
-              <input
-                value={form.diagramUrl}
-                onChange={(e) => set("diagramUrl", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="rounded-xl border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Additional Images (Upload to S3)
-              </label>
-              <input
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-                onChange={onSelectImageFiles}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-              />
-              <p className="mt-2 text-xs text-gray-500">
-                Selected files are uploaded on save. Supported types: PNG, JPEG, GIF, WEBP, SVG.
-              </p>
-
-              {pendingImageFiles.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-gray-700 mb-2">Pending Uploads</p>
-                  <div className="space-y-1.5">
-                    {pendingImageFiles.map((file, idx) => (
-                      <div key={`${file.name}-${idx}`} className="flex items-center justify-between gap-2 text-xs bg-orange-50 text-orange-700 px-2 py-1.5 rounded-md">
-                        <span className="truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removePendingImageFile(idx)}
-                          className="text-orange-700 hover:text-orange-900 font-semibold"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {form.additionalImageUrls.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-gray-700 mb-2">Existing Uploaded Images</p>
-                  <div className="space-y-1.5">
-                    {form.additionalImageUrls.map((url) => (
-                      <div key={url} className="flex items-center justify-between gap-2 text-xs bg-gray-100 text-gray-700 px-2 py-1.5 rounded-md">
-                        <span className="truncate">{url}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeExistingImageUrl(url)}
-                          className="text-gray-600 hover:text-gray-900 font-semibold"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {imageUploadInfo && (
-                <p className="mt-2 text-xs text-emerald-700">{imageUploadInfo}</p>
-              )}
-              {imageUploadError && (
-                <p className="mt-2 text-xs text-red-600">{imageUploadError}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 p-6 pt-4 border-t border-gray-100 bg-white">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving || uploadingImages}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-60"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || uploadingImages}
-              className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
-            >
-              {(saving || uploadingImages) && (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              {uploadingImages
-                ? "Uploading Images..."
-                : item
-                  ? "Save Changes"
-                  : "Add Question"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 const PrepContentManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<PrepTab>("overview");
   const [toast, setToast] = useState<{
@@ -787,66 +230,224 @@ const PrepContentManagementPage: React.FC = () => {
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const [iqData, setIqData] = useState(interviewQuestions);
-  const [dsaData, setDsaData] = useState(dsaProblems);
-  const [quizData, setQuizData] = useState(quizzes);
-  const [dmData, setDmData] = useState(coldDMTemplates);
-  const [jpData, setJpData] = useState(jobPortals);
-  const [noteData, setNoteData] = useState(handwrittenNotes);
-  const [rmData, setRmData] = useState(roadmaps);
-  const [mrData, setMrData] = useState(massRecruitmentCompanies);
-  const [posData, setPosData] = useState(positionResources);
-  const [hldData, setHldData] = useState<AdminSDQuestion[]>([]);
-  const [lldData, setLldData] = useState<AdminSDQuestion[]>([]);
+  const [iqData, setIqData] = useState<any[]>([]);
+  const [dsaData, setDsaData] = useState<any[]>([]);
+  const [quizData, setQuizData] = useState<any[]>([]);
+  const [dmData, setDmData] = useState<any[]>([]);
+  const [jpData, setJpData] = useState<any[]>([]);
+  const [noteData, setNoteData] = useState<any[]>([]);
+  const [rmData, setRmData] = useState<any[]>([]);
+  const [mrData, setMrData] = useState<any[]>([]);
+  const [posData, setPosData] = useState<any[]>([]);
+  const [sdData, setSdData] = useState<Record<SDTabId, AdminSDItem[]>>(emptySdDataRecord);
+  const [sdDesignType, setSdDesignType] = useState<SDDesignType>("hld");
+  const [sdSubSection, setSdSubSection] = useState<SDSubSection>("questions");
   const [sdLoading, setSdLoading] = useState(false);
   const [sdError, setSdError] = useState<string | null>(null);
-  const [oopsData, setOopsData] = useState(oopsConcepts);
-  const [langData, setLangData] = useState(languageConcepts);
+  const [oopsData, setOopsData] = useState<any[]>([]);
+  const [langData, setLangData] = useState<any[]>([]);
+  const [coreSubjectsData, setCoreSubjectsData] = useState<AdminCoreSubjectItem[]>([]);
+  const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
+  const [csSubject, setCsSubject] = useState("");
+  const [csCategoriesLoading, setCsCategoriesLoading] = useState(false);
+  const [csLoading, setCsLoading] = useState(false);
+  const [csError, setCsError] = useState<string | null>(null);
+  const [csReordering, setCsReordering] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
 
   // SD modal state
   const [sdModal, setSdModal] = useState<{
     open: boolean;
-    designType: "hld" | "lld";
-    item?: AdminSDQuestion | null;
-  }>({ open: false, designType: "hld" });
+    tabId: SDTabId;
+    item?: AdminSDItem | null;
+  }>({ open: false, tabId: "hld-questions" });
   const [sdSaving, setSdSaving] = useState(false);
+  const [sdReordering, setSdReordering] = useState(false);
   // Delete confirmation modal state (for SD; other tabs use window.confirm for now)
   const [deleteModal, setDeleteModal] = useState<{
     id: string;
     name: string;
-    designType: "hld" | "lld";
+    tabId: SDTabId;
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const loadSdContent = useCallback(async (designType: "hld" | "lld") => {
+  const [csModal, setCsModal] = useState<{
+    open: boolean;
+    item?: AdminCoreSubjectItem | null;
+  }>({ open: false });
+  const [csSaving, setCsSaving] = useState(false);
+  const [csDeleteModal, setCsDeleteModal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [csCategoryModal, setCsCategoryModal] = useState<{
+    open: boolean;
+    item?: CoreSubject | null;
+  }>({ open: false });
+  const [csCategorySaving, setCsCategorySaving] = useState(false);
+  const [csCategoryDeleteModal, setCsCategoryDeleteModal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [csTopicQuizzes, setCsTopicQuizzes] = useState<CoreSubjectTopicQuiz[]>([]);
+  const [csQuizModal, setCsQuizModal] = useState<{
+    open: boolean;
+    topic: string;
+    quiz: CoreSubjectTopicQuiz | null;
+  }>({ open: false, topic: "", quiz: null });
+  const [csQuizSaving, setCsQuizSaving] = useState(false);
+
+  const loadTabContent = useCallback(async (tab: PrepTab) => {
+    const tabMap: Partial<Record<PrepTab, { type: ContentType; setter: React.Dispatch<React.SetStateAction<any[]>> }>> = {
+      "interview-questions": { type: "interview_questions", setter: setIqData },
+      dsa: { type: "dsa_problems", setter: setDsaData },
+      quizzes: { type: "quizzes", setter: setQuizData },
+      "cold-dms": { type: "cold_dm_templates", setter: setDmData },
+      "job-portals": { type: "job_portals", setter: setJpData },
+      notes: { type: "handwritten_notes", setter: setNoteData },
+      roadmaps: { type: "roadmaps", setter: setRmData },
+      "mass-recruitment": { type: "mass_recruitment", setter: setMrData },
+      positions: { type: "position_resources", setter: setPosData },
+      oops: { type: "fundamentals", setter: setOopsData },
+      language: { type: "fundamentals", setter: setLangData },
+    };
+
+    const config = tabMap[tab];
+    if (!config) return;
+
+    setContentLoading(true);
+    try {
+      const resp = await prepAdminApi.listContent(config.type, { limit: 500 });
+      if (resp.success) {
+        config.setter(resp.items ?? []);
+      }
+    } catch {
+      config.setter([]);
+    }
+    setContentLoading(false);
+  }, []);
+
+  const loadCoreSubjects = useCallback(async () => {
+    setCsLoading(true);
+    setCsCategoriesLoading(true);
+    setCsError(null);
+    try {
+      const [catResp, conceptResp, quizResp] = await Promise.all([
+        prepAdminApi.listContent("core_subjects", {
+          limit: 200,
+          contentKind: "category",
+          sortBy: "displayOrder",
+          sortOrder: "asc",
+        }),
+        prepAdminApi.listContent("core_subjects", {
+          limit: 500,
+          contentKind: "concept",
+          sortBy: "displayOrder",
+          sortOrder: "asc",
+        }),
+        prepAdminApi.listContent("quizzes", {
+          limit: 500,
+          scope: "core_subjects",
+        }),
+      ]);
+
+      const categories = catResp.success
+        ? (catResp.items ?? []).map((item) =>
+            mapCoreSubjectCategoryFromApi(item as Record<string, unknown>),
+          )
+        : [];
+
+      setCoreSubjectCategories(categories);
+      setCsSubject((current) => {
+        if (current && categories.some((cat) => cat.subject === current)) return current;
+        return categories[0]?.subject ?? "";
+      });
+
+      if (conceptResp.success) {
+        setCoreSubjectsData(
+          (conceptResp.items ?? []).map((item) =>
+            mapCoreSubjectFromApi(item as Record<string, unknown>, categories),
+          ),
+        );
+      } else {
+        setCsError("Failed to load core subject concepts. Please try again.");
+        setCoreSubjectsData([]);
+      }
+
+      if (!catResp.success) {
+        setCsError("Failed to load subjects. Please try again.");
+      }
+
+      setCsTopicQuizzes(
+        quizResp.success
+          ? (quizResp.items ?? []).map((item) =>
+              mapCoreSubjectQuizFromApi(item as Record<string, unknown>),
+            )
+          : [],
+      );
+    } catch {
+      setCsError("Network error loading core subjects.");
+      setCoreSubjectsData([]);
+      setCoreSubjectCategories([]);
+      setCsTopicQuizzes([]);
+      setCsSubject("");
+    }
+    setCsLoading(false);
+    setCsCategoriesLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (
+      activeTab !== "overview" &&
+      activeTab !== "system-design" &&
+      activeTab !== "core-subjects"
+    ) {
+      loadTabContent(activeTab);
+    }
+  }, [activeTab, loadTabContent]);
+
+  useEffect(() => {
+    if (activeTab === "core-subjects") {
+      loadCoreSubjects();
+    }
+  }, [activeTab, loadCoreSubjects]);
+
+  const activeSdTabId = getSdTabId(sdDesignType, sdSubSection);
+
+  const loadSdTab = useCallback(async (tabId: SDTabId) => {
+    const { designType, contentKind } = SD_TAB_CONFIG[tabId];
     setSdLoading(true);
     setSdError(null);
     try {
-      const resp = await prepAdminApi.listContent<AdminSDQuestion>(
-        "system_design",
-        { designType, limit: 200 },
-      );
+      const resp = await prepAdminApi.listContent<AdminSDItem>("system_design", {
+        designType,
+        contentKind,
+        limit: 200,
+      });
       if (resp.success) {
-        if (designType === "hld") setHldData(resp.items ?? []);
-        else setLldData(resp.items ?? []);
+        setSdData((prev) => ({
+          ...prev,
+          [tabId]: sortByDisplayOrder(resp.items ?? []),
+        }));
       } else {
-        setSdError("Failed to load system design questions. Please try again.");
+        setSdError(`Failed to load ${SD_TAB_CONFIG[tabId].label}. Please try again.`);
       }
     } catch {
-      setSdError("Network error loading system design questions.");
+      setSdError("Network error loading system design content.");
     }
     setSdLoading(false);
   }, []);
 
   useEffect(() => {
-    if (activeTab === "hld") loadSdContent("hld");
-    if (activeTab === "lld") loadSdContent("lld");
-  }, [activeTab, loadSdContent]);
+    if (activeTab === "system-design") {
+      loadSdTab(activeSdTabId);
+    }
+  }, [activeTab, activeSdTabId, loadSdTab]);
 
-  // Pre-load SD counts for the overview
   useEffect(() => {
-    loadSdContent("hld");
-    loadSdContent("lld");
+    ALL_SD_TAB_IDS.forEach((tabId) => {
+      loadSdTab(tabId);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -875,20 +476,26 @@ const PrepContentManagementPage: React.FC = () => {
   };
 
   // SD-specific: open delete confirmation modal
-  const openSdDeleteModal = (item: AdminSDQuestion) => {
+  const tabIdForItem = (item: AdminSDItem): SDTabId =>
+    getSdTabId(
+      item.designType === "lld" ? "lld" : "hld",
+      subSectionFromContentKind(item.contentKind),
+    );
+
+  const openSdDeleteModal = (item: AdminSDItem, tabId?: SDTabId) => {
     setDeleteModal({
       id: item.id,
       name: item.title,
-      designType: item.designType,
+      tabId: tabId ?? tabIdForItem(item),
     });
   };
 
   // SD-specific: open add/edit modal
-  const openSdAddModal = (designType: "hld" | "lld") => {
-    setSdModal({ open: true, designType, item: null });
+  const openSdAddModal = (tabId: SDTabId) => {
+    setSdModal({ open: true, tabId, item: null });
   };
-  const openSdEditModal = (item: AdminSDQuestion) => {
-    setSdModal({ open: true, designType: item.designType, item });
+  const openSdEditModal = (item: AdminSDItem, tabId?: SDTabId) => {
+    setSdModal({ open: true, tabId: tabId ?? tabIdForItem(item), item });
   };
 
   // SD delete confirmed
@@ -901,9 +508,10 @@ const PrepContentManagementPage: React.FC = () => {
     );
     setDeleteLoading(false);
     if (ok) {
-      if (deleteModal.designType === "hld")
-        setHldData((prev) => prev.filter((q) => q.id !== deleteModal.id));
-      else setLldData((prev) => prev.filter((q) => q.id !== deleteModal.id));
+      setSdData((prev) => ({
+        ...prev,
+        [deleteModal.tabId]: prev[deleteModal.tabId].filter((q) => q.id !== deleteModal.id),
+      }));
       showToast(`"${deleteModal.name}" deleted successfully`, "success");
     } else {
       showToast("Delete failed. Please try again.", "info");
@@ -913,39 +521,394 @@ const PrepContentManagementPage: React.FC = () => {
 
   // SD add/edit saved
   const handleSdSave = async (
-    formData: Omit<AdminSDQuestion, "id" | "createdAt" | "updatedAt"> & {
+    formData: Omit<AdminSDItem, "id" | "createdAt" | "updatedAt"> & {
       id?: string;
     },
   ) => {
     setSdSaving(true);
-    const item = await prepAdminApi.putContentSingle<AdminSDQuestion>(
+    const tabId = sdModal?.tabId ?? (formData.id ? tabIdForItem(formData as AdminSDItem) : activeSdTabId);
+    const isEdit = !!sdModal?.item?.id;
+    const payload = {
+      ...formData,
+      displayOrder:
+        typeof formData.displayOrder === "number" && Number.isFinite(formData.displayOrder)
+          ? formData.displayOrder
+          : isEdit
+            ? sdModal?.item?.displayOrder ?? 0
+            : nextDisplayOrder(sdData[tabId]),
+    };
+    const item = await prepAdminApi.putContentSingle<AdminSDItem>(
       "system_design",
-      formData as Record<string, unknown>,
+      payload as Record<string, unknown>,
     );
     setSdSaving(false);
     if (item) {
-      const isEdit = !!sdModal?.item?.id;
-      if (sdModal?.designType === "hld") {
-        setHldData((prev) =>
+      const resolvedTabId = sdModal?.tabId ?? tabIdForItem(item);
+      setSdData((prev) => ({
+        ...prev,
+        [resolvedTabId]: sortByDisplayOrder(
           isEdit
-            ? prev.map((q) => (q.id === item.id ? item : q))
-            : [item, ...prev],
-        );
-      } else {
-        setLldData((prev) =>
-          isEdit
-            ? prev.map((q) => (q.id === item.id ? item : q))
-            : [item, ...prev],
-        );
-      }
+            ? prev[resolvedTabId].map((q) => (q.id === item.id ? item : q))
+            : [...prev[resolvedTabId], item],
+        ),
+      }));
       showToast(
         `"${item.title}" ${isEdit ? "updated" : "added"} successfully`,
         "success",
       );
-      setSdModal({ open: false, designType: sdModal?.designType ?? "hld" });
+      setSdModal({ open: false, tabId: sdModal?.tabId ?? "hld-questions" });
     } else {
       showToast("Save failed. Please try again.", "info");
     }
+  };
+
+  const applySdDisplayOrderUpdates = async (
+    tabId: SDTabId,
+    updates: AdminSDItem[] | null,
+  ) => {
+    if (!updates?.length) return;
+
+    setSdReordering(true);
+    try {
+      const saved = await Promise.all(
+        updates.map((entry) =>
+          prepAdminApi.putContentSingle<AdminSDItem>(
+            "system_design",
+            entry as unknown as Record<string, unknown>,
+          ),
+        ),
+      );
+
+      if (saved.some((entry) => !entry)) {
+        showToast("Reorder failed. Please try again.", "info");
+        await loadSdTab(tabId);
+        return;
+      }
+
+      setSdData((prev) => {
+        const byId = new Map(saved.filter(Boolean).map((entry) => [entry!.id, entry!]));
+        return {
+          ...prev,
+          [tabId]: sortByDisplayOrder(
+            prev[tabId].map((entry) => byId.get(entry.id) ?? entry),
+          ),
+        };
+      });
+    } catch {
+      showToast("Reorder failed. Please try again.", "info");
+      await loadSdTab(tabId);
+    } finally {
+      setSdReordering(false);
+    }
+  };
+
+  const handleSdMove = async (
+    item: AdminSDItem,
+    tabId: SDTabId,
+    direction: "up" | "down",
+    scopeItems?: AdminSDItem[],
+  ) => {
+    const list = scopeItems ?? sdData[tabId];
+    const updates = computeSdMoveUpdates(list, item.id, direction);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdMoveTopic = async (
+    topic: string,
+    tabId: SDTabId,
+    direction: "up" | "down",
+  ) => {
+    const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
+    const updates = computeTopicMoveUpdates(groups, topic, direction);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdReorderItems = async (
+    fromIndex: number,
+    toIndex: number,
+    tabId: SDTabId,
+    scopeItems?: AdminSDItem[],
+  ) => {
+    const list = scopeItems ?? sdData[tabId];
+    const updates = computeReorderUpdates(list, fromIndex, toIndex);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const handleSdReorderTopics = async (
+    fromIndex: number,
+    toIndex: number,
+    tabId: SDTabId,
+  ) => {
+    const groups = groupByTopic(sortByDisplayOrder(sdData[tabId]));
+    const updates = computeTopicReorderUpdates(groups, fromIndex, toIndex);
+    await applySdDisplayOrderUpdates(tabId, updates);
+  };
+
+  const activeCoreSubjectItems = coreSubjectsData.filter(
+    (item) => item.subject === csSubject,
+  );
+  const activeCoreSubjectQuizzes = csTopicQuizzes.filter(
+    (quiz) => quiz.subject === csSubject,
+  );
+
+  const openCsAddModal = () => {
+    if (!csSubject) {
+      showToast("Add a subject first, then add concepts under it.", "info");
+      return;
+    }
+    setCsModal({ open: true, item: null });
+  };
+
+  const openCsCategoryAddModal = () => {
+    setCsCategoryModal({ open: true, item: null });
+  };
+
+  const openCsCategoryEditModal = (category: CoreSubject) => {
+    setCsCategoryModal({ open: true, item: category });
+  };
+
+  const openCsCategoryDeleteModal = (category: CoreSubject) => {
+    setCsCategoryDeleteModal({ id: category.id, name: category.title });
+  };
+
+  const handleCsCategoryDeleteConfirm = async () => {
+    if (!csCategoryDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent(
+      "core_subjects",
+      csCategoryDeleteModal.id,
+    );
+    setDeleteLoading(false);
+    if (ok) {
+      setCoreSubjectCategories((prev) =>
+        prev.filter((item) => item.id !== csCategoryDeleteModal.id),
+      );
+      if (csSubject && coreSubjectCategories.find((c) => c.id === csCategoryDeleteModal.id)?.subject === csSubject) {
+        const remaining = coreSubjectCategories.filter((c) => c.id !== csCategoryDeleteModal.id);
+        setCsSubject(remaining[0]?.subject ?? "");
+      }
+      showToast(`"${csCategoryDeleteModal.name}" deleted`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setCsCategoryDeleteModal(null);
+  };
+
+  const handleCsCategorySave = async (formData: Omit<CoreSubject, "id"> & { id?: string }) => {
+    setCsCategorySaving(true);
+    const isEdit = !!csCategoryModal?.item?.id;
+    const payload = mapCoreSubjectCategoryToApi({
+      ...formData,
+      displayOrder:
+        formData.displayOrder ??
+        (isEdit
+          ? csCategoryModal?.item?.displayOrder ?? 0
+          : (coreSubjectCategories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0) + 10)),
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "core_subjects",
+      payload,
+    );
+    setCsCategorySaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectCategoryFromApi(item);
+      setCoreSubjectCategories((prev) => {
+        const next = isEdit
+          ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+          : [...prev, mapped];
+        return next.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+      });
+      if (!csSubject) setCsSubject(mapped.subject);
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsCategoryModal({ open: false });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const openCsTopicQuizModal = (topic: string, quiz: CoreSubjectTopicQuiz | null) => {
+    setCsQuizModal({ open: true, topic, quiz });
+  };
+
+  const handleCsTopicQuizSave = async (
+    formData: Omit<CoreSubjectTopicQuiz, "questionCount" | "id"> & { id?: string },
+  ) => {
+    setCsQuizSaving(true);
+    const isEdit = !!csQuizModal.quiz?.id;
+    const payload = mapCoreSubjectQuizToApi({
+      ...formData,
+      subject: csSubject,
+      topic: csQuizModal.topic,
+      scope: "core_subjects",
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>("quizzes", payload);
+    setCsQuizSaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectQuizFromApi(item);
+      setCsTopicQuizzes((prev) => {
+        const next = isEdit
+          ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+          : [...prev, mapped];
+        return next.sort((a, b) => a.topic.localeCompare(b.topic));
+      });
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsQuizModal({ open: false, topic: "", quiz: null });
+    } else {
+      showToast("Quiz save failed. Please try again.", "info");
+    }
+  };
+
+  const handleCsTopicQuizDelete = async (quiz: CoreSubjectTopicQuiz) => {
+    if (!window.confirm(`Delete quiz "${quiz.title}"?`)) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent("quizzes", quiz.id);
+    setDeleteLoading(false);
+    if (ok) {
+      setCsTopicQuizzes((prev) => prev.filter((entry) => entry.id !== quiz.id));
+      showToast(`"${quiz.title}" deleted`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+  };
+
+  const openCsEditModal = (item: AdminCoreSubjectItem) => {
+    setCsModal({ open: true, item });
+  };
+
+  const openCsDeleteModal = (item: AdminCoreSubjectItem) => {
+    setCsDeleteModal({ id: item.id, name: item.title });
+  };
+
+  const handleCsDeleteConfirm = async () => {
+    if (!csDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent("core_subjects", csDeleteModal.id);
+    setDeleteLoading(false);
+    if (ok) {
+      setCoreSubjectsData((prev) => prev.filter((item) => item.id !== csDeleteModal.id));
+      showToast(`"${csDeleteModal.name}" deleted successfully`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setCsDeleteModal(null);
+  };
+
+  const handleCsSave = async (
+    formData: Omit<AdminSDItem, "id" | "createdAt" | "updatedAt"> & { id?: string },
+  ) => {
+    setCsSaving(true);
+    const isEdit = !!csModal?.item?.id;
+    const subject = csModal?.item?.subject ?? csSubject;
+    const subjectTitle = getCoreSubjectTitle(subject, coreSubjectCategories);
+    const payload = mapCoreSubjectToApi({
+      ...(formData.id ? { id: formData.id } : csModal?.item?.id ? { id: csModal.item.id } : {}),
+      title: formData.title,
+      description: formData.description,
+      section: subjectTitle,
+      difficulty: formData.difficulty,
+      designType: "lld",
+      contentKind: "concept",
+      topics: formData.topics ?? [],
+      content: formData.content,
+      diagramUrl: "",
+      additionalImageUrls: [],
+      thumbnailUrl: formData.thumbnailUrl,
+      subject,
+      displayOrder:
+        typeof formData.displayOrder === "number" && Number.isFinite(formData.displayOrder)
+          ? formData.displayOrder
+          : isEdit
+            ? csModal?.item?.displayOrder ?? 0
+            : nextDisplayOrder(activeCoreSubjectItems),
+    });
+    const item = await prepAdminApi.putContentSingle<Record<string, unknown>>(
+      "core_subjects",
+      payload,
+    );
+    setCsSaving(false);
+    if (item) {
+      const mapped = mapCoreSubjectFromApi(item, coreSubjectCategories);
+      setCoreSubjectsData((prev) =>
+        sortByDisplayOrder(
+          isEdit
+            ? prev.map((entry) => (entry.id === mapped.id ? mapped : entry))
+            : [...prev, mapped],
+        ),
+      );
+      showToast(`"${mapped.title}" ${isEdit ? "updated" : "added"} successfully`, "success");
+      setCsModal({ open: false });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const applyCoreDisplayOrderUpdates = async (updates: AdminCoreSubjectItem[] | null) => {
+    if (!updates?.length) return;
+
+    setCsReordering(true);
+    try {
+      const saved = await Promise.all(
+        updates.map((entry) =>
+          prepAdminApi.putContentSingle<Record<string, unknown>>(
+            "core_subjects",
+            mapCoreSubjectToApi(entry),
+          ),
+        ),
+      );
+
+      if (saved.some((entry) => !entry)) {
+        showToast("Reorder failed. Please try again.", "info");
+        await loadCoreSubjects();
+        return;
+      }
+
+      setCoreSubjectsData((prev) => {
+        const byId = new Map(
+          saved.filter(Boolean).map((entry) => [
+            String(entry!.id),
+            mapCoreSubjectFromApi(entry as Record<string, unknown>, coreSubjectCategories),
+          ]),
+        );
+        return sortByDisplayOrder(prev.map((entry) => byId.get(entry.id) ?? entry));
+      });
+    } catch {
+      showToast("Reorder failed. Please try again.", "info");
+      await loadCoreSubjects();
+    } finally {
+      setCsReordering(false);
+    }
+  };
+
+  const handleCsMove = async (
+    item: AdminCoreSubjectItem,
+    direction: "up" | "down",
+    scopeItems?: AdminCoreSubjectItem[],
+  ) => {
+    const list = scopeItems ?? activeCoreSubjectItems;
+    const updates = computeSdMoveUpdates(list, item.id, direction);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsMoveTopic = async (topic: string, direction: "up" | "down") => {
+    const groups = groupByTopic(sortByDisplayOrder(activeCoreSubjectItems));
+    const updates = computeTopicMoveUpdates(groups, topic, direction);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsReorderItems = async (
+    fromIndex: number,
+    toIndex: number,
+    scopeItems?: AdminCoreSubjectItem[],
+  ) => {
+    const list = scopeItems ?? activeCoreSubjectItems;
+    const updates = computeReorderUpdates(list, fromIndex, toIndex);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
+  };
+
+  const handleCsReorderTopics = async (fromIndex: number, toIndex: number) => {
+    const groups = groupByTopic(sortByDisplayOrder(activeCoreSubjectItems));
+    const updates = computeTopicReorderUpdates(groups, fromIndex, toIndex);
+    await applyCoreDisplayOrderUpdates(updates as AdminCoreSubjectItem[] | null);
   };
 
   const overviewStats = [
@@ -955,13 +918,26 @@ const PrepContentManagementPage: React.FC = () => {
       color: "bg-blue-500",
     },
     { label: "DSA Problems", value: dsaData.length, color: "bg-green-500" },
-    { label: "HLD Questions", value: hldData.length, color: "bg-cyan-500" },
-    { label: "LLD Questions", value: lldData.length, color: "bg-sky-500" },
+    {
+      label: "System Design (HLD)",
+      value: ALL_SD_TAB_IDS.filter((id) => id.startsWith("hld-")).reduce((n, id) => n + sdData[id].length, 0),
+      color: "bg-cyan-500",
+    },
+    {
+      label: "System Design (LLD)",
+      value: ALL_SD_TAB_IDS.filter((id) => id.startsWith("lld-")).reduce((n, id) => n + sdData[id].length, 0),
+      color: "bg-sky-500",
+    },
     { label: "OOPs Concepts", value: oopsData.length, color: "bg-violet-500" },
     {
       label: "Language Concepts",
       value: langData.length,
       color: "bg-fuchsia-500",
+    },
+    {
+      label: "Core Subjects",
+      value: coreSubjectCategories.length,
+      color: "bg-teal-500",
     },
     { label: "Quizzes", value: quizData.length, color: "bg-purple-500" },
     {
@@ -1031,6 +1007,10 @@ const PrepContentManagementPage: React.FC = () => {
             {toast.message}
           </div>
         </div>
+      )}
+
+      {contentLoading && activeTab !== "overview" && (
+        <p className="text-sm text-gray-500 mb-4">Loading content…</p>
       )}
 
       <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-4">
@@ -1216,7 +1196,7 @@ const PrepContentManagementPage: React.FC = () => {
                     <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full ring-1 ring-indigo-100">
                       {p.topic}
                     </span>
-                    {p.company.slice(0, 2).map((c) => (
+                    {p.company.slice(0, 2).map((c: string) => (
                       <span
                         key={c}
                         className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200"
@@ -1278,7 +1258,7 @@ const PrepContentManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-1 flex-wrap">
-                          {p.company.slice(0, 2).map((c) => (
+                          {p.company.slice(0, 2).map((c: string) => (
                             <span
                               key={c}
                               className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
@@ -1989,624 +1969,190 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── HLD ─── */}
-      {activeTab === "hld" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="High Level Design Questions"
-            count={hldData.length}
-            btnLabel="Add Question"
-            view={viewMode}
-            onViewChange={setViewMode}
-            onAdd={() => openSdAddModal("hld")}
-          />
-          {sdLoading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin w-7 h-7 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm text-gray-500">Loading HLD questions...</p>
-            </div>
-          ) : sdError ? (
-            <div className="p-8 text-center text-red-600">
-              <p className="font-medium">{sdError}</p>
-              <button
-                onClick={() => loadSdContent("hld")}
-                className="mt-3 px-4 py-2 text-sm bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          ) : hldData.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <p className="font-medium">No HLD questions yet.</p>
-              <button
-                onClick={() => openSdAddModal("hld")}
-                className="mt-3 px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-              >
-                Add your first question
-              </button>
-            </div>
-          ) : isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {hldData.map((q) => (
-                <CardShell key={q.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <DiffBadge d={q.difficulty} />
-                    </div>
-                    <ActionBtns
-                      name={q.title}
-                      onEdit={() => openSdEditModal(q)}
-                      onDelete={() => openSdDeleteModal(q)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {q.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {q.description}
-                  </p>
-                  <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-full ring-1 ring-cyan-100">
-                    {q.section}
-                  </span>
-                  {q.additionalImageUrls?.length > 0 && (
-                    <span className="ml-2 mt-3 inline-block text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full ring-1 ring-purple-100">
-                      {q.additionalImageUrls.length} image
-                      {q.additionalImageUrls.length > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Section
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Images
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {hldData.map((q, i) => (
-                    <tr key={q.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
-                          {q.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">
-                          {q.description}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.section}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={q.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.additionalImageUrls?.length ?? 0}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={q.title}
-                          onEdit={() => openSdEditModal(q)}
-                          onDelete={() => openSdDeleteModal(q)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── LLD ─── */}
-      {activeTab === "lld" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Low Level Design Questions"
-            count={lldData.length}
-            btnLabel="Add Question"
-            view={viewMode}
-            onViewChange={setViewMode}
-            onAdd={() => openSdAddModal("lld")}
-          />
-          {sdLoading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin w-7 h-7 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm text-gray-500">Loading LLD questions...</p>
-            </div>
-          ) : sdError ? (
-            <div className="p-8 text-center text-red-600">
-              <p className="font-medium">{sdError}</p>
-              <button
-                onClick={() => loadSdContent("lld")}
-                className="mt-3 px-4 py-2 text-sm bg-red-50 hover:bg-red-100 text-red-700 rounded-lg transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          ) : lldData.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <p className="font-medium">No LLD questions yet.</p>
-              <button
-                onClick={() => openSdAddModal("lld")}
-                className="mt-3 px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-              >
-                Add your first question
-              </button>
-            </div>
-          ) : isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {lldData.map((q) => (
-                <CardShell key={q.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <DiffBadge d={q.difficulty} />
-                    </div>
-                    <ActionBtns
-                      name={q.title}
-                      onEdit={() => openSdEditModal(q)}
-                      onDelete={() => openSdDeleteModal(q)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {q.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {q.description}
-                  </p>
-                  <span className="mt-3 inline-block text-xs px-2 py-0.5 bg-sky-50 text-sky-600 rounded-full ring-1 ring-sky-100">
-                    {q.section}
-                  </span>
-                  {q.additionalImageUrls?.length > 0 && (
-                    <span className="ml-2 mt-3 inline-block text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full ring-1 ring-purple-100">
-                      {q.additionalImageUrls.length} image
-                      {q.additionalImageUrls.length > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Section
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Images
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {lldData.map((q, i) => (
-                    <tr key={q.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
-                          {q.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">
-                          {q.description}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.section}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={q.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {q.additionalImageUrls?.length ?? 0}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={q.title}
-                          onEdit={() => openSdEditModal(q)}
-                          onDelete={() => openSdDeleteModal(q)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── OOPs ─── */}
-      {activeTab === "oops" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="OOPs Concepts"
-            count={oopsData.length}
-            btnLabel="Add Concept"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {oopsData.map((c) => (
-                <CardShell key={c.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={c.difficulty} />
-                    <ActionBtns
-                      name={c.title}
-                      onEdit={() => triggerEdit(c.title)}
-                      onDelete={() => confirmDelete(c.title, c.id, setOopsData)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {c.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {c.description}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 bg-violet-50 text-violet-600 rounded-full ring-1 ring-violet-100">
-                      {c.category}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">
-                      {c.language}
-                    </span>
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Language
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {oopsData.map((c, i) => (
-                    <tr key={c.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
-                          {c.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">
-                          {c.description}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {c.category}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={c.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {c.language}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={c.title}
-                          onEdit={() => triggerEdit(c.title)}
-                          onDelete={() =>
-                            confirmDelete(c.title, c.id, setOopsData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── Language ─── */}
-      {activeTab === "language" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Language Fundamentals"
-            count={langData.length}
-            btnLabel="Add Concept"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {langData.map((c) => (
-                <CardShell key={c.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <DiffBadge d={c.difficulty} />
-                    <ActionBtns
-                      name={c.title}
-                      onEdit={() => triggerEdit(c.title)}
-                      onDelete={() => confirmDelete(c.title, c.id, setLangData)}
-                    />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">
-                    {c.title}
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {c.description}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs px-2 py-0.5 bg-fuchsia-50 text-fuchsia-600 rounded-full ring-1 ring-fuchsia-100">
-                      {c.category}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full ring-1 ring-gray-200">
-                      {c.language}
-                    </span>
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Language
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {langData.map((c, i) => (
-                    <tr key={c.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                        {i + 1}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">
-                          {c.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">
-                          {c.description}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {c.category}
-                      </td>
-                      <td className="px-6 py-4">
-                        <DiffBadge d={c.difficulty} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {c.language}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={c.title}
-                          onEdit={() => triggerEdit(c.title)}
-                          onDelete={() =>
-                            confirmDelete(c.title, c.id, setLangData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── Positions ─── */}
-      {activeTab === "positions" && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-          <SectionHeader
-            title="Position Resources"
-            count={posData.length}
-            btnLabel="Add Position"
-            view={viewMode}
-            onViewChange={setViewMode}
-          />
-          {isGrid ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {posData.map((pos) => (
-                <CardShell key={pos.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-semibold text-gray-900 text-sm">
-                      {pos.role}
-                    </h4>
-                    <ActionBtns
-                      name={pos.role}
-                      onEdit={() => triggerEdit(pos.role)}
-                      onDelete={() =>
-                        confirmDelete(pos.role, pos.id, setPosData)
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-blue-50 rounded-lg p-2 text-center ring-1 ring-blue-100">
-                      <p className="text-base font-bold text-blue-700">
-                        {pos.interviewQuestions}
-                      </p>
-                      <p className="text-[10px] text-blue-500">Interview</p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-lg p-2 text-center ring-1 ring-emerald-100">
-                      <p className="text-base font-bold text-emerald-700">
-                        {pos.dsaQuestions}
-                      </p>
-                      <p className="text-[10px] text-emerald-500">DSA</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-2 text-center ring-1 ring-amber-100">
-                      <p className="text-base font-bold text-amber-700">
-                        {pos.aptitudeQuestions}
-                      </p>
-                      <p className="text-[10px] text-amber-500">Aptitude</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="bg-purple-50 rounded-lg p-2 text-center ring-1 ring-purple-100">
-                      <p className="text-base font-bold text-purple-700">
-                        {pos.sqlQuestions}
-                      </p>
-                      <p className="text-[10px] text-purple-500">SQL</p>
-                    </div>
-                    <div className="bg-pink-50 rounded-lg p-2 text-center ring-1 ring-pink-100">
-                      <p className="text-base font-bold text-pink-700">
-                        {pos.coreCSQuestions}
-                      </p>
-                      <p className="text-[10px] text-pink-500">Core CS</p>
-                    </div>
-                  </div>
-                </CardShell>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interview Qs
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      DSA
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Aptitude
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      SQL
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Core CS
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {posData.map((pos) => (
-                    <tr key={pos.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {pos.role}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.interviewQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.dsaQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.aptitudeQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.sqlQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {pos.coreCSQuestions}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={pos.role}
-                          onEdit={() => triggerEdit(pos.role)}
-                          onDelete={() =>
-                            confirmDelete(pos.role, pos.id, setPosData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── SD Add/Edit Modal ─── */}
-      {sdModal.open && (
-        <SDQuestionModal
-          designType={sdModal.designType}
-          item={sdModal.item ?? null}
-          saving={sdSaving}
-          onSave={handleSdSave}
-          onClose={() =>
-            setSdModal({ open: false, designType: sdModal.designType })
-          }
+      {activeTab === "core-subjects" && (
+        <CoreSubjectsAdminPanel
+          categories={coreSubjectCategories}
+          categoriesLoading={csCategoriesLoading}
+          selectedSubject={csSubject}
+          onSubjectChange={setCsSubject}
+          onAddCategory={openCsCategoryAddModal}
+          onEditCategory={openCsCategoryEditModal}
+          onDeleteCategory={openCsCategoryDeleteModal}
+          items={activeCoreSubjectItems}
+          loading={csLoading}
+          error={csError}
+          viewMode={viewMode}
+          onViewChange={setViewMode}
+          onAdd={openCsAddModal}
+          onRetry={loadCoreSubjects}
+          onEdit={openCsEditModal}
+          onDelete={openCsDeleteModal}
+          onMoveItem={handleCsMove}
+          onMoveTopic={handleCsMoveTopic}
+          onReorderItems={handleCsReorderItems}
+          onReorderTopics={handleCsReorderTopics}
+          reordering={csReordering}
+          topicQuizzes={activeCoreSubjectQuizzes}
+          onManageTopicQuiz={openCsTopicQuizModal}
+          onDeleteTopicQuiz={handleCsTopicQuizDelete}
         />
       )}
 
+      {activeTab === "system-design" && (
+        <SystemDesignAdminPanel
+          designType={sdDesignType}
+          subSection={sdSubSection}
+          onDesignTypeChange={setSdDesignType}
+          onSubSectionChange={setSdSubSection}
+          sdData={sdData}
+          loading={sdLoading}
+          error={sdError}
+          viewMode={viewMode}
+          onViewChange={setViewMode}
+          onAdd={openSdAddModal}
+          onRetry={loadSdTab}
+          onEdit={openSdEditModal}
+          onDelete={openSdDeleteModal}
+          onMoveItem={handleSdMove}
+          onMoveTopic={handleSdMoveTopic}
+          onReorderItems={handleSdReorderItems}
+          onReorderTopics={handleSdReorderTopics}
+          reordering={sdReordering}
+        />
+      )}
+
+      {/* ─── Core Subjects Add/Edit Modal ─── */}
+      {csModal.open && (
+        <SDConceptModal
+          designType="lld"
+          contentKind="concept"
+          item={csModal.item ?? null}
+          defaultDisplayOrder={nextDisplayOrder(activeCoreSubjectItems)}
+          coreSubject={{
+            slug: csModal.item?.subject ?? csSubject,
+            title: getCoreSubjectTitle(csModal.item?.subject ?? csSubject, coreSubjectCategories),
+          }}
+          saving={csSaving}
+          onSave={handleCsSave}
+          onClose={() => setCsModal({ open: false })}
+        />
+      )}
+
+      {/* ─── SD Add/Edit Modal ─── */}
+      {sdModal.open &&
+        (SD_TAB_CONFIG[sdModal.tabId].contentKind === "question" ? (
+          <SDQuestionModal
+            designType={SD_TAB_CONFIG[sdModal.tabId].designType}
+            item={sdModal.item ?? null}
+            saving={sdSaving}
+            onSave={handleSdSave}
+            onClose={() => setSdModal({ open: false, tabId: sdModal.tabId })}
+          />
+        ) : SD_TAB_CONFIG[sdModal.tabId].contentKind === "resource" ? (
+          <SDResourceModal
+            designType={SD_TAB_CONFIG[sdModal.tabId].designType}
+            item={sdModal.item ?? null}
+            saving={sdSaving}
+            onSave={handleSdSave}
+            onClose={() => setSdModal({ open: false, tabId: sdModal.tabId })}
+          />
+        ) : (
+          <SDConceptModal
+            designType={SD_TAB_CONFIG[sdModal.tabId].designType}
+            contentKind={SD_TAB_CONFIG[sdModal.tabId].contentKind as "concept" | "practice"}
+            item={sdModal.item ?? null}
+            defaultDisplayOrder={nextDisplayOrder(sdData[sdModal.tabId])}
+            saving={sdSaving}
+            onSave={handleSdSave}
+            onClose={() => setSdModal({ open: false, tabId: sdModal.tabId })}
+          />
+        ))}
+
       {/* ─── Delete Confirmation Modal ─── */}
+      {csCategoryModal.open && (
+        <CoreSubjectCategoryModal
+          item={csCategoryModal.item ?? null}
+          saving={csCategorySaving}
+          defaultDisplayOrder={
+            coreSubjectCategories.reduce((max, c) => Math.max(max, c.displayOrder ?? 0), 0) + 10
+          }
+          onSave={handleCsCategorySave}
+          onClose={() => setCsCategoryModal({ open: false })}
+        />
+      )}
+
+      {csQuizModal.open && csSubject && (
+        <CoreSubjectQuizModal
+          topic={csQuizModal.topic}
+          subjectSlug={csSubject}
+          subjectTitle={getCoreSubjectTitle(csSubject, coreSubjectCategories)}
+          quiz={csQuizModal.quiz}
+          saving={csQuizSaving}
+          onSave={handleCsTopicQuizSave}
+          onClose={() => setCsQuizModal({ open: false, topic: "", quiz: null })}
+        />
+      )}
+
+      {csCategoryDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Subject</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Delete <span className="font-medium text-gray-900">"{csCategoryDeleteModal.name}"</span>?
+              Concepts under this subject will remain in the database but won&apos;t appear until reassigned.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setCsCategoryDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCsCategoryDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {csDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Concept</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-gray-900">"{csDeleteModal.name}"</span>? This
+              action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setCsDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCsDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">

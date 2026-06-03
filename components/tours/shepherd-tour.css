@@ -1,0 +1,264 @@
+/**
+ * Shepherd Tour — dark onboarding card (reference-style)
+ */
+
+@keyframes shepherdFadeInSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== CARD ========== */
+.shepherd-step-custom {
+  color-scheme: dark;
+  border-radius: 20px;
+  min-width: 300px;
+  max-width: 360px;
+  overflow: visible;
+  background: #1a1a1c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  animation: shepherdFadeInSlideUp 220ms ease forwards;
+}
+
+.shepherd-step-custom .shepherd-content {
+  position: relative;
+  background: #1a1a1c !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ========== HEADER ========== */
+.shepherd-step-custom .shepherd-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px;
+  background: transparent !important;
+  padding: 18px 44px 0 18px !important;
+}
+
+.shepherd-step-custom .shepherd-header-top {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.shepherd-step-custom .shepherd-step-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-sizing: border-box;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: #ffffff;
+  user-select: none;
+}
+
+.shepherd-step-custom .shepherd-title {
+  display: block;
+  margin: 0;
+  padding: 0;
+  color: #ffffff !important;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  border: none;
+  background: transparent !important;
+}
+
+/* Close (X) — lives on .shepherd-content, not inside .shepherd-header */
+.shepherd-step-custom .shepherd-cancel-icon {
+  position: absolute !important;
+  top: 14px !important;
+  right: 12px !important;
+  width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  opacity: 1 !important;
+  border-radius: 8px !important;
+  transition: color 150ms ease, background 150ms ease !important;
+}
+
+.shepherd-step-custom .shepherd-cancel-icon:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.shepherd-step-custom .shepherd-cancel-icon span {
+  font-size: 18px !important;
+  font-weight: 400 !important;
+}
+
+/* ========== BODY ========== */
+.shepherd-step-custom .shepherd-text {
+  padding: 10px 18px 2px;
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: transparent !important;
+}
+
+/* ========== FOOTER ========== */
+.shepherd-step-custom .shepherd-footer {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 18px 18px !important;
+  margin: 0;
+  border-top: none !important;
+  background: transparent !important;
+}
+
+.shepherd-step-custom .shepherd-step-progress {
+  order: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+  flex: 1 1 auto;
+  text-align: left;
+  user-select: none;
+}
+
+/* ========== BUTTONS ========== */
+.shepherd-step-custom .shepherd-button {
+  margin: 0 !important;
+  padding: 10px 22px !important;
+  border-radius: 999px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease !important;
+}
+
+.shepherd-step-custom .shepherd-footer .shepherd-button {
+  order: 1;
+  flex: 0 0 auto;
+  background: #ffffff !important;
+  color: #111111 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  margin: 0 !important;
+}
+
+.shepherd-step-custom .shepherd-footer .shepherd-button:hover {
+  background: #f4f4f5 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+.shepherd-step-custom .shepherd-footer .shepherd-button:active {
+  transform: translateY(0);
+}
+
+/* ========== SHARP ARROW (no spotlight / no dim overlay) ========== */
+.shepherd-step-custom > .shepherd-arrow {
+  height: 14px !important;
+  width: 14px !important;
+  z-index: 1 !important;
+}
+
+.shepherd-step-custom > .shepherd-arrow::before {
+  height: 0 !important;
+  width: 0 !important;
+  background: transparent !important;
+  transform: none !important;
+  border-style: solid;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Card below target — arrow on top, points up */
+.shepherd-step-custom[data-popper-placement^='bottom'] > .shepherd-arrow {
+  top: -14px !important;
+}
+
+.shepherd-step-custom[data-popper-placement^='bottom'] > .shepherd-arrow::before {
+  border-width: 0 11px 14px 11px;
+  border-color: transparent transparent #1a1a1c transparent;
+}
+
+/* Card above target — arrow on bottom, points down */
+.shepherd-step-custom[data-popper-placement^='top'] > .shepherd-arrow {
+  bottom: -14px !important;
+}
+
+.shepherd-step-custom[data-popper-placement^='top'] > .shepherd-arrow::before {
+  border-width: 14px 11px 0 11px;
+  border-color: #1a1a1c transparent transparent transparent;
+}
+
+/* Card to the right — arrow on left, points left */
+.shepherd-step-custom[data-popper-placement^='right'] > .shepherd-arrow {
+  left: -14px !important;
+}
+
+.shepherd-step-custom[data-popper-placement^='right'] > .shepherd-arrow::before {
+  border-width: 11px 14px 11px 0;
+  border-color: transparent #1a1a1c transparent transparent;
+}
+
+/* Card to the left — arrow on right, points right */
+.shepherd-step-custom[data-popper-placement^='left'] > .shepherd-arrow {
+  right: -14px !important;
+}
+
+.shepherd-step-custom[data-popper-placement^='left'] > .shepherd-arrow::before {
+  border-width: 11px 0 11px 14px;
+  border-color: transparent transparent transparent #1a1a1c;
+}
+
+/* ========== NO MODAL / NO PAGE DIM ========== */
+.shepherd-modal-overlay-container {
+  display: none !important;
+}
+
+.shepherd-element {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 480px) {
+  .shepherd-step-custom {
+    min-width: auto;
+    max-width: min(92vw, 340px);
+    border-radius: 16px;
+  }
+
+  .shepherd-step-custom .shepherd-title {
+    font-size: 16px;
+  }
+
+  .shepherd-step-custom .shepherd-text {
+    font-size: 13px;
+  }
+}

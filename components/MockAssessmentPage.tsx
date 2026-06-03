@@ -501,7 +501,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
   // Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleSidebarNavigation = (navView: DashboardView) => {
     if (navView === 'mock-assessment') {
@@ -2567,7 +2567,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           />
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400">Powered by</p>
-            <h3 className="font-bold text-xl text-gray-900 dark:text-white">Project Bazaar</h3>
+            <h3 className="font-bold text-xl text-gray-900 dark:text-white">CodeXCareer</h3>
           </div>
         </div>
 
@@ -4539,7 +4539,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               {/* Logo */}
               <div className="mb-8">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
-                  Project Bazaar
+                  CodeXCareer
                 </h1>
                 <p className="text-gray-500 text-sm mt-1">Excellence in Technology Assessment</p>
               </div>

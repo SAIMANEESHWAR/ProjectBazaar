@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    sourcemap: true,
+    // Prevent Vercel build OOM by avoiding huge production sourcemaps.
+    sourcemap: mode !== 'production',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -27,7 +28,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     proxy: {
       '/api': {
-        target: 'https://projectbazaar.in',
+        target: 'https://codexcareer.com',
         changeOrigin: true,
       },
       // ATS Lambda: avoids browser CORS errors when developing on localhost:5173

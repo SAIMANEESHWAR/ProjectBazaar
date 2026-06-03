@@ -93,7 +93,7 @@ const AIFeedbackAnimation: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center font-sans w-[800px] max-w-full overflow-hidden bg-transparent transform scale-[0.22] sm:scale-[0.28] md:scale-[0.36] lg:scale-[0.40] xl:scale-[0.48] origin-top py-2">
+        <div className="flex flex-col items-center justify-center font-sans w-[800px] max-w-full overflow-hidden bg-transparent transform scale-[0.22] sm:scale-[0.28] md:scale-[0.36] lg:scale-[0.40] xl:scale-[0.48] origin-top py-0 sm:py-1">
             <style>{`
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(18px); }

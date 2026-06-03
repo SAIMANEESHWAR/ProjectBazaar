@@ -22,18 +22,27 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [localRoadmaps, setLocalRoadmaps] = useState<RoadmapWithLocalSteps[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchRoadmaps = useCallback(async (cancelled = { current: false }) => {
+    setLoading(true);
     try {
       const resp = await prepUserApi.listContent('roadmaps', { limit: 100 });
-      if (!cancelled.current && resp.success && resp.items.length > 0) {
-        setLocalRoadmaps((resp.items as any[]).map((r: any) => ({
-          ...r,
-          steps: (r.steps || []).map((s: any) => ({ ...s })),
-        })));
+      if (!cancelled.current) {
+        setLocalRoadmaps(
+          resp.success
+            ? (resp.items as any[]).map((r: any) => ({
+                ...r,
+                steps: (r.steps || []).map((s: any) => ({ ...s })),
+              }))
+            : []
+        );
       }
-    } catch { /* API only */ }
+    } catch {
+      if (!cancelled.current) setLocalRoadmaps([]);
+    }
+    if (!cancelled.current) setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -112,7 +121,9 @@ const PrepRoadmapsPage = (_props: PrepRoadmapsPageProps) => {
         </div>
       </div>
 
-      {viewMode === 'grid' && (
+      {loading ? (
+        <p className="text-gray-500 py-12 text-center">Loading roadmaps…</p>
+      ) : viewMode === 'grid' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredRoadmaps.map((roadmap) => {
             const completed = roadmap.steps.filter((s) => s.completed).length;

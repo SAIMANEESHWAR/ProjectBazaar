@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import io
 import boto3
 import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime
 from decimal import Decimal
+from xml.sax.saxutils import escape
 from botocore.config import Config
 from boto3.dynamodb.conditions import Key
 
@@ -183,6 +185,22 @@ def _test_gemini_key(api_key):
         return False, str(e)
 
 
+def _test_groq_key(api_key):
+    """Validate Groq API key with models list."""
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status == 200, None
+    except urllib.error.HTTPError as e:
+        return False, e.read().decode("utf-8", errors="ignore") or str(e)
+    except Exception as e:
+        return False, str(e)
+
+
 def _test_claude_key(api_key):
     """Validate Claude API key with a minimal message."""
     data = json.dumps({
@@ -223,7 +241,9 @@ def _test_llm_key(provider, api_key):
         return _test_gemini_key(key)
     if p == "claude":
         return _test_claude_key(key)
-    return False, "provider must be openai, openrouter, gemini, or claude"
+    if p == "groq":
+        return _test_groq_key(key)
+    return False, "provider must be openai, openrouter, gemini, claude, or groq"
 
 
 def handle_test_llm_api_key(body):
@@ -245,7 +265,32 @@ LLM_PROVIDERS = [
     {"id": "openrouter", "name": "OpenRouter"},
     {"id": "gemini", "name": "Google Gemini"},
     {"id": "claude", "name": "Anthropic Claude"},
+    {"id": "groq", "name": "Groq"},
 ]
+
+LIVE_INTERVIEW_DEFAULT_MODELS = {
+    "openrouter": "openai/gpt-4o-mini",
+    "groq": "llama-3.1-8b-instant",
+}
+
+# Providers used by ATS Scorer / Resume Builder (not Groq)
+ATS_PROVIDER_ORDER = ("openai", "gemini", "claude", "openrouter")
+
+
+def _ats_providers_with_keys(keys):
+    if not isinstance(keys, dict):
+        return []
+    return [p for p in ATS_PROVIDER_ORDER if (keys.get(p) or "").strip()]
+
+
+def _resolve_ats_active_provider(keys, stored_active):
+    with_keys = _ats_providers_with_keys(keys)
+    if not with_keys:
+        return None
+    active = (stored_active or "").strip().lower()
+    if active in with_keys:
+        return active
+    return with_keys[0]
 
 
 def handle_get_llm_keys_status(body):
@@ -270,11 +315,15 @@ def handle_get_llm_keys_status(body):
             "hasOpenrouterKey": False,
             "hasGeminiKey": False,
             "hasClaudeKey": False,
+            "hasGroqKey": False,
+            "hasAnyAtsKey": False,
+            "atsActiveProvider": None,
             "providers": providers,
             "savedModels": {},
         })
 
-    keys = existing["Item"].get("llmApiKeys") or {}
+    item = existing["Item"]
+    keys = item.get("llmApiKeys") or {}
     if not isinstance(keys, dict):
         keys = {}
     models = existing["Item"].get("llmModels") or {}
@@ -284,12 +333,21 @@ def handle_get_llm_keys_status(body):
     has_openrouter = bool(keys.get("openrouter"))
     has_gemini = bool(keys.get("gemini"))
     has_claude = bool(keys.get("claude"))
-    by_id = {"openai": has_openai, "openrouter": has_openrouter, "gemini": has_gemini, "claude": has_claude}
+    has_groq = bool(keys.get("groq"))
+    by_id = {
+        "openai": has_openai,
+        "openrouter": has_openrouter,
+        "gemini": has_gemini,
+        "claude": has_claude,
+        "groq": has_groq,
+    }
     providers = [
         {"id": p["id"], "name": p["name"], "hasKey": by_id.get(p["id"], False)}
         for p in LLM_PROVIDERS
     ]
     saved_models = {k: v for k, v in models.items() if v}
+    ats_active = _resolve_ats_active_provider(keys, item.get("atsActiveProvider"))
+    has_any_ats = bool(_ats_providers_with_keys(keys))
 
     return response(200, {
         "success": True,
@@ -297,9 +355,155 @@ def handle_get_llm_keys_status(body):
         "hasOpenrouterKey": has_openrouter,
         "hasGeminiKey": has_gemini,
         "hasClaudeKey": has_claude,
+        "hasGroqKey": has_groq,
+        "hasAnyAtsKey": has_any_ats,
+        "atsActiveProvider": ats_active,
         "providers": providers,
         "savedModels": saved_models,
     })
+
+
+def _get_user_llm_key_and_model(user_id, provider):
+    """Load stored API key and optional model for a provider."""
+    try:
+        existing = table.get_item(Key={"userId": user_id})
+    except Exception as e:
+        return None, None, str(e)
+    item = existing.get("Item")
+    if not item:
+        return None, None, "User not found"
+    keys = item.get("llmApiKeys") or {}
+    if not isinstance(keys, dict):
+        keys = {}
+    api_key = (keys.get(provider) or "").strip()
+    if not api_key:
+        return None, None, f"No {provider} API key saved. Add one in Settings."
+    models = item.get("llmModels") or {}
+    if not isinstance(models, dict):
+        models = {}
+    model = (models.get(provider) or "").strip() or LIVE_INTERVIEW_DEFAULT_MODELS.get(provider)
+    return api_key, model, None
+
+
+def _call_openai_compatible_chat(api_key, endpoint, model, user_content, temperature=0.2):
+    data = json.dumps({
+        "model": model,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+        "messages": [{"role": "user", "content": user_content}],
+    }).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    if "openrouter.ai" in endpoint:
+        headers["HTTP-Referer"] = "https://codexcareer.com"
+        headers["X-Title"] = "CodeXCareer Live Interview"
+    req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=90) as resp:
+        out = json.loads(resp.read().decode("utf-8"))
+    err = out.get("error")
+    if err:
+        msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+        raise RuntimeError(msg)
+    raw = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    if not isinstance(raw, str) or not raw.strip():
+        raise RuntimeError("LLM response missing content")
+    return raw.strip()
+
+
+def _build_live_evaluate_prompt(body):
+    return "\n".join([
+        "You are an interview coach. Score this mock interview and return ONLY valid JSON.",
+        'Schema:',
+        '{"overall":"82/100","dimensions":[{"label":"Structure","score":16,"max":20}],"strengths":["..."],"improvements":["..."],"coachNote":"..."}',
+        "Rules:",
+        "- Exactly 5 dimensions. max always 20.",
+        "- score integer from 0 to 20.",
+        "- strengths 2-4 concise bullets.",
+        "- improvements 2-4 concise bullets.",
+        "- coachNote <= 60 words.",
+        "",
+        f"Track: {body.get('track', '')}",
+        f"Level: {body.get('level', '')}",
+        f"Session label: {body.get('sessionLabel', '')}",
+        f"Duration (sec): {body.get('durationSec', 0)}",
+        "Transcript:",
+        body.get("transcript", ""),
+    ])
+
+
+def _build_live_questions_prompt(body):
+    setup_mode = body.get("setupMode") or body.get("mode") or ""
+    if setup_mode in ("evaluate", "generateQuestions"):
+        setup_mode = ""
+    return "\n".join([
+        "Generate interview questions and return ONLY valid JSON.",
+        'Schema:',
+        '{"questions":["..."],"sessionLabel":"..."}',
+        f"mode: {setup_mode}",
+        f"questionCount: {body.get('questionCount', 0)}",
+        f"timeMinutes: {body.get('timeMinutes', 0)}",
+        f"role: {body.get('role', '')}",
+        f"company: {body.get('company', '')}",
+        f"jobTitle: {body.get('jobTitle', '')}",
+        f"jobDescription: {body.get('jdText', '')}",
+        f"resume: {body.get('resumeText', '')}",
+        "Rules:",
+        "- Return exactly questionCount items.",
+        "- Questions should be concise and interview-realistic.",
+        "- Mix behavioral and technical where applicable.",
+    ])
+
+
+def handle_invoke_live_interview_llm(body):
+    """Server-side LLM for Live Mock Interview (keys never sent to browser)."""
+    user_id = (body.get("userId") or "").strip()
+    provider = (body.get("provider") or "").lower().strip()
+    invoke_mode = (body.get("invokeMode") or "").strip()
+    # Backward compat: legacy clients sent invoke mode as "mode" when not role/company/jd
+    legacy_mode = (body.get("mode") or "").strip()
+    if legacy_mode in ("evaluate", "generateQuestions"):
+        invoke_mode = legacy_mode
+
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+    if provider not in ("openrouter", "groq"):
+        return response(400, {"success": False, "message": "provider must be openrouter or groq"})
+    if invoke_mode not in ("evaluate", "generateQuestions"):
+        return response(400, {
+            "success": False,
+            "message": "invokeMode must be evaluate or generateQuestions",
+        })
+
+    api_key, model, err = _get_user_llm_key_and_model(user_id, provider)
+    if err:
+        return response(403, {"success": False, "message": err})
+
+    model_override = (body.get("model") or "").strip()
+    if model_override:
+        model = model_override
+
+    endpoint = (
+        "https://api.groq.com/openai/v1/chat/completions"
+        if provider == "groq"
+        else "https://openrouter.ai/api/v1/chat/completions"
+    )
+
+    try:
+        if invoke_mode == "evaluate":
+            prompt = _build_live_evaluate_prompt(body)
+            raw = _call_openai_compatible_chat(api_key, endpoint, model, prompt, temperature=0.2)
+            return response(200, {"success": True, "content": raw})
+        prompt = _build_live_questions_prompt(body)
+        raw = _call_openai_compatible_chat(api_key, endpoint, model, prompt, temperature=0.4)
+        return response(200, {"success": True, "content": raw})
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore") or str(e)
+        return response(502, {"success": False, "message": f"LLM request failed: {detail[:300]}"})
+    except Exception as e:
+        print(f"invokeLiveInterviewLlm error: {e}")
+        return response(502, {"success": False, "message": str(e)})
 
 
 def handle_get_ats_score_history(body):
@@ -405,6 +609,7 @@ def handle_update_settings(body):
         "hourlyRate",
         "emailNotifications",
         "pushNotifications",
+        "jobEmailNotificationsEnabled",
         # Integration data fields
         "githubData",
         "driveData",
@@ -422,6 +627,11 @@ def handle_update_settings(body):
         "llmApiKeys",
         # Preferred model per provider for ATS (e.g. gpt-4o-mini, gemini-1.5-flash)
         "llmModels",
+        # Which saved ATS provider to use when user has multiple keys (openai|gemini|claude|openrouter)
+        "atsActiveProvider",
+        # Saved resume JSON + PDF export options (Settings → Resume; generateResumePdf reads both)
+        "savedResumeProfile",
+        "resumeExportSettings",
     ]
 
     # Alias mapping for robustness
@@ -490,6 +700,28 @@ def handle_update_settings(body):
         merged = {**current_keys, **new_keys}
         merged = {k: v for k, v in merged.items() if v}
         updates["llmApiKeys"] = merged if merged else None  # remove attribute if all cleared
+        # When saving a new ATS key, default active provider to that provider if none set
+        saved_ats_providers = [p for p, v in new_keys.items() if p in ATS_PROVIDER_ORDER and (v or "").strip()]
+        if saved_ats_providers and "atsActiveProvider" not in updates:
+            current_active = current_user.get("atsActiveProvider")
+            if not _resolve_ats_active_provider(merged, current_active):
+                updates["atsActiveProvider"] = saved_ats_providers[0]
+
+    if "atsActiveProvider" in updates:
+        active = (updates.get("atsActiveProvider") or "").strip().lower()
+        if active and active not in ATS_PROVIDER_ORDER:
+            return response(400, {
+                "success": False,
+                "message": "atsActiveProvider must be openai, gemini, claude, or openrouter",
+            })
+        merged_keys = updates.get("llmApiKeys")
+        if merged_keys is None:
+            merged_keys = current_user.get("llmApiKeys") or {}
+        if active and active not in _ats_providers_with_keys(merged_keys):
+            return response(400, {
+                "success": False,
+                "message": f"No saved API key for {active}. Add that provider first.",
+            })
 
     # Merge llmModels so saving one provider's model does not wipe others
     if "llmModels" in updates:
@@ -502,6 +734,12 @@ def handle_update_settings(body):
         merged_models = {**current_models, **new_models}
         merged_models = {k: v for k, v in merged_models.items() if v}
         updates["llmModels"] = merged_models if merged_models else None
+
+    # Normalize resume export settings (clamps, types); per-role bullet caps not used — always []
+    if "resumeExportSettings" in updates:
+        merged_export = _merge_resume_export_settings(updates.get("resumeExportSettings"))
+        merged_export["experienceBulletLimits"] = []
+        updates["resumeExportSettings"] = merged_export
 
     # Delete old image if replaced (don't let this crash the update)
     if "profilePictureUrl" in updates:
@@ -571,6 +809,402 @@ def handle_update_settings(body):
         "data": result["Attributes"]
     })
 
+
+# ---------- RESUME PDF (reportlab optional in deployment package) ----------
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.enums import TA_LEFT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
+
+def _html_to_bullet_lines(html):
+    """Extract list items or plain lines from HTML-ish work summary."""
+    if not html or not isinstance(html, str):
+        return []
+    items = re.findall(r"<li[^>]*>(.*?)</li>", html, re.I | re.S)
+    if items:
+        lines = []
+        for raw in items:
+            t = re.sub(r"<[^>]+>", " ", raw)
+            t = re.sub(r"\s+", " ", t).strip()
+            if t:
+                lines.append(t)
+        return lines
+    t = re.sub(r"<[^>]+>", " ", html)
+    return [s.strip() for s in t.replace("<br/>", "\n").replace("<br>", "\n").split("\n") if s.strip()]
+
+
+def _safe_str(v, default=""):
+    if v is None:
+        return default
+    return str(v).strip()
+
+
+def _merge_resume_export_settings(raw):
+    defaults = {
+        "projectsCount": 1,
+        "bulletsPerProject": 7,
+        "experienceBulletsDefault": 3,
+        "experienceTitleFormat": "1line",
+        "educationTitleFormat": "1line",
+        "industries": [],
+        "experienceBulletLimits": [],
+        "customSections": [],
+    }
+    if not isinstance(raw, dict):
+        return defaults
+    out = dict(defaults)
+    for k in defaults:
+        if k in raw:
+            out[k] = raw[k]
+    try:
+        out["projectsCount"] = max(0, min(15, int(out["projectsCount"])))
+    except (TypeError, ValueError):
+        out["projectsCount"] = 1
+    try:
+        out["bulletsPerProject"] = max(1, min(20, int(out["bulletsPerProject"])))
+    except (TypeError, ValueError):
+        out["bulletsPerProject"] = 7
+    try:
+        out["experienceBulletsDefault"] = max(1, min(20, int(out["experienceBulletsDefault"])))
+    except (TypeError, ValueError):
+        out["experienceBulletsDefault"] = 3
+    if out["experienceTitleFormat"] not in ("1line", "2line"):
+        out["experienceTitleFormat"] = "1line"
+    if out["educationTitleFormat"] not in ("1line", "2line"):
+        out["educationTitleFormat"] = "1line"
+    if not isinstance(out["industries"], list):
+        out["industries"] = []
+    out["industries"] = [str(x).strip() for x in out["industries"] if str(x).strip()][:20]
+    if not isinstance(out["experienceBulletLimits"], list):
+        out["experienceBulletLimits"] = []
+    if not isinstance(out["customSections"], list):
+        out["customSections"] = []
+    cleaned_sections = []
+    for s in out["customSections"][:10]:
+        if not isinstance(s, dict):
+            continue
+        t = _safe_str(s.get("title") or s.get("name"))
+        b = _safe_str(s.get("body") or s.get("content") or s.get("text"))
+        if t or b:
+            cleaned_sections.append({"title": t or "Section", "body": b})
+    out["customSections"] = cleaned_sections
+    return out
+
+
+def _exp_bullet_limit(settings, idx, n_exp):
+    lims = settings.get("experienceBulletLimits") or []
+    default = settings["experienceBulletsDefault"]
+    if isinstance(lims, list) and idx < len(lims):
+        try:
+            return max(1, min(20, int(lims[idx])))
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _project_bullet_lines(description, max_bullets):
+    if not description or not isinstance(description, str):
+        return []
+    text = re.sub(r"<[^>]+>", " ", description)
+    parts = re.split(r"[\n•\-\u2022]+", text)
+    lines = [re.sub(r"\s+", " ", p).strip() for p in parts if p and re.sub(r"\s+", " ", p).strip()]
+    return lines[:max_bullets]
+
+
+def _build_resume_pdf_bytes(profile, settings):
+    """Build PDF bytes; assumes reportlab is installed."""
+    profile = decimal_to_native(profile) if profile else {}
+    settings = _merge_resume_export_settings(settings)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        rightMargin=0.65 * inch,
+        leftMargin=0.65 * inch,
+        topMargin=0.55 * inch,
+        bottomMargin=0.55 * inch,
+    )
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle(
+        name="ResumeH1",
+        parent=styles["Heading1"],
+        fontSize=16,
+        spaceAfter=6,
+        textColor="#111827",
+    )
+    h2 = ParagraphStyle(
+        name="ResumeH2",
+        parent=styles["Heading2"],
+        fontSize=11,
+        spaceBefore=10,
+        spaceAfter=4,
+        textColor="#1d4ed8",
+        borderPadding=0,
+    )
+    body = ParagraphStyle(
+        name="ResumeBody",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        alignment=TA_LEFT,
+    )
+    small = ParagraphStyle(
+        name="ResumeSmall",
+        parent=styles["Normal"],
+        fontSize=8,
+        leading=10,
+        textColor="#4b5563",
+    )
+    bullet = ParagraphStyle(
+        name="ResumeBullet",
+        parent=body,
+        leftIndent=12,
+        bulletIndent=6,
+        firstLineIndent=-6,
+    )
+
+    story = []
+    first = _safe_str(profile.get("firstName"))
+    last = _safe_str(profile.get("lastName"))
+    name = (first + " " + last).strip() or "Resume"
+    story.append(Paragraph(escape(name), h1))
+    jt = _safe_str(profile.get("jobTitle"))
+    if jt:
+        story.append(Paragraph(escape(jt), small))
+    contact_bits = []
+    for key in ("phone", "email", "linkedIn", "github"):
+        v = _safe_str(profile.get(key))
+        if v:
+            contact_bits.append(v)
+    web = _safe_str(profile.get("portfolio") or profile.get("website"))
+    if web:
+        contact_bits.append(web)
+    addr = _safe_str(profile.get("address"))
+    if addr:
+        contact_bits.append(addr)
+    if contact_bits:
+        story.append(Paragraph(escape(" · ".join(contact_bits)), small))
+    story.append(Spacer(1, 8))
+
+    inds = settings.get("industries") or []
+    if inds:
+        story.append(Paragraph(escape("Industries: " + ", ".join(inds)), small))
+        story.append(Spacer(1, 6))
+
+    summ = _safe_str(profile.get("summary"))
+    if summ:
+        story.append(Paragraph("Professional summary", h2))
+        story.append(Paragraph(escape(summ), body))
+
+    skills = profile.get("skills") or []
+    if isinstance(skills, list) and skills:
+        story.append(Paragraph("Skills", h2))
+        if skills and isinstance(skills[0], dict):
+            names = [_safe_str(s.get("name")) for s in skills if _safe_str(s.get("name"))]
+            line = ", ".join(names)
+        else:
+            line = ", ".join(_safe_str(s) for s in skills if _safe_str(s))
+        if line:
+            story.append(Paragraph(escape(line), body))
+
+    experiences = profile.get("experience") or []
+    if isinstance(experiences, list) and experiences:
+        story.append(Paragraph("Professional experience", h2))
+        for i, exp in enumerate(experiences):
+            if not isinstance(exp, dict):
+                continue
+            title = _safe_str(exp.get("title"))
+            company = _safe_str(exp.get("companyName"))
+            city = _safe_str(exp.get("city"))
+            state = _safe_str(exp.get("state"))
+            loc = ", ".join(x for x in (city, state) if x)
+            start = _safe_str(exp.get("startDate"))
+            end = "Present" if exp.get("currentlyWorking") else _safe_str(exp.get("endDate"))
+            dates = f"{start} – {end}" if start or end else ""
+
+            if settings["experienceTitleFormat"] == "2line":
+                if title:
+                    story.append(Paragraph(escape(title), body))
+                sub = []
+                if company:
+                    sub.append(company)
+                if loc:
+                    sub.append(loc)
+                if dates:
+                    sub.append(dates)
+                if sub:
+                    story.append(Paragraph(escape(" | ".join(sub)), small))
+            else:
+                line = title
+                if company:
+                    line = f"{title} @ {company}" if title else company
+                bits = [line]
+                if loc:
+                    bits.append(loc)
+                if dates:
+                    bits.append(dates)
+                story.append(Paragraph(escape(" — ".join(b for b in bits if b)), body))
+
+            bullets = _html_to_bullet_lines(exp.get("workSummary"))
+            cap = _exp_bullet_limit(settings, i, len(experiences))
+            for b in bullets[:cap]:
+                story.append(Paragraph(f"• {escape(b)}", bullet))
+            story.append(Spacer(1, 4))
+
+    projects = profile.get("projects") or []
+    n_proj = settings["projectsCount"]
+    bpp = settings["bulletsPerProject"]
+    if isinstance(projects, list) and n_proj > 0:
+        story.append(Paragraph("Projects", h2))
+        for proj in projects[:n_proj]:
+            if not isinstance(proj, dict):
+                continue
+            pname = _safe_str(proj.get("name"))
+            if pname:
+                story.append(Paragraph(escape(pname), body))
+            desc = proj.get("description") or ""
+            tech = proj.get("technologies") or []
+            if isinstance(tech, list) and tech:
+                tstr = ", ".join(_safe_str(t) for t in tech if _safe_str(t))
+                if tstr:
+                    story.append(Paragraph(escape(tstr), small))
+            for line in _project_bullet_lines(desc, bpp):
+                story.append(Paragraph(f"• {escape(line)}", bullet))
+            story.append(Spacer(1, 4))
+
+    education = profile.get("education") or []
+    if isinstance(education, list) and education:
+        story.append(Paragraph("Education", h2))
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            deg = _safe_str(edu.get("degree"))
+            major = _safe_str(edu.get("major"))
+            uni = _safe_str(edu.get("universityName"))
+            start = _safe_str(edu.get("startDate"))
+            end = _safe_str(edu.get("endDate"))
+            dates = f"{start} – {end}" if start or end else ""
+            if settings["educationTitleFormat"] == "2line":
+                line1 = deg
+                if major:
+                    line1 = f"{deg} in {major}" if deg else major
+                if line1:
+                    story.append(Paragraph(escape(line1), body))
+                sub = [x for x in (uni, dates) if x]
+                if sub:
+                    story.append(Paragraph(escape(" | ".join(sub)), small))
+            else:
+                parts = []
+                if deg and major:
+                    parts.append(f"{deg} in {major}")
+                elif deg or major:
+                    parts.append(deg or major)
+                if uni:
+                    parts.append(uni)
+                if dates:
+                    parts.append(dates)
+                story.append(Paragraph(escape(" — ".join(parts)), body))
+            desc = _safe_str(edu.get("description"))
+            if desc:
+                story.append(Paragraph(escape(desc), small))
+            story.append(Spacer(1, 4))
+
+    for cs in settings.get("customSections") or []:
+        t = _safe_str(cs.get("title"))
+        b = _safe_str(cs.get("body"))
+        if t:
+            story.append(Paragraph(escape(t), h2))
+        if b:
+            for para in b.split("\n"):
+                para = para.strip()
+                if para:
+                    story.append(Paragraph(escape(para), body))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def handle_generate_resume_pdf(body):
+    if not REPORTLAB_AVAILABLE:
+        return response(
+            503,
+            {
+                "success": False,
+                "message": "PDF engine not installed. Add reportlab to the Lambda deployment package (see lambda/requirements-resume-pdf.txt).",
+            },
+        )
+
+    user_id = body.get("userId")
+    if not user_id:
+        return response(400, {"success": False, "message": "userId is required"})
+
+    try:
+        existing = table.get_item(Key={"userId": user_id})
+    except Exception as e:
+        print(f"generateResumePdf get_item error: {e}")
+        return response(500, {"success": False, "message": str(e)})
+
+    if "Item" not in existing:
+        return response(404, {"success": False, "message": "User not found"})
+
+    item = decimal_to_native(existing["Item"])
+    profile = item.get("savedResumeProfile")
+    settings = item.get("resumeExportSettings")
+
+    if not profile or not isinstance(profile, dict):
+        return response(
+            400,
+            {
+                "success": False,
+                "message": "No saved resume profile. Save resume data from Settings first.",
+            },
+        )
+
+    try:
+        pdf_bytes = _build_resume_pdf_bytes(profile, settings)
+    except Exception as e:
+        print(f"generateResumePdf build error: {e}")
+        return response(500, {"success": False, "message": f"PDF build failed: {str(e)}"})
+
+    key = f"generated-resumes/{user_id}/{uuid.uuid4().hex}.pdf"
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=pdf_bytes,
+            ContentType="application/pdf",
+        )
+        download_url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": S3_BUCKET,
+                "Key": key,
+                "ResponseContentDisposition": 'attachment; filename="resume.pdf"',
+            },
+            ExpiresIn=3600,
+        )
+    except Exception as e:
+        print(f"generateResumePdf S3 error: {e}")
+        return response(500, {"success": False, "message": str(e)})
+
+    return response(
+        200,
+        {
+            "success": True,
+            "pdfUrl": download_url,
+            "expiresIn": 3600,
+            "s3Key": key,
+        },
+    )
+
+
 # ---------- ENTRY ----------
 def lambda_handler(event, context):
     try:
@@ -597,6 +1231,12 @@ def lambda_handler(event, context):
 
         if action == "getAtsScoreHistory":
             return handle_get_ats_score_history(body)
+
+        if action == "invokeLiveInterviewLlm":
+            return handle_invoke_live_interview_llm(body)
+
+        if action == "generateResumePdf":
+            return handle_generate_resume_pdf(body)
 
         return response(400, {
             "success": False,

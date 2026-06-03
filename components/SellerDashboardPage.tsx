@@ -10,7 +10,7 @@ const SellerDashboardPage: React.FC = () => {
     const { userId } = useAuth();
     const { setDashboardMode } = useDashboard();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Keep global Buyer/Seller mode in sync: this page is seller mode.
     // Run only on mount so we don't reset activeView when context re-renders (which would prevent sidebar navigation from working).

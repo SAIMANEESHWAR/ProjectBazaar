@@ -19,6 +19,7 @@ Usage in a handler:
 """
 
 import json
+import os
 import time
 import boto3
 from datetime import datetime
@@ -55,7 +56,9 @@ def _rate_limit_response():
         "statusCode": 429,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "https://projectbazaar.in",
+            "Access-Control-Allow-Origin": os.environ.get(
+                "ALLOWED_ORIGIN", "https://codexcareer.com"
+            ),
             "Access-Control-Allow-Headers": "Content-Type",
             "Access-Control-Allow-Methods": "POST,OPTIONS",
             "Retry-After": "60",

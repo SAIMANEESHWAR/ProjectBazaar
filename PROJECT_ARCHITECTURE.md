@@ -1,6 +1,6 @@
-# Project Bazaar High-Level Architecture
+# CodeXCareer High-Level Architecture
 
-Project Bazaar is built on a modern, serverless, and cloud-native architecture designed for scalability, modularity, and rapid delivery of features.
+CodeXCareer is built on a modern, serverless, and cloud-native architecture designed for scalability, modularity, and rapid delivery of features.
 
 ## High-Level Architecture Overview
 

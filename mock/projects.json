@@ -78,7 +78,7 @@
     "id": "p6",
     "title": "Mobile App UI/UX Design (Figma)",
     "description": "Seeking a talented UI/UX designer to create mobile app designs using Figma. The app is for a fitness tracking platform. Need modern, intuitive designs for iOS and Android with design system and component library.",
-    "type": "hourly",
+    "type": "hourly", 
     "budget": {
       "min": 30,
       "max": 50,

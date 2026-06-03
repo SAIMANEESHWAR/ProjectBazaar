@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigation } from '../App';
-import { initSentry } from '../lib/analytics';
+import { bootAnalytics } from '../lib/analytics';
 
 const COOKIE_CONSENT_KEY = 'cookieConsent';
 
@@ -40,7 +40,7 @@ const CookieConsent: React.FC = () => {
   const accept = useCallback((level: ConsentLevel) => {
     storeConsent(level);
     if (level === 'all') {
-      initSentry();
+      bootAnalytics();
     }
     setVisible(false);
   }, []);

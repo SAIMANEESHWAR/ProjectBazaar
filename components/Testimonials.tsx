@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 
 const testimonials: Testimonial[] = [
   {
-    text: "Sold my final year project in just 2 days! ProjectBazaar made it incredibly easy to monetize my hard work. Already earned ₹15,000 from my ML project.",
+    text: "Sold my final year project in just 2 days! CodeXCareer made it incredibly easy to monetize my hard work. Already earned ₹15,000 from my ML project.",
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
     name: "Rahul Sharma",
     role: "Computer Science Student",
@@ -93,7 +93,7 @@ const Testimonials: React.FC = () => {
             </span>
           </h2>
           <p className="text-center mt-5 text-white/80 text-lg max-w-md">
-            Join thousands of students and developers who are already earning and learning on ProjectBazaar.
+            Join thousands of students and developers who are already earning and learning on CodeXCareer.
           </p>
         </motion.div>
 

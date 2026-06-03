@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: CodeXCareer documentation
+    url: https://github.com/SAIMANEESHWAR/ProjectBazaar/blob/main/README.md
+    about: Read the README for setup, architecture, and feature overview

@@ -34,8 +34,28 @@ export interface LlmKeysStatus {
   hasOpenrouterKey: boolean;
   hasGeminiKey: boolean;
   hasClaudeKey: boolean;
-  /** List of supported LLM providers and whether the user has a key for each */
+  hasGroqKey?: boolean;
+  hasAnyAtsKey?: boolean;
+  /** Settings id: openai | gemini | claude | openrouter */
+  atsActiveProvider?: string | null;
   providers?: LlmProvider[];
+  savedModels?: Record<string, string>;
+}
+
+export type AtsProvider = 'gemini' | 'openai' | 'openrouter' | 'anthropic';
+
+const ATS_PROVIDER_ORDER: AtsProvider[] = ['openai', 'gemini', 'anthropic', 'openrouter'];
+
+/** Map DynamoDB / Settings provider id to ATS scorer provider. */
+export function settingsIdToAtsProvider(id: string): AtsProvider | null {
+  const p = id.toLowerCase();
+  if (p === 'claude') return 'anthropic';
+  if (p === 'openai' || p === 'gemini' || p === 'openrouter') return p;
+  return null;
+}
+
+export function atsProviderToSettingsId(provider: AtsProvider): string {
+  return provider === 'anthropic' ? 'claude' : provider;
 }
 
 export interface AtsBreakdown {
@@ -102,8 +122,6 @@ export function coerceMissingKeywordDetails(ar: {
     .map((keyword) => ({ keyword, suggestedSection: [] as string[] }));
 }
 
-export type AtsProvider = 'gemini' | 'openai' | 'openrouter' | 'anthropic';
-
 export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
   const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
     method: 'POST',
@@ -117,8 +135,54 @@ export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
     hasOpenrouterKey: !!data.hasOpenrouterKey,
     hasGeminiKey: !!data.hasGeminiKey,
     hasClaudeKey: !!data.hasClaudeKey,
+    hasGroqKey: !!data.hasGroqKey,
+    hasAnyAtsKey: !!data.hasAnyAtsKey,
+    atsActiveProvider:
+      typeof data.atsActiveProvider === 'string' ? data.atsActiveProvider : data.atsActiveProvider ?? null,
     providers: Array.isArray(data.providers) ? data.providers : undefined,
+    savedModels:
+      data.savedModels && typeof data.savedModels === 'object' ? data.savedModels : undefined,
   };
+}
+
+export function getAtsProvidersWithKeys(status: LlmKeysStatus | null | undefined): AtsProvider[] {
+  if (!status?.success) return [];
+  return ATS_PROVIDER_ORDER.filter((p) => hasSavedAtsKey(status, p));
+}
+
+export function resolveActiveAtsProvider(status: LlmKeysStatus | null | undefined): AtsProvider | null {
+  const withKeys = getAtsProvidersWithKeys(status);
+  if (!withKeys.length) return null;
+  const fromSettings = status?.atsActiveProvider
+    ? settingsIdToAtsProvider(status.atsActiveProvider)
+    : null;
+  if (fromSettings && hasSavedAtsKey(status, fromSettings)) return fromSettings;
+  return withKeys[0];
+}
+
+export function hasAnyAtsKeySaved(status: LlmKeysStatus | null | undefined): boolean {
+  if (status?.hasAnyAtsKey !== undefined) return !!status.hasAnyAtsKey;
+  return getAtsProvidersWithKeys(status).length > 0;
+}
+
+/** Whether the user has a saved key for an ATS provider (server-side DynamoDB). */
+export function hasSavedAtsKey(
+  status: LlmKeysStatus | null | undefined,
+  provider: AtsProvider
+): boolean {
+  if (!status?.success) return false;
+  switch (provider) {
+    case 'openai':
+      return !!status.hasOpenAiKey;
+    case 'openrouter':
+      return !!status.hasOpenrouterKey;
+    case 'gemini':
+      return !!status.hasGeminiKey;
+    case 'anthropic':
+      return !!status.hasClaudeKey;
+    default:
+      return false;
+  }
 }
 
 export async function getAtsScore(
@@ -168,8 +232,7 @@ function fileToBase64(file: File): Promise<string> {
 
 export interface AnalyzeAtsWithProviderParams {
   provider: AtsProvider;
-  apiKey?: string;
-  userId?: string;
+  userId: string;
   jobDescription: string;
   resumeFile: File;
   /** Provider model id (optional), e.g. gemini-2.0-flash, gpt-4o-mini, claude-3-haiku-20240307 */
@@ -278,31 +341,20 @@ export async function fixResumeWithProvider(
 }
 
 /**
- * ATS score via user-provided LLM API key (BYOK). Sends resume as base64; Lambda extracts text.
+ * ATS score using API keys saved in Settings (DynamoDB via ATS Lambda).
  */
 export async function analyzeAtsWithProvider(
   params: AnalyzeAtsWithProviderParams
 ): Promise<{ success: boolean; atsResult?: AtsResult; message?: string }> {
-  const { provider, apiKey, userId, jobDescription, resumeFile, model } = params;
+  const { provider, userId, jobDescription, resumeFile, model } = params;
   const resumeBase64 = await fileToBase64(resumeFile);
-  const hasDirectApiKey = Boolean(apiKey?.trim());
-  const providerPayload: Record<string, string> = hasDirectApiKey
-    ? provider === 'gemini'
-      ? { geminiApiKey: apiKey!.trim() }
-      : provider === 'openai'
-        ? { openaiApiKey: apiKey!.trim() }
-        : provider === 'openrouter'
-          ? { openrouterApiKey: apiKey!.trim() }
-          : { anthropicApiKey: apiKey!.trim() }
-    : {};
   const legacyProvider = provider === 'anthropic' ? 'claude' : provider;
   const res = await fetch(ATS_SCORER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      ...(userId ? { userId } : {}),
-      provider: hasDirectApiKey ? provider : userId ? legacyProvider : provider,
-      ...providerPayload,
+      userId,
+      provider: legacyProvider,
       jobDescription,
       resumeBase64,
       resumeFileName: resumeFile.name || 'resume.pdf',
@@ -384,6 +436,23 @@ export async function getAtsScoreHistory(
     items: Array.isArray(data.items) ? data.items : undefined,
     message: data.message,
   };
+}
+
+export async function saveAtsActiveProvider(
+  userId: string,
+  providerId: string
+): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'updateSettings',
+      userId,
+      atsActiveProvider: providerId,
+    }),
+  });
+  const data = await res.json();
+  return { success: !!data.success, message: data.message };
 }
 
 export async function saveLlmApiKeyForProvider(params: {

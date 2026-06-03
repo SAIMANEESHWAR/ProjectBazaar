@@ -1,10 +1,39 @@
 import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import {
+  AuthContext,
+  NavigationContext,
+  useAuth,
+  useNavigation,
+  type Page,
+  type UserRole,
+} from './context/appContext';
+
+export type { Page, UserRole } from './context/appContext';
+export {
+  AuthContext,
+  NavigationContext,
+  useAuth,
+  useNavigation,
+} from './context/appContext';
+import { SITE_ORIGIN } from './lib/apiConfig';
+import { trackPageView } from './lib/analytics';
 import { DashboardProvider } from './context/DashboardContext';
+import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
+import PeerInterviewBackendSync from './components/PeerInterviewBackendSync';
 import { SocketProvider } from './context/SocketContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import PageLoader from './components/PageLoader';
 import CookieConsent from './components/CookieConsent';
 import SkipNav from './components/SkipNav';
+import { ShepherdTourWrapper } from './components/tours/ShepherdTourWrapper';
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
+import { clearSubscriptionCookie } from './lib/subscriptionCookie';
+import SubscriptionFeatureGate from './components/subscription/SubscriptionFeatureGate';
+import type { SubscriptionFeatureId } from './lib/subscriptionFeatures';
+import { PremiumProvider, usePremium } from './context/PremiumContext';
+export { usePremium, PremiumContext } from './context/PremiumContext';
+import { hasPendingPlan, clearPendingPlan } from './lib/pendingPlanStorage';
+import SubscriptionCheckoutPage from './components/SubscriptionCheckoutPage';
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -12,19 +41,16 @@ import Hero from './components/Hero';
 
 // -- Lazy-loaded route components --
 const FlickeringFooter = lazy(() => import('./components/ui/flickering-footer'));
-const ProblemsSection = lazy(() => import('./components/ProblemsSection'));
 const PlatformCardsSection = lazy(() => import('./components/sections/PlatformCardsSection'));
-const UniSystemSection = lazy(() => import('./components/sections/UniSystemSection'));
-const CurriculumSection = lazy(() => import('./components/sections/CurriculumSection'));
 const LanguagesSkillsSection = lazy(() => import('./components/sections/LanguagesSkillsSection'));
-const ResultsGridSection = lazy(() => import('./components/sections/ResultsGridSection'));
-const TestimonialsSection = lazy(() => import('./components/sections/TestimonialsSection'));
-const InstructorSection = lazy(() => import('./components/sections/InstructorSection'));
 const FAQSection = lazy(() => import('./components/sections/FAQSection'));
-const FinalCTASection = lazy(() => import('./components/sections/FinalCTASection'));
 const HackathonCarouselSection = lazy(() => import('./components/sections/HackathonCarouselSection'));
 const InterviewPrepHowItWorks = lazy(() => import('./components/sections/InterviewPrepHowItWorks'));
+const JobPrepSection = lazy(() => import('./components/sections/JobPrepSection'));
+const ResumeBuilderHero = lazy(() => import('./components/sections/ResumeBuilderHero'));
+const ResumeHeroCard = lazy(() => import('./components/sections/ResumeHeroCard'));
 const TopSellers = lazy(() => import('./components/TopSellers'));
+const PricingPlansSection = lazy(() => import('./components/sections/PricingPlansSection'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
@@ -40,17 +66,10 @@ const CodingInterviewQuestionsPage = lazy(() => import('./components/CodingInter
 const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage'));
 const TermsAndConditionsPage = lazy(() => import('./components/TermsAndConditionsPage'));
 const ResumeBuilderPage = lazy(() => import('./components/resume-builder').then(m => ({ default: m.ResumeBuilderPage })));
-
+const LiveMockInterviewPage = lazy(() => import('./components/LiveMockInterviewPage'));
+const BlogPage = lazy(() => import('./components/BlogPage'));
+const BlogPostPage = lazy(() => import('./components/BlogPostPage'));
 type Theme = 'light' | 'dark';
-type Page = 'home' | 'auth' | 'dashboard' | 'seller' | 'admin' | 'faq' | 'browseProjects' | 'freelancerProfile' | 'buildPortfolio' | 'buildResume' | 'mockAssessment' | 'mockLeaderboard' | 'mockAchievements' | 'mockDailyChallenge' | 'mockHistory' | 'codingQuestions' | 'privacy' | 'terms' | 'notFound';
-type UserRole = 'user' | 'admin';
-
-interface PremiumContextType {
-  isPremium: boolean;
-  credits: number;
-  setCredits: (credits: number) => void;
-  setIsPremium: (isPremium: boolean) => void;
-}
 
 interface ThemeContextType {
   theme: Theme;
@@ -58,32 +77,7 @@ interface ThemeContextType {
   isLanding: boolean;
 }
 
-interface NavigationContextType {
-  page: Page;
-  navigateTo: (page: Page) => void;
-}
-
-interface AuthContextType {
-  isLoggedIn: boolean;
-  userId: string | null;
-  userEmail: string | null;
-  userRole: UserRole | null;
-  login: (userId: string, email: string, role?: UserRole) => void;
-  logout: () => void;
-}
-
-export const PremiumContext = createContext<PremiumContextType | undefined>(undefined);
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-export const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const usePremium = (): PremiumContextType => {
-  const context = useContext(PremiumContext);
-  if (!context) {
-    throw new Error('usePremium must be used within a PremiumProvider');
-  }
-  return context;
-};
 
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
@@ -93,52 +87,19 @@ export const useTheme = (): ThemeContextType => {
   return context;
 };
 
-export const useNavigation = (): NavigationContextType => {
-  const context = useContext(NavigationContext);
-  if (context === undefined) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
-  }
-  return context;
-};
+/** Sync legacy isPremium with subscription cookie/API */
+const PremiumSubscriptionSync: React.FC = () => {
+  const { subscription } = useSubscription();
+  const { setIsPremium } = usePremium();
 
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+  useEffect(() => {
+    const active =
+      subscription?.status === 'active' &&
+      (!subscription.endDate || new Date(subscription.endDate).getTime() > Date.now());
+    setIsPremium(Boolean(active));
+  }, [subscription, setIsPremium]);
 
-const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isPremium, setIsPremiumState] = useState<boolean>(() => {
-    const stored = localStorage.getItem('isPremium');
-    return stored === 'true';
-  });
-
-  const [credits, setCreditsState] = useState<number>(() => {
-    const stored = localStorage.getItem('premiumCredits');
-    return stored ? parseInt(stored, 10) : 0;
-  });
-
-  const setIsPremium = (premium: boolean) => {
-    setIsPremiumState(premium);
-    localStorage.setItem('isPremium', premium.toString());
-    if (premium && credits === 0) {
-      setCreditsState(100);
-      localStorage.setItem('premiumCredits', '100');
-    }
-  };
-
-  const setCredits = (newCredits: number) => {
-    setCreditsState(newCredits);
-    localStorage.setItem('premiumCredits', newCredits.toString());
-  };
-
-  return (
-    <PremiumContext.Provider value={{ isPremium, credits, setCredits, setIsPremium }}>
-      {children}
-    </PremiumContext.Provider>
-  );
+  return null;
 };
 
 const LANDING_THEME_KEY = 'landingTheme';
@@ -185,80 +146,139 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
 };
 
 const PAGE_TITLES: Record<Page, string> = {
-  home: 'Project Bazaar — Marketplace for Projects, Ideas & Freelance Collaborations',
-  auth: 'Sign In — Project Bazaar',
-  dashboard: 'Dashboard — Project Bazaar',
-  seller: 'Seller Dashboard — Project Bazaar',
-  admin: 'Admin — Project Bazaar',
-  faq: 'FAQ — Project Bazaar',
-  browseProjects: 'Browse Projects — Project Bazaar',
-  freelancerProfile: 'Freelancer Profile — Project Bazaar',
-  buildPortfolio: 'Build Portfolio — Project Bazaar',
-  buildResume: 'Resume Builder — Project Bazaar',
-  mockAssessment: 'Mock Assessments — Project Bazaar',
-  mockLeaderboard: 'Leaderboard — Mock Assessments — Project Bazaar',
-  mockAchievements: 'Achievements — Mock Assessments — Project Bazaar',
-  mockDailyChallenge: 'Daily Challenge — Mock Assessments — Project Bazaar',
-  mockHistory: 'Test History — Mock Assessments — Project Bazaar',
-  codingQuestions: 'Coding Interview Questions — Project Bazaar',
-  privacy: 'Privacy Policy — Project Bazaar',
-  terms: 'Terms & Conditions — Project Bazaar',
-  notFound: 'Page Not Found — Project Bazaar',
+  home: 'CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations',
+  auth: 'Sign In — CodeXCareer',
+  dashboard: 'Dashboard — CodeXCareer',
+  seller: 'Seller Dashboard — CodeXCareer',
+  admin: 'Admin — CodeXCareer',
+  faq: 'FAQ — CodeXCareer',
+  browseProjects: 'Browse Projects — CodeXCareer',
+  freelancerProfile: 'Freelancer Profile — CodeXCareer',
+  buildPortfolio: 'Build Portfolio — CodeXCareer',
+  buildResume: 'Resume Builder — CodeXCareer',
+  mockAssessment: 'Mock Assessments — CodeXCareer',
+  mockLeaderboard: 'Leaderboard — Mock Assessments — CodeXCareer',
+  mockAchievements: 'Achievements — Mock Assessments — CodeXCareer',
+  mockDailyChallenge: 'Daily Challenge — Mock Assessments — CodeXCareer',
+  mockHistory: 'Test History — Mock Assessments — CodeXCareer',
+  codingQuestions: 'Coding Interview Questions — CodeXCareer',
+  liveMockInterview: 'Live AI Mock Interview — CodeXCareer',
+  blog: 'Blog — Anayattics',
+  blogPost: 'Blog Article — Anayattics',
+  privacy: 'Privacy Policy — CodeXCareer',
+  terms: 'Terms & Conditions — CodeXCareer',
+  notFound: 'Page Not Found — CodeXCareer',
+  subscriptionCheckout: 'Checkout — CodeXCareer',
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
-  home: 'Discover, buy, and sell projects on Project Bazaar. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
-  faq: 'Frequently asked questions about Project Bazaar — your marketplace for projects, freelancing, and career development.',
-  browseProjects: 'Browse and discover projects for sale on Project Bazaar. Find the perfect project to buy or get inspired for your next build.',
-  mockAssessment: 'Practice with mock assessments and coding challenges on Project Bazaar. Prepare for technical interviews and track your progress.',
-  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on Project Bazaar.',
-  privacy: 'Learn how Project Bazaar collects, uses, and protects your personal data. Read our full privacy policy.',
-  terms: 'Read the terms and conditions for using Project Bazaar, including marketplace rules, intellectual property, and payment terms.',
+  home: 'Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
+  faq: 'Frequently asked questions about CodeXCareer — your marketplace for projects, freelancing, and career development.',
+  browseProjects: 'Browse and discover projects for sale on CodeXCareer. Find the perfect project to buy or get inspired for your next build.',
+  mockAssessment: 'Practice with mock assessments and coding challenges on CodeXCareer. Prepare for technical interviews and track your progress.',
+  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on CodeXCareer.',
+  liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on CodeXCareer.',
+  blog: 'Read analytics implementation guides, data strategy insights, and growth measurement best practices from the Anayattics team.',
+  blogPost: 'Detailed analytics implementation guide and expert insights from the Anayattics editorial team.',
+  privacy: 'Learn how CodeXCareer collects, uses, and protects your personal data. Read our full privacy policy.',
+  terms: 'Read the terms and conditions for using CodeXCareer, including marketplace rules, intellectual property, and payment terms.',
 };
 
+const DEFAULT_META_DESCRIPTION =
+  'CodeXCareer helps you discover projects, prepare for interviews, build portfolios, and grow with practical learning and marketplace tools.';
+
 function updatePageMeta(page: Page) {
-  document.title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  const title = PAGE_TITLES[page] || PAGE_TITLES.home;
+  const description = PAGE_META_DESCRIPTIONS[page] || DEFAULT_META_DESCRIPTION;
+  const base = SITE_ORIGIN;
+  const pageToPath: Record<Page, string> = {
+    home: '/',
+    auth: '/auth',
+    dashboard: '/dashboard',
+    seller: '/seller',
+    admin: '/admin',
+    faq: '/faq',
+    browseProjects: '/browse-projects',
+    freelancerProfile: '/freelancer',
+    buildPortfolio: '/build-portfolio',
+    buildResume: '/build-resume',
+    mockAssessment: '/mock-assessment',
+    mockLeaderboard: '/mock-assessment/leaderboard',
+    mockAchievements: '/mock-assessment/achievements',
+    mockDailyChallenge: '/mock-assessment/daily-challenge',
+    mockHistory: '/mock-assessment/history',
+    codingQuestions: '/coding-questions',
+    liveMockInterview: '/live-mock-interview',
+    blog: '/blog',
+    blogPost: window.location.pathname.startsWith('/blog/') ? window.location.pathname : '/blog',
+    privacy: '/privacy',
+    terms: '/terms',
+    notFound: '/404',
+    subscriptionCheckout: '/subscription/checkout',
+  };
+  const path = pageToPath[page] || '/';
+  const absoluteUrl = `${base}${path}`;
+
+  document.title = title;
 
   const descEl = document.querySelector('meta[name="description"]');
-  const desc = PAGE_META_DESCRIPTIONS[page];
-  if (descEl && desc) {
-    descEl.setAttribute('content', desc);
+  if (descEl) {
+    descEl.setAttribute('content', description);
   }
 
   const ogTitleEl = document.querySelector('meta[property="og:title"]');
-  if (ogTitleEl) ogTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+  if (ogTitleEl) ogTitleEl.setAttribute('content', title);
 
   const ogDescEl = document.querySelector('meta[property="og:description"]');
-  if (ogDescEl && desc) ogDescEl.setAttribute('content', desc);
+  if (ogDescEl) ogDescEl.setAttribute('content', description);
+
+  const ogUrlEl = document.querySelector('meta[property="og:url"]');
+  if (ogUrlEl) ogUrlEl.setAttribute('content', absoluteUrl);
 
   const twitterTitleEl = document.querySelector('meta[name="twitter:title"]');
-  if (twitterTitleEl) twitterTitleEl.setAttribute('content', PAGE_TITLES[page] || PAGE_TITLES.home);
+  if (twitterTitleEl) twitterTitleEl.setAttribute('content', title);
 
   const twitterDescEl = document.querySelector('meta[name="twitter:description"]');
-  if (twitterDescEl && desc) twitterDescEl.setAttribute('content', desc);
+  if (twitterDescEl) twitterDescEl.setAttribute('content', description);
+
+  const twitterUrlEl = document.querySelector('meta[name="twitter:url"]');
+  if (twitterUrlEl) twitterUrlEl.setAttribute('content', absoluteUrl);
 
   const canonicalEl = document.querySelector('link[rel="canonical"]');
   if (canonicalEl) {
-    const base = 'https://projectbazaar.in';
-    const pageToPath: Record<string, string> = {
-      home: '/', auth: '/auth', faq: '/faq', browseProjects: '/browse-projects',
-      mockAssessment: '/mock-assessment', codingQuestions: '/coding-questions',
-      privacy: '/privacy', terms: '/terms',
-    };
-    const path = pageToPath[page] || '/';
-    canonicalEl.setAttribute('href', `${base}${path}`);
+    canonicalEl.setAttribute('href', absoluteUrl);
   }
 }
+
+const SubscriptionFeatureGateWrapper: React.FC<{
+  featureId: SubscriptionFeatureId;
+  children: React.ReactNode;
+}> = ({ featureId, children }) => (
+  <div className="min-h-screen bg-gray-50">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
+      <SubscriptionFeatureGate featureId={featureId}>{children}</SubscriptionFeatureGate>
+    </div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
   const { page } = useNavigation();
   const { isLoggedIn, userRole } = useAuth();
   const mainRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
+  const [blogSlug, setBlogSlug] = useState<string | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     updatePageMeta(page);
+    trackPageView(window.location.pathname, document.title);
+    if (page === 'blogPost') {
+      const path = window.location.pathname.replace(/\/+$/, '');
+      const match = path.match(/^\/blog\/([^/]+)$/);
+      setBlogSlug(match ? decodeURIComponent(match[1]) : null);
+    } else {
+      setBlogSlug(null);
+    }
 
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -275,6 +295,8 @@ const AppContent: React.FC = () => {
     switch (page) {
       case 'auth':
         return <AuthPage />;
+      case 'subscriptionCheckout':
+        return <SubscriptionCheckoutPage />;
       case 'admin':
         return isLoggedIn && userRole === 'admin' ? <AdminDashboard /> : <AuthPage />;
       case 'dashboard':
@@ -297,9 +319,17 @@ const AppContent: React.FC = () => {
           </DashboardLayoutWrapper>
         );
       case 'buildPortfolio':
-        return <BuildPortfolioPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="portfolio">
+            <BuildPortfolioPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'buildResume':
-        return <ResumeBuilderPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="resume-builder">
+            <ResumeBuilderPage />
+          </SubscriptionFeatureGateWrapper>
+        );
       case 'mockAssessment':
         return <MockAssessmentPage initialView="list" />;
       case 'mockLeaderboard':
@@ -311,7 +341,21 @@ const AppContent: React.FC = () => {
       case 'mockHistory':
         return <MockAssessmentPage initialView="history" />;
       case 'codingQuestions':
-        return <CodingInterviewQuestionsPage />;
+        return (
+          <SubscriptionFeatureGateWrapper featureId="coding">
+            <CodingInterviewQuestionsPage />
+          </SubscriptionFeatureGateWrapper>
+        );
+      case 'liveMockInterview':
+        return (
+          <SubscriptionFeatureGateWrapper featureId="live-ai">
+            <LiveMockInterviewPage />
+          </SubscriptionFeatureGateWrapper>
+        );
+      case 'blog':
+        return <BlogPage />;
+      case 'blogPost':
+        return <BlogPostPage slug={blogSlug} />;
       case 'privacy':
         return <PrivacyPolicyPage />;
       case 'terms':
@@ -325,19 +369,16 @@ const AppContent: React.FC = () => {
             <Header />
             <main className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans">
               <Hero />
+              <JobPrepSection />
+              <ResumeBuilderHero />
+              <ResumeHeroCard />
               <InterviewPrepHowItWorks />
-              <ProblemsSection />
               <PlatformCardsSection />
-              <UniSystemSection />
-              <CurriculumSection />
               <LanguagesSkillsSection />
               <HackathonCarouselSection />
-              <ResultsGridSection />
-              <TestimonialsSection />
               <TopSellers />
-              <InstructorSection />
+              <PricingPlansSection />
               <FAQSection />
-              <FinalCTASection />
             </main>
             <FlickeringFooter />
           </div>
@@ -406,10 +447,13 @@ const App: React.FC = () => {
         '/mock-assessment/history': 'mockHistory',
         '/coding-questions': 'codingQuestions',
         '/coding-interview-questions': 'codingQuestions',
+        '/live-mock-interview': 'liveMockInterview',
+        '/blog': 'blog',
         '/privacy': 'privacy',
         '/privacy-policy': 'privacy',
         '/terms': 'terms',
         '/terms-and-conditions': 'terms',
+        '/subscription/checkout': 'subscriptionCheckout',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -428,9 +472,13 @@ const App: React.FC = () => {
         'mockDailyChallenge': 'mockDailyChallenge',
         'mockHistory': 'mockHistory',
         'codingQuestions': 'codingQuestions',
+        'liveMockInterview': 'liveMockInterview',
+        'blog': 'blog',
+        'blogPost': 'blogPost',
         'privacy': 'privacy',
         'terms': 'terms',
         'notFound': 'notFound',
+        'subscriptionCheckout': 'subscriptionCheckout',
       };
 
       // Extract base path (remove query params, hash, and trailing slashes)
@@ -449,6 +497,12 @@ const App: React.FC = () => {
         return;
       }
 
+      if (/^\/blog\/[^/]+$/.test(normalizedPath)) {
+        setPage('blogPost');
+        localStorage.setItem('currentPage', 'blogPost');
+        return;
+      }
+
       // Check if route is valid (exact match)
       const targetPage = validRoutes[normalizedRoute] || validRoutes[normalizedPath];
 
@@ -463,7 +517,13 @@ const App: React.FC = () => {
         // Check auth requirements for protected routes
         const storedAuth = localStorage.getItem('authSession');
 
-        if ((targetPage === 'admin' || targetPage === 'dashboard' || targetPage === 'seller') && storedAuth !== 'true') {
+        if (
+          (targetPage === 'admin' ||
+            targetPage === 'dashboard' ||
+            targetPage === 'seller' ||
+            targetPage === 'subscriptionCheckout') &&
+          storedAuth !== 'true'
+        ) {
           setPage('auth');
           localStorage.setItem('currentPage', 'auth');
           return;
@@ -512,9 +572,15 @@ const App: React.FC = () => {
 
           // Only auto-navigate if we're on home page or auth page
           // Don't override 404 pages - they should stay as 404
-          if (page === 'home' || page === 'auth') {
+          const currentPage = localStorage.getItem('currentPage') as Page | null;
+          const stayOnCheckout =
+            currentPage === 'subscriptionCheckout' || hasPendingPlan();
+
+          if ((page === 'home' || page === 'auth') && !stayOnCheckout) {
             if (role === 'admin') {
               setPage('admin');
+            } else if (hasPendingPlan()) {
+              setPage('subscriptionCheckout');
             } else {
               setPage('dashboard');
             }
@@ -551,10 +617,14 @@ const App: React.FC = () => {
       'mockDailyChallenge': '/mock-assessment/daily-challenge',
       'mockHistory': '/mock-assessment/history',
       'codingQuestions': '/coding-questions',
+      'liveMockInterview': '/live-mock-interview',
+      'blog': '/blog',
+      'blogPost': '/blog',
       'privacy': '/privacy',
-      'terms': '/terms',
-      'notFound': '/404'
-    };
+        'terms': '/terms',
+        'notFound': '/404',
+        'subscriptionCheckout': '/subscription/checkout',
+      };
 
     const url = pageMap[targetPage] || '/';
     // Use replaceState for 404 to avoid cluttering history, pushState for others
@@ -577,8 +647,9 @@ const App: React.FC = () => {
 
     if (role === 'admin') {
       navigateTo('admin');
+    } else if (hasPendingPlan()) {
+      navigateTo('subscriptionCheckout');
     } else {
-      // Ensure buyer dashboard is shown after login (handled in dashboard via justLoggedIn)
       sessionStorage.setItem('justLoggedIn', 'true');
       navigateTo('dashboard');
     }
@@ -593,7 +664,10 @@ const App: React.FC = () => {
     // Clear auth and session data
     localStorage.removeItem('userData');
     localStorage.removeItem('authSession');
+    localStorage.removeItem('oauthIdToken');
     localStorage.removeItem('currentPage');
+    clearSubscriptionCookie();
+    clearPendingPlan();
     sessionStorage.clear();
 
     navigateTo('home');
@@ -604,14 +678,22 @@ const App: React.FC = () => {
       <ThemeProvider page={page}>
         <PremiumProvider>
           <DashboardProvider>
-            <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
-              <SocketProvider>
-                <NavigationContext.Provider value={{ page, navigateTo }}>
-                  <AppContent />
-                  <CookieConsent />
-                </NavigationContext.Provider>
-              </SocketProvider>
-            </AuthContext.Provider>
+            <PeerInterviewQueueProvider>
+              <AuthContext.Provider value={{ isLoggedIn, userId, userEmail, userRole, login, logout }}>
+                <SubscriptionProvider>
+                  <PremiumSubscriptionSync />
+                  <PeerInterviewBackendSync />
+                  <SocketProvider>
+                    <NavigationContext.Provider value={{ page, navigateTo }}>
+                      <ShepherdTourWrapper>
+                        <AppContent />
+                      </ShepherdTourWrapper>
+                      <CookieConsent />
+                    </NavigationContext.Provider>
+                  </SocketProvider>
+                </SubscriptionProvider>
+              </AuthContext.Provider>
+            </PeerInterviewQueueProvider>
           </DashboardProvider>
         </PremiumProvider>
       </ThemeProvider>

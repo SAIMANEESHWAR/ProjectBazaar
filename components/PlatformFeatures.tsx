@@ -147,7 +147,7 @@ const PlatformFeatures: React.FC = () => {
           </h2>
           <p className="text-white/80 text-lg max-w-2xl mx-auto">
             From hiring talent to building your portfolio — discover all the powerful features
-            that make ProjectBazaar the ultimate platform for creators and buyers.
+            that make CodeXCareer the ultimate platform for creators and buyers.
           </p>
         </motion.div>
 

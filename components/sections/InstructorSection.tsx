@@ -33,7 +33,7 @@ const InstructorSection: React.FC = () => {
           transition={{ duration: 0.65 }}
           className="text-center mb-12 md:mb-16"
         >
-          <p className="text-[#a1a1a1] dark:text-gray-400 font-medium uppercase tracking-wider mb-4 text-sm">Behind ProjectBazaar</p>
+          <p className="text-[#a1a1a1] dark:text-gray-400 font-medium uppercase tracking-wider mb-4 text-sm">Behind CodeXCareer</p>
           <h2 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-[1.1] tracking-tight text-[#1a1a1a] dark:text-white">
             Built by makers, <br />
             <span className="text-[#ff7a00]">for makers</span>
@@ -81,7 +81,7 @@ const InstructorSection: React.FC = () => {
               <div className="border-t border-white/10 pt-8 mt-4">
                 <p className="text-[#a1a1a1] font-bold text-sm uppercase tracking-widest mb-4">Why we built this</p>
                 <p className="text-white/90 text-lg leading-[1.6]">
-                  &quot;We saw too many great projects end up in folders. Students, indie hackers, and freelancers deserved one place to sell, buy, and collaborate. ProjectBazaar is that place.&quot;
+                  &quot;We saw too many great projects end up in folders. Students, indie hackers, and freelancers deserved one place to sell, buy, and collaborate. CodeXCareer is that place.&quot;
                 </p>
               </div>
               <motion.div

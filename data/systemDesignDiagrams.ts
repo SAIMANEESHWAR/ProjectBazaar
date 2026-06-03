@@ -1,4 +1,4 @@
-import { DiagramData } from './systemDesignData';
+import type { DiagramData } from './prepDiagramTypes';
 
 export const ALL_DIAGRAM_DATA: Record<string, DiagramData> = {
     // ═══════════════════════════════ HLD ═══════════════════════════════

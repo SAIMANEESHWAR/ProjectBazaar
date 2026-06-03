@@ -13,10 +13,7 @@ import { fullAptitudeSeed } from "../data/seedAptitude";
 import { hldQuestions, lldQuestions } from "../data/systemDesignData";
 import { companies } from "../data/massRecruitmentData";
 import { roles } from "../data/positionResourcesData";
-
-const PREP_ADMIN_ENDPOINT =
-  process.env.VITE_PREP_ADMIN_ENDPOINT ??
-  "https://rsesb93sz6.execute-api.ap-south-2.amazonaws.com/default/prep_admin_handler";
+import { PREP_ADMIN_ENDPOINT } from "./prepAdminConfig";
 
 const BATCH_SIZE = 25;
 

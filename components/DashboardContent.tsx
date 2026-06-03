@@ -1,9 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import Lottie from 'lottie-react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
 import { useAuth } from '../App';
-import { useDashboard } from '../context/DashboardContext';
+import { useDashboard, isPrepView } from '../context/DashboardContext';
 import noProjectAnimation from '../lottiefiles/no_project_animation.json';
+import codingCardAnimation from '../lottiefiles/coding.json';
+import studentCardAnimation from '../lottiefiles/student_card.json';
+import preparationModeELearningAnimation from '../lottiefiles/preparation_mode_e_learning.json';
+import rocketLightAnimation from '../lottiefiles/rocket_light.json';
+import portfolioCardAnimation from '../lottiefiles/portfolio_card.json';
+import codingQuestionsManUsingLaptopAnimation from '../lottiefiles/coding_questions_man_using_laptop.json';
+import upcomingMeetingsAnimation from '../lottiefiles/upcoming_meetings_update.json';
 import DashboardHeader from './DashboardHeader';
 import BuyerProjectCard from './BuyerProjectCard';
 import type { BuyerProject } from './BuyerProjectCard';
@@ -28,20 +35,25 @@ import HelpCenterPage from './HelpCenterPage';
 import BuyerCoursesPage, { Course } from './BuyerCoursesPage';
 import CourseDetailsPage from './CourseDetailsPage';
 import HackathonsPage from './HackathonsPage';
+import JobHuntPage from './JobHuntPage';
 import Pagination from './Pagination';
 import BuildPortfolioPage from './BuildPortfolioPage';
 import ATSScorer from './ATSScorer';
 import { ResumeBuilderPage } from './resume-builder';
 import MyCoursesPage from './MyCoursesPage';
-import CareerGuidancePage from './CareerGuidancePage';
 import MockAssessmentPage from './MockAssessmentPage';
 import CodingInterviewQuestionsPage from './CodingInterviewQuestionsPage';
+import LiveMockInterviewPage from './LiveMockInterviewPage';
+import LiveMockInterviewDashboard from './LiveMockInterviewDashboard';
+import PeerInterviewRequestsDashboard from './PeerInterviewRequestsDashboard';
 import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
 import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
+import SubscriptionFeatureGate from './subscription/SubscriptionFeatureGate';
+import { getFeatureIdForView } from '../lib/subscriptionFeatures';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
 import PrepDSAProblemsPage from './preparation/PrepDSAProblemsPage';
 import PrepQuizzesPage from './preparation/PrepQuizzesPage';
@@ -55,6 +67,7 @@ import PrepPositionResourcesPage from './preparation/PrepPositionResourcesPage';
 import PrepActivityPage from './preparation/PrepActivityPage';
 import PrepSystemDesignPage from './preparation/PrepSystemDesignPage';
 import PrepFundamentalsPage from './preparation/PrepFundamentalsPage';
+import PrepCoreSubjectsPage from './preparation/PrepCoreSubjectsPage';
 
 interface ApiProject {
     projectId: string;
@@ -202,10 +215,101 @@ const activatedProjects = [
     },
 ];
 
+type FeatureCardTarget = {
+    mode: 'buyer' | 'preparation' | 'jobHunt';
+    view: DashboardView;
+};
+
+interface FeatureCardConfig {
+    title: string;
+    subtitle: string;
+    accentClass: string;
+    gridClass: string;
+    target: FeatureCardTarget;
+    showAnimation?: boolean;
+    animationData?: unknown;
+    dataTour?: string;
+}
+
+interface UpcomingActivityItem {
+    title: string;
+    time: string;
+}
+
+const FEATURE_CARDS: FeatureCardConfig[] = [
+    {
+        title: 'Job Hunt',
+        subtitle: 'Browse roles and track applications quickly.',
+        accentClass: 'bg-[#dcc9ff]',
+        gridClass: 'xl:col-span-7 xl:h-[220px]',
+        target: { mode: 'jobHunt', view: 'job-hunt' },
+        animationData: studentCardAnimation,
+        dataTour: 'job-hunt-card',
+    },
+    {
+        title: 'Preparation Mode',
+        subtitle: 'Practice DSA, system design, and interview rounds.',
+        accentClass: 'bg-[#f8c7df]',
+        gridClass: 'xl:col-span-5 xl:h-[220px]',
+        target: { mode: 'preparation', view: 'prep-hub' },
+        animationData: preparationModeELearningAnimation,
+        dataTour: 'prep-mode-card',
+    },
+    {
+        title: 'Live AI Interviews',
+        subtitle: 'Simulate real interviews with instant feedback.',
+        accentClass: 'bg-[#ffecad]',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'live-mock-interview' },
+        showAnimation: false,
+        dataTour: 'live-ai-card',
+    },
+    {
+        title: 'Hackathons',
+        subtitle: 'Find upcoming hackathons and register faster.',
+        accentClass: 'bg-[#cfe1af]',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'hackathons' },
+        showAnimation: false,
+        dataTour: 'hackathons-card',
+    },
+    {
+        title: 'ATS Scorer',
+        subtitle: 'Check resume match score before applying.',
+        accentClass: 'bg-[#c7e1ff]',
+        gridClass: 'xl:col-span-4 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'ats-scorer' },
+        showAnimation: false,
+        dataTour: 'ats-card',
+    },
+    {
+        title: 'Coding Questions',
+        subtitle: 'Sharpen interview skills with curated coding sets.',
+        accentClass: 'bg-[#ffd8bb]',
+        gridClass: 'xl:col-span-6 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'coding-questions' },
+        animationData: codingQuestionsManUsingLaptopAnimation,
+    },
+    {
+        title: 'Build Portfolio',
+        subtitle: 'Create and publish a project portfolio in minutes.',
+        accentClass: 'bg-[#cde8ff]',
+        gridClass: 'xl:col-span-6 xl:h-[180px]',
+        target: { mode: 'buyer', view: 'build-portfolio' },
+        animationData: portfolioCardAnimation,
+    },
+];
+
+const UPCOMING_ACTIVITY: UpcomingActivityItem[] = [
+    { title: 'Resume scored for Job Hunt profile', time: '2 mins ago' },
+    { title: 'Mock interview feedback updated', time: '18 mins ago' },
+    { title: 'Hackathon reminder created', time: '2 hours ago' },
+];
+
 
 interface DashboardContentProps {
-    dashboardMode?: 'buyer' | 'seller' | 'preparation';
-    setDashboardMode?: (mode: 'buyer' | 'seller') => void;
+    dashboardMode?: 'buyer' | 'seller' | 'preparation' | 'jobHunt';
+    setDashboardMode?: (mode: 'buyer' | 'seller' | 'preparation' | 'jobHunt') => void;
     activeView?: DashboardView;
     isSidebarOpen: boolean;
     toggleSidebar: () => void;
@@ -231,6 +335,180 @@ export interface ExtendedProject extends BuyerProject {
     supportInfo?: string;
 }
 
+const DashboardFeatureCard: React.FC<{
+    card: FeatureCardConfig;
+    onClick: () => void;
+}> = ({ card, onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        {...(card.dataTour ? { 'data-tour': card.dataTour } : {})}
+        className={`${card.accentClass} relative flex h-full w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border border-gray-200 p-6 text-left shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md`}
+    >
+        <span className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-white/28 text-base leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] backdrop-blur-md">
+            ↗
+        </span>
+        <div className={card.showAnimation !== false ? 'max-w-[68%]' : 'max-w-full'}>
+            <h3 className="mb-2 text-xl font-semibold text-gray-900">{card.title}</h3>
+            <p className="mb-4 text-sm text-gray-500">{card.subtitle}</p>
+        </div>
+        {card.showAnimation !== false && (
+            <div className="pointer-events-none flex h-28 w-28 flex-shrink-0 items-center justify-center lg:h-36 lg:w-36">
+                <Lottie animationData={card.animationData ?? codingCardAnimation} loop className="h-full w-full" />
+            </div>
+        )}
+    </button>
+);
+
+const UpcomingSection: React.FC<{ onMarketplaceClick: () => void }> = ({ onMarketplaceClick }) => (
+    <aside className="h-full rounded-2xl bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+        <div className="flex h-full flex-col justify-between">
+            <div className="mb-6">
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">No Messages</h3>
+                <div className="flex items-center justify-center rounded-xl bg-transparent p-0">
+                    <div className="h-56 w-full max-w-[320px]">
+                        <Lottie animationData={upcomingMeetingsAnimation} loop className="h-full w-full" />
+                    </div>
+                </div>
+                <div className="mt-4 flex justify-center">
+                    <button
+                        type="button"
+                        onClick={onMarketplaceClick}
+                        className="relative inline-flex items-center gap-2 overflow-hidden rounded-full px-3 py-2 text-xs sm:text-sm font-semibold transition-colors bg-black text-white hover:bg-gray-900"
+                    >
+                        <span className="relative z-10">Marketplace</span>
+                        <span className="relative z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-black text-sm font-bold">
+                            ↗
+                        </span>
+                        <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+                        >
+                            <span className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-18deg] animate-job-hunt-btn-shine opacity-80" />
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <div className="border-t pt-4">
+                <h4 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h4>
+                <div className="space-y-3">
+                    {UPCOMING_ACTIVITY.map((item) => (
+                        <div key={item.title} className="flex items-start gap-3 rounded-lg px-1 py-1">
+                            <span className="mt-1 inline-block h-2 w-2 flex-shrink-0 rounded-full bg-indigo-400" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-800">{item.title}</p>
+                                <p className="text-xs text-gray-500">{item.time}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </aside>
+);
+
+const CareerGuidanceComingSoon: React.FC = () => (
+    <section className="flex min-h-[72vh] w-full items-center justify-center px-4 py-10 sm:px-8">
+        <div className="flex w-full max-w-3xl flex-col items-center justify-center text-center">
+            <div className="mx-auto mb-3 h-56 w-56 sm:h-64 sm:w-64">
+                <Lottie animationData={rocketLightAnimation} loop className="h-full w-full" />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">Career Guidance</p>
+            <h2 className="mt-3 text-3xl font-bold text-gray-900">Feature Coming Soon</h2>
+            <p className="mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
+                We are building the Career Guidance experience right now. Please check back soon.
+            </p>
+        </div>
+    </section>
+);
+
+interface MarketplaceShortcutItem {
+    title: string;
+    subtitle: string;
+    view: DashboardView;
+}
+
+const MARKETPLACE_SHORTCUTS: MarketplaceShortcutItem[] = [
+    { title: 'Project Marketplace', subtitle: 'Browse projects, freelancers, and project bids.', view: 'project-bazaar' },
+    { title: 'Courses', subtitle: 'Explore and purchase learning courses.', view: 'courses' },
+    { title: 'My Purchases', subtitle: 'Open all your purchased items.', view: 'purchases' },
+    { title: 'My Wishlist', subtitle: 'See saved projects and revisit them.', view: 'wishlist' },
+    { title: 'Cart', subtitle: 'Review items ready for checkout.', view: 'cart' },
+    { title: 'Analytics', subtitle: 'Track your marketplace activity.', view: 'analytics' },
+    { title: 'Help Center', subtitle: 'Get support for buying and orders.', view: 'help-center' },
+    { title: 'Profiles & Settings', subtitle: 'Manage buyer, seller, and account details.', view: 'settings' },
+];
+
+const MarketplaceHub: React.FC<{
+    onNavigate: (view: DashboardView) => void;
+    onSwitchMode: (mode: 'buyer' | 'seller') => void;
+}> = ({ onNavigate, onSwitchMode }) => (
+    <section className="mt-8 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => onNavigate('wishlist')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Wishlist
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('cart')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Cart
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onNavigate('purchases')}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+                >
+                    My Purchases
+                </button>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-orange-50 p-1">
+                <button
+                    type="button"
+                    onClick={() => onSwitchMode('buyer')}
+                    className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white"
+                >
+                    Buyer
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onSwitchMode('seller')}
+                    className="rounded-md px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white"
+                >
+                    Seller
+                </button>
+            </div>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-orange-50 via-white to-orange-50 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">Marketplace</p>
+            <h2 className="mt-2 text-3xl font-bold text-gray-900">Marketplace dashboard</h2>
+            <p className="mt-3 max-w-2xl text-sm text-gray-600">
+                All marketplace actions are grouped here, so job-hunt and preparation workflows stay clean and focused.
+            </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {MARKETPLACE_SHORTCUTS.map((item) => (
+                <button
+                    key={item.title}
+                    type="button"
+                    onClick={() => onNavigate(item.view)}
+                    className="rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:border-orange-300 hover:shadow-md"
+                >
+                    <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
+                    <p className="mt-2 text-sm text-gray-600">{item.subtitle}</p>
+                </button>
+            ))}
+        </div>
+    </section>
+);
+
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
     const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
@@ -247,6 +525,25 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             sessionStorage.removeItem('justLoggedIn');
         }
     }, [setDashboardMode, setActiveView, setBrowseView]);
+
+    // Keep dashboard mode and active view in sync (stale localStorage, collapsed sidebar, etc.).
+    useLayoutEffect(() => {
+        if (dashboardMode === 'preparation') {
+            if (
+                activeView === 'live-mock-interview'
+                || (!isPrepView(activeView) && activeView !== 'settings' && activeView !== 'live-peer-requests')
+            ) {
+                setActiveView('prep-hub');
+            }
+        } else if (isPrepView(activeView)) {
+            setActiveView('dashboard');
+        }
+
+        const jobHuntAllowedViews: DashboardView[] = ['job-hunt', 'settings', 'live-peer-requests'];
+        if (dashboardMode === 'jobHunt' && !jobHuntAllowedViews.includes(activeView)) {
+            setActiveView('job-hunt');
+        }
+    }, [dashboardMode, activeView, setActiveView]);
 
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
@@ -463,8 +760,48 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     }, [searchQuery, filteredProjects.length]);
 
     const renderBuyerContent = () => {
+        const openFeatureFromCard = (target: FeatureCardTarget) => {
+            setDashboardMode(target.mode);
+        };
+
         switch (activeView) {
             case 'dashboard':
+                return (
+                    <div className="mt-8">
+                        <section className="mb-8">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+                                <div className="md:col-span-12 xl:col-span-8">
+                                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-12">
+                                        {FEATURE_CARDS.map((card) => (
+                                            <div
+                                                key={card.title}
+                                                className={`${card.gridClass} min-h-[180px]`}
+                                            >
+                                                <DashboardFeatureCard card={card} onClick={() => openFeatureFromCard(card.target)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="md:col-span-12 xl:col-span-4">
+                                    <UpcomingSection
+                                        onMarketplaceClick={() => {
+                                            setDashboardMode('buyer');
+                                            setActiveView('project-bazaar');
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                );
+            case 'marketplace-hub':
+                return (
+                    <MarketplaceHub
+                        onNavigate={setActiveView}
+                        onSwitchMode={(mode) => setDashboardMode(mode)}
+                    />
+                );
+            case 'project-bazaar':
                 return (
                     <div className="mt-8">
                         {/* Render content based on browseView */}
@@ -472,7 +809,6 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         {browseView === 'projects' && <BrowseProjectsContent />}
                         {(browseView === 'all' || (!browseView && buyerProjectView === 'all')) && (
                             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
-                                {/* Filters Sidebar */}
                                 <div className="lg:w-72 flex-shrink-0 lg:overflow-y-auto custom-scrollbar pr-2 pb-20">
                                     <DashboardFilters
                                         projects={projects}
@@ -480,16 +816,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                     />
                                 </div>
 
-                                {/* Projects Grid */}
                                 <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar pr-2">
-                                    {/* Loading State - Skeleton Dashboard */}
                                     {isLoadingProjects && (
                                         <div className="space-y-8">
                                             <SkeletonDashboard />
                                         </div>
                                     )}
 
-                                    {/* Error State */}
                                     {projectsError && !isLoadingProjects && (
                                         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                                             <div className="flex items-center gap-2">
@@ -518,7 +851,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                                                         key={project.id}
                                                         project={project}
                                                         onViewDetails={(proj) => {
-                                                            setPreviousView('dashboard');
+                                                            setPreviousView('project-bazaar');
                                                             setSelectedProject(proj);
                                                             setActiveView('project-details');
                                                         }}
@@ -652,13 +985,24 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'ats-scorer':
-                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
+                return (
+                  <ATSScorer
+                    onBack={() => setActiveView('dashboard')}
+                    onNavigateToSettings={() => setActiveView('settings')}
+                  />
+                );
             case 'career-guidance':
-                return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+                return <CareerGuidanceComingSoon />;
             case 'company-posts':
                 return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview-dashboard':
+                return <LiveMockInterviewDashboard />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'course-details':
@@ -753,11 +1097,22 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'build-resume':
                 return <ResumeBuilderPage embedded onBack={() => setActiveView('dashboard')} toggleSidebar={toggleSidebar} onNavigateToSettings={() => setActiveView('settings')} />;
             case 'ats-scorer':
-                return <ATSScorer onBack={() => setActiveView('dashboard')} />;
+                return (
+                  <ATSScorer
+                    onBack={() => setActiveView('dashboard')}
+                    onNavigateToSettings={() => setActiveView('settings')}
+                  />
+                );
             case 'career-guidance':
-                return <CareerGuidancePage toggleSidebar={toggleSidebar} />;
+                return <CareerGuidanceComingSoon />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
+            case 'live-mock-interview-dashboard':
+                return <LiveMockInterviewDashboard />;
             case 'coding-questions':
                 return <CodingInterviewQuestionsPage toggleSidebar={toggleSidebar} />;
             case 'my-projects':
@@ -820,8 +1175,23 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         }
     };
 
+    const renderJobHuntContent = () => {
+        switch (activeView) {
+            case 'settings':
+                return <SettingsPage />;
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
+            case 'job-hunt':
+                return <JobHuntPage toggleSidebar={toggleSidebar} />;
+            default:
+                return <JobHuntPage toggleSidebar={toggleSidebar} />;
+        }
+    };
+
     const renderPreparationContent = () => {
         switch (activeView) {
+            case 'live-peer-requests':
+                return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'prep-hub':
                 return <PreparationHub onNavigate={(view) => setActiveView(view as any)} />;
             case 'prep-interview-questions':
@@ -854,6 +1224,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 return <PrepFundamentalsPage {...{ section: 'oops' as const, toggleSidebar }} />;
             case 'prep-language':
                 return <PrepFundamentalsPage {...{ section: 'language' as const, toggleSidebar }} />;
+            case 'prep-core-subjects':
+                return <PrepCoreSubjectsPage toggleSidebar={toggleSidebar} />;
             case 'prep-activity':
                 return <PrepActivityPage toggleSidebar={toggleSidebar} />;
             default:
@@ -862,11 +1234,26 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     };
 
     const isCodingQuestions = activeView === 'coding-questions';
+    const isLiveMockInterview = activeView === 'live-mock-interview';
+    const isPeerRequestsDashboard = activeView === 'live-peer-requests';
+    const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview || isPeerRequestsDashboard;
 
     const renderModeContent = () => {
+        if (dashboardMode === 'jobHunt') return renderJobHuntContent();
         if (dashboardMode === 'preparation') return renderPreparationContent();
         if (dashboardMode === 'buyer') return renderBuyerContent();
         return renderSellerContent();
+    };
+
+    const renderGatedModeContent = () => {
+        const content = renderModeContent();
+        const featureId = getFeatureIdForView(activeView);
+        if (!featureId) return content;
+        return (
+            <SubscriptionFeatureGate featureId={featureId}>
+                {content}
+            </SubscriptionFeatureGate>
+        );
     };
 
     const isPreparationMode = dashboardMode === 'preparation';
@@ -875,190 +1262,26 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     return (
         <main
             ref={mainScrollRef}
-            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPrepDark ? 'bg-black' : 'bg-white'} custom-scrollbar transition-colors duration-500`}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPreparationMode ? (isPrepDark ? 'bg-black' : 'bg-white') : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
-                <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden animate-fadeIn ${isPrepDark ? 'prep-dark-mode' : ''}`}>
-                    <style>{`
-                        @keyframes fadeIn {
-                            from { opacity: 0; transform: translateY(12px); }
-                            to { opacity: 1; transform: translateY(0); }
+                <div
+                    className={`prep-mode flex-1 min-h-0 overflow-y-auto overflow-x-hidden prep-animate-fade-in ${isPrepDark ? 'prep-theme-dark' : 'prep-theme-light'}`}
+                >
+                    <div
+                        className={
+                            activeView === 'live-mock-interview' || activeView === 'live-peer-requests'
+                                ? 'w-full max-w-none py-8'
+                                : 'container mx-auto px-6 py-8'
                         }
-                        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-
-                        /* ========== Apple-inspired pure black dark theme ========== */
-                        .prep-dark-mode {
-                            background-color: #000000;
-                            color: #f5f5f7;
-                        }
-
-                        /* Card & surface backgrounds */
-                        .prep-dark-mode .bg-white { background-color: #1c1c1e !important; }
-                        .prep-dark-mode .bg-gray-50 { background-color: #111111 !important; }
-
-                        /* Borders */
-                        .prep-dark-mode .border-gray-200 { border-color: #2c2c2e !important; }
-                        .prep-dark-mode .border-gray-100 { border-color: #1c1c1e !important; }
-                        .prep-dark-mode .border-b { border-color: #2c2c2e; }
-
-                        /* Text hierarchy */
-                        .prep-dark-mode .text-gray-900 { color: #f5f5f7 !important; }
-                        .prep-dark-mode .text-gray-800 { color: #e5e5ea !important; }
-                        .prep-dark-mode .text-gray-700 { color: #d1d1d6 !important; }
-                        .prep-dark-mode .text-gray-600 { color: #aeaeb2 !important; }
-                        .prep-dark-mode .text-gray-500 { color: #8e8e93 !important; }
-                        .prep-dark-mode .text-gray-400 { color: #636366 !important; }
-
-                        /* Orange tinted backgrounds */
-                        .prep-dark-mode .bg-orange-50 { background-color: rgba(249, 115, 22, 0.08) !important; }
-                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
-                        .prep-dark-mode .border-orange-100 { border-color: rgba(249, 115, 22, 0.2) !important; }
-                        .prep-dark-mode .border-orange-200 { border-color: rgba(249, 115, 22, 0.25) !important; }
-                        .prep-dark-mode .border-orange-300 { border-color: rgba(249, 115, 22, 0.35) !important; }
-
-                        /* Hover states */
-                        .prep-dark-mode .hover\\:bg-gray-50:hover { background-color: #2c2c2e !important; }
-                        .prep-dark-mode .hover\\:bg-orange-50:hover { background-color: rgba(249, 115, 22, 0.12) !important; }
-                        .prep-dark-mode .hover\\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.15) !important; }
-                        .prep-dark-mode .hover\\:bg-orange-50\\/30:hover { background-color: rgba(249, 115, 22, 0.08) !important; }
-                        .prep-dark-mode .hover\\:border-orange-500:hover { border-color: #f97316 !important; }
-                        .prep-dark-mode .hover\\:shadow-md:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
-                        .prep-dark-mode .hover\\:bg-gray-100:hover { background-color: #2c2c2e !important; }
-
-                        /* Topic chips */
-                        .prep-dark-mode .prep-topic-chip {
-                            background-color: #2c2c2e !important;
-                            color: #a1a1a6 !important;
-                            border: 1px solid #38383a;
-                        }
-
-                        /* Badge difficulty colors on dark */
-                        .prep-dark-mode .bg-green-100 { background-color: rgba(34, 197, 94, 0.12) !important; }
-                        .prep-dark-mode .text-green-700 { color: #4ade80 !important; }
-                        .prep-dark-mode .bg-green-50 { background-color: rgba(34, 197, 94, 0.08) !important; }
-                        .prep-dark-mode .text-green-600 { color: #22c55e !important; }
-                        .prep-dark-mode .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.12) !important; }
-                        .prep-dark-mode .text-yellow-700 { color: #fbbf24 !important; }
-                        .prep-dark-mode .bg-red-100 { background-color: rgba(239, 68, 68, 0.12) !important; }
-                        .prep-dark-mode .text-red-700 { color: #f87171 !important; }
-
-                        /* Additional badge colors */
-                        .prep-dark-mode .bg-blue-100 { background-color: rgba(59, 130, 246, 0.12) !important; }
-                        .prep-dark-mode .text-blue-700 { color: #60a5fa !important; }
-                        .prep-dark-mode .bg-purple-100 { background-color: rgba(168, 85, 247, 0.12) !important; }
-                        .prep-dark-mode .text-purple-700 { color: #c084fc !important; }
-                        .prep-dark-mode .bg-amber-100 { background-color: rgba(245, 158, 11, 0.12) !important; }
-                        .prep-dark-mode .text-amber-700 { color: #fbbf24 !important; }
-                        .prep-dark-mode .bg-cyan-100 { background-color: rgba(6, 182, 212, 0.12) !important; }
-                        .prep-dark-mode .text-cyan-700 { color: #22d3ee !important; }
-                        .prep-dark-mode .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.12) !important; }
-                        .prep-dark-mode .text-indigo-700 { color: #818cf8 !important; }
-                        .prep-dark-mode .bg-pink-100 { background-color: rgba(236, 72, 153, 0.12) !important; }
-                        .prep-dark-mode .text-pink-700 { color: #f472b6 !important; }
-                        .prep-dark-mode .bg-orange-100 { background-color: rgba(249, 115, 22, 0.12) !important; }
-                        .prep-dark-mode .text-orange-700 { color: #fb923c !important; }
-
-                        /* Inputs & selects */
-                        .prep-dark-mode input,
-                        .prep-dark-mode select,
-                        .prep-dark-mode textarea {
-                            background-color: #1c1c1e !important;
-                            border-color: #38383a !important;
-                            color: #f5f5f7 !important;
-                        }
-                        .prep-dark-mode input::placeholder,
-                        .prep-dark-mode textarea::placeholder {
-                            color: #636366 !important;
-                        }
-                        .prep-dark-mode input:focus,
-                        .prep-dark-mode select:focus,
-                        .prep-dark-mode textarea:focus {
-                            border-color: #f97316 !important;
-                            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
-                        }
-
-                        /* Table header */
-                        .prep-dark-mode thead tr {
-                            background-color: #111111 !important;
-                        }
-                        .prep-dark-mode th {
-                            color: #8e8e93 !important;
-                        }
-                        .prep-dark-mode th:hover {
-                            color: #e5e5ea !important;
-                        }
-
-                        /* Shadows */
-                        .prep-dark-mode .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
-
-                        /* Checkboxes */
-                        .prep-dark-mode input[type="checkbox"] {
-                            accent-color: #f97316;
-                        }
-
-                        /* Scrollbar for dark mode */
-                        .prep-dark-mode ::-webkit-scrollbar-track { background: #000000; }
-                        .prep-dark-mode ::-webkit-scrollbar-thumb { background: #38383a; border-radius: 4px; }
-                        .prep-dark-mode ::-webkit-scrollbar-thumb:hover { background: #48484a; }
-
-                        /* Keep orange buttons vibrant */
-                        .prep-dark-mode .bg-orange-500 { background-color: #f97316 !important; }
-                        .prep-dark-mode .text-orange-500 { color: #fb923c !important; }
-                        .prep-dark-mode .text-orange-600 { color: #f97316 !important; }
-                        .prep-dark-mode .bg-orange-500.text-white { color: #ffffff !important; }
-
-                        /* Orange 50 border-b tabs */
-                        .prep-dark-mode .border-orange-500 { border-color: #f97316 !important; }
-                        .prep-dark-mode .hover\\:border-gray-300:hover { border-color: #48484a !important; }
-                        .prep-dark-mode .border-transparent { border-color: transparent !important; }
-                        .prep-dark-mode .hover\\:text-gray-700:hover { color: #d1d1d6 !important; }
-
-                        /* Rounded full toggle buttons */
-                        .prep-dark-mode .bg-orange-50.text-orange-500,
-                        .prep-dark-mode .text-orange-500.bg-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; }
-
-                        /* Progress ring & SVG */
-                        .prep-dark-mode svg path[stroke="#e5e7eb"],
-                        .prep-dark-mode svg circle[stroke="#e5e7eb"] { stroke: #2c2c2e; }
-
-                        /* Custom filter dropdowns */
-                        .prep-dark-mode .prep-filter-btn {
-                            background-color: #1c1c1e !important;
-                            border-color: #38383a !important;
-                            color: #f5f5f7 !important;
-                        }
-                        .prep-dark-mode .prep-filter-btn:hover {
-                            background-color: #2c2c2e !important;
-                        }
-                        .prep-dark-mode .prep-filter-btn span { color: #e5e5ea !important; }
-                        .prep-dark-mode .prep-filter-btn svg { color: #636366 !important; }
-                        .prep-dark-mode .prep-filter-menu {
-                            background-color: #1c1c1e !important;
-                            border-color: #38383a !important;
-                            box-shadow: 0 8px 30px rgba(0,0,0,0.6) !important;
-                        }
-                        .prep-dark-mode .prep-filter-menu button {
-                            color: #e5e5ea !important;
-                        }
-                        .prep-dark-mode .prep-filter-menu button:hover {
-                            background-color: #2c2c2e !important;
-                        }
-                        .prep-dark-mode .prep-filter-menu .bg-orange-50 {
-                            background-color: rgba(249, 115, 22, 0.1) !important;
-                        }
-                        .prep-dark-mode .prep-filter-menu .text-orange-600 {
-                            color: #fb923c !important;
-                        }
-
-                        /* Smooth transition on theme change */
-                        .prep-dark-mode * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
-                    `}</style>
-                    <div className="container mx-auto px-6 py-8">
-                        {renderModeContent()}
+                    >
+                        {renderGatedModeContent()}
                     </div>
                 </div>
-            ) : isCodingQuestions ? (
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 px-6">
+            ) : isToolViewWithStickyHeader ? (
+                <div
+                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}
+                >
                     <div className="flex-shrink-0">
                         <DashboardHeader
                             searchQuery={searchQuery}
@@ -1069,7 +1292,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                             toggleSidebar={toggleSidebar}
                         />
                     </div>
-                    {renderModeContent()}
+                    {renderGatedModeContent()}
                 </div>
             ) : (
                 <div className="container mx-auto px-6 py-8">
@@ -1081,7 +1304,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         isSidebarOpen={isSidebarOpen}
                         toggleSidebar={toggleSidebar}
                     />
-                    {renderModeContent()}
+                    {renderGatedModeContent()}
                 </div>
             )}
         </main>

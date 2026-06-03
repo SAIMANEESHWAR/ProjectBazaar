@@ -1,3 +1,6 @@
+/** @deprecated Import from data/prepConfig.ts in app UI. Kept for seed scripts only. */
+export { positionResourcesSubTabConfig as subTabConfig, type PrepSubTabKey as SubTabKey } from './prepConfig';
+
 export interface PositionQuestion {
   id: string;
   question: string;
@@ -513,14 +516,4 @@ export const roles: RoleData[] = [
     { id: 'w3-iq-2', question: 'Explain NFTs and their technical implementation.', difficulty: 'Medium', isSolved: false, isRevision: false },
     { id: 'w3-iq-3', question: 'What is IPFS and decentralized storage?', difficulty: 'Medium', isSolved: false, isRevision: false },
   ], dsaQuestions: [], aptitudeQuestions: [], sqlQuestions: [], coreCSQuestions: []},
-];
-
-export type SubTabKey = 'interview' | 'dsa' | 'aptitude' | 'sql' | 'corecs';
-
-export const subTabConfig: { key: SubTabKey; label: string; titleTemplate: string; subtitleTemplate: string }[] = [
-  { key: 'interview', label: 'Interview Questions', titleTemplate: 'Interview Questions for {role}', subtitleTemplate: 'Most asked Interview Questions at {role}.' },
-  { key: 'dsa', label: 'DSA Questions', titleTemplate: 'Data Structures & Algorithms for {role}', subtitleTemplate: 'Most asked Data Structures & Algorithms questions in interviews at {role}.' },
-  { key: 'aptitude', label: 'Aptitude Questions', titleTemplate: 'Aptitude Questions for {role}', subtitleTemplate: 'Most asked aptitude & reasoning questions for {role}.' },
-  { key: 'sql', label: 'SQL Questions', titleTemplate: 'SQL & Database for {role}', subtitleTemplate: 'Most asked SQL & Database questions in interviews at {role}.' },
-  { key: 'corecs', label: 'Core CS Questions', titleTemplate: 'Core CS Subjects for {role}', subtitleTemplate: 'Most asked Core CS Subjects questions in interviews at {role}.' },
 ];

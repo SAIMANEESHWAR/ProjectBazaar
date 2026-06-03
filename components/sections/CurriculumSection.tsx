@@ -107,7 +107,7 @@ const CurriculumSection: React.FC = () => {
                 <div className="inline-block bg-[#ff7a00] px-3 py-1 rounded-full text-xs font-bold mb-6">
                   Free to join
                 </div>
-                <h3 className="text-2xl md:text-[32px] font-bold mb-8">Join ProjectBazaar Today</h3>
+                <h3 className="text-2xl md:text-[32px] font-bold mb-8">Join CodeXCareer Today</h3>
                 <div className="grid grid-cols-2 gap-y-6 mb-10">
                   {['List projects', 'Browse talent', 'Secure payments', 'Build portfolio'].map((item, i) => (
                     <div key={i} className="flex items-center gap-3">

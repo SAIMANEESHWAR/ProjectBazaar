@@ -12,7 +12,8 @@ from botocore.exceptions import ClientError
 
 # ========================== CONFIG ==========================
 REGION = "ap-south-2"
-S3_BUCKET = "projectbazaar-prep-notes"
+S3_REGION = "ap-south-2"
+S3_BUCKET = "projectbazaar-admin-coursesandnotes"
 
 # Content tables (read-only from user side)
 TABLE_INTERVIEW_QUESTIONS = "PrepInterviewQuestions"
@@ -26,6 +27,7 @@ TABLE_ROADMAPS = "PrepRoadmaps"
 TABLE_POSITION_RESOURCES = "PrepPositionResources"
 TABLE_SYSTEM_DESIGN = "PrepSystemDesign"
 TABLE_FUNDAMENTALS = "PrepFundamentals"
+TABLE_CORE_SUBJECTS = "PrepCoreSubjects"
 
 # User-specific tables: partition key attribute name (value = userId).
 PK_USER = "userId"
@@ -51,6 +53,7 @@ CONTENT_TYPE_TABLE_MAP = {
     "position_resources": TABLE_POSITION_RESOURCES,
     "system_design": TABLE_SYSTEM_DESIGN,
     "fundamentals": TABLE_FUNDAMENTALS,
+    "core_subjects": TABLE_CORE_SUBJECTS,
 }
 
 # CORS: allow browser requests from any origin (enable in API Gateway too if needed)
@@ -63,7 +66,7 @@ CORS_HEADERS = {
 
 # ========================== AWS CLIENTS ==========================
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
-s3_client = boto3.client("s3", region_name=REGION)
+s3_client = boto3.client("s3", region_name=S3_REGION)
 _tables = {}
 
 
@@ -124,6 +127,26 @@ def _progress_item_id(user_id: str, item_key: str) -> str:
     return f"{user_id}#{item_key}"
 
 
+def _sanitize_quiz_for_user(quiz: dict) -> dict:
+    """Strip answers from quiz payload before returning to clients."""
+    safe = dict(quiz)
+    sanitized_questions = []
+    for entry in quiz.get("questions", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        raw_options = entry.get("options", [])
+        options = raw_options if isinstance(raw_options, list) else []
+        sanitized_questions.append(
+            {
+                "question": str(entry.get("question", "")).strip(),
+                "options": [str(opt).strip() for opt in options if str(opt).strip()],
+            }
+        )
+    safe["questions"] = sanitized_questions
+    safe["questionCount"] = len(sanitized_questions) or int(quiz.get("questionCount", 0) or 0)
+    return safe
+
+
 # ======================================================================
 #                    READ CONTENT (user-facing)
 # ======================================================================
@@ -141,7 +164,7 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
     limit = int(query_params.get("limit", 50))
 
     FILTERABLE_ATTRS = ["difficulty", "category", "topic", "role", "section",
-                        "companyId", "roleId", "subType", "designType"]
+                        "companyId", "roleId", "subType", "designType", "contentKind", "subject", "slug", "scope"]
 
     try:
         filter_expressions = []
@@ -178,6 +201,14 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         elif sort_by == "difficulty":
             diff_order = {"Easy": 0, "Medium": 1, "Hard": 2}
             items.sort(key=lambda x: diff_order.get(x.get("difficulty"), 0), reverse=reverse)
+        elif sort_by == "displayOrder":
+            items.sort(
+                key=lambda x: (
+                    int(x.get("displayOrder", 0) or 0),
+                    (x.get("title") or "").lower(),
+                ),
+                reverse=reverse,
+            )
         else:
             items.sort(key=lambda x: x.get("createdAt", ""), reverse=reverse)
 
@@ -185,6 +216,9 @@ def handle_list_content(content_type: str, query_params: dict) -> dict:
         total_pages = max(1, math.ceil(total / limit))
         start = (page - 1) * limit
         paginated = items[start : start + limit]
+
+        if content_type == "quizzes":
+            paginated = [_sanitize_quiz_for_user(item) for item in paginated]
 
         return api_response(200, {
             "success": True, "items": paginated,
@@ -210,6 +244,8 @@ def handle_get_content(content_type: str, item_id: str) -> dict:
         item = result.get("Item")
         if not item:
             return api_response(404, {"success": False, "message": "Item not found"})
+        if content_type == "quizzes":
+            item = _sanitize_quiz_for_user(item)
         return api_response(200, {"success": True, "item": item})
     except ClientError as e:
         return api_response(500, {"success": False, "message": "Database error", "error": str(e)})
@@ -220,11 +256,12 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
     solved_only = query_params.get("solvedOnly") in (True, "true", "1")
     favorite_only = query_params.get("favoriteOnly") in (True, "true", "1")
     applied_only = query_params.get("appliedOnly") in (True, "true", "1")
+    bookmarked_only = query_params.get("bookmarkedOnly") in (True, "true", "1")
     page = int(query_params.get("page", 1))
     limit = int(query_params.get("limit", 50))
 
-    if solved_only or favorite_only or applied_only:
-        params_all = {k: v for k, v in query_params.items() if k not in ("solvedOnly", "favoriteOnly", "appliedOnly")}
+    if solved_only or favorite_only or applied_only or bookmarked_only:
+        params_all = {k: v for k, v in query_params.items() if k not in ("solvedOnly", "favoriteOnly", "appliedOnly", "bookmarkedOnly")}
         params_all["page"] = 1
         params_all["limit"] = 2000
         content_resp = handle_list_content(content_type, params_all)
@@ -256,9 +293,11 @@ def handle_list_content_with_progress(user_id: str, content_type: str, query_par
             "isApplied": p.get("isApplied", False),
         })
 
-    if solved_only or favorite_only or applied_only:
+    if solved_only or favorite_only or applied_only or bookmarked_only:
         if solved_only:
             merged = [m for m in merged if m.get("isSolved")]
+        if bookmarked_only:
+            merged = [m for m in merged if m.get("isBookmarked")]
         if favorite_only:
             merged = [m for m in merged if m.get("isFavorite")]
         if applied_only:

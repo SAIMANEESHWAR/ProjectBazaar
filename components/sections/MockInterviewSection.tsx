@@ -17,11 +17,7 @@ const MockInterviewSection: React.FC = () => {
   };
 
   const handleStartAIInterview = () => {
-    if (!isLoggedIn) {
-      navigateTo('auth');
-    } else {
-      navigateTo('mockAssessment');
-    }
+    navigateTo('liveMockInterview');
   };
 
   return (

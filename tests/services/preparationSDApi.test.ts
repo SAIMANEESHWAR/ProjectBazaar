@@ -101,3 +101,79 @@ describe('prepAdminApi.getSystemDesignUploadUrl', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('prepAdminApi.uploadSystemDesignMedia', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls action upload_sd_media with base64 payload', async () => {
+    mockSuccess({
+      success: true,
+      s3Key: 'system-design/images/sdm-abc/diagram.png',
+      publicUrl: 'https://bucket.s3.region.amazonaws.com/system-design/images/sdm-abc/diagram.png',
+    });
+
+    await prepAdminApi.uploadSystemDesignMedia(
+      'diagram.png',
+      'image/png',
+      'aGVsbG8=',
+      'image',
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.action).toBe('upload_sd_media');
+    expect(body.filename).toBe('diagram.png');
+    expect(body.contentType).toBe('image/png');
+    expect(body.mediaKind).toBe('image');
+    expect(body.fileBase64).toBe('aGVsbG8=');
+  });
+
+  it('returns publicUrl on success', async () => {
+    mockSuccess({
+      success: true,
+      s3Key: 'system-design/pdfs/sdm-abc/guide.pdf',
+      publicUrl: 'https://bucket.s3.region.amazonaws.com/system-design/pdfs/sdm-abc/guide.pdf',
+    });
+
+    const result = await prepAdminApi.uploadSystemDesignMedia(
+      'guide.pdf',
+      'application/pdf',
+      'JVBERi0=',
+      'pdf',
+    );
+    expect(result?.publicUrl).toContain('guide.pdf');
+  });
+});
+
+describe('prepAdminApi.listContent contentKind filter', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('passes contentKind in list_content request body', async () => {
+    mockSuccess({
+      success: true,
+      items: [],
+      total: 0,
+      page: 1,
+      totalPages: 1,
+      limit: 200,
+    });
+
+    await prepAdminApi.listContent('system_design', {
+      designType: 'hld',
+      contentKind: 'concept',
+      limit: 200,
+    });
+
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.action).toBe('list_content');
+    expect(body.contentType).toBe('system_design');
+    expect(body.designType).toBe('hld');
+    expect(body.contentKind).toBe('concept');
+  });
+});

@@ -1,6 +1,6 @@
 # Chat Architecture Diagram
 
-The real-time chat system in Project Bazaar follows a hybrid approach: **HTTP for persistence** and **WebSockets for real-time delivery**.
+The real-time chat system in CodeXCareer follows a hybrid approach: **HTTP for persistence** and **WebSockets for real-time delivery**.
 
 ## Data Flow Diagram
 

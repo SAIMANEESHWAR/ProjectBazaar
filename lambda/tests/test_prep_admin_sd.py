@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prep_admin_handler import (
     normalize_system_design,
     handle_get_sd_media_upload_url,
+    handle_upload_sd_media,
     handle_list_content,
     ALLOWED_SD_MEDIA_CONTENT_TYPES,
 )
@@ -128,7 +129,7 @@ class TestHandleGetSdMediaUploadUrl:
 
     def test_unsupported_content_type_returns_400(self):
         result = handle_get_sd_media_upload_url(
-            {"filename": "arch.pdf", "contentType": "application/pdf"}
+            {"filename": "arch.zip", "contentType": "application/zip"}
         )
         body = json.loads(result["body"])
         assert result["statusCode"] == 400
@@ -139,11 +140,13 @@ class TestHandleGetSdMediaUploadUrl:
     def test_allowed_content_types_accepted(self, ct):
         mock_s3 = MagicMock()
         mock_s3.generate_presigned_url.return_value = "https://presigned.url/upload"
+        payload = {"filename": "file.bin", "contentType": ct}
+        if ct == "application/pdf":
+            payload["mediaKind"] = "pdf"
+            payload["filename"] = "file.pdf"
 
         with patch("prep_admin_handler.s3_client", mock_s3):
-            result = handle_get_sd_media_upload_url(
-                {"filename": "image.png", "contentType": ct}
-            )
+            result = handle_get_sd_media_upload_url(payload)
         body = json.loads(result["body"])
         assert result["statusCode"] == 200
         assert body["success"] is True
@@ -198,6 +201,34 @@ class TestHandleGetSdMediaUploadUrl:
         body = json.loads(result["body"])
         assert result["statusCode"] == 500
         assert body["success"] is False
+
+
+class TestHandleUploadSdMedia:
+
+    def test_missing_file_base64_returns_400(self):
+        result = handle_upload_sd_media(
+            {"filename": "arch.png", "contentType": "image/png"}
+        )
+        body = json.loads(result["body"])
+        assert result["statusCode"] == 400
+        assert "fileBase64" in body["message"]
+
+    def test_success_uploads_via_lambda(self):
+        mock_s3 = MagicMock()
+
+        with patch("prep_admin_handler.s3_client", mock_s3):
+            result = handle_upload_sd_media({
+                "filename": "diagram.png",
+                "contentType": "image/png",
+                "mediaKind": "image",
+                "fileBase64": "aGVsbG8=",
+            })
+
+        body = json.loads(result["body"])
+        assert result["statusCode"] == 200
+        assert body["success"] is True
+        assert "publicUrl" in body
+        mock_s3.put_object.assert_called_once()
 
 
 class MockScanTable:

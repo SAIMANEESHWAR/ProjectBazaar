@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { mrSubTabConfig, type MRSubTabKey } from '../../data/massRecruitmentData';
+import { massRecruitmentSubTabConfig, type PrepSubTabKey } from '../../data/prepConfig';
 import { prepUserApi } from '../../services/preparationApi';
+import { isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw } from 'lucide-react';
@@ -22,22 +23,11 @@ interface MRQuestionFromAPI {
   isBookmarked?: boolean;
 }
 
-const companyMeta = [
-  { id: 'hcl', name: 'HCL', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hcltech.com' },
-  { id: 'infosys', name: 'Infosys', logo: 'https://www.google.com/s2/favicons?sz=64&domain=infosys.com' },
-  { id: 'tcs', name: 'TCS', logo: 'https://www.google.com/s2/favicons?sz=64&domain=tcs.com' },
-  { id: 'wipro', name: 'Wipro', logo: 'https://www.google.com/s2/favicons?sz=64&domain=wipro.com' },
-  { id: 'techmahindra', name: 'Tech Mahindra', logo: 'https://www.google.com/s2/favicons?sz=64&domain=techmahindra.com' },
-  { id: 'lt', name: 'L&T', logo: 'https://www.google.com/s2/favicons?sz=64&domain=larsentoubro.com' },
-  { id: 'capgemini', name: 'Capgemini', logo: 'https://www.google.com/s2/favicons?sz=64&domain=capgemini.com' },
-  { id: 'accenture', name: 'Accenture', logo: 'https://www.google.com/s2/favicons?sz=64&domain=accenture.com' },
-  { id: 'mindtree', name: 'Mindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mindtree.com' },
-  { id: 'mphasis', name: 'Mphasis', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mphasis.com' },
-  { id: 'hexaware', name: 'Hexaware', logo: 'https://www.google.com/s2/favicons?sz=64&domain=hexaware.com' },
-  { id: 'ltimindtree', name: 'LTIMindtree', logo: 'https://www.google.com/s2/favicons?sz=64&domain=ltimindtree.com' },
-  { id: 'zoho', name: 'Zoho', logo: 'https://www.google.com/s2/favicons?sz=64&domain=zoho.com' },
-  { id: 'persistent', name: 'Persistent Systems', logo: 'https://www.google.com/s2/favicons?sz=64&domain=persistent.com' },
-];
+interface CompanyTab {
+  id: string;
+  name: string;
+  logo: string;
+}
 
 const ITEMS_PER_PAGE = 15;
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
@@ -52,7 +42,7 @@ const SortIcon = ({ active, dir }: { active: boolean; dir: SortDir }) => (
   </span>
 );
 
-const subTabIcons: Record<MRSubTabKey, JSX.Element> = {
+const subTabIcons: Record<PrepSubTabKey, JSX.Element> = {
   interview: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>),
   dsa: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>),
   aptitude: (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>),
@@ -67,8 +57,9 @@ const difficultyClass = (d: string) => {
 };
 
 const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
-  const [selectedCompanyId, setSelectedCompanyId] = useState(companyMeta[0].id);
-  const [activeSubTab, setActiveSubTab] = useState<MRSubTabKey>('interview');
+  const [companies, setCompanies] = useState<CompanyTab[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<PrepSubTabKey>('interview');
   const [allQuestions, setAllQuestions] = useState<MRQuestionFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,7 +71,43 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
   const [viewMode, setViewMode] = useViewMode();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const fetchCompanies = useCallback(async (cancelled = { current: false }) => {
+    try {
+      const resp = await prepUserApi.listContent('mass_recruitment', { limit: 500 });
+      if (!cancelled.current && resp.success) {
+        const map = new Map<string, CompanyTab>();
+        for (const item of resp.items ?? []) {
+          const raw = item as Record<string, unknown>;
+          const id = String(raw.companyId ?? '').trim();
+          const name = String(raw.companyName ?? id).trim();
+          if (!id || map.has(id)) continue;
+          map.set(id, {
+            id,
+            name,
+            logo: String(raw.logo ?? `https://www.google.com/s2/favicons?sz=64&domain=${id}.com`),
+          });
+        }
+        const list = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(list);
+        if (list.length > 0) {
+          setSelectedCompanyId((current) =>
+            current && list.some((company) => company.id === current) ? current : list[0].id
+          );
+        }
+      }
+    } catch {
+      if (!cancelled.current) setCompanies([]);
+    }
+  }, []);
+
   const fetchQuestions = useCallback(async (cancelled = { current: false }) => {
+    if (!selectedCompanyId) {
+      if (!cancelled.current) {
+        setAllQuestions([]);
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     try {
       const resp = await prepUserApi.listContentWithProgress<MRQuestionFromAPI>('mass_recruitment', {
@@ -89,11 +116,21 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
         limit: 500,
       });
       if (!cancelled.current && resp.success) {
-        setAllQuestions(resp.items || []);
+        setAllQuestions(
+          (resp.items || []).filter((item) =>
+            isNonEmptyString((item as MRQuestionFromAPI).question),
+          ),
+        );
       }
     } catch { /* API only */ }
     if (!cancelled.current) setLoading(false);
   }, [selectedCompanyId, activeSubTab]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchCompanies(cancelled);
+    return () => { cancelled.current = true; };
+  }, [fetchCompanies]);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -113,7 +150,10 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
     else { setSortKey(key); setSortDir('asc'); }
   };
 
-  const selectedCompany = useMemo(() => companyMeta.find((c) => c.id === selectedCompanyId) ?? companyMeta[0], [selectedCompanyId]);
+  const selectedCompany = useMemo(
+    () => companies.find((c) => c.id === selectedCompanyId) ?? companies[0],
+    [companies, selectedCompanyId]
+  );
 
   const questions = useMemo(() => {
     const filtered = allQuestions.filter((item) => {
@@ -144,9 +184,13 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
 
   const showCategory = activeSubTab !== 'interview';
 
-  const subTab = mrSubTabConfig.find((t) => t.key === activeSubTab)!;
-  const sectionTitle = subTab.titleTemplate.replace('{company}', selectedCompany.name);
-  const sectionSubtitle = subTab.subtitleTemplate.replace('{company}', selectedCompany.name);
+  const subTab = massRecruitmentSubTabConfig.find((t) => t.key === activeSubTab)!;
+  const sectionTitle = selectedCompany
+    ? subTab.titleTemplate.replace('{company}', selectedCompany.name)
+    : subTab.titleTemplate.replace('{company}', 'Company');
+  const sectionSubtitle = selectedCompany
+    ? subTab.subtitleTemplate.replace('{company}', selectedCompany.name)
+    : subTab.subtitleTemplate.replace('{company}', 'Company');
 
   const toggleSolved = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
@@ -192,7 +236,7 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       {/* Company Tabs */}
       <div className="mb-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
-          {companyMeta.map((company) => (
+          {companies.map((company) => (
             <button key={company.id} onClick={() => { setSelectedCompanyId(company.id); setActiveSubTab('interview'); setSearchQuery(''); }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${selectedCompanyId === company.id ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               <span className="w-5 h-5 rounded-sm flex-shrink-0 inline-flex items-center justify-center overflow-hidden bg-gray-100">
@@ -207,7 +251,7 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       {/* Sub Tabs */}
       <div className="mb-6 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1 min-w-max border-b border-gray-200 pb-0">
-          {mrSubTabConfig.map((tab) => (
+          {massRecruitmentSubTabConfig.map((tab) => (
             <button key={tab.key} onClick={() => setActiveSubTab(tab.key)}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 border-b-2 ${activeSubTab === tab.key ? 'text-orange-600 border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'}`}>
               {subTabIcons[tab.key]}

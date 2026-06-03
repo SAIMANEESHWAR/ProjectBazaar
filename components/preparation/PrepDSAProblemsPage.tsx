@@ -1,17 +1,71 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { DSAProblem } from '../../data/preparationMockData';
+import type { DSAProblem } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
+import { fetchDifficultyStats, fetchDistinctFieldValues, isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import PrepDSADetailSidebar, { type PrepDSADetail } from './PrepDSADetailSidebar';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+
+type DSAProblemWithDetails = DSAProblem & {
+  solutionLink?: string;
+  solution?: string;
+  constraints?: string;
+  examples?: { input: string; output: string }[];
+  hints?: string[];
+};
+
+function normalizeDSAProblem(raw: Record<string, unknown>): DSAProblemWithDetails {
+  const id =
+    (raw.id as string) ??
+    (raw.contentId as string) ??
+    (raw.itemId as string) ??
+    (raw._id as string) ??
+    '';
+  const companyRaw = raw.company;
+  const company = Array.isArray(companyRaw)
+    ? companyRaw.map(String)
+    : typeof companyRaw === 'string'
+      ? companyRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+  const examplesRaw = raw.examples;
+  const examples = Array.isArray(examplesRaw)
+    ? examplesRaw
+        .map((ex) => {
+          if (typeof ex !== 'object' || ex === null) return null;
+          const e = ex as Record<string, unknown>;
+          return {
+            input: String(e.input ?? ''),
+            output: String(e.output ?? ''),
+          };
+        })
+        .filter((ex): ex is { input: string; output: string } => Boolean(ex && (ex.input || ex.output)))
+    : undefined;
+
+  return {
+    id,
+    title: String(raw.title ?? ''),
+    description: String(raw.description ?? ''),
+    difficulty: (raw.difficulty as DSAProblem['difficulty']) ?? 'Medium',
+    topic: String(raw.topic ?? 'General'),
+    company,
+    acceptance: Number(raw.acceptance ?? 0),
+    isSolved: Boolean(raw.isSolved),
+    isBookmarked: Boolean(raw.isBookmarked),
+    solutionLink: raw.solutionLink as string | undefined,
+    solution: raw.solution as string | undefined,
+    constraints: raw.constraints as string | undefined,
+    examples,
+    hints: Array.isArray(raw.hints) ? (raw.hints as string[]) : undefined,
+  };
+}
 
 interface PrepDSAProblemsPageProps {
   toggleSidebar?: () => void;
 }
 
 const TABS = ['All problems', 'Real World Scenarios', 'Problem Sets', 'Solved', 'Revision', 'Folders'] as const;
-const TOPICS = ['Arrays', 'Dynamic Programming', 'Trees', 'Stack', 'Linked List', 'Graph', 'Design', 'Binary Search'];
 const ITEMS_PER_PAGE = 10;
 const diffOrder: Record<string, number> = { Easy: 0, Medium: 1, Hard: 2 };
 
@@ -43,16 +97,17 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [search, setSearch] = useState('');
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
-  const [problems, setProblems] = useState<DSAProblem[]>([]);
+  const [problems, setProblems] = useState<DSAProblemWithDetails[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [apiTotalPages, setApiTotalPages] = useState(1);
   const [stats, setStats] = useState<{ totalDSA: number; dsaEasy: number; dsaMedium: number; dsaHard: number } | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedProblem, setSelectedProblem] = useState<DSAProblemWithDetails | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Server-side pagination: fetch only the current page with filters
@@ -68,28 +123,37 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       if (search.trim()) filters.search = search.trim();
       if (activeTab === 'Solved') filters.solvedOnly = true;
 
-      const [resp, dashboard] = await Promise.all([
+      const [resp, difficultyStats] = await Promise.all([
         prepUserApi.listContentWithProgress<DSAProblem>('dsa_problems', filters),
-        prepUserApi.getDashboard(),
+        fetchDifficultyStats('dsa_problems'),
       ]);
       if (!cancelled.current && resp.success) {
-        setProblems(resp.items ?? []);
+        const items = (resp.items ?? [])
+          .map((item) =>
+            normalizeDSAProblem(item as unknown as Record<string, unknown>),
+          )
+          .filter((problem) => isNonEmptyString(problem.title));
+        setProblems(items);
         setTotalCount(resp.total ?? 0);
         setApiTotalPages(resp.totalPages ?? 1);
-      }
-      if (!cancelled.current && dashboard?.contentCounts) {
-        const cc = dashboard.contentCounts;
-        const total = (cc.dsa_problems as number) ?? 0;
         setStats({
-          totalDSA: total,
-          dsaEasy: Math.floor(total * 0.35),
-          dsaMedium: Math.floor(total * 0.5),
-          dsaHard: Math.floor(total * 0.15),
+          totalDSA: difficultyStats.total,
+          dsaEasy: difficultyStats.easy,
+          dsaMedium: difficultyStats.medium,
+          dsaHard: difficultyStats.hard,
         });
       }
     } catch { /* API only */ }
     if (!cancelled.current) setLoading(false);
   }, [currentPage, topicFilter, difficultyFilter, search, activeTab]);
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchDistinctFieldValues('dsa_problems', 'topic').then((values) => {
+      if (!cancelled.current) setTopics(values);
+    });
+    return () => { cancelled.current = true; };
+  }, []);
 
   useEffect(() => {
     const cancelled = { current: false };
@@ -137,41 +201,88 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
     prepUserApi.toggleBookmarked('dsa_problems', id).catch(() => { });
   }, []);
 
+  useEffect(() => {
+    if (!selectedProblem) return;
+    const updated = problems.find((p) => p.id === selectedProblem.id);
+    if (updated) {
+      setSelectedProblem((prev) =>
+        prev && prev.id === updated.id ? { ...prev, ...updated } : prev
+      );
+    }
+  }, [problems, selectedProblem?.id]);
+
+  const selectedIndex = useMemo(
+    () =>
+      selectedProblem
+        ? displayedProblems.findIndex((p) => p.id === selectedProblem.id)
+        : -1,
+    [selectedProblem, displayedProblems]
+  );
+
+  const openProblem = useCallback((p: DSAProblemWithDetails) => {
+    setSelectedProblem(p);
+  }, []);
+
+  const goToAdjacentProblem = useCallback(
+    (direction: 'next' | 'prev') => {
+      if (selectedIndex < 0) return;
+      const nextIndex = direction === 'next' ? selectedIndex + 1 : selectedIndex - 1;
+      const adjacent = displayedProblems[nextIndex];
+      if (adjacent) setSelectedProblem(adjacent);
+    },
+    [selectedIndex, displayedProblems]
+  );
+
+  const toSidebarProblem = (p: DSAProblemWithDetails): PrepDSADetail => ({
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    difficulty: p.difficulty,
+    topic: p.topic,
+    company: p.company,
+    acceptance: p.acceptance,
+    isSolved: p.isSolved,
+    isBookmarked: p.isBookmarked,
+    solutionLink: p.solutionLink,
+    solution: p.solution,
+    constraints: p.constraints,
+    examples: p.examples,
+    hints: p.hints,
+  });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Data Structures & Algorithms</h1>
-        <p className="text-gray-600 mt-1">Practice DSA problems with company tags and acceptance rates</p>
-      </div>
+      <header>
+        <h1 className="prep-title-page text-2xl font-bold">Data Structures & Algorithms</h1>
+        <p className="prep-subtitle">Practice DSA problems with company tags and acceptance rates</p>
+      </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Total</p>
           <p className="text-2xl font-bold text-gray-900">{stats?.totalDSA ?? problems.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Easy</p>
           <p className="text-2xl font-bold text-green-700">{stats?.dsaEasy ?? problems.filter((p) => p.difficulty === 'Easy').length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Medium</p>
           <p className="text-2xl font-bold text-yellow-700">{stats?.dsaMedium ?? problems.filter((p) => p.difficulty === 'Medium').length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+        <div className="prep-stat-card">
           <p className="text-sm text-gray-600 mb-1">Hard</p>
           <p className="text-2xl font-bold text-red-700">{stats?.dsaHard ?? problems.filter((p) => p.difficulty === 'Hard').length}</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="prep-tabs">
         {TABS.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === tab
-              ? 'bg-orange-500 text-white'
-              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
+            className={`prep-tab ${activeTab === tab ? 'prep-tab--active' : ''}`}
           >
             {tab}
           </button>
@@ -185,10 +296,10 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             placeholder="Search problems..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="prep-input prep-input--search w-full pr-4"
           />
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--prep-text-tertiary)]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -199,7 +310,7 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
         <PrepFilterDropdown
           value={topicFilter}
           onChange={setTopicFilter}
-          options={[{ value: 'all', label: 'All Topics' }, ...TOPICS.map(t => ({ value: t, label: t }))]}
+          options={[{ value: 'all', label: 'All Topics' }, ...topics.map(t => ({ value: t, label: t }))]}
         />
         <PrepFilterDropdown
           value={difficultyFilter}
@@ -234,15 +345,15 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
       </div>
 
       {!loading && problems.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <p className="text-gray-500 font-medium">No problems match your filters.</p>
+        <div className="prep-card prep-empty">
+          <p>No problems match your filters.</p>
         </div>
       ) : (
         <>
           {viewMode === 'table' && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="prep-table-wrap overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="prep-table w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
@@ -263,11 +374,13 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                   <tbody>
                     {displayedProblems.map((problem, idx) => {
                       const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
-                      const isExpanded = expandedId === problem.id;
-                      const solutionLink = (problem as any).solutionLink as string | undefined;
+                      const isSelected = selectedProblem?.id === problem.id;
                       return (
-                        <>
-                          <tr key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer">
+                          <tr
+                            key={problem.id}
+                            onClick={() => openProblem(problem)}
+                            className={`border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer ${isSelected ? 'prep-row--selected' : ''}`}
+                          >
                             <td className="px-5 py-4 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
                             <td className="px-5 py-4">
                               <p className="text-sm font-semibold text-gray-900">{problem.title}</p>
@@ -309,26 +422,6 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                               </button>
                             </td>
                           </tr>
-                          {isExpanded && (
-                            <tr key={`${problem.id}-solution`} className="bg-black/80 dark:bg-black/80 border-b border-gray-100 dark:border-gray-800">
-                              <td colSpan={7} className="px-5 py-4">
-                                <div className="pl-4 border-l-3 border-orange-400">
-                                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Solution</p>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-2">{problem.description}</p>
-                                  {solutionLink ? (
-                                    <a href={solutionLink} target="_blank" rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-sm text-orange-600 hover:text-orange-700 font-medium">
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                      View Full Solution
-                                    </a>
-                                  ) : (
-                                    <p className="text-sm text-gray-400 italic">No solution link available yet.</p>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
                       );
                     })}
                   </tbody>
@@ -339,10 +432,13 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
           {viewMode === 'grid' && displayedProblems.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {displayedProblems.map((problem) => {
-                const isExpanded = expandedId === problem.id;
-                const solutionLink = (problem as any).solutionLink as string | undefined;
+                const isSelected = selectedProblem?.id === problem.id;
                 return (
-                  <div key={problem.id} onClick={() => setExpandedId(isExpanded ? null : problem.id)} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer">
+                  <div
+                    key={problem.id}
+                    onClick={() => openProblem(problem)}
+                    className={`group border rounded-xl p-5 bg-white hover:shadow-md transition-all duration-200 cursor-pointer ${isSelected ? 'border-orange-300 bg-orange-50/40 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <DifficultyBadge difficulty={problem.difficulty} />
                       <button onClick={(e) => { e.stopPropagation(); toggleBookmark(problem.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${problem.isBookmarked ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
@@ -374,20 +470,6 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
                         )}
                       </button>
                     </div>
-                    {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-xs font-semibold text-gray-900 mb-1">Solution</p>
-                        {solutionLink ? (
-                          <a href={solutionLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                            View Full Solution
-                          </a>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">No solution link available yet.</p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -448,6 +530,19 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {selectedProblem && (
+        <PrepDSADetailSidebar
+          problem={toSidebarProblem(selectedProblem)}
+          onClose={() => setSelectedProblem(null)}
+          onNext={() => goToAdjacentProblem('next')}
+          onPrev={() => goToAdjacentProblem('prev')}
+          hasNext={selectedIndex >= 0 && selectedIndex < displayedProblems.length - 1}
+          hasPrev={selectedIndex > 0}
+          onToggleSolved={() => toggleSolved(selectedProblem.id)}
+          onToggleBookmark={() => toggleBookmark(selectedProblem.id)}
+        />
       )}
     </div>
   );

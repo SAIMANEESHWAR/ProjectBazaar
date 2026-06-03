@@ -13,6 +13,7 @@ import {
   Map,
   FileStack,
   RefreshCw,
+  GraduationCap,
 } from 'lucide-react';
 import { prepUserApi, type DashboardData, type PrepActivity } from '../../services/preparationApi';
 import { ShinyButton } from '../ui/ShinyButton';
@@ -32,6 +33,7 @@ function buildFeatureCards(counts: Record<string, number>, collectionsCount: num
     { id: 'quizzes', view: 'prep-quizzes', title: 'Quizzes', description: 'Test your knowledge with timed quizzes', count: counts.quizzes ?? 0, Icon: ClipboardList },
     { id: 'system-design', view: 'prep-system-design', title: 'System Design', description: 'HLD & LLD interview preparation', count: counts.system_design ?? 0, Icon: Building2 },
     { id: 'fundamentals', view: 'prep-fundamentals', title: 'Fundamentals', description: 'OOPs, language concepts & design principles', count: counts.fundamentals ?? 0, Icon: BookOpen },
+    { id: 'core-subjects', view: 'prep-core-subjects', title: 'Core Subjects', description: 'DBMS, OS & Computer Networks from basics to advanced', count: counts.core_subjects ?? 0, Icon: GraduationCap },
     { id: 'position-resources', view: 'prep-position-resources', title: 'Position Resources', description: 'Role-specific preparation material', count: counts.position_resources ?? 0, Icon: Target },
     { id: 'mass-recruitment', view: 'prep-mass-recruitment', title: 'Mass Recruitment', description: 'Company-specific preparation guides', count: counts.mass_recruitment ?? 0, Icon: Users },
     { id: 'cold-dms', view: 'prep-cold-dms', title: 'Cold DMs / Emails', description: 'Templates for outreach and networking', count: counts.cold_dm_templates ?? 0, Icon: Mail },
@@ -91,10 +93,15 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
     const cancelled = { current: false };
     (async () => {
       setLoading(true);
-      await fetchDashboard(cancelled);
-      if (!cancelled.current) {
-        await prepUserApi.updateStreak();
-        setLoading(false);
+      try {
+        await fetchDashboard(cancelled);
+        if (!cancelled.current) {
+          await prepUserApi.updateStreak();
+        }
+      } catch { /* API only */ } finally {
+        if (!cancelled.current) {
+          setLoading(false);
+        }
       }
     })();
     return () => { cancelled.current = true; };
@@ -138,7 +145,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-600 via-orange-500 to-amber-600 p-8 text-white shadow-[0_8px_32px_rgba(249,115,22,0.25)] border border-white/10">
+      <section className="prep-hero relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <svg className="h-full w-full" viewBox="0 0 400 200" fill="none">
             <circle cx="350" cy="50" r="120" fill="white" className="blur-3xl animate-pulse" />
@@ -147,7 +154,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
         </div>
         <div className="relative z-10">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold tracking-tight">Preparation Hub</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-[var(--prep-text-primary)]">Preparation Hub</h1>
             <div className="relative flex items-center group/refresh">
               <button
                 onClick={handleRefresh}
@@ -162,7 +169,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
               </div>
             </div>
           </div>
-          <p className="mt-2 text-orange-100 max-w-lg">Your one-stop career preparation platform. Practice interviews, solve DSA, master system design, and land your dream job.</p>
+          <p className="mt-2 text-[var(--prep-text-secondary)] max-w-lg">Your one-stop career preparation platform. Practice interviews, solve DSA, master system design, and land your dream job.</p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <ShinyButton
               onClick={() => document.getElementById('quick-access')?.scrollIntoView({ behavior: 'smooth' })}
@@ -195,7 +202,7 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statItems.map((stat) => (
-          <div key={stat.label} className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex items-center gap-4 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:border-orange-500/20">
+          <div key={stat.label} className="prep-stat-card group flex items-center gap-4 transition-all duration-300 hover:border-[var(--prep-accent)]">
             <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:scale-110 transition-transform duration-300">
               <stat.Icon className="w-6 h-6 group-hover:text-orange-500 transition-colors" />
             </div>
@@ -217,7 +224,15 @@ export default function PreparationHub({ onNavigate }: PreparationHubProps) {
           {featureCards.map((card) => (
             <div
               key={card.id}
-              className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-orange-500/30 overflow-hidden"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onNavigate(card.view);
+                }
+              }}
+              className="prep-module-card group relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-orange-500/15 transition-colors" />
               <div className="w-12 h-12 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-all duration-300 mb-4">
