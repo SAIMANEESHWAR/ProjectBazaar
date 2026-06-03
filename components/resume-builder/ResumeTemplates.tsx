@@ -225,7 +225,7 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
     {resumeInfo.summary && (
       <section id="resume-section-summary" className="mb-6">
         <h2 className="text-lg font-bold mb-2" style={{ color: themeColor }}>Professional Profile</h2>
-        <p className="text-sm leading-relaxed text-gray-700">{resumeInfo.summary}</p>
+        <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">{resumeInfo.summary}</p>
       </section>
     )}
     {resumeInfo.experience.length > 0 && (
@@ -249,7 +249,14 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
         {resumeInfo.education.map((edu) => (
           <div key={edu.id} className="mb-3">
             <h3 className="text-base font-bold text-gray-900">{edu.universityName}</h3>
-            <p className="text-sm italic text-gray-600">{edu.degree}{edu.major && ` in ${edu.major}`}</p>
+            <p className="text-sm italic text-gray-600">
+              {edu.degree}
+              {edu.degree && edu.major ? ' — ' : ''}
+              {edu.major}
+            </p>
+            {edu.description ? (
+              <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap break-words">{edu.description}</p>
+            ) : null}
           </div>
         ))}
       </section>
@@ -266,7 +273,9 @@ export const ProfessionalTemplate: React.FC<TemplateProps> = ({ resumeInfo, them
         {resumeInfo.projects.map((project) => (
           <div key={project.id} className="mb-3">
             <h3 className="text-sm font-bold text-gray-900">{project.name}</h3>
-            {project.description && <p className="text-sm text-gray-600 mt-1">{project.description}</p>}
+            {project.description ? (
+              <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">{project.description}</p>
+            ) : null}
           </div>
         ))}
       </section>

@@ -1,5 +1,7 @@
 """
-Build ats_resume_scorer.zip for AWS Lambda: dependencies from ats_resume_scorer_requirements.txt + handler.
+Build ats_resume_scorer.zip for AWS Lambda: dependencies + ats_resume_scorer.py + resume_text_extract.py.
+
+Fix My Resume is a separate Lambda — use build_fix_resume_zip.py.
 
 Run from repo root or lambda/:  python build_ats_zip.py
 Requires: Python 3.11+ (match Lambda runtime), pip.
@@ -16,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REQ = ROOT / "ats_resume_scorer_requirements.txt"
 HANDLER = ROOT / "ats_resume_scorer.py"
+SHARED = ROOT / "resume_text_extract.py"
 OUT = ROOT / "ats_resume_scorer.zip"
 PKG = ROOT / "package"
 
@@ -62,6 +65,8 @@ def main() -> None:
                 arc = path.relative_to(PKG).as_posix()
                 zf.write(path, arc)
         zf.write(HANDLER, "ats_resume_scorer.py")
+        if SHARED.is_file():
+            zf.write(SHARED, "resume_text_extract.py")
     print(f"Wrote {OUT} ({OUT.stat().st_size // 1024} KB)")
 
 

@@ -1,0 +1,37 @@
+% Fixed resume PDF — placeholders replaced in Python only (no AI-generated LaTeX).
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\geometry{margin=0.75in}
+\pagestyle{empty}
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{{{NAME}}}}
+\end{center}
+
+\vspace{0.5em}
+
+{{SUMMARY_BLOCK}}
+
+\section*{Skills}
+\begin{itemize}
+{{SKILLS_ITEMS}}
+\end{itemize}
+
+\section*{Experience}
+{{EXPERIENCE_BLOCK}}
+
+\section*{Projects}
+{{PROJECTS_BLOCK}}
+
+\section*{Education}
+{{EDUCATION_BLOCK}}
+
+{{EXTRA_BLOCK}}
+
+\end{document}

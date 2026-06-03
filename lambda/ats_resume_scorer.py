@@ -11,13 +11,12 @@ Optional env:
 - ATS_HISTORY_TABLE (default AtsScoreHistory): save reports when userId present
 - ATS_RESUME_S3_BUCKET: if set, upload resume bytes to S3 when saving history; stores resumeS3Bucket, resumeS3Key, resumeFileUrl, resume (same URL) on the item
 - ATS_RESUME_S3_PREFIX (default ats-resume-history/): key prefix under the bucket
-- ENABLE_TEXTRACT_OCR=1, OCR_MAX_PDF_PAGES (default 3): AWS Textract for scanned PDFs (needs IAM)
+- PDF/DOCX text extraction: see resume_text_extract.py (ENABLE_TEXTRACT_OCR, OCR_MAX_PDF_PAGES, MIN_PDF_TEXT_CHARS)
 
-Dependencies: PyPDF2, PyMuPDF (fitz), python-docx (see ats_resume_scorer_requirements.txt).
+Dependencies: PyPDF2, pdfminer.six, PyMuPDF (fitz), python-docx (see ats_resume_scorer_requirements.txt).
 """
 
 import base64
-import io
 import json
 import os
 import re
@@ -29,20 +28,18 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 
-import boto3
-from botocore.exceptions import ClientError
+# Optional AWS deps (local dev may not have boto3/botocore installed).
+try:
+    import boto3  # type: ignore
+    from botocore.exceptions import ClientError  # type: ignore
+except Exception:  # pragma: no cover
+    boto3 = None  # type: ignore
+    ClientError = Exception  # type: ignore
+
+from resume_text_extract import extract_text_from_bytes
 
 USERS_TABLE = "Users"
 ATS_HISTORY_TABLE_NAME = (os.environ.get("ATS_HISTORY_TABLE") or "AtsScoreHistory").strip() or "AtsScoreHistory"
-ENABLE_TEXTRACT_OCR = os.environ.get("ENABLE_TEXTRACT_OCR", "").lower() in ("1", "true", "yes")
-try:
-    OCR_MAX_PDF_PAGES = max(1, min(10, int(os.environ.get("OCR_MAX_PDF_PAGES", "3"))))
-except ValueError:
-    OCR_MAX_PDF_PAGES = 3
-try:
-    MIN_PDF_TEXT_CHARS = max(5, int(os.environ.get("MIN_PDF_TEXT_CHARS", "40")))
-except ValueError:
-    MIN_PDF_TEXT_CHARS = 40
 
 OPENROUTER_DEFAULT_MODEL = (os.environ.get("OPENROUTER_DEFAULT_MODEL") or "openai/gpt-4o-mini").strip()
 OPENROUTER_HTTP_REFERER = (os.environ.get("OPENROUTER_HTTP_REFERER") or "https://projectbazaar.app").strip()
@@ -52,16 +49,26 @@ ATS_RESUME_S3_PREFIX = (os.environ.get("ATS_RESUME_S3_PREFIX") or "ats-resume-hi
 if ATS_RESUME_S3_PREFIX and not ATS_RESUME_S3_PREFIX.endswith("/"):
     ATS_RESUME_S3_PREFIX += "/"
 
-dynamodb = boto3.resource("dynamodb")
-users_table = dynamodb.Table(USERS_TABLE)
-history_table = dynamodb.Table(ATS_HISTORY_TABLE_NAME)
+# boto3 requires a region for DynamoDB/S3 clients (local dev often has no ~/.aws/config).
+_AWS_REGION = (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "ap-south-2").strip()
+
+if boto3 is not None:
+    dynamodb = boto3.resource("dynamodb", region_name=_AWS_REGION)
+    users_table = dynamodb.Table(USERS_TABLE)
+    history_table = dynamodb.Table(ATS_HISTORY_TABLE_NAME)
+else:  # local dev: AWS features unavailable
+    dynamodb = None
+    users_table = None
+    history_table = None
 _s3_client = None
 
 
 def _get_s3_client():
     global _s3_client
     if _s3_client is None:
-        _s3_client = boto3.client("s3")
+        if boto3 is None:
+            raise RuntimeError("boto3 not installed; S3 upload unavailable.")
+        _s3_client = boto3.client("s3", region_name=_AWS_REGION)
     return _s3_client
 
 
@@ -236,132 +243,6 @@ def _extract_byok_credentials(body):
     return provider, api_key, model
 
 
-def _pypdf_extract(data: bytes) -> str:
-    import PyPDF2
-
-    reader = PyPDF2.PdfReader(io.BytesIO(data))
-    parts = []
-    for page in reader.pages:
-        t = page.extract_text()
-        if t:
-            parts.append(t)
-    return "\n".join(parts).strip()
-
-
-def _fitz_text_extract(data: bytes) -> str:
-    import fitz
-
-    doc = fitz.open(stream=data, filetype="pdf")
-    parts = []
-    for i in range(doc.page_count):
-        parts.append(doc.load_page(i).get_text("text") or "")
-    doc.close()
-    return "\n".join(parts).strip()
-
-
-def _fitz_textract_ocr(data: bytes) -> str:
-    import fitz
-
-    textract = boto3.client("textract")
-    doc = fitz.open(stream=data, filetype="pdf")
-    out = []
-    n = min(doc.page_count, OCR_MAX_PDF_PAGES)
-    for i in range(n):
-        page = doc.load_page(i)
-        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
-        png = pix.tobytes("png")
-        resp = textract.detect_document_text(Document={"Bytes": png})
-        lines = [b.get("Text", "") for b in resp.get("Blocks", []) if b.get("BlockType") == "LINE"]
-        out.append("\n".join(lines))
-    doc.close()
-    return "\n".join(out).strip()
-
-
-def structure_resume_sections(text: str) -> str:
-    """Insert clearer breaks before common résumé headings (helps LLM section quality)."""
-    if not text:
-        return text
-    pattern = re.compile(
-        r"(?m)(^\s*(?:EXPERIENCE|WORK\s+EXPERIENCE|EDUCATION|SKILLS|PROJECTS?|SUMMARY|"
-        r"CERTIFICATIONS?|ACHIEVEMENTS?|TECHNICAL\s+SKILLS|PUBLICATIONS?|INTERNSHIP|CERTIFICATES?)\s*:?\s*$)",
-        re.I,
-    )
-
-    def _break_before(m):
-        return "\n\n" + m.group(1).strip() + "\n"
-
-    out = pattern.sub(_break_before, text)
-    return re.sub(r"\n{3,}", "\n\n", out).strip()
-
-
-def _pdf_extraction_deps_missing_hint(notes):
-    """If errors are ImportError-style, tell operators to bundle libs (common Lambda packaging mistake)."""
-    blob = " ".join(notes)
-    if "No module named 'PyPDF2'" in blob or "No module named 'fitz'" in blob:
-        return (
-            " The function bundle is missing PyPDF2 and/or PyMuPDF: install "
-            "lambda/ats_resume_scorer_requirements.txt into the deployment zip/layer "
-            "(see ATS_RESUME_SCORER_SETUP.md or run lambda/build_ats_zip.py)."
-        )
-    return ""
-
-
-def extract_text_from_bytes(data: bytes, filename: str) -> str:
-    """Extract plain text from PDF or DOCX; PDF tries PyPDF2 → PyMuPDF → optional Textract OCR."""
-    fn = (filename or "resume.pdf").lower()
-    if fn.endswith(".pdf"):
-        notes = []
-        text = ""
-        try:
-            text = _pypdf_extract(data)
-        except Exception as e:
-            notes.append(f"PyPDF2:{e}")
-            text = ""
-        if len(text) < MIN_PDF_TEXT_CHARS:
-            try:
-                t2 = _fitz_text_extract(data)
-                if len(t2) > len(text):
-                    text = t2
-            except Exception as e:
-                notes.append(f"PyMuPDF:{e}")
-        if len(text) < MIN_PDF_TEXT_CHARS and ENABLE_TEXTRACT_OCR:
-            try:
-                t3 = _fitz_textract_ocr(data)
-                if len(t3) > len(text):
-                    text = t3
-            except Exception as e:
-                notes.append(f"Textract:{e}")
-        if not text or len(text.strip()) < 5:
-            deps_hint = _pdf_extraction_deps_missing_hint(notes)
-            textract_hint = (
-                ""
-                if deps_hint
-                else (
-                    " Try setting ENABLE_TEXTRACT_OCR=1 with textract:DetectDocumentText on the Lambda role."
-                    if not ENABLE_TEXTRACT_OCR
-                    else ""
-                )
-            )
-            raise ValueError(
-                "Could not extract enough text from PDF (may be scanned)."
-                + deps_hint
-                + textract_hint
-                + (" Details: " + "; ".join(notes) if notes else "")
-            )
-        return structure_resume_sections(text)
-    if fn.endswith(".docx"):
-        try:
-            import docx
-        except ImportError as e:
-            raise RuntimeError("python-docx not installed in Lambda layer/package") from e
-        document = docx.Document(io.BytesIO(data))
-        text = "\n".join(p.text for p in document.paragraphs if p.text).strip()
-        if not text:
-            raise ValueError("Could not extract text from DOCX")
-        return structure_resume_sections(text)
-    raise ValueError("Unsupported file type. Use .pdf or .docx")
-
-
 _SYNONYM_GROUPS = [
     ("communication", "communicating", "communicate", "communications"),
     ("stakeholder", "stakeholders"),
@@ -400,6 +281,99 @@ def _resume_stem_index(resume_lower: str):
     return stems
 
 
+_ALLOWED_RESUME_SECTIONS = ("Skills", "Projects", "Summary", "Experience", "Education")
+
+
+def _canonical_resume_section(name: str) -> str | None:
+    """Map model output to one of the allowed section labels; unknown → None (drop)."""
+    if not name or not isinstance(name, str):
+        return None
+    t = name.strip()
+    if not t:
+        return None
+    tl = t.lower()
+    for a in _ALLOWED_RESUME_SECTIONS:
+        if tl == a.lower():
+            return a
+    alias = {
+        "skill": "Skills",
+        "technical skills": "Skills",
+        "core competencies": "Skills",
+        "project": "Projects",
+        "professional summary": "Summary",
+        "objective": "Summary",
+        "profile": "Summary",
+        "work experience": "Experience",
+        "employment": "Experience",
+        "work history": "Experience",
+        "academic": "Education",
+        "qualifications": "Education",
+    }
+    return alias.get(tl)
+
+
+def _normalize_suggested_sections(val) -> list[str]:
+    if val is None:
+        return []
+    if isinstance(val, str):
+        val = [val]
+    if not isinstance(val, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for x in val:
+        c = _canonical_resume_section(str(x))
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _parse_missing_keyword_entries_from_result(result: dict) -> list[dict]:
+    """
+    Build [{keyword, suggestedSection: []}] from:
+    - missingKeywordDetails (preferred)
+    - missingKeywords / missing_keywords: list of strings OR list of {keyword, suggestedSection|suggested_section}
+    """
+    details_raw = result.get("missingKeywordDetails") or result.get("missing_keyword_details")
+    mixed = result.get("missingKeywords") or result.get("missing_keywords")
+    entries: list[dict] = []
+    seen_lower: set[str] = set()
+
+    def add_entry(keyword: str, sections: list) -> None:
+        kw = (keyword or "").strip()
+        if not kw:
+            return
+        kl = kw.lower()
+        if kl in seen_lower:
+            return
+        seen_lower.add(kl)
+        entries.append({"keyword": kw, "suggestedSection": _normalize_suggested_sections(sections)})
+
+    if isinstance(details_raw, list):
+        for item in details_raw:
+            if not isinstance(item, dict):
+                continue
+            kw = str(item.get("keyword") or item.get("term") or "").strip()
+            secs = item.get("suggestedSection") or item.get("suggested_section") or []
+            if isinstance(secs, str):
+                secs = [secs]
+            add_entry(kw, secs if isinstance(secs, list) else [])
+
+    if isinstance(mixed, list):
+        for item in mixed:
+            if isinstance(item, str):
+                add_entry(item, [])
+            elif isinstance(item, dict):
+                kw = str(item.get("keyword") or item.get("term") or "").strip()
+                secs = item.get("suggestedSection") or item.get("suggested_section") or []
+                if isinstance(secs, str):
+                    secs = [secs]
+                add_entry(kw, secs if isinstance(secs, list) else [])
+
+    return entries
+
+
 def refine_keyword_lists(result, resume_text: str):
     """Remove false 'missing' keywords when resume clearly covers phrase (case, stemming, synonyms)."""
     if not resume_text:
@@ -407,8 +381,8 @@ def refine_keyword_lists(result, resume_text: str):
     rlow = resume_text.lower()
     stems = _resume_stem_index(rlow)
     matched = [m for m in (result.get("matchedKeywords") or []) if isinstance(m, str)]
-    missing_in = [m for m in (result.get("missingKeywords") or []) if isinstance(m, str)]
-    new_missing = []
+    missing_entries = _parse_missing_keyword_entries_from_result(result)
+    new_entries: list[dict] = []
 
     def _phrase_known(phrase: str) -> bool:
         pl = phrase.lower().strip()
@@ -433,14 +407,23 @@ def refine_keyword_lists(result, resume_text: str):
                 return False
         return True
 
-    for phrase in missing_in:
+    for ent in missing_entries:
+        phrase = ent.get("keyword") or ""
+        if not isinstance(phrase, str):
+            continue
+        phrase = phrase.strip()
+        if not phrase:
+            continue
+        secs = ent.get("suggestedSection") if isinstance(ent.get("suggestedSection"), list) else []
+        secs = [s for s in secs if isinstance(s, str) and s.strip()]
         if _phrase_known(phrase):
             if phrase not in matched:
                 matched.append(phrase)
         else:
-            new_missing.append(phrase)
+            new_entries.append({"keyword": phrase, "suggestedSection": _normalize_suggested_sections(secs)})
 
-    result["missingKeywords"] = new_missing
+    result["missingKeywords"] = [e["keyword"] for e in new_entries]
+    result["missingKeywordDetails"] = new_entries
     result["matchedKeywords"] = matched
 
 
@@ -473,6 +456,9 @@ def _maybe_save_ats_history(
                 print("ATS history S3: using UTF-8 text fallback (Resume Builder / resumeText-only path)")
         if not display_name:
             display_name = "resume.pdf" if resume_bytes else "resume-from-builder.txt"
+        mkd = ats_result.get("missingKeywordDetails") or []
+        if not isinstance(mkd, list):
+            mkd = []
         item = {
             "userId": user_id,
             "reportId": rid,
@@ -481,6 +467,7 @@ def _maybe_save_ats_history(
             "overallScore": int(ats_result.get("overallScore") or 0),
             "matchedKeywords": (ats_result.get("matchedKeywords") or [])[:50],
             "missingKeywords": (ats_result.get("missingKeywords") or [])[:50],
+            "missingKeywordDetails": mkd[:50],
             "feedback": (ats_result.get("feedback") or [])[:20],
             "resumeFileName": display_name[:200],
             "jobDescriptionPreview": (job_description or "")[:500],
@@ -509,6 +496,8 @@ def _maybe_save_ats_history(
 
 
 def get_user_llm_config(user_id):
+    if users_table is None:
+        return None, None
     try:
         r = users_table.get_item(Key={"userId": user_id})
         item = r.get("Item")
@@ -692,14 +681,23 @@ TASK:
    - Location/soft (if mentioned in JD) and soft skills: {w['locationAndSoft']}%
 
 4. List matched keywords from the JD that appear in the resume.
-5. List important JD keywords that are missing or weak in the resume.
+5. List important JD keywords that are missing or weak in the resume. For EACH missing keyword, assign one or more suggested resume sections where it logically fits (do not guess randomly).
 6. Give 2-4 short, actionable feedback sentences.
+
+Section mapping rules (use only these section names in suggestedSection arrays):
+- Technical skills, frameworks, libraries, languages → ["Skills"]
+- Tools, platforms, cloud, DevOps products → ["Skills", "Projects"] (both when the tool can appear as a skill and in project context)
+- Domain / industry concepts → ["Summary", "Projects"]
+- Action verbs and impact phrasing → ["Experience", "Projects"]
+- Education credentials, degrees, certifications tied to formal education → ["Education"] (optional with Skills if it is also a tool/skill)
+
+Rules: no duplicate keyword entries; each suggestedSection value must be one of: Skills, Projects, Summary, Experience, Education. Keep lists concise (1-3 sections typical).
 
 Respond with ONLY a single JSON object (no markdown, no code block), with these exact keys:
 - "overallScore": number 0-100
 - "breakdown": object with keys "skillsMatch", "experience", "education", "formatting", "achievements", "locationAndSoft" (each a number 0-100)
 - "matchedKeywords": array of strings
-- "missingKeywords": array of strings
+- "missingKeywords": array of objects, each exactly: {{"keyword": "<string>", "suggestedSection": ["Skills"|"Projects"|"Summary"|"Experience"|"Education", ...]}}
 - "feedback": array of strings (2-4 short actionable sentences; required, use this exact key name)
 
 RESUME:
@@ -755,6 +753,20 @@ def _coerce_feedback_list(val):
 
 
 def normalize_ats_result(result):
+    if not isinstance(result, dict):
+        return
+    # Alternate top-level keys (strict JSON / model variants)
+    if (result.get("overallScore") is None) and result.get("ats_score") is not None:
+        result["overallScore"] = result.get("ats_score")
+    if not result.get("matchedKeywords") and result.get("matching_keywords"):
+        result["matchedKeywords"] = result.get("matching_keywords")
+    if result.get("missing_keywords") and not result.get("missingKeywords"):
+        result["missingKeywords"] = result.get("missing_keywords")
+    if result.get("missing_keyword_details") and not result.get("missingKeywordDetails"):
+        result["missingKeywordDetails"] = result.get("missing_keyword_details")
+    if not result.get("feedback") and result.get("suggestions"):
+        result["feedback"] = result.get("suggestions")
+
     result.setdefault("overallScore", 0)
     result.setdefault("breakdown", {})
     result.setdefault("matchedKeywords", [])
@@ -765,6 +777,23 @@ def normalize_ats_result(result):
         result["overallScore"] = max(0, min(100, score))
     except (TypeError, ValueError):
         result["overallScore"] = 0
+
+    # matchedKeywords: strings only, dedupe, cap length
+    _raw_mk = result.get("matchedKeywords") or []
+    if isinstance(_raw_mk, list):
+        cleaned_mk: list[str] = []
+        seen_mk: set[str] = set()
+        for x in _raw_mk:
+            s = str(x).strip() if x is not None else ""
+            if not s:
+                continue
+            sl = s.lower()
+            if sl not in seen_mk:
+                seen_mk.add(sl)
+                cleaned_mk.append(s)
+        result["matchedKeywords"] = cleaned_mk[:50]
+    else:
+        result["matchedKeywords"] = []
 
     # LLMs often omit "feedback" or use other keys; history + UI need feedback[].
     fb = _coerce_feedback_list(result.get("feedback"))

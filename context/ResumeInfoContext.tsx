@@ -83,6 +83,8 @@ export interface ResumeInfo {
   themeColor: string;
   template: ResumeTemplate;
   summary: string;
+  /** Fix-resume pipeline overflow (achievements, etc.) — not merged into professional summary. */
+  fixResumeExtra?: string;
   experience: Experience[];
   education: Education[];
   skills: Skill[];
@@ -198,8 +200,26 @@ const defaultResumeInfo: ResumeInfo = {
 
 const ResumeInfoContext = createContext<ResumeInfoContextType | undefined>(undefined);
 
-export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export type ResumeInfoProviderProps = {
+  children: ReactNode;
+  /** When set with `isolated`, initial resume state (e.g. Fix My Resume preview). */
+  initialResume?: ResumeInfo;
+  /** No localStorage read/write; save/load/delete no-ops — use for embedded previews. */
+  isolated?: boolean;
+};
+
+export const ResumeInfoProvider: React.FC<ResumeInfoProviderProps> = ({
+  children,
+  initialResume,
+  isolated = false,
+}) => {
   const [resumeInfo, setResumeInfoState] = useState<ResumeInfo>(() => {
+    if (isolated && initialResume) {
+      return initialResume;
+    }
+    if (isolated) {
+      return { ...defaultResumeInfo, firstName: '', lastName: '', experience: [], education: [], skills: [], projects: [], summary: '' };
+    }
     const stored = localStorage.getItem('currentResume');
     if (stored) {
       const parsed = JSON.parse(stored);
@@ -215,13 +235,16 @@ export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children
   });
 
   const [savedResumes, setSavedResumes] = useState<ResumeInfo[]>(() => {
+    if (isolated) return [];
     const stored = localStorage.getItem('savedResumes');
     return stored ? JSON.parse(stored) : [];
   });
 
   const setResumeInfo = (info: ResumeInfo) => {
     setResumeInfoState(info);
-    localStorage.setItem('currentResume', JSON.stringify(info));
+    if (!isolated) {
+      localStorage.setItem('currentResume', JSON.stringify(info));
+    }
   };
 
   const updateResumeField = <K extends keyof ResumeInfo>(field: K, value: ResumeInfo[K]) => {
@@ -230,10 +253,15 @@ export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const resetResume = () => {
+    if (isolated && initialResume) {
+      setResumeInfoState(initialResume);
+      return;
+    }
     setResumeInfo({ ...defaultResumeInfo, id: `resume_${Date.now()}` });
   };
 
   const saveResume = () => {
+    if (isolated) return;
     const resumeToSave = {
       ...resumeInfo,
       id: resumeInfo.id || `resume_${Date.now()}`,
@@ -257,6 +285,7 @@ export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const loadResume = (id: string) => {
+    if (isolated) return;
     const resume = savedResumes.find(r => r.id === id);
     if (resume) {
       setResumeInfo(resume);
@@ -264,6 +293,7 @@ export const ResumeInfoProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const deleteResume = (id: string) => {
+    if (isolated) return;
     const updatedResumes = savedResumes.filter(r => r.id !== id);
     setSavedResumes(updatedResumes);
     localStorage.setItem('savedResumes', JSON.stringify(updatedResumes));

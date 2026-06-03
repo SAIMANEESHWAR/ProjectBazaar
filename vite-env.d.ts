@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+    /** HTTPS invoke URL for the Fix My Resume Lambda (production builds). Example: …/default/fix_resume_handler */
+    readonly VITE_FIX_RESUME_ENDPOINT?: string;
+    readonly VITE_ATS_SCORER_ENDPOINT?: string;
     /** Override login Lambda URL (default in lib/apiConfig.ts). */
     readonly VITE_LOGIN_API_URL?: string;
     readonly VITE_COMPANY_POSTS_API_URL?: string;

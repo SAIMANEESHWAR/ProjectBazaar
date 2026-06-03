@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Lottie from 'lottie-react';
 import { useNavigation, useAuth } from '../../App';
 import { ResumeInfoProvider, useResumeInfo } from '../../context/ResumeInfoContext';
@@ -11,7 +11,14 @@ import ProjectsForm from './ProjectsForm';
 import ResumePreview from './ResumePreview';
 import ThemeColorPicker from './ThemeColorPicker';
 import TemplatePicker from './TemplatePicker';
-import { getLlmKeysStatus, getAtsScore, buildResumeTextFromInfo, type AtsResult } from '../../services/atsService';
+import {
+  getLlmKeysStatus,
+  getAtsScore,
+  buildResumeTextFromInfo,
+  coerceMissingKeywordDetails,
+  type AtsResult,
+} from '../../services/atsService';
+import { openResumePrintFromPreviewRoot } from '../../utils/resumePrintWindow';
 import personalAvatarAnimation from '../../lottiefiles/personal_avatar.json';
 import educationSuitcaseAnimation from '../../lottiefiles/education_suitcase.json';
 import summaryDocumentAnimation from '../../lottiefiles/summary_document.json';
@@ -64,6 +71,10 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
   const [atsResult, setAtsResult] = useState<AtsResult | null>(null);
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsError, setAtsError] = useState<string | null>(null);
+  const atsMissingDetails = useMemo(
+    () => (atsResult ? coerceMissingKeywordDetails(atsResult) : []),
+    [atsResult]
+  );
 
   // Map step IDs to section IDs and fallback heading text for scrolling
   const stepToSectionMap: { [key: number]: { id: string; headings: string[] } } = {
@@ -170,287 +181,8 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
   };
 
   const handleDownload = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // Find the actual resume content div (skip the wrapper)
-    let resumeContent = '';
-    if (previewRef.current) {
-      // previewRef.current is the wrapper div, we need the first child div which is the ResumePreview template
-      // The template is typically the first div child that contains sections or has bg-white
-      const firstChild = previewRef.current.firstElementChild as HTMLElement;
-      
-      if (firstChild && firstChild.tagName === 'DIV') {
-        // Clone to preserve all inline styles
-        const cloned = firstChild.cloneNode(true) as HTMLElement;
-        // Remove any highlight classes that might be present
-        cloned.querySelectorAll('.resume-section-highlight').forEach(el => {
-          el.classList.remove('resume-section-highlight');
-        });
-        // Get the outerHTML to preserve all attributes and inline styles
-        resumeContent = cloned.outerHTML;
-      } else {
-        // Fallback: try to find div with resume sections
-        const resumeDiv = previewRef.current.querySelector('[id^="resume-section"]')?.closest('div');
-        if (resumeDiv) {
-          const cloned = resumeDiv.cloneNode(true) as HTMLElement;
-          cloned.querySelectorAll('.resume-section-highlight').forEach(el => {
-            el.classList.remove('resume-section-highlight');
-          });
-          resumeContent = cloned.outerHTML;
-        } else {
-          // Last fallback: get innerHTML
-          resumeContent = previewRef.current.innerHTML;
-        }
-      }
-    }
-    
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${resumeInfo.firstName} ${resumeInfo.lastName} - Resume</title>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            * { 
-              box-sizing: border-box; 
-              margin: 0; 
-              padding: 0;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            body { 
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-              background: white;
-              color: #1f2937;
-              line-height: 1.5;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            /* Container styles */
-            .bg-white { background-color: white; }
-            .text-white { color: white; }
-            .text-gray-900 { color: #111827; }
-            .text-gray-800 { color: #1f2937; }
-            .text-gray-700 { color: #374151; }
-            .text-gray-600 { color: #4b5563; }
-            .text-gray-500 { color: #6b7280; }
-            .text-gray-400 { color: #9ca3af; }
-            .text-gray-300 { color: #d1d5db; }
-            .text-gray-200 { color: #e5e7eb; }
-            .text-gray-100 { color: #f3f4f6; }
-            .bg-gray-100 { background-color: #f3f4f6; }
-            .bg-gray-50 { background-color: #f9fafb; }
-            .bg-gray-200 { background-color: #e5e7eb; }
-            .bg-gray-800 { background-color: #1f2937; }
-            .bg-gray-900 { background-color: #111827; }
-            
-            /* Typography */
-            .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-            .text-2xl { font-size: 1.5rem; line-height: 2rem; }
-            .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-            .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
-            .text-base { font-size: 1rem; line-height: 1.5rem; }
-            .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-            .text-xs { font-size: 0.75rem; line-height: 1rem; }
-            
-            .font-bold { font-weight: 700; }
-            .font-semibold { font-weight: 600; }
-            .font-medium { font-weight: 500; }
-            .font-normal { font-weight: 400; }
-            .font-mono { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; }
-            .italic { font-style: italic; }
-            
-            .uppercase { text-transform: uppercase; }
-            .tracking-wider { letter-spacing: 0.05em; }
-            .tracking-widest { letter-spacing: 0.1em; }
-            .tracking-wide { letter-spacing: 0.025em; }
-            .leading-relaxed { line-height: 1.625; }
-            .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-            
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .text-left { text-align: left; }
-            
-            /* Spacing */
-            .p-8 { padding: 2rem; }
-            .p-6 { padding: 1.5rem; }
-            .p-4 { padding: 1rem; }
-            .p-3 { padding: 0.75rem; }
-            .p-2 { padding: 0.5rem; }
-            .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-            .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-            .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-            .py-0\\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
-            .pl-4 { padding-left: 1rem; }
-            .pl-6 { padding-left: 1.5rem; }
-            
-            .mb-1 { margin-bottom: 0.25rem; }
-            .mb-2 { margin-bottom: 0.5rem; }
-            .mb-3 { margin-bottom: 0.75rem; }
-            .mb-4 { margin-bottom: 1rem; }
-            .mb-5 { margin-bottom: 1.25rem; }
-            .mb-6 { margin-bottom: 1.5rem; }
-            .mb-8 { margin-bottom: 2rem; }
-            .mt-0\\.5 { margin-top: 0.125rem; }
-            .mt-1 { margin-top: 0.25rem; }
-            .mt-2 { margin-top: 0.5rem; }
-            .mt-3 { margin-top: 0.75rem; }
-            .mt-4 { margin-top: 1rem; }
-            .mt-6 { margin-top: 1.5rem; }
-            .ml-1 { margin-left: 0.25rem; }
-            .ml-2 { margin-left: 0.5rem; }
-            .pb-1 { padding-bottom: 0.25rem; }
-            .pb-2 { padding-bottom: 0.5rem; }
-            .pb-4 { padding-bottom: 1rem; }
-            .max-w-2xl { max-width: 42rem; }
-            .mx-auto { margin-left: auto; margin-right: auto; }
-            
-            /* Flexbox & Grid */
-            .flex { display: flex; }
-            .grid { display: grid; }
-            .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .flex-wrap { flex-wrap: wrap; }
-            .flex-1 { flex: 1 1 0%; }
-            .flex-shrink-0 { flex-shrink: 0; }
-            .items-center { align-items: center; }
-            .items-start { align-items: flex-start; }
-            .items-end { align-items: flex-end; }
-            .items-baseline { align-items: baseline; }
-            .justify-center { justify-content: center; }
-            .justify-between { justify-content: space-between; }
-            
-            .gap-0\\.5 { gap: 0.125rem; }
-            .gap-1 { gap: 0.25rem; }
-            .gap-2 { gap: 0.5rem; }
-            .gap-3 { gap: 0.75rem; }
-            .gap-4 { gap: 1rem; }
-            .gap-6 { gap: 1.5rem; }
-            .gap-8 { gap: 2rem; }
-            .space-y-1 > * + * { margin-top: 0.25rem; }
-            .space-y-2 > * + * { margin-top: 0.5rem; }
-            .space-y-3 > * + * { margin-top: 0.75rem; }
-            .space-y-4 > * + * { margin-top: 1rem; }
-            
-            .whitespace-nowrap { white-space: nowrap; }
-            
-            /* Border and shapes */
-            .rounded-full { border-radius: 9999px; }
-            .rounded-lg { border-radius: 0.5rem; }
-            .rounded { border-radius: 0.25rem; }
-            .overflow-hidden { overflow: hidden; }
-            
-            .border { border-width: 1px; border-style: solid; }
-            .border-l { border-left-width: 1px; border-left-style: solid; }
-            .border-l-2 { border-left-width: 2px; border-left-style: solid; }
-            .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
-            .border-b-2 { border-bottom-width: 2px; border-bottom-style: solid; }
-            .border-t { border-top-width: 1px; border-top-style: solid; }
-            .border-gray-200 { border-color: #e5e7eb; }
-            .border-gray-300 { border-color: #d1d5db; }
-            
-            /* Sizing */
-            .w-2 { width: 0.5rem; }
-            .w-3 { width: 0.75rem; }
-            .w-16 { width: 4rem; }
-            .w-full { width: 100%; }
-            .h-1 { height: 0.25rem; }
-            .h-1\\.5 { height: 0.375rem; }
-            .h-2 { height: 0.5rem; }
-            .h-3 { height: 0.75rem; }
-            .h-full { height: 100%; }
-            .h-16 { height: 4rem; }
-            
-            /* Positioning */
-            .relative { position: relative; }
-            .absolute { position: absolute; }
-            .top-1 { top: 0.25rem; }
-            .left-0 { left: 0; }
-            .left-1\\.5 { left: 0.375rem; }
-            .top-4 { top: 1rem; }
-            
-            /* HR styling */
-            hr {
-              border: none;
-              border-top-width: 1px;
-              border-top-style: solid;
-              margin-top: 0;
-              margin-bottom: 0;
-            }
-            
-            /* Rich text content */
-            .rich-text-content ul {
-              list-style-type: disc;
-              padding-left: 1.25rem;
-              margin: 0.375rem 0;
-            }
-            .rich-text-content ol {
-              list-style-type: decimal;
-              padding-left: 1.25rem;
-              margin: 0.375rem 0;
-            }
-            .rich-text-content li {
-              display: list-item;
-              margin: 0.25rem 0;
-              padding-left: 0.25rem;
-            }
-            .rich-text-content a {
-              color: inherit;
-              text-decoration: underline;
-            }
-            .rich-text-content p {
-              margin: 0.25rem 0;
-            }
-            
-            /* Links */
-            a { text-decoration: none; color: inherit; }
-            .hover\\:underline:hover { text-decoration: underline; }
-            
-            /* Section container */
-            section { page-break-inside: avoid; }
-            
-            /* Ensure all inline styles and colors are preserved */
-            [style] {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            /* Print styles */
-            @media print {
-              body { 
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                margin: 0;
-                padding: 0;
-              }
-              @page { 
-                margin: 0.4in; 
-                size: letter;
-              }
-              * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              /* Force colors to print */
-              [style*="color"], [style*="background"], [style*="border"] {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          ${resumeContent}
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    const title = `${resumeInfo.firstName} ${resumeInfo.lastName} - Resume`.trim();
+    openResumePrintFromPreviewRoot(previewRef.current, title || 'Resume');
   };
 
   const handleSave = () => {
@@ -1092,8 +824,15 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                     setAtsLoading(true);
                     getAtsScore(userId, text, jobDescriptionForAts)
                       .then((r) => {
-                        if (r.success && r.atsResult) setAtsResult(r.atsResult);
-                        else setAtsError(r.message || 'Could not get score');
+                        if (r.success && r.atsResult) {
+                          const ar = r.atsResult;
+                          const missingKeywordDetails = coerceMissingKeywordDetails(ar);
+                          setAtsResult({
+                            ...ar,
+                            missingKeywords: missingKeywordDetails.map((m) => m.keyword),
+                            missingKeywordDetails,
+                          });
+                        } else setAtsError(r.message || 'Could not get score');
                       })
                       .catch(() => setAtsError('Something went wrong. Try again.'))
                       .finally(() => setAtsLoading(false));
@@ -1142,12 +881,22 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
                       </div>
                     </div>
                   )}
-                  {atsResult.missingKeywords?.length > 0 && (
+                  {atsMissingDetails.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">Missing or weak</p>
-                      <div className="flex flex-wrap gap-1">
-                        {atsResult.missingKeywords.map((k, i) => (
-                          <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">{k}</span>
+                      <div className="flex flex-col gap-1.5">
+                        {atsMissingDetails.map((m) => (
+                          <div
+                            key={m.keyword}
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+                          >
+                            <span className="font-semibold">{m.keyword}</span>
+                            {m.suggestedSection.length > 0 ? (
+                              <p className="mt-0.5 text-[11px] font-medium text-amber-900/90">
+                                Suggested: {m.suggestedSection.join(' · ')}
+                              </p>
+                            ) : null}
+                          </div>
                         ))}
                       </div>
                     </div>
