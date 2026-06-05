@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth, useNavigation } from '../App';
 import { verifyEmail } from '../lib/emailVerification';
+import EmailVerificationShell from './EmailVerificationShell';
+import VerificationCodeInput from './VerificationCodeInput';
 
 type Status = 'idle' | 'verifying' | 'success' | 'error';
 
@@ -30,11 +33,11 @@ const VerifyEmailPage: React.FC = () => {
         .then((result) => {
           if (result.success) {
             setStatus('success');
-            setMessage(result.message || 'Your email has been verified.');
+            setMessage(result.message || 'Your email has been verified successfully.');
             syncLocalUserData(true);
           } else {
             setStatus('error');
-            setMessage(result.error?.message || 'Verification failed. Try entering the code below.');
+            setMessage(result.error?.message || 'Verification failed. Enter the 6-digit code below.');
           }
         })
         .catch(() => {
@@ -60,8 +63,8 @@ const VerifyEmailPage: React.FC = () => {
 
   const handleCodeSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userId.trim() || !code.trim()) {
-      setMessage('Enter your user ID and 6-digit code.');
+    if (!userId.trim() || code.length !== 6) {
+      setMessage('Enter your user ID and the full 6-digit code from your email.');
       setStatus('error');
       return;
     }
@@ -75,7 +78,7 @@ const VerifyEmailPage: React.FC = () => {
       });
       if (result.success) {
         setStatus('success');
-        setMessage(result.message || 'Your email has been verified.');
+        setMessage(result.message || 'Your email has been verified successfully.');
         syncLocalUserData(true);
       } else {
         setStatus('error');
@@ -90,84 +93,79 @@ const VerifyEmailPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h1>
-        <p className="text-sm text-gray-600 mb-6">
-          Enter the 6-digit code from your inbox, or use the confirmation link we sent you.
-        </p>
+    <EmailVerificationShell
+      title="Verify your email"
+      subtitle="Enter the 6-digit code from your inbox or use the secure link we sent you."
+      footerNote="Codes expire in 15 minutes. Do not share your verification code."
+    >
+      {status === 'verifying' && (
+        <div className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Confirming your email…
+        </div>
+      )}
 
-        {status === 'verifying' && (
-          <p className="text-sm text-orange-600 mb-4">Confirming your email…</p>
-        )}
-
-        {message && (
-          <p
-            className={`text-sm mb-4 rounded-lg px-3 py-2 ${
-              status === 'success'
-                ? 'bg-green-50 text-green-800'
-                : status === 'error'
-                  ? 'bg-red-50 text-red-800'
-                  : 'bg-orange-50 text-orange-800'
-            }`}
-          >
-            {message}
-          </p>
-        )}
-
-        {status !== 'success' && (
-          <form onSubmit={handleCodeSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="verify-user-id" className="block text-sm font-medium text-gray-700 mb-1">
-                User ID
-              </label>
-              <input
-                id="verify-user-id"
-                type="text"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                placeholder="From your account"
-                autoComplete="off"
-              />
+      {message && (
+        <div
+          className={`mb-5 rounded-xl px-4 py-3 text-sm ${
+            status === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : status === 'error'
+                ? 'bg-red-50 text-red-800 border border-red-200'
+                : 'bg-orange-50 text-orange-800 border border-orange-200'
+          }`}
+        >
+          {status === 'success' && (
+            <div className="mb-1 flex items-center gap-2 font-semibold">
+              <CheckCircle2 className="h-4 w-4" />
+              Verified
             </div>
-            <div>
-              <label htmlFor="verify-code" className="block text-sm font-medium text-gray-700 mb-1">
-                6-digit code
-              </label>
-              <input
-                id="verify-code"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm tracking-widest focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                placeholder="123456"
-                autoComplete="one-time-code"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
-            >
-              {submitting ? 'Verifying…' : 'Verify email'}
-            </button>
-          </form>
-        )}
+          )}
+          {message}
+        </div>
+      )}
 
-        {status === 'success' && (
+      {status === 'success' ? (
+        <button
+          type="button"
+          onClick={() => navigateTo('dashboard')}
+          className="w-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200 hover:from-orange-600 hover:to-orange-700"
+        >
+          Go to dashboard
+        </button>
+      ) : (
+        <form onSubmit={handleCodeSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="verify-user-id" className="mb-2 block text-sm font-medium text-gray-700">
+              User ID
+            </label>
+            <input
+              id="verify-user-id"
+              type="text"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="w-full rounded-xl border border-orange-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              placeholder="From your account"
+              autoComplete="off"
+            />
+          </div>
+
+          <div>
+            <p className="mb-3 text-center text-sm font-medium text-gray-700">Your verification code</p>
+            <VerificationCodeInput value={code} onChange={setCode} disabled={submitting} />
+            <p className="mt-3 text-center text-xs text-gray-500">Check your inbox for the branded CodeXCareer email.</p>
+          </div>
+
           <button
-            type="button"
-            onClick={() => navigateTo('dashboard')}
-            className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+            type="submit"
+            disabled={submitting || code.length !== 6}
+            className="w-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200 hover:from-orange-600 hover:to-orange-700 disabled:opacity-60"
           >
-            Go to dashboard
+            {submitting ? 'Verifying…' : 'Verify email'}
           </button>
-        )}
-      </div>
-    </div>
+        </form>
+      )}
+    </EmailVerificationShell>
   );
 };
 
