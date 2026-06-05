@@ -253,7 +253,7 @@ const PasswordStrengthIndicator: React.FC<{ password: string }> = ({ password })
 };
 
 const AuthPage: React.FC = () => {
-  const { navigateTo } = useNavigation();
+  const { page, navigateTo } = useNavigation();
   const { login } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [formData, setFormData] = useState({
@@ -298,16 +298,26 @@ const AuthPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const path = window.location.pathname.replace(/\/+$/, '') || '/';
     const params = new URLSearchParams(window.location.search);
-    if (path === '/reset-password') {
+
+    if (page === 'resetPassword') {
       setAuthMode('resetPassword');
       setResetUserId(params.get('userId')?.trim() || '');
       setResetToken(params.get('token')?.trim() || '');
-    } else if (path === '/forgot-password') {
-      setAuthMode('forgotPassword');
+      return;
     }
-  }, []);
+
+    if (page === 'forgotPassword') {
+      setAuthMode('forgotPassword');
+      return;
+    }
+
+    if (page === 'auth') {
+      setAuthMode((prev) =>
+        prev === 'forgotPassword' || prev === 'resetPassword' ? 'login' : prev
+      );
+    }
+  }, [page]);
 
   useEffect(() => {
     setError(null);
@@ -646,6 +656,7 @@ const AuthPage: React.FC = () => {
     setError(null);
     setForgotSent(false);
     setForgotMessage(null);
+    setAuthMode('forgotPassword');
     navigateTo('forgotPassword');
   };
 

@@ -10,3 +10,6 @@ export const CODEXCAREER_BRAND_NAME = 'CodeXCareer';
 export const CODEXCAREER_TAGLINE = 'CODE • LEARN • LAUNCH';
 export const CODEXCAREER_SUPPORT_EMAIL = 'support@codexcareer.com';
 export const CODEXCAREER_BRAND_ORANGE = '#FF6B00';
+
+/** Dashboard entry point for Job Hunt (email browse CTA) */
+export const CODEXCAREER_JOB_HUNT_URL = '/dashboard';

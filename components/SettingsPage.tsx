@@ -1924,7 +1924,7 @@ const SettingsPage: React.FC = () => {
                             <ToggleSwitch label="Email Notifications" description="Get emails about new projects and offers." enabled={emailNotifications} setEnabled={(val) => handleToggleUpdate('emailNotifications', val)} />
                             <ToggleSwitch label="Push Notifications" description="Receive push notifications on your device." enabled={pushNotifications} setEnabled={(val) => handleToggleUpdate('pushNotifications', val)} />
                             <div className="border-t border-gray-100 pt-4">
-                                <ToggleSwitch label="📧 Email me when new jobs are posted" description="Receive an email whenever fresh job listings are scraped and added to the Job Hunt board." enabled={jobEmailNotifications} setEnabled={(val) => handleToggleUpdate('jobEmailNotificationsEnabled', val)} />
+                                <ToggleSwitch label="📧 Email me when new jobs are posted" description="Receive a branded digest email with up to 5 fresh listings whenever new jobs are scraped for Job Hunt." enabled={jobEmailNotifications} setEnabled={(val) => handleToggleUpdate('jobEmailNotificationsEnabled', val)} />
                             </div>
                         </div>
                     </SectionCard>
