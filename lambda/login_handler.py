@@ -7,9 +7,12 @@ HTTP POST JSON body must include "action":
 - "login" — Email + password.
 - "google_oauth_config" — returns { googleEnabled, clientId? }; client id comes from env only.
 - "google_oauth_exchange" — code + redirect_uri + code_verifier (PKCE).
+- "send_email_verification" — userId; sends 6-digit code + confirm link (Gmail SMTP).
+- "verify_email" — userId + code or token; marks emailVerified true.
 
 Environment (this Lambda only):
-  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ALLOWED_ORIGIN
+  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ALLOWED_ORIGIN, ALLOWED_ORIGINS
+  SMTP_USER, SMTP_APP_PASSWORD (Gmail App Password); optional SMTP_HOST, SMTP_PORT
 
 Also handles API Gateway custom authorizer invocations (event.type == "TOKEN") using the same
 GOOGLE_CLIENT_ID to validate Google ID tokens (Bearer).
@@ -29,8 +32,17 @@ import urllib.parse
 import urllib.request
 import boto3
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
+
+try:
+    from email_service import is_smtp_configured, send_email_verification
+except ImportError:
+    def is_smtp_configured():
+        return False
+
+    def send_email_verification(*_args, **_kwargs):
+        raise RuntimeError("email_service module not available")
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
@@ -49,13 +61,19 @@ except ImportError:
 
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com").strip()
+ALLOWED_ORIGINS_RAW = os.environ.get("ALLOWED_ORIGINS", "").strip()
+ALLOWED_ORIGINS = [
+    o.strip() for o in ALLOWED_ORIGINS_RAW.split(",") if o.strip()
+] or [ALLOWED_ORIGIN]
+_CURRENT_REQUEST_ORIGIN = None
 
 # Google OAuth Web client — keep ID + secret only in Lambda configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+EMAIL_VERIFY_EXPIRY_MINUTES = 15
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
@@ -90,12 +108,18 @@ def decimal_to_native(obj):
     return obj
 
 # ---------- RESPONSE ----------
+def _resolve_cors_origin() -> str:
+    if _CURRENT_REQUEST_ORIGIN and _CURRENT_REQUEST_ORIGIN in ALLOWED_ORIGINS:
+        return _CURRENT_REQUEST_ORIGIN
+    return ALLOWED_ORIGINS[0]
+
+
 def response(status, body):
     return {
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Origin": _resolve_cors_origin(),
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
             "Access-Control-Allow-Methods": "POST,OPTIONS",
             "Access-Control-Allow-Credentials": "true",
@@ -117,8 +141,233 @@ def get_password_error(password):
         return "Password must contain at least one special character"
     return None
 
+# ---------- EMAIL VERIFICATION ----------
+def _hash_verification_secret(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _generate_email_verification_pair() -> Tuple[str, str]:
+    code = f"{secrets.randbelow(900_000) + 100_000}"
+    token = secrets.token_urlsafe(32)
+    return code, token
+
+
+def _email_verification_expires_at() -> str:
+    return (
+        datetime.utcnow() + timedelta(minutes=EMAIL_VERIFY_EXPIRY_MINUTES)
+    ).isoformat()
+
+
+def _build_verify_email_link(user_id: str, token: str) -> str:
+    base = ALLOWED_ORIGIN.rstrip("/")
+    query = urllib.parse.urlencode({"userId": user_id, "token": token})
+    return f"{base}/verify-email?{query}"
+
+
+def _get_user_by_id(user_id: str):
+    if not user_id:
+        return None
+    result = table.get_item(Key={"userId": user_id})
+    return result.get("Item")
+
+
+def _issue_and_send_email_verification(user: dict) -> Tuple[bool, Optional[str]]:
+    if user.get("emailVerified") is True:
+        return False, "Email is already verified"
+
+    if not is_smtp_configured():
+        return False, "Email service is not configured"
+
+    email = (user.get("email") or "").lower().strip()
+    if not email or not re.match(EMAIL_REGEX, email):
+        return False, "User has no valid email address"
+
+    code, token = _generate_email_verification_pair()
+    expires_at = _email_verification_expires_at()
+    now = datetime.utcnow().isoformat()
+
+    table.update_item(
+        Key={"userId": user["userId"]},
+        UpdateExpression="""
+            SET emailVerifyCodeHash = :c,
+                emailVerifyTokenHash = :t,
+                emailVerifyExpiresAt = :e,
+                updatedAt = :u
+        """,
+        ExpressionAttributeValues={
+            ":c": _hash_verification_secret(code),
+            ":t": _hash_verification_secret(token),
+            ":e": expires_at,
+            ":u": now,
+        },
+    )
+
+    verify_link = _build_verify_email_link(user["userId"], token)
+    try:
+        send_email_verification(email, code, verify_link)
+    except Exception as exc:
+        print("send_email_verification failed:", str(exc))
+        traceback.print_exc()
+        return False, "Could not send verification email"
+
+    return True, None
+
+
+def handle_send_email_verification(body):
+    user_id = (body.get("userId") or "").strip()
+    if not user_id:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId is required",
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("status") in ("blocked", "deleted"):
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "ACCOUNT_UNAVAILABLE",
+                "message": "This account cannot verify email right now",
+            },
+        })
+
+    sent, err = _issue_and_send_email_verification(user)
+    if not sent:
+        code = "EMAIL_ALREADY_VERIFIED" if err == "Email is already verified" else "EMAIL_SEND_FAILED"
+        if err == "Email service is not configured":
+            code = "NOT_CONFIGURED"
+        status = 200 if code == "EMAIL_ALREADY_VERIFIED" else 503 if code == "NOT_CONFIGURED" else 500
+        return response(status, {
+            "success": code == "EMAIL_ALREADY_VERIFIED",
+            "error": {
+                "code": code,
+                "message": err or "Could not send verification email",
+            },
+        })
+
+    return response(200, {
+        "success": True,
+        "message": "Verification email sent. Check your inbox for the code or link.",
+        "data": {"emailVerificationSent": True},
+    })
+
+
+def handle_verify_email(body):
+    user_id = (body.get("userId") or "").strip()
+    code = (body.get("code") or "").strip()
+    token = (body.get("token") or "").strip()
+
+    if not user_id or (not code and not token):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId and either code or token are required",
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("emailVerified") is True:
+        return response(200, {
+            "success": True,
+            "message": "Email is already verified",
+            "data": {"emailVerified": True},
+        })
+
+    expires_at = user.get("emailVerifyExpiresAt")
+    if not expires_at:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "NO_PENDING_VERIFICATION",
+                "message": "No verification request found. Send a new verification email.",
+            },
+        })
+
+    try:
+        if datetime.fromisoformat(expires_at) <= datetime.utcnow():
+            return response(400, {
+                "success": False,
+                "error": {
+                    "code": "VERIFICATION_EXPIRED",
+                    "message": "Verification code expired. Request a new email.",
+                },
+            })
+    except ValueError:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VERIFICATION_EXPIRED",
+                "message": "Verification code expired. Request a new email.",
+            },
+        })
+
+    expected_hash = None
+    if token:
+        expected_hash = user.get("emailVerifyTokenHash")
+        provided_hash = _hash_verification_secret(token)
+    else:
+        expected_hash = user.get("emailVerifyCodeHash")
+        provided_hash = _hash_verification_secret(code)
+
+    if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "INVALID_VERIFICATION",
+                "message": "Invalid verification code or link",
+            },
+        })
+
+    now = datetime.utcnow().isoformat()
+    table.update_item(
+        Key={"userId": user_id},
+        UpdateExpression="""
+            SET emailVerified = :v,
+                updatedAt = :u
+            REMOVE emailVerifyCodeHash, emailVerifyTokenHash, emailVerifyExpiresAt
+        """,
+        ExpressionAttributeValues={
+            ":v": True,
+            ":u": now,
+        },
+    )
+
+    return response(200, {
+        "success": True,
+        "message": "Email verified successfully",
+        "data": {"emailVerified": True},
+    })
+
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
+    global _CURRENT_REQUEST_ORIGIN
+    headers = event.get("headers", {}) or {}
+    _CURRENT_REQUEST_ORIGIN = (
+        headers.get("origin") or headers.get("Origin") or None
+    )
+
     print("login_handler invoked", json.dumps({
         "hasType": "type" in event,
         "type": event.get("type"),
@@ -159,6 +408,20 @@ def lambda_handler(event, context):
             if blocked:
                 return blocked
             return handle_google_oauth_exchange(body)
+        elif action == "send_email_verification":
+            blocked = check_rate_limit(
+                event, action="send_email_verification", max_requests=5, window_seconds=900
+            )
+            if blocked:
+                return blocked
+            return handle_send_email_verification(body)
+        elif action == "verify_email":
+            blocked = check_rate_limit(
+                event, action="verify_email", max_requests=10, window_seconds=300
+            )
+            if blocked:
+                return blocked
+            return handle_verify_email(body)
 
         return response(400, {
             "success": False,
@@ -282,13 +545,26 @@ def handle_signup(body):
         "createdBy": "self"
     })
 
+    email_sent = False
+    try:
+        created_user = table.get_item(Key={"userId": user_id}).get("Item") or {
+            "userId": user_id,
+            "email": email,
+            "emailVerified": False,
+        }
+        email_sent, _ = _issue_and_send_email_verification(created_user)
+    except Exception as exc:
+        print("signup verification email failed:", str(exc))
+        traceback.print_exc()
+
     return response(200, {
         "success": True,
         "message": "User registered successfully",
         "data": {
             "userId": user_id,
             "email": email,
-            "role": "user"
+            "role": "user",
+            "emailVerificationSent": email_sent,
         }
     })
 
@@ -390,7 +666,8 @@ def handle_login(body):
             "email": user["email"],
             "role": user["role"],
             "credits": user["credits"],
-            "status": user["status"]
+            "status": user["status"],
+            "emailVerified": user.get("emailVerified", False),
         }
     })
 

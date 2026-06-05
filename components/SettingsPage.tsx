@@ -21,6 +21,7 @@ import ResumeSettingsProfileForm from './ResumeSettingsProfileForm';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 import { invalidateUserCache } from '../services/buyerApi';
+import { sendEmailVerification, verifyEmail } from '../lib/emailVerification';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -186,6 +187,65 @@ const SettingsPage: React.FC = () => {
     const [phoneVerified, setPhoneVerified] = useState(false);
     const [paymentVerified, setPaymentVerified] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+    const [emailVerifyCode, setEmailVerifyCode] = useState('');
+    const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+    const [emailVerifyLoading, setEmailVerifyLoading] = useState(false);
+
+    const handleSendEmailVerification = async () => {
+        if (!userId) {
+            setVerificationMessage('Sign in again to verify your email.');
+            return;
+        }
+        setEmailVerifyLoading(true);
+        setVerificationMessage(null);
+        try {
+            const result = await sendEmailVerification(userId);
+            if (result.success) {
+                setShowEmailCodeInput(true);
+                setVerificationMessage('Verification email sent. Enter the 6-digit code or use the link in your inbox.');
+            } else {
+                setVerificationMessage(result.error?.message || 'Could not send verification email.');
+            }
+        } catch {
+            setVerificationMessage('Network error. Please try again.');
+        } finally {
+            setEmailVerifyLoading(false);
+        }
+    };
+
+    const handleConfirmEmailCode = async () => {
+        if (!userId || emailVerifyCode.length !== 6) {
+            setVerificationMessage('Enter the 6-digit code from your email.');
+            return;
+        }
+        setEmailVerifyLoading(true);
+        setVerificationMessage(null);
+        try {
+            const result = await verifyEmail({ userId, code: emailVerifyCode });
+            if (result.success) {
+                setEmailVerified(true);
+                setShowEmailCodeInput(false);
+                setEmailVerifyCode('');
+                setVerificationMessage('Email verified successfully.');
+                try {
+                    const raw = localStorage.getItem('userData');
+                    if (raw) {
+                        const data = JSON.parse(raw);
+                        data.emailVerified = true;
+                        localStorage.setItem('userData', JSON.stringify(data));
+                    }
+                } catch {
+                    /* ignore */
+                }
+            } else {
+                setVerificationMessage(result.error?.message || 'Invalid or expired code.');
+            }
+        } catch {
+            setVerificationMessage('Network error. Please try again.');
+        } finally {
+            setEmailVerifyLoading(false);
+        }
+    };
 
     // Become a Freelancer: not every user is a freelancer; switch to opt-in and enter skills/projects
     const [isFreelancer, setIsFreelancer] = useState(false);
@@ -1768,13 +1828,36 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('Verification email sent. Check your inbox and click the link.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                onClick={handleSendEmailVerification}
+                                                disabled={emailVerifyLoading}
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-60"
                                             >
-                                                Verify
+                                                {emailVerifyLoading ? 'Sending…' : 'Verify'}
                                             </button>
                                         )}
                                     </div>
+                                    {!emailVerified && showEmailCodeInput && (
+                                        <div className="flex flex-col sm:flex-row gap-2 p-4 rounded-xl border border-orange-200 bg-orange-50">
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                maxLength={6}
+                                                value={emailVerifyCode}
+                                                onChange={(e) => setEmailVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                placeholder="6-digit code"
+                                                className="flex-1 rounded-lg border border-orange-200 px-3 py-2 text-sm tracking-widest focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                                autoComplete="one-time-code"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleConfirmEmailCode}
+                                                disabled={emailVerifyLoading || emailVerifyCode.length !== 6}
+                                                className="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-60"
+                                            >
+                                                Confirm
+                                            </button>
+                                        </div>
+                                    )}
                                     {/* Phone */}
                                     <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
                                         <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${phoneVerified ? 'bg-green-100' : 'bg-gray-200'}`}>

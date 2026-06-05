@@ -34,6 +34,8 @@ interface ApiResponse {
     profilePictureUrl?: string | null;
     /** Present after direct Google OAuth (`google_oauth_exchange`). */
     idToken?: string;
+    emailVerificationSent?: boolean;
+    emailVerified?: boolean;
   };
   error?: {
     code: string;
@@ -375,6 +377,9 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
+        if (data.data.emailVerificationSent) {
+          sessionStorage.setItem('emailVerificationSent', 'true');
+        }
         // Signup successful, now login the user
         const loggedIn = await handleLoginAfterSignup();
         if (!loggedIn) {
@@ -446,7 +451,11 @@ const AuthPage: React.FC = () => {
       if (data.success && data.data) {
         const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        localStorage.setItem('userData', JSON.stringify(data.data));
+        const userData = {
+          ...data.data,
+          emailVerified: data.data.emailVerified ?? false,
+        };
+        localStorage.setItem('userData', JSON.stringify(userData));
         scheduleOnboardingTour();
 
         login(data.data.userId, data.data.email, userRole);

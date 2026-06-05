@@ -14,6 +14,7 @@ public/coverage/
 .env
 .env.local
 .env.*.local
+lambda/.env
 
 # IDE
 .vscode/
