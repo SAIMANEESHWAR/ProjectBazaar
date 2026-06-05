@@ -1874,10 +1874,10 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('SMS with verification code will be sent. Enter the code when prompted.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                disabled
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Verify
+                                                Locked
                                             </button>
                                         )}
                                     </div>
@@ -1897,10 +1897,10 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('You will be redirected to add a payment method.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                disabled
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Verify
+                                                Locked
                                             </button>
                                         )}
                                     </div>
