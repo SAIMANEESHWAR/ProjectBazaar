@@ -8,7 +8,8 @@ Lambda environment:
   SMTP_APP_PASSWORD  — Google App Password (16 chars)
   SMTP_FROM_NAME     — optional display name (default CodeXCareer)
   SMTP_FROM_EMAIL    — optional From address (defaults to SMTP_USER)
-  ALLOWED_ORIGIN     — site URL for logo + verify links (default https://codexcareer.com)
+  ALLOWED_ORIGIN     — CORS fallback origin (default https://codexcareer.com)
+  APP_BASE_URL       — public site URL for logo + email links (default ALLOWED_ORIGIN)
 """
 
 from __future__ import annotations
@@ -27,7 +28,8 @@ SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_APP_PASSWORD = os.environ.get("SMTP_APP_PASSWORD", "").strip()
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "CodeXCareer").strip()
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USER).strip()
-SITE_URL = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com").rstrip("/")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com").strip()
+SITE_URL = os.environ.get("APP_BASE_URL", ALLOWED_ORIGIN).rstrip("/")
 BRAND_NAME = "CodeXCareer"
 BRAND_TAGLINE = "CODE • LEARN • LAUNCH"
 SUPPORT_EMAIL = "support@codexcareer.com"
@@ -203,4 +205,114 @@ def send_email_verification(
         f"{BRAND_TAGLINE}\n"
     )
     html_body = _build_verification_email_html(code, verify_link)
+    send_email(to_email, subject, text_body, html_body)
+
+
+def _build_password_reset_email_html(code: str, reset_link: str) -> str:
+    year = datetime.utcnow().year
+    digit_boxes = _code_digit_boxes(code)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset your password — {BRAND_NAME}</title>
+</head>
+<body style="margin:0;padding:0;background:#f7f8fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#fff7f0 0%,#f7f8fb 100%);padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;">
+          <tr>
+            <td align="center" style="padding:8px 0 20px 0;">
+              <img src="{LOGO_URL}" alt="{BRAND_NAME} logo" width="220" style="display:block;max-width:220px;height:auto;border:0;" />
+              <p style="margin:10px 0 0 0;font-size:11px;letter-spacing:0.22em;color:{BRAND_ORANGE};font-weight:700;text-transform:uppercase;">
+                {BRAND_TAGLINE}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;border:1px solid #ffe4cc;border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(255,107,0,0.12);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:linear-gradient(90deg,#ff7a1a 0%,{BRAND_ORANGE} 100%);padding:28px 32px;text-align:center;">
+                    <h1 style="margin:0;font-size:28px;line-height:1.2;color:#ffffff;font-weight:700;">Password Reset</h1>
+                    <p style="margin:10px 0 0 0;font-size:15px;line-height:1.5;color:#fff4eb;">Reset your {BRAND_NAME} account password</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:32px 32px 12px 32px;text-align:center;">
+                    <p style="margin:0 0 8px 0;font-size:16px;line-height:1.6;color:#374151;">Hi there,</p>
+                    <p style="margin:0;font-size:15px;line-height:1.7;color:#4b5563;">
+                      We received a request to reset your <strong>{BRAND_NAME}</strong> password. Use the code below or click the button to choose a new password.
+                    </p>
+                    {digit_boxes}
+                    <p style="margin:0 0 24px 0;font-size:13px;line-height:1.5;color:#9ca3af;">Do not share this code with anyone.</p>
+                    <a href="{reset_link}" style="display:inline-block;background:linear-gradient(90deg,#ff7a1a 0%,{BRAND_ORANGE} 100%);color:#ffffff;text-decoration:none;
+                      padding:14px 34px;border-radius:999px;font-size:15px;font-weight:700;box-shadow:0 12px 24px rgba(255,107,0,0.25);">
+                      Reset Password
+                    </a>
+                    <p style="margin:24px 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">Or copy and paste this link into your browser:</p>
+                    <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;">
+                      <a href="{reset_link}" style="color:{BRAND_ORANGE};text-decoration:underline;">{reset_link}</a>
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 32px 28px 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff8f1;border:1px solid #ffe4cc;border-radius:16px;">
+                      <tr>
+                        <td style="padding:16px 18px;">
+                          <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#9a3412;">Didn't request a password reset?</p>
+                          <p style="margin:0;font-size:13px;line-height:1.6;color:#7c2d12;">
+                            If you did not ask to reset your password, you can safely ignore this email. Your password will not change. This link expires in 30 minutes.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#fff7f0;border-top:1px solid #ffe4cc;padding:20px 32px;text-align:center;">
+                    <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">This is an automated message. Please do not reply.</p>
+                    <p style="margin:10px 0 0 0;font-size:12px;line-height:1.6;color:#6b7280;">
+                      Need help? <a href="mailto:{SUPPORT_EMAIL}" style="color:{BRAND_ORANGE};text-decoration:none;font-weight:600;">{SUPPORT_EMAIL}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:20px 12px 8px 12px;">
+              <p style="margin:0;font-size:11px;line-height:1.6;color:#9ca3af;">© {year} {BRAND_NAME}. All rights reserved.</p>
+              <p style="margin:6px 0 0 0;font-size:11px;line-height:1.6;color:#9ca3af;">
+                <a href="{SITE_URL}" style="color:#9ca3af;text-decoration:none;">{SITE_URL.replace('https://', '')}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_password_reset(
+    to_email: str,
+    code: str,
+    reset_link: str,
+) -> None:
+    subject = f"Reset your password — {BRAND_NAME}"
+    text_body = (
+        f"Reset your {BRAND_NAME} password\n\n"
+        f"Your reset code: {code}\n\n"
+        f"Reset in one click:\n{reset_link}\n\n"
+        "This code expires in 30 minutes.\n"
+        "If you did not request a reset, you can ignore this email.\n\n"
+        f"Need help? {SUPPORT_EMAIL}\n"
+        f"{BRAND_TAGLINE}\n"
+    )
+    html_body = _build_password_reset_email_html(code, reset_link)
     send_email(to_email, subject, text_body, html_body)

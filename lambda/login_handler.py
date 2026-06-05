@@ -9,6 +9,8 @@ HTTP POST JSON body must include "action":
 - "google_oauth_exchange" — code + redirect_uri + code_verifier (PKCE).
 - "send_email_verification" — userId; sends 6-digit code + confirm link (Gmail SMTP).
 - "verify_email" — userId + code or token; marks emailVerified true.
+- "forgot_password" — email; sends password reset code + link.
+- "reset_password" — userId + code or token + new password; updates password.
 
 Environment (this Lambda only):
   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ALLOWED_ORIGIN, ALLOWED_ORIGINS
@@ -36,12 +38,15 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 try:
-    from email_service import is_smtp_configured, send_email_verification
+    from email_service import is_smtp_configured, send_email_verification, send_password_reset
 except ImportError:
     def is_smtp_configured():
         return False
 
     def send_email_verification(*_args, **_kwargs):
+        raise RuntimeError("email_service module not available")
+
+    def send_password_reset(*_args, **_kwargs):
         raise RuntimeError("email_service module not available")
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
@@ -62,6 +67,7 @@ except ImportError:
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com").strip()
+APP_BASE_URL = os.environ.get("APP_BASE_URL", ALLOWED_ORIGIN).rstrip("/")
 ALLOWED_ORIGINS_RAW = os.environ.get("ALLOWED_ORIGINS", "").strip()
 ALLOWED_ORIGINS = [
     o.strip() for o in ALLOWED_ORIGINS_RAW.split(",") if o.strip()
@@ -74,6 +80,7 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 EMAIL_VERIFY_EXPIRY_MINUTES = 15
+PASSWORD_RESET_EXPIRY_MINUTES = 30
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
@@ -159,9 +166,28 @@ def _email_verification_expires_at() -> str:
 
 
 def _build_verify_email_link(user_id: str, token: str) -> str:
-    base = ALLOWED_ORIGIN.rstrip("/")
     query = urllib.parse.urlencode({"userId": user_id, "token": token})
-    return f"{base}/verify-email?{query}"
+    return f"{APP_BASE_URL}/verify-email?{query}"
+
+
+def _password_reset_expires_at() -> str:
+    return (
+        datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES)
+    ).isoformat()
+
+
+def _build_reset_password_link(user_id: str, token: str) -> str:
+    query = urllib.parse.urlencode({"userId": user_id, "token": token})
+    return f"{APP_BASE_URL}/reset-password?{query}"
+
+
+def _get_user_by_email(email: str):
+    if not email:
+        return None
+    result = table.scan(FilterExpression=Attr("email").eq(email))
+    if result.get("Count", 0) > 0:
+        return result["Items"][0]
+    return None
 
 
 def _get_user_by_id(user_id: str):
@@ -360,6 +386,218 @@ def handle_verify_email(body):
         "data": {"emailVerified": True},
     })
 
+
+# ---------- PASSWORD RESET ----------
+def _issue_and_send_password_reset(user: dict) -> Tuple[bool, Optional[str]]:
+    if not is_smtp_configured():
+        return False, "Email service is not configured"
+
+    email = (user.get("email") or "").lower().strip()
+    if not email or not re.match(EMAIL_REGEX, email):
+        return False, "User has no valid email address"
+
+    code, token = _generate_email_verification_pair()
+    expires_at = _password_reset_expires_at()
+    now = datetime.utcnow().isoformat()
+
+    table.update_item(
+        Key={"userId": user["userId"]},
+        UpdateExpression="""
+            SET passwordResetCodeHash = :c,
+                passwordResetTokenHash = :t,
+                passwordResetExpiresAt = :e,
+                updatedAt = :u
+        """,
+        ExpressionAttributeValues={
+            ":c": _hash_verification_secret(code),
+            ":t": _hash_verification_secret(token),
+            ":e": expires_at,
+            ":u": now,
+        },
+    )
+
+    reset_link = _build_reset_password_link(user["userId"], token)
+    try:
+        send_password_reset(email, code, reset_link)
+    except Exception as exc:
+        print("send_password_reset failed:", str(exc))
+        traceback.print_exc()
+        return False, "Could not send password reset email"
+
+    return True, None
+
+
+def handle_forgot_password(body):
+    email = (body.get("email") or "").lower().strip()
+    generic_message = (
+        "If an account exists for this email, we sent password reset instructions."
+    )
+
+    if not email or not re.match(EMAIL_REGEX, email):
+        return response(200, {
+            "success": True,
+            "message": generic_message,
+            "data": {"passwordResetSent": True},
+        })
+
+    user = _get_user_by_email(email)
+    if not user or user.get("status") in ("blocked", "deleted"):
+        return response(200, {
+            "success": True,
+            "message": generic_message,
+            "data": {"passwordResetSent": True},
+        })
+
+    sent, err = _issue_and_send_password_reset(user)
+    if not sent:
+        if err == "Email service is not configured":
+            return response(503, {
+                "success": False,
+                "error": {
+                    "code": "NOT_CONFIGURED",
+                    "message": "Password reset email is not available right now.",
+                },
+            })
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "EMAIL_SEND_FAILED",
+                "message": "Could not send password reset email. Try again later.",
+            },
+        })
+
+    return response(200, {
+        "success": True,
+        "message": generic_message,
+        "data": {"passwordResetSent": True},
+    })
+
+
+def handle_reset_password(body):
+    user_id = (body.get("userId") or "").strip()
+    code = (body.get("code") or "").strip()
+    token = (body.get("token") or "").strip()
+    password = body.get("password")
+    confirm_password = body.get("confirmPassword")
+
+    if not user_id or (not code and not token) or not password or not confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId, new password, confirmPassword, and code or token are required",
+            },
+        })
+
+    if password != confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Passwords do not match",
+            },
+        })
+
+    password_error = get_password_error(password)
+    if password_error:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "PASSWORD_TOO_WEAK",
+                "message": password_error,
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("status") in ("blocked", "deleted"):
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "ACCOUNT_UNAVAILABLE",
+                "message": "This account cannot reset password right now",
+            },
+        })
+
+    expires_at = user.get("passwordResetExpiresAt")
+    if not expires_at:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "NO_PENDING_RESET",
+                "message": "No password reset request found. Request a new reset email.",
+            },
+        })
+
+    try:
+        if datetime.fromisoformat(expires_at) <= datetime.utcnow():
+            return response(400, {
+                "success": False,
+                "error": {
+                    "code": "RESET_EXPIRED",
+                    "message": "Reset code expired. Request a new password reset email.",
+                },
+            })
+    except ValueError:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "RESET_EXPIRED",
+                "message": "Reset code expired. Request a new password reset email.",
+            },
+        })
+
+    if token:
+        expected_hash = user.get("passwordResetTokenHash")
+        provided_hash = _hash_verification_secret(token)
+    else:
+        expected_hash = user.get("passwordResetCodeHash")
+        provided_hash = _hash_verification_secret(code)
+
+    if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "INVALID_RESET",
+                "message": "Invalid reset code or link",
+            },
+        })
+
+    pw_hash, pw_salt = _hash_password(password)
+    now = datetime.utcnow().isoformat()
+    table.update_item(
+        Key={"userId": user_id},
+        UpdateExpression="""
+            SET passwordHash = :h,
+                passwordSalt = :s,
+                passwordUpdatedAt = :p,
+                updatedAt = :u,
+                failedLoginAttempts = :z
+            REMOVE passwordResetCodeHash, passwordResetTokenHash, passwordResetExpiresAt
+        """,
+        ExpressionAttributeValues={
+            ":h": pw_hash,
+            ":s": pw_salt,
+            ":p": now,
+            ":u": now,
+            ":z": 0,
+        },
+    )
+
+    return response(200, {
+        "success": True,
+        "message": "Password reset successfully. You can sign in with your new password.",
+        "data": {"passwordReset": True},
+    })
+
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
     global _CURRENT_REQUEST_ORIGIN
@@ -422,6 +660,20 @@ def lambda_handler(event, context):
             if blocked:
                 return blocked
             return handle_verify_email(body)
+        elif action == "forgot_password":
+            blocked = check_rate_limit(
+                event, action="forgot_password", max_requests=5, window_seconds=900
+            )
+            if blocked:
+                return blocked
+            return handle_forgot_password(body)
+        elif action == "reset_password":
+            blocked = check_rate_limit(
+                event, action="reset_password", max_requests=10, window_seconds=300
+            )
+            if blocked:
+                return blocked
+            return handle_reset_password(body)
 
         return response(400, {
             "success": False,

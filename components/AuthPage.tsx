@@ -691,6 +691,17 @@ const AuthPage: React.FC = () => {
               accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
               onAccountToggle={toggleAuthMode}
             />
+            {isLogin && (
+              <div className='mt-3 text-center'>
+                <button
+                  type='button'
+                  onClick={() => navigateTo('forgotPassword')}
+                  className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors'
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (

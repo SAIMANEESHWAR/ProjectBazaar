@@ -53,6 +53,8 @@ const TopSellers = lazy(() => import('./components/TopSellers'));
 const PricingPlansSection = lazy(() => import('./components/sections/PricingPlansSection'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const VerifyEmailPage = lazy(() => import('./components/VerifyEmailPage'));
+const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
@@ -171,6 +173,8 @@ const PAGE_TITLES: Record<Page, string> = {
   notFound: 'Page Not Found — CodeXCareer',
   subscriptionCheckout: 'Checkout — CodeXCareer',
   verifyEmail: 'Verify Email — CodeXCareer',
+  forgotPassword: 'Forgot Password — CodeXCareer',
+  resetPassword: 'Reset Password — CodeXCareer',
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
@@ -218,6 +222,8 @@ function updatePageMeta(page: Page) {
     notFound: '/404',
     subscriptionCheckout: '/subscription/checkout',
     verifyEmail: '/verify-email',
+    forgotPassword: '/forgot-password',
+    resetPassword: '/reset-password',
   };
   const path = pageToPath[page] || '/';
   const absoluteUrl = `${base}${path}`;
@@ -300,6 +306,10 @@ const AppContent: React.FC = () => {
         return <AuthPage />;
       case 'verifyEmail':
         return <VerifyEmailPage />;
+      case 'forgotPassword':
+        return <ForgotPasswordPage />;
+      case 'resetPassword':
+        return <ResetPasswordPage />;
       case 'subscriptionCheckout':
         return <SubscriptionCheckoutPage />;
       case 'admin':
@@ -460,6 +470,8 @@ const App: React.FC = () => {
         '/terms-and-conditions': 'terms',
         '/subscription/checkout': 'subscriptionCheckout',
         '/verify-email': 'verifyEmail',
+        '/forgot-password': 'forgotPassword',
+        '/reset-password': 'resetPassword',
         '/404': 'notFound',
         'home': 'home',
         'auth': 'auth',
@@ -486,6 +498,8 @@ const App: React.FC = () => {
         'notFound': 'notFound',
         'subscriptionCheckout': 'subscriptionCheckout',
         'verifyEmail': 'verifyEmail',
+        'forgotPassword': 'forgotPassword',
+        'resetPassword': 'resetPassword',
       };
 
       // Extract base path (remove query params, hash, and trailing slashes)
@@ -580,10 +594,14 @@ const App: React.FC = () => {
           // Only auto-navigate if we're on home page or auth page
           // Don't override 404 pages - they should stay as 404
           const currentPage = localStorage.getItem('currentPage') as Page | null;
-          const stayOnCheckout =
-            currentPage === 'subscriptionCheckout' || hasPendingPlan();
+          const stayOnCurrentPage =
+            currentPage === 'subscriptionCheckout' ||
+            currentPage === 'resetPassword' ||
+            currentPage === 'verifyEmail' ||
+            currentPage === 'forgotPassword' ||
+            hasPendingPlan();
 
-          if ((page === 'home' || page === 'auth') && !stayOnCheckout) {
+          if ((page === 'home' || page === 'auth') && !stayOnCurrentPage) {
             if (role === 'admin') {
               setPage('admin');
             } else if (hasPendingPlan()) {
@@ -632,6 +650,8 @@ const App: React.FC = () => {
         'notFound': '/404',
         'subscriptionCheckout': '/subscription/checkout',
         'verifyEmail': '/verify-email',
+        'forgotPassword': '/forgot-password',
+        'resetPassword': '/reset-password',
       };
 
     const url = pageMap[targetPage] || '/';

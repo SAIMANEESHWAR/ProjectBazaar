@@ -24,7 +24,9 @@ export type Page =
   | 'terms'
   | 'notFound'
   | 'subscriptionCheckout'
-  | 'verifyEmail';
+  | 'verifyEmail'
+  | 'forgotPassword'
+  | 'resetPassword';
 
 export type UserRole = 'user' | 'admin';
 
