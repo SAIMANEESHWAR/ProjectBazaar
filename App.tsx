@@ -16,6 +16,14 @@ export {
   useNavigation,
 } from './context/appContext';
 import { SITE_ORIGIN } from './lib/apiConfig';
+import {
+  EMAIL_FLOW_PAGES,
+  getInitialPage,
+  normalizePath,
+  PAGE_TO_PATH,
+  PATH_TO_PAGE,
+  resolvePageFromPath,
+} from './lib/appRoutes';
 import { trackPageView } from './lib/analytics';
 import { DashboardProvider } from './context/DashboardContext';
 import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
@@ -197,35 +205,10 @@ function updatePageMeta(page: Page) {
   const title = PAGE_TITLES[page] || PAGE_TITLES.home;
   const description = PAGE_META_DESCRIPTIONS[page] || DEFAULT_META_DESCRIPTION;
   const base = SITE_ORIGIN;
-  const pageToPath: Record<Page, string> = {
-    home: '/',
-    auth: '/auth',
-    dashboard: '/dashboard',
-    seller: '/seller',
-    admin: '/admin',
-    faq: '/faq',
-    browseProjects: '/browse-projects',
-    freelancerProfile: '/freelancer',
-    buildPortfolio: '/build-portfolio',
-    buildResume: '/build-resume',
-    mockAssessment: '/mock-assessment',
-    mockLeaderboard: '/mock-assessment/leaderboard',
-    mockAchievements: '/mock-assessment/achievements',
-    mockDailyChallenge: '/mock-assessment/daily-challenge',
-    mockHistory: '/mock-assessment/history',
-    codingQuestions: '/coding-questions',
-    liveMockInterview: '/live-mock-interview',
-    blog: '/blog',
-    blogPost: window.location.pathname.startsWith('/blog/') ? window.location.pathname : '/blog',
-    privacy: '/privacy',
-    terms: '/terms',
-    notFound: '/404',
-    subscriptionCheckout: '/subscription/checkout',
-    verifyEmail: '/verify-email',
-    forgotPassword: '/forgot-password',
-    resetPassword: '/reset-password',
-  };
-  const path = pageToPath[page] || '/';
+  const path =
+    page === 'blogPost' && window.location.pathname.startsWith('/blog/')
+      ? window.location.pathname
+      : PAGE_TO_PATH[page] || '/';
   const absoluteUrl = `${base}${path}`;
 
   document.title = title;
@@ -421,11 +404,8 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Initialize state from localStorage if available
-  const [page, setPage] = useState<Page>(() => {
-    const stored = localStorage.getItem('currentPage');
-    return (stored as Page) || 'home';
-  });
+  // Prefer URL on first load (email reset/verify links), then localStorage
+  const [page, setPage] = useState<Page>(getInitialPage);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -439,72 +419,8 @@ const App: React.FC = () => {
       const searchParams = new URLSearchParams(window.location.search);
       const route = searchParams.get('page') || hash || path;
 
-      // Define valid routes (exact matches only)
-      const validRoutes: Record<string, Page> = {
-        '/': 'home',
-        '/home': 'home',
-        '/auth': 'auth',
-        '/login': 'auth',
-        '/dashboard': 'dashboard',
-        '/seller': 'seller',
-        '/admin': 'admin',
-        '/faq': 'faq',
-        '/browse-projects': 'browseProjects',
-        '/freelancer': 'freelancerProfile',
-        '/build-portfolio': 'buildPortfolio',
-        '/build-resume': 'buildResume',
-        '/resume-builder': 'buildResume',
-        '/mock-assessment': 'mockAssessment',
-        '/mock-interview': 'mockAssessment',
-        '/mock-assessment/leaderboard': 'mockLeaderboard',
-        '/mock-assessment/achievements': 'mockAchievements',
-        '/mock-assessment/daily-challenge': 'mockDailyChallenge',
-        '/mock-assessment/history': 'mockHistory',
-        '/coding-questions': 'codingQuestions',
-        '/coding-interview-questions': 'codingQuestions',
-        '/live-mock-interview': 'liveMockInterview',
-        '/blog': 'blog',
-        '/privacy': 'privacy',
-        '/privacy-policy': 'privacy',
-        '/terms': 'terms',
-        '/terms-and-conditions': 'terms',
-        '/subscription/checkout': 'subscriptionCheckout',
-        '/verify-email': 'verifyEmail',
-        '/forgot-password': 'forgotPassword',
-        '/reset-password': 'resetPassword',
-        '/404': 'notFound',
-        'home': 'home',
-        'auth': 'auth',
-        'login': 'auth',
-        'dashboard': 'dashboard',
-        'seller': 'seller',
-        'admin': 'admin',
-        'faq': 'faq',
-        'browseProjects': 'browseProjects',
-        'freelancerProfile': 'freelancerProfile',
-        'buildPortfolio': 'buildPortfolio',
-        'buildResume': 'buildResume',
-        'mockAssessment': 'mockAssessment',
-        'mockLeaderboard': 'mockLeaderboard',
-        'mockAchievements': 'mockAchievements',
-        'mockDailyChallenge': 'mockDailyChallenge',
-        'mockHistory': 'mockHistory',
-        'codingQuestions': 'codingQuestions',
-        'liveMockInterview': 'liveMockInterview',
-        'blog': 'blog',
-        'blogPost': 'blogPost',
-        'privacy': 'privacy',
-        'terms': 'terms',
-        'notFound': 'notFound',
-        'subscriptionCheckout': 'subscriptionCheckout',
-        'verifyEmail': 'verifyEmail',
-        'forgotPassword': 'forgotPassword',
-        'resetPassword': 'resetPassword',
-      };
-
-      // Extract base path (remove query params, hash, and trailing slashes)
-      const normalizedPath = path.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
-      const normalizedRoute = route.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+      const normalizedPath = normalizePath(path);
+      const normalizedRoute = normalizePath(route);
 
       // Check if it's a static asset (should be handled by server, but check anyway)
       const isStaticAsset = normalizedPath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|map)$/i) ||
@@ -518,14 +434,10 @@ const App: React.FC = () => {
         return;
       }
 
-      if (/^\/blog\/[^/]+$/.test(normalizedPath)) {
-        setPage('blogPost');
-        localStorage.setItem('currentPage', 'blogPost');
-        return;
-      }
-
-      // Check if route is valid (exact match)
-      const targetPage = validRoutes[normalizedRoute] || validRoutes[normalizedPath];
+      const targetPage =
+        resolvePageFromPath(normalizedPath) ??
+        resolvePageFromPath(normalizedRoute) ??
+        PATH_TO_PAGE[normalizedRoute];
 
       if (targetPage) {
         // Special handling for 404 page - always show it regardless of auth
@@ -596,9 +508,7 @@ const App: React.FC = () => {
           const currentPage = localStorage.getItem('currentPage') as Page | null;
           const stayOnCurrentPage =
             currentPage === 'subscriptionCheckout' ||
-            currentPage === 'resetPassword' ||
-            currentPage === 'verifyEmail' ||
-            currentPage === 'forgotPassword' ||
+            (currentPage != null && EMAIL_FLOW_PAGES.includes(currentPage)) ||
             hasPendingPlan();
 
           if ((page === 'home' || page === 'auth') && !stayOnCurrentPage) {
@@ -625,36 +535,7 @@ const App: React.FC = () => {
     localStorage.setItem('currentPage', targetPage);
 
     // Update URL without full page reload
-    const pageMap: Record<Page, string> = {
-      'home': '/',
-      'auth': '/auth',
-      'dashboard': '/dashboard',
-      'seller': '/seller',
-      'admin': '/admin',
-      'faq': '/faq',
-      'browseProjects': '/browse-projects',
-      'freelancerProfile': '/freelancer',
-      'buildPortfolio': '/build-portfolio',
-      'buildResume': '/build-resume',
-      'mockAssessment': '/mock-assessment',
-      'mockLeaderboard': '/mock-assessment/leaderboard',
-      'mockAchievements': '/mock-assessment/achievements',
-      'mockDailyChallenge': '/mock-assessment/daily-challenge',
-      'mockHistory': '/mock-assessment/history',
-      'codingQuestions': '/coding-questions',
-      'liveMockInterview': '/live-mock-interview',
-      'blog': '/blog',
-      'blogPost': '/blog',
-      'privacy': '/privacy',
-        'terms': '/terms',
-        'notFound': '/404',
-        'subscriptionCheckout': '/subscription/checkout',
-        'verifyEmail': '/verify-email',
-        'forgotPassword': '/forgot-password',
-        'resetPassword': '/reset-password',
-      };
-
-    const url = pageMap[targetPage] || '/';
+    const url = PAGE_TO_PATH[targetPage] || '/';
     // Use replaceState for 404 to avoid cluttering history, pushState for others
     if (targetPage === 'notFound') {
       window.history.replaceState({ page: 'notFound' }, '', url);
