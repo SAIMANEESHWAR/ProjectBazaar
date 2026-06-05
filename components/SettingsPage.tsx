@@ -1877,7 +1877,7 @@ const SettingsPage: React.FC = () => {
                                                 disabled
                                                 className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Locked
+                                                🔒 Locked
                                             </button>
                                         )}
                                     </div>
@@ -1900,7 +1900,7 @@ const SettingsPage: React.FC = () => {
                                                 disabled
                                                 className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Locked
+                                                🔒 Locked
                                             </button>
                                         )}
                                     </div>
