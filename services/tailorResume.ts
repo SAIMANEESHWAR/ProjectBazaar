@@ -3,7 +3,7 @@
  * Real per-posting JDs are not in JobPortal — see buildPortalTailoringJd.
  */
 
-import type { JobPortal } from '../data/preparationMockData';
+import type { JobPortal } from '../data/preparationTypes';
 import {
   analyzeAtsWithProvider,
   coerceMissingKeywordDetails,
@@ -34,9 +34,9 @@ function sleep(ms: number): Promise<void> {
 export function tokenizePortalKeywords(portal: JobPortal): string[] {
   const parts: string[] = [];
   if (portal.category?.trim()) parts.push(portal.category.trim());
-  const nameWords = portal.name.split(/[\s,.&/-]+/).filter((w) => w.length > 2);
+  const nameWords = portal.name.split(/[\s,.&/-]+/).filter((w: string) => w.length > 2);
   parts.push(...nameWords.slice(0, 8));
-  const descWords = portal.description.split(/\s+/).filter((w) => w.length > 4).slice(0, 4);
+  const descWords = portal.description.split(/\s+/).filter((w: string) => w.length > 4).slice(0, 4);
   parts.push(...descWords);
 
   const seen = new Set<string>();
