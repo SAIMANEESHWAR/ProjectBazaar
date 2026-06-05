@@ -17,11 +17,12 @@ import {
 import { LOGIN_API_URL } from '@/lib/apiConfig';
 import { scheduleOnboardingTour } from '@/lib/onboardingTour';
 import { requestPasswordReset, resetPassword } from '@/lib/passwordReset';
+import { sendEmailVerification, verifyEmail } from '@/lib/emailVerification';
 import VerificationCodeInput from './VerificationCodeInput';
 
 type FieldType = 'text' | 'email' | 'password';
 
-type AuthMode = 'login' | 'signup' | 'forgotPassword' | 'resetPassword';
+type AuthMode = 'login' | 'signup' | 'signupVerify' | 'forgotPassword' | 'resetPassword';
 
 const resetPasswordRequirements = [
   { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -273,9 +274,13 @@ const AuthPage: React.FC = () => {
   const [resetCode, setResetCode] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [pendingSignupUserId, setPendingSignupUserId] = useState('');
+  const [signupVerifyCode, setSignupVerifyCode] = useState('');
+  const [signupVerifyMessage, setSignupVerifyMessage] = useState<string | null>(null);
 
   const isLogin = authMode === 'login';
   const isSignup = authMode === 'signup';
+  const isSignupVerify = authMode === 'signupVerify';
   const isForgot = authMode === 'forgotPassword';
   const isReset = authMode === 'resetPassword';
   const showGoogleAuth = googleOAuthEnabled && (isLogin || isSignup);
@@ -314,7 +319,9 @@ const AuthPage: React.FC = () => {
 
     if (page === 'auth') {
       setAuthMode((prev) =>
-        prev === 'forgotPassword' || prev === 'resetPassword' ? 'login' : prev
+        prev === 'forgotPassword' || prev === 'resetPassword' || prev === 'signupVerify'
+          ? 'login'
+          : prev
       );
     }
   }, [page]);
@@ -331,6 +338,9 @@ const AuthPage: React.FC = () => {
     setResetSuccess(false);
     setResetMessage(null);
     setResetCode('');
+    setPendingSignupUserId('');
+    setSignupVerifyCode('');
+    setSignupVerifyMessage(null);
     setFormData({
       email: '',
       phoneNumber: '',
@@ -440,14 +450,20 @@ const AuthPage: React.FC = () => {
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        if (data.data.emailVerificationSent) {
-          sessionStorage.setItem('emailVerificationSent', 'true');
-        }
-        // Signup successful, now login the user
-        const loggedIn = await handleLoginAfterSignup();
-        if (!loggedIn) {
+        if (!data.data.userId) {
+          setError('Signup started but user id was missing. Please try again.');
           setLoading(false);
+          return;
         }
+        setPendingSignupUserId(data.data.userId);
+        setSignupVerifyCode('');
+        setSignupVerifyMessage(
+          data.data.emailVerificationSent
+            ? 'We sent a 6-digit code to your email. Enter it below to create your account.'
+            : 'Enter the verification code from your email to create your account.'
+        );
+        setAuthMode('signupVerify');
+        setLoading(false);
         return;
       } else {
         setError(data.error?.message || 'Signup failed. Please try again.');
@@ -485,6 +501,8 @@ const AuthPage: React.FC = () => {
 
         login(data.data.userId, data.data.email, userRole);
         return;
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        setError(data.error.message || 'Verify your email before signing in.');
       } else {
         setError(data.error?.message || 'Login failed. Please check your credentials.');
       }
@@ -531,6 +549,53 @@ const AuthPage: React.FC = () => {
       console.error('Auto-login after signup error:', err);
       setError('Account created but login failed. Please try logging in manually.');
       return false;
+    }
+  };
+
+  const handleSignupVerify = async () => {
+    if (!pendingSignupUserId || signupVerifyCode.length !== 6) {
+      setError('Enter the full 6-digit verification code from your email.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await verifyEmail({
+        userId: pendingSignupUserId,
+        code: signupVerifyCode.trim(),
+      });
+      if (!result.success) {
+        setError(result.error?.message || 'Invalid or expired code. Try again or resend.');
+        setLoading(false);
+        return;
+      }
+
+      const loggedIn = await handleLoginAfterSignup();
+      if (!loggedIn) {
+        setLoading(false);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleResendSignupCode = async () => {
+    if (!pendingSignupUserId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await sendEmailVerification(pendingSignupUserId);
+      if (result.success) {
+        setSignupVerifyMessage('A new verification code has been sent to your email.');
+      } else {
+        setError(result.error?.message || 'Could not resend verification code.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -599,6 +664,10 @@ const AuthPage: React.FC = () => {
     event.preventDefault();
     setError(null);
 
+    if (isSignupVerify) {
+      await handleSignupVerify();
+      return;
+    }
     if (isForgot) {
       await handleForgotPassword();
       return;
@@ -638,7 +707,7 @@ const AuthPage: React.FC = () => {
   };
 
   const toggleAuthMode = () => {
-    if (isForgot || isReset) {
+    if (isForgot || isReset || isSignupVerify) {
       goToLoginMode();
       return;
     }
@@ -769,7 +838,14 @@ const AuthPage: React.FC = () => {
     },
   ];
 
-  const formFields = isForgot
+  const formFields = isSignupVerify
+    ? {
+        header: 'Verify your email',
+        subHeader: signupVerifyMessage || 'Enter the 6-digit code we sent to your email to finish creating your account.',
+        fields: [],
+        submitButton: 'Create account',
+      }
+    : isForgot
     ? {
         header: 'Forgot password',
         subHeader: 'Enter your email and we will send a reset link and code.',
@@ -792,7 +868,9 @@ const AuthPage: React.FC = () => {
           submitButton: isLogin ? 'Sign in' : 'Sign up',
         };
 
-  const accountToggleText = isForgot
+  const accountToggleText = isSignupVerify
+    ? 'Back to sign in'
+    : isForgot
     ? 'Remember your password? Sign in'
     : isReset
       ? 'Back to sign in'
@@ -802,7 +880,7 @@ const AuthPage: React.FC = () => {
 
   const orbitText = isLogin
     ? 'Welcome Back'
-    : isSignup
+    : isSignup || isSignupVerify
       ? 'Get Started'
       : isForgot
         ? 'Forgot Password'
@@ -923,6 +1001,20 @@ const AuthPage: React.FC = () => {
               </div>
             ) : (
               <>
+                {isSignupVerify && (
+                  <div className='mb-4 max-w-md w-full mx-auto'>
+                    <p className='mb-3 text-center text-sm text-white/80'>6-digit verification code</p>
+                    <VerificationCodeInput
+                      value={signupVerifyCode}
+                      onChange={setSignupVerifyCode}
+                      disabled={loading}
+                      idPrefix='auth-signup-verify-code'
+                    />
+                    <p className='mt-3 text-center text-xs text-gray-400'>
+                      Sent to {formData.email || 'your email'}
+                    </p>
+                  </div>
+                )}
                 {isReset && !resetToken && (
                   <div className='mb-4 max-w-md w-full mx-auto'>
                     <p className='mb-3 text-center text-sm text-white/80'>6-digit reset code</p>
@@ -955,6 +1047,18 @@ const AuthPage: React.FC = () => {
                       className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors'
                     >
                       Forgot password?
+                    </button>
+                  </div>
+                )}
+                {isSignupVerify && (
+                  <div className='mt-3 text-center'>
+                    <button
+                      type='button'
+                      onClick={handleResendSignupCode}
+                      disabled={loading}
+                      className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50'
+                    >
+                      Resend verification code
                     </button>
                   </div>
                 )}

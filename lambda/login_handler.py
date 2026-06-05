@@ -3,7 +3,7 @@ Single Lambda: email/password auth + Google OAuth + optional API Gateway TOKEN a
 
 HTTP POST JSON body must include "action":
 
-- "signup" — Email + phone + password.
+- "signup" — Email + phone + password; sends OTP (account stays pending until verify_email).
 - "login" — Email + password.
 - "google_oauth_config" — returns { googleEnabled, clientId? }; client id comes from env only.
 - "google_oauth_exchange" — code + redirect_uri + code_verifier (PKCE).
@@ -367,23 +367,39 @@ def handle_verify_email(body):
         })
 
     now = datetime.utcnow().isoformat()
-    table.update_item(
-        Key={"userId": user_id},
-        UpdateExpression="""
+    activate_account = user.get("status") == "pending_verification"
+    update_expression = """
+        SET emailVerified = :v,
+            updatedAt = :u
+        REMOVE emailVerifyCodeHash, emailVerifyTokenHash, emailVerifyExpiresAt
+    """
+    expression_values = {
+        ":v": True,
+        ":u": now,
+    }
+    if activate_account:
+        update_expression = """
             SET emailVerified = :v,
+                #st = :active,
                 updatedAt = :u
             REMOVE emailVerifyCodeHash, emailVerifyTokenHash, emailVerifyExpiresAt
-        """,
-        ExpressionAttributeValues={
-            ":v": True,
-            ":u": now,
-        },
+        """
+        expression_values[":active"] = "active"
+
+    table.update_item(
+        Key={"userId": user_id},
+        UpdateExpression=update_expression,
+        ExpressionAttributeValues=expression_values,
+        **({"ExpressionAttributeNames": {"#st": "status"}} if activate_account else {}),
     )
 
     return response(200, {
         "success": True,
-        "message": "Email verified successfully",
-        "data": {"emailVerified": True},
+        "message": "Email verified successfully. Your account is now active.",
+        "data": {
+            "emailVerified": True,
+            "accountActivated": activate_account,
+        },
     })
 
 
@@ -739,12 +755,8 @@ def handle_signup(body):
             }
         })
 
-    # ---------- CHECK EMAIL EXISTS ----------
-    existing = table.scan(
-        FilterExpression=Attr("email").eq(email)
-    )
-
-    if existing["Count"] > 0:
+    existing_user = _get_user_by_email(email)
+    if existing_user and existing_user.get("status") != "pending_verification":
         return response(409, {
             "success": False,
             "error": {
@@ -753,18 +765,36 @@ def handle_signup(body):
             }
         })
 
-    user_id = str(uuid.uuid4())
+    user_id = existing_user["userId"] if existing_user else str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     pw_hash, pw_salt = _hash_password(password)
 
-    table.put_item(Item={
+    if existing_user:
+        table.update_item(
+            Key={"userId": user_id},
+            UpdateExpression="""
+                SET phoneNumber = :p,
+                    passwordHash = :h,
+                    passwordSalt = :s,
+                    passwordUpdatedAt = :u,
+                    updatedAt = :u
+            """,
+            ExpressionAttributeValues={
+                ":p": phone,
+                ":h": pw_hash,
+                ":s": pw_salt,
+                ":u": now,
+            },
+        )
+    else:
+        table.put_item(Item={
         "userId": user_id,
         "email": email,
         "phoneNumber": phone,
         "passwordHash": pw_hash,
         "passwordSalt": pw_salt,
         "role": "user",
-        "status": "active",
+        "status": "pending_verification",
 
         "emailVerified": False,
         "phoneVerified": False,
@@ -803,6 +833,7 @@ def handle_signup(body):
             "userId": user_id,
             "email": email,
             "emailVerified": False,
+            "status": "pending_verification",
         }
         email_sent, _ = _issue_and_send_email_verification(created_user)
     except Exception as exc:
@@ -811,12 +842,13 @@ def handle_signup(body):
 
     return response(200, {
         "success": True,
-        "message": "User registered successfully",
+        "message": "Verification code sent. Enter the OTP to create your account.",
         "data": {
             "userId": user_id,
             "email": email,
             "role": "user",
             "emailVerificationSent": email_sent,
+            "requiresEmailVerification": True,
         }
     })
 
@@ -848,6 +880,15 @@ def handle_login(body):
         })
 
     user = result["Items"][0]
+
+    if user.get("status") == "pending_verification":
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "EMAIL_NOT_VERIFIED",
+                "message": "Verify your email with the OTP sent during signup before signing in.",
+            },
+        })
 
     if user.get("status") == "blocked":
         return response(403, {
