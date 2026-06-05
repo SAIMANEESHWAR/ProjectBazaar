@@ -191,15 +191,11 @@ def _build_verification_email_html(code: str, verify_link: str) -> str:
     <div style="text-align:center;">
       <p style="margin:0 0 8px 0;font-size:16px;line-height:1.6;color:#374151;">Hi there,</p>
       <p style="margin:0;font-size:15px;line-height:1.7;color:#4b5563;">
-        Thanks for joining <strong>{BRAND_NAME}</strong>. Use the verification code below or click the button to confirm your email address.
+        Thanks for joining <strong>{BRAND_NAME}</strong>. Use the verification code below or tap the button to confirm your email address.
       </p>
       {digit_boxes}
       <p style="margin:0 0 24px 0;font-size:13px;line-height:1.5;color:#9ca3af;">Do not share this code with anyone.</p>
       {_pill_button(verify_link, "Verify Email")}
-      <p style="margin:24px 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">Or copy and paste this link into your browser:</p>
-      <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;">
-        <a href="{_escape_html(verify_link)}" style="color:{BRAND_ORANGE};text-decoration:underline;">{_escape_html(verify_link)}</a>
-      </p>
     </div>
     """
     footer_note = _peach_callout(
@@ -253,7 +249,7 @@ def send_email_verification(
     text_body = (
         f"Verify your email for {BRAND_NAME}\n\n"
         f"Your verification code: {code}\n\n"
-        f"Verify in one click:\n{verify_link}\n\n"
+        "Open the HTML version of this email and tap Verify Email, or enter the code in the app.\n\n"
         "This code expires in 15 minutes.\n"
         "If you did not create an account, you can ignore this email.\n\n"
         f"Need help? {SUPPORT_EMAIL}\n"
