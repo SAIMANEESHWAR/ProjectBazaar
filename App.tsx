@@ -61,8 +61,6 @@ const TopSellers = lazy(() => import('./components/TopSellers'));
 const PricingPlansSection = lazy(() => import('./components/sections/PricingPlansSection'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const VerifyEmailPage = lazy(() => import('./components/VerifyEmailPage'));
-const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
@@ -290,9 +288,8 @@ const AppContent: React.FC = () => {
       case 'verifyEmail':
         return <VerifyEmailPage />;
       case 'forgotPassword':
-        return <ForgotPasswordPage />;
       case 'resetPassword':
-        return <ResetPasswordPage />;
+        return <AuthPage />;
       case 'subscriptionCheckout':
         return <SubscriptionCheckoutPage />;
       case 'admin':
