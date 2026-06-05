@@ -168,4 +168,19 @@
   html {
     scroll-behavior: smooth;
   }
+
+  @keyframes dashboard-toast-in {
+    from {
+      transform: translateY(16px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-dashboard-toast-in {
+    animation: dashboard-toast-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }

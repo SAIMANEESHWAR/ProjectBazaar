@@ -2,10 +2,16 @@ import React, { useState, createContext, useContext, ReactNode, useEffect, useCa
 import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
 import { useAuth } from '../App';
+import { usePremium } from '../context/PremiumContext';
+import PremiumUpsellModal from './PremiumUpsellModal';
 import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
 import { JobHuntShellProvider } from '../context/JobHuntShellContext';
 import { cachedFetchUserData, cachedFetchUserProfile, likeProject, unlikeProject, addToCart as apiAddToCart, removeFromCart as apiRemoveFromCart, CartItem, invalidateUserCache } from '../services/buyerApi';
 import { useSocket } from '../context/SocketContext';
+import {
+    CODEXCAREER_BRAND_NAME,
+    CODEXCAREER_LOGO_SRC,
+} from '../lib/brandAssets';
 
 // Re-export DashboardView for compatibility
 export type { DashboardView } from '../context/DashboardContext';
@@ -249,69 +255,109 @@ export const CartProvider: React.FC<{ children: ReactNode; userId: string | null
     );
 };
 
-// Toast Component
+type ToastVariant = 'welcome' | 'notification';
+
 interface ToastProps {
+    variant?: ToastVariant;
     message: string;
+    userName?: string;
     isVisible: boolean;
     onClose: () => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose }) => {
+const Toast: React.FC<ToastProps> = ({
+    variant = 'notification',
+    message,
+    userName,
+    isVisible,
+    onClose,
+}) => {
     useEffect(() => {
-        if (isVisible) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 4000); // Auto-dismiss after 4 seconds
-
-            return () => clearTimeout(timer);
-        }
-    }, [isVisible, onClose]);
+        if (!isVisible) return;
+        const timer = setTimeout(onClose, variant === 'welcome' ? 5000 : 4000);
+        return () => clearTimeout(timer);
+    }, [isVisible, onClose, variant]);
 
     if (!isVisible) return null;
 
+    const isWelcome = variant === 'welcome';
+
     return (
         <div
-            className="fixed top-4 right-4 z-50 transition-all duration-300 ease-out"
-            style={{
-                animation: 'slideInRight 0.3s ease-out',
-            }}
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 right-4 sm:right-6 z-[60] animate-dashboard-toast-in"
         >
-            <style>{`
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-            `}</style>
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] max-w-md">
-                <div className="flex-shrink-0">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div
+                className={`relative overflow-hidden rounded-2xl border bg-white/95 backdrop-blur-md shadow-[0_20px_50px_rgba(15,23,42,0.12)] ${
+                    isWelcome ? 'border-orange-100 min-w-[320px] max-w-[380px]' : 'border-gray-200 min-w-[280px] max-w-md'
+                }`}
+            >
+                <div
+                    className={`absolute left-0 top-0 h-full w-1 ${
+                        isWelcome ? 'bg-gradient-to-b from-[#ff7a1a] to-[#FF6B00]' : 'bg-gradient-to-b from-sky-400 to-blue-500'
+                    }`}
+                    aria-hidden
+                />
+
+                <div className="flex items-start gap-3 px-4 py-4 pl-5">
+                    {isWelcome ? (
+                        <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-orange-100 bg-orange-50/80 p-1.5">
+                            <img
+                                src={CODEXCAREER_LOGO_SRC}
+                                alt=""
+                                className="h-full w-full object-contain"
+                                aria-hidden
+                            />
+                        </div>
+                    ) : (
+                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600">
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </div>
+                    )}
+
+                    <div className="min-w-0 flex-1 pr-1">
+                        {isWelcome ? (
+                            <>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#FF6B00]">
+                                    Welcome back
+                                </p>
+                                <p className="mt-1 truncate text-base font-semibold text-gray-900">
+                                    {userName || message.replace(/^Welcome,\s*/i, '').replace(/!$/, '')}
+                                </p>
+                                <p className="mt-1 text-sm leading-snug text-gray-500">
+                                    Your {CODEXCAREER_BRAND_NAME} dashboard is ready — pick up where you left off.
+                                </p>
+                            </>
+                        ) : (
+                            <p className="text-sm font-medium leading-snug text-gray-800">{message}</p>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Dismiss notification"
+                        className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
-                <div className="flex-1">
-                    <p className="font-semibold text-sm">{message}</p>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
             </div>
         </div>
     );
 };
 
+const PREMIUM_UPSELL_SESSION_KEY = 'premiumUpsellShown';
+const PREMIUM_UPSELL_DELAY_MS = 30_000;
+
 const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
+    const { isPremium } = usePremium();
     const { subscribe } = useSocket();
     // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -320,11 +366,12 @@ const DashboardPage: React.FC = () => {
     const [userName, setUserName] = useState<string>('');
     const [jobToastMessage, setJobToastMessage] = useState('');
     const [showJobToast, setShowJobToast] = useState(false);
+    const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
 
     useEffect(() => {
         const unsub = subscribe('new_job', (data: { title?: string; company?: string; message?: string }) => {
             const msg = data.message || `New Job: ${data.title || 'Job'} at ${data.company || 'a company'}`;
-            setJobToastMessage(`🔔 ${msg}`);
+            setJobToastMessage(msg);
             setShowJobToast(true);
         });
         return unsub;
@@ -364,23 +411,45 @@ const DashboardPage: React.FC = () => {
         showWelcomeMessage();
     }, [userId, userEmail]);
 
+    useEffect(() => {
+        if (!userId || isPremium) {
+            setShowPremiumUpsell(false);
+            return;
+        }
+        if (sessionStorage.getItem(PREMIUM_UPSELL_SESSION_KEY) === 'true') {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setShowPremiumUpsell(true);
+            sessionStorage.setItem(PREMIUM_UPSELL_SESSION_KEY, 'true');
+        }, PREMIUM_UPSELL_DELAY_MS);
+
+        return () => window.clearTimeout(timer);
+    }, [userId, isPremium]);
+
     return (
         <WishlistProvider userId={userId}>
             <CartProvider userId={userId}>
                 <MessagesUnreadProvider userId={userId}>
                 <JobHuntShellProvider>
                 <div className={`flex h-screen bg-white text-gray-900 font-sans transition-colors duration-300 relative`}>
-                    {/* Welcome Toast */}
                     <Toast
+                        variant="welcome"
                         message={`Welcome, ${userName}!`}
+                        userName={userName}
                         isVisible={showWelcomeToast}
                         onClose={() => setShowWelcomeToast(false)}
                     />
-                    {/* New Job Toast */}
                     <Toast
+                        variant="notification"
                         message={jobToastMessage}
                         isVisible={showJobToast}
                         onClose={() => setShowJobToast(false)}
+                    />
+                    <PremiumUpsellModal
+                        isOpen={showPremiumUpsell}
+                        onClose={() => setShowPremiumUpsell(false)}
                     />
                     {/* Overlay for mobile */}
                     {isSidebarOpen && (
