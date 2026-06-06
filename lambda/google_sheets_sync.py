@@ -7,22 +7,23 @@ Supports two integration modes (use one):
    Env: GOOGLE_SHEETS_WEBAPP_URL=https://script.google.com/macros/s/.../exec
 
 2. Google Sheets API v4 with service account JWT
-   Env:
+   Env (either form):
      GOOGLE_SHEET_ID=your_spreadsheet_id
+     GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}   # entire JSON file
+   Or:
      GOOGLE_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
 Optional:
   GOOGLE_SHEET_TAB=UTM Signups
 """
-import base64
 import json
 import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 try:
     import jwt  # PyJWT — already used by login_handler
@@ -32,10 +33,29 @@ except ImportError:
 GOOGLE_SHEETS_WEBAPP_URL = os.environ.get("GOOGLE_SHEETS_WEBAPP_URL", "").strip()
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "").strip()
 GOOGLE_SHEET_TAB = os.environ.get("GOOGLE_SHEET_TAB", "UTM Signups").strip()
-GOOGLE_SERVICE_ACCOUNT_EMAIL = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL", "").strip()
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = (
-    os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", "").strip().replace("\\n", "\n")
-)
+
+
+def _load_service_account_credentials() -> Tuple[str, str]:
+    """Return (client_email, private_key) from env vars. Never log the private key."""
+    raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    if raw_json:
+        try:
+            parsed = json.loads(raw_json)
+            email = (parsed.get("client_email") or "").strip()
+            private_key = (parsed.get("private_key") or "").strip().replace("\\n", "\n")
+            if email and private_key:
+                return email, private_key
+        except json.JSONDecodeError:
+            pass
+
+    email = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL", "").strip()
+    private_key = (
+        os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", "").strip().replace("\\n", "\n")
+    )
+    return email, private_key
+
+
+GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = _load_service_account_credentials()
 
 SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
 TOKEN_URL = "https://oauth2.googleapis.com/token"

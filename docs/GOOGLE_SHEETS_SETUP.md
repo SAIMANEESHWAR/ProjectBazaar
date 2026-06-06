@@ -42,9 +42,23 @@ After deploy, new signups with UTM data append a row to the **UTM Signups** tab.
 
 ## Option B — Service account (Sheets API)
 
-1. Create a Google Cloud service account with Sheets API enabled
-2. Share the spreadsheet with the service account email (Editor)
-3. Set Lambda environment variables:
+1. In Google Cloud Console, enable **Google Sheets API** for your project
+2. Create a service account and download the JSON key (keep it secret — never commit to git)
+3. Create your spreadsheet and **Share** it with the service account email as **Editor**
+   - Example: `google-sheets-access@YOUR-PROJECT.iam.gserviceaccount.com`
+4. Copy the spreadsheet ID from the URL:
+   - `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`
+5. In AWS Lambda (`login_handler`), set environment variables:
+
+**Easiest — paste the whole JSON file as one variable:**
+
+```
+GOOGLE_SHEET_ID=your_spreadsheet_id
+GOOGLE_SHEET_TAB=UTM Signups
+GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...@....iam.gserviceaccount.com",...}
+```
+
+**Or split into separate variables:**
 
 ```
 GOOGLE_SHEET_ID=your_spreadsheet_id
@@ -53,7 +67,11 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=xxx@xxx.iam.gserviceaccount.com
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
+6. Package `google_sheets_sync.py` with `login_handler.py` and redeploy
+
 Requires PyJWT in the Lambda package (already used by `login_handler.py`).
+
+**Security:** Store credentials only in AWS Lambda env vars or Secrets Manager. Never commit JSON key files to the repository.
 
 ---
 

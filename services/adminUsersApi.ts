@@ -56,6 +56,6 @@ export async function fetchAllAdminUsers(): Promise<AdminApiUser[]> {
   return data.data;
 }
 
-export function getUserAttribution(user: AdminApiUser | Record<string, unknown>): UserAttribution {
-  return extractAttributionFromUser(user as Record<string, unknown>);
+export function getUserAttribution(user: AdminApiUser | object): UserAttribution {
+  return extractAttributionFromUser(user);
 }

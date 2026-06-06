@@ -174,7 +174,7 @@ const AdminUserProfilePage: React.FC<AdminUserProfilePageProps> = ({
       joinDate: apiUser.createdAt ? new Date(apiUser.createdAt).toISOString().split('T')[0] : undefined,
       status: apiUser.status,
       createdBy: apiUser.createdBy,
-      attribution: extractAttributionFromUser(apiUser as Record<string, unknown>),
+      attribution: extractAttributionFromUser(apiUser),
       rating: 0, // API doesn't provide rating, can be calculated later
       totalSales: 0, // API doesn't provide totalSales directly, can be calculated from projects
     };

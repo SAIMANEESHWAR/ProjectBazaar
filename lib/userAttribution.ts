@@ -36,12 +36,13 @@ const ATTRIBUTION_KEYS: (keyof UserAttribution)[] = [
 ];
 
 export function extractAttributionFromUser(
-  record: Record<string, unknown> | null | undefined
+  record: object | null | undefined
 ): UserAttribution {
   if (!record) return {};
+  const data = record as Record<string, unknown>;
   const out: UserAttribution = {};
   for (const key of ATTRIBUTION_KEYS) {
-    const value = record[key];
+    const value = data[key];
     if (typeof value === 'string' && value.trim()) {
       out[key] = value.trim();
     }
