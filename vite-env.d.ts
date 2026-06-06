@@ -13,6 +13,12 @@ interface ImportMetaEnv {
     readonly VITE_GET_JOBS_DETAILS_URL?: string;
     /** Optional: override OAuth redirect (default `${origin}/auth`). Must match Google Cloud. */
     readonly VITE_GOOGLE_REDIRECT_URI?: string;
+    /** Optional GTM container ID (consent-gated loader in lib/analytics.ts). */
+    readonly VITE_GTM_ID?: string;
+    /** Optional GA4 measurement ID (documented; primary tag is in index.html). */
+    readonly VITE_GA4_MEASUREMENT_ID?: string;
+    /** UTM attribution TTL in days (default 90). */
+    readonly VITE_ATTRIBUTION_TTL_DAYS?: string;
 }
 
 interface ImportMeta {

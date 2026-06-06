@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import Pagination from './Pagination';
+import { trackJobApplyClick } from '../lib/analytics';
 import { fetchJobs, fetchSavedResumeSkillNames, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
 import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
@@ -688,7 +689,16 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
 
   const openApply = (job: JobListing) => {
     const url = job.apply_link?.trim();
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    if (!url) return;
+
+    trackJobApplyClick({
+      job_id: job.id,
+      company: job.company || 'unknown',
+      platform: job.source_platform || 'unknown',
+      destination_url: url,
+    });
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const toggleSave = useCallback(

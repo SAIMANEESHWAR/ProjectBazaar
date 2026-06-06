@@ -1,5 +1,6 @@
 import type { PlanId } from '../data/pricingPlans';
 import { PRICING_PLANS } from '../data/pricingPlans';
+import { trackBeginCheckout, trackPurchase } from './analytics';
 import { logRazorpayError, openRazorpayCheckout } from './razorpayCheckout';
 import {
   createSubscriptionOrder,
@@ -64,6 +65,23 @@ export async function runSubscriptionPaymentFlow(options: {
     return { status: 'error', message: 'Incomplete payment details from server' };
   }
 
+  const checkoutValue = plan.priceInr;
+  const checkoutCurrency = orderResponse.currency || 'INR';
+  const checkoutItems = [{
+    item_id: plan.id,
+    item_name: plan.name,
+    item_category: 'subscription',
+    price: checkoutValue,
+    quantity: 1,
+  }];
+
+  trackBeginCheckout({
+    item_type: 'subscription',
+    value: checkoutValue,
+    currency: checkoutCurrency,
+    items: checkoutItems,
+  });
+
   return new Promise((resolve) => {
     void openRazorpayCheckout({
       key: orderResponse.key!,
@@ -91,6 +109,13 @@ export async function runSubscriptionPaymentFlow(options: {
             resolve({ status: 'error', message: verifyResult.message });
             return;
           }
+          trackPurchase({
+            transaction_id: payment.razorpay_payment_id || payment.razorpay_order_id,
+            value: checkoutValue,
+            currency: checkoutCurrency,
+            item_type: 'subscription',
+            items: checkoutItems,
+          });
           resolve({ status: 'success', record: verifyResult.data });
         } catch {
           resolve({

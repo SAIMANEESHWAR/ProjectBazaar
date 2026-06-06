@@ -7,6 +7,7 @@ import { PRICING_PLANS, formatInr, type PlanId } from '../data/pricingPlans';
 import { getStoredAuth } from '../lib/authStorage';
 import { clearPendingPlan, getPendingPlan } from '../lib/pendingPlanStorage';
 import { getRazorpayScriptStatus } from '../lib/razorpayCheckout';
+import { trackCustomEvent } from '../lib/analytics';
 import { runSubscriptionPaymentFlow } from '../lib/subscriptionPaymentFlow';
 import {
   createSubscription,
@@ -43,6 +44,16 @@ const SubscriptionCheckoutPage: React.FC = () => {
   useEffect(() => {
     setAuthReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!plan) return;
+    trackCustomEvent('view_subscription_checkout', {
+      plan_id: plan.id,
+      plan_name: plan.name,
+      value: plan.priceInr,
+      currency: 'INR',
+    });
+  }, [plan]);
 
   useEffect(() => {
     const { status, error: scriptErr } = getRazorpayScriptStatus();

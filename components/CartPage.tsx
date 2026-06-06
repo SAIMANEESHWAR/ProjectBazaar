@@ -5,6 +5,7 @@ import BuyerProjectCard from './BuyerProjectCard';
 import noShoppingCartAnimation from '../lottiefiles/no_shopping_cart.json';
 import { useCart } from './DashboardPage';
 import { useAuth } from '../App';
+import { trackBeginCheckout, trackPurchase } from '../lib/analytics';
 import { logRazorpayError, openRazorpayCheckout } from '../lib/razorpayCheckout';
 import { createPaymentIntent } from '../services/buyerApi';
 
@@ -82,6 +83,19 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack 
         throw new Error('Razorpay key not received from server');
       }
 
+      trackBeginCheckout({
+        item_type: 'project',
+        value: totalPrice,
+        currency: paymentIntentResponse.currency || 'INR',
+        items: cartProjects.map((project) => ({
+          item_id: project.id,
+          item_name: project.title,
+          item_category: 'project',
+          price: project.price,
+          quantity: 1,
+        })),
+      });
+
       await openRazorpayCheckout({
         key: paymentIntentResponse.key,
         amount: paymentIntentResponse.amount,
@@ -95,7 +109,20 @@ const CartPage: React.FC<CartPageProps> = ({ allProjects, onViewDetails, onBack 
           email: userEmail || paymentIntentResponse.prefill?.email || '',
           contact: paymentIntentResponse.prefill?.contact || '',
         },
-        onSuccess: () => {
+        onSuccess: (payment) => {
+          trackPurchase({
+            transaction_id: payment.razorpay_payment_id || payment.razorpay_order_id,
+            value: totalPrice,
+            currency: paymentIntentResponse.currency || 'INR',
+            item_type: 'project',
+            items: cartProjects.map((project) => ({
+              item_id: project.id,
+              item_name: project.title,
+              item_category: 'project',
+              price: project.price,
+              quantity: 1,
+            })),
+          });
           setCheckoutSuccess(true);
           setCheckoutError(null);
           setIsProcessing(false);

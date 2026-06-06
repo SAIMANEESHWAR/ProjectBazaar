@@ -82,6 +82,59 @@ EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 EMAIL_VERIFY_EXPIRY_MINUTES = 15
 PASSWORD_RESET_EXPIRY_MINUTES = 30
 
+ATTRIBUTION_FIELDS = (
+    "utmSource",
+    "utmMedium",
+    "utmCampaign",
+    "utmTerm",
+    "utmContent",
+    "gclid",
+    "fbclid",
+    "landingPage",
+    "signupReferrer",
+    "attributionCapturedAt",
+)
+
+
+def _clean_attribution_str(value) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    cleaned = value.strip()[:500]
+    return cleaned or None
+
+
+def _extract_attribution_from_body(body) -> dict:
+    raw = body.get("attribution")
+    if not isinstance(raw, dict):
+        return {}
+    mapping = {
+        "utmSource": _clean_attribution_str(raw.get("utmSource") or raw.get("utm_source")),
+        "utmMedium": _clean_attribution_str(raw.get("utmMedium") or raw.get("utm_medium")),
+        "utmCampaign": _clean_attribution_str(raw.get("utmCampaign") or raw.get("utm_campaign")),
+        "utmTerm": _clean_attribution_str(raw.get("utmTerm") or raw.get("utm_term")),
+        "utmContent": _clean_attribution_str(raw.get("utmContent") or raw.get("utm_content")),
+        "gclid": _clean_attribution_str(raw.get("gclid")),
+        "fbclid": _clean_attribution_str(raw.get("fbclid")),
+        "landingPage": _clean_attribution_str(raw.get("landingPage") or raw.get("landing_page")),
+        "signupReferrer": _clean_attribution_str(raw.get("signupReferrer") or raw.get("referrer")),
+        "attributionCapturedAt": _clean_attribution_str(
+            raw.get("attributionCapturedAt") or raw.get("captured_at")
+        ),
+    }
+    return {k: v for k, v in mapping.items() if v}
+
+
+def _apply_attribution_to_user_item(item: dict, attribution: dict) -> dict:
+    if not attribution:
+        return item
+    for field in ATTRIBUTION_FIELDS:
+        value = attribution.get(field)
+        if value:
+            item[field] = value
+    return item
+
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(USERS_TABLE)
@@ -787,45 +840,47 @@ def handle_signup(body):
             },
         )
     else:
-        table.put_item(Item={
-        "userId": user_id,
-        "email": email,
-        "phoneNumber": phone,
-        "passwordHash": pw_hash,
-        "passwordSalt": pw_salt,
-        "role": "user",
-        "status": "pending_verification",
+        user_item = {
+            "userId": user_id,
+            "email": email,
+            "phoneNumber": phone,
+            "passwordHash": pw_hash,
+            "passwordSalt": pw_salt,
+            "role": "user",
+            "status": "pending_verification",
 
-        "emailVerified": False,
-        "phoneVerified": False,
+            "emailVerified": False,
+            "phoneVerified": False,
 
-        "isPremium": False,
-        "subscription": {
-            "plan": "free",
-            "startedAt": None,
-            "expiresAt": None
-        },
+            "isPremium": False,
+            "subscription": {
+                "plan": "free",
+                "startedAt": None,
+                "expiresAt": None
+            },
 
-        "credits": 0,
-        "projectsCount": 0,
-        "totalPurchases": 0,
-        "totalSpent": 0,
+            "credits": 0,
+            "projectsCount": 0,
+            "totalPurchases": 0,
+            "totalSpent": 0,
 
-        "wishlist": [],
-        "cart": [],
-        "purchases": [],
+            "wishlist": [],
+            "cart": [],
+            "purchases": [],
 
-        "lastLoginAt": None,
-        "loginCount": 0,
+            "lastLoginAt": None,
+            "loginCount": 0,
 
-        "failedLoginAttempts": 0,
-        "accountLockedUntil": None,
-        "passwordUpdatedAt": now,
+            "failedLoginAttempts": 0,
+            "accountLockedUntil": None,
+            "passwordUpdatedAt": now,
 
-        "createdAt": now,
-        "updatedAt": now,
-        "createdBy": "self"
-    })
+            "createdAt": now,
+            "updatedAt": now,
+            "createdBy": "self"
+        }
+        _apply_attribution_to_user_item(user_item, _extract_attribution_from_body(body))
+        table.put_item(Item=user_item)
 
     email_sent = False
     try:
@@ -1277,6 +1332,7 @@ def handle_google_oauth_exchange(body):
                 "credits": refreshed.get("credits", 0),
                 "status": refreshed.get("status", "active"),
                 "idToken": id_token,
+                "isNewUser": False,
             },
         })
 
@@ -1285,41 +1341,41 @@ def handle_google_oauth_exchange(body):
     pw_hash, pw_salt = _hash_password(random_pw)
 
     try:
-        table.put_item(
-            Item={
-                "userId": user_id,
-                "email": email,
-                "passwordHash": pw_hash,
-                "passwordSalt": pw_salt,
-                "role": "user",
-                "status": "active",
-                "googleSub": google_sub,
-                "authProvider": "google",
-                "emailVerified": True,
-                "phoneVerified": False,
-                "isPremium": False,
-                "subscription": {
-                    "plan": "free",
-                    "startedAt": None,
-                    "expiresAt": None,
-                },
-                "credits": 0,
-                "projectsCount": 0,
-                "totalPurchases": 0,
-                "totalSpent": 0,
-                "wishlist": [],
-                "cart": [],
-                "purchases": [],
-                "lastLoginAt": now,
-                "loginCount": 1,
-                "failedLoginAttempts": 0,
-                "accountLockedUntil": None,
-                "passwordUpdatedAt": now,
-                "createdAt": now,
-                "updatedAt": now,
-                "createdBy": "google_oauth",
-            }
-        )
+        google_user_item = {
+            "userId": user_id,
+            "email": email,
+            "passwordHash": pw_hash,
+            "passwordSalt": pw_salt,
+            "role": "user",
+            "status": "active",
+            "googleSub": google_sub,
+            "authProvider": "google",
+            "emailVerified": True,
+            "phoneVerified": False,
+            "isPremium": False,
+            "subscription": {
+                "plan": "free",
+                "startedAt": None,
+                "expiresAt": None,
+            },
+            "credits": 0,
+            "projectsCount": 0,
+            "totalPurchases": 0,
+            "totalSpent": 0,
+            "wishlist": [],
+            "cart": [],
+            "purchases": [],
+            "lastLoginAt": now,
+            "loginCount": 1,
+            "failedLoginAttempts": 0,
+            "accountLockedUntil": None,
+            "passwordUpdatedAt": now,
+            "createdAt": now,
+            "updatedAt": now,
+            "createdBy": "google_oauth",
+        }
+        _apply_attribution_to_user_item(google_user_item, _extract_attribution_from_body(body))
+        table.put_item(Item=google_user_item)
     except Exception as e:
         return response(500, {
             "success": False,
@@ -1340,5 +1396,6 @@ def handle_google_oauth_exchange(body):
             "credits": 0,
             "status": "active",
             "idToken": id_token,
+            "isNewUser": True,
         },
     })

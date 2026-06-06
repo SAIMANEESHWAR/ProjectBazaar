@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import type { Course } from './BuyerCoursesPage';
+import { trackBeginCheckout, trackPurchase } from '../lib/analytics';
 import { logRazorpayError, openRazorpayCheckout } from '../lib/razorpayCheckout';
 import { createCourseOrder, verifyCoursePayment, enrollFreeCourse, getPurchasedCourses } from '../services/buyerApi';
 
@@ -130,6 +131,19 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                 throw new Error('Incomplete payment details from server');
             }
 
+            trackBeginCheckout({
+                item_type: 'course',
+                value: course.price,
+                currency: orderResponse.currency || 'INR',
+                items: [{
+                    item_id: course.courseId,
+                    item_name: course.title,
+                    item_category: 'course',
+                    price: course.price,
+                    quantity: 1,
+                }],
+            });
+
             await openRazorpayCheckout({
                 key: orderResponse.key,
                 amount: orderResponse.amount,
@@ -154,6 +168,19 @@ const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({ course, onBack, o
                         });
 
                         if (verifyResponse.success) {
+                            trackPurchase({
+                                transaction_id: response.razorpay_payment_id || response.razorpay_order_id,
+                                value: course.price,
+                                currency: orderResponse.currency || 'INR',
+                                item_type: 'course',
+                                items: [{
+                                    item_id: course.courseId,
+                                    item_name: course.title,
+                                    item_category: 'course',
+                                    price: course.price,
+                                    quantity: 1,
+                                }],
+                            });
                             setPurchaseSuccess(true);
                             setIsAlreadyPurchased(true);
                             onPurchaseSuccess?.();

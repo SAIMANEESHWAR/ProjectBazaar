@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react";
+import { getAttributionForAnalytics } from "./utmAttribution";
 
 const SENTRY_DSN = "https://d2b4b7675ec75eaab29ac2303fea1604@o4510947769057280.ingest.us.sentry.io/4510947776462848";
 const COOKIE_CONSENT_KEY = "cookieConsent";
@@ -10,6 +11,14 @@ let autoTrackingBound = false;
 
 type DataLayerValue = string | number | boolean | null | undefined;
 type DataLayerEvent = Record<string, DataLayerValue>;
+
+export interface CheckoutItem {
+  item_id: string;
+  item_name: string;
+  item_category?: string;
+  price?: number;
+  quantity?: number;
+}
 
 declare global {
   interface Window {
@@ -48,12 +57,17 @@ function sanitizeValue(value: DataLayerValue): DataLayerValue {
   return looksLikePii(trimmed) ? "[redacted]" : trimmed;
 }
 
+function withAttribution(event: DataLayerEvent): DataLayerEvent {
+  const attribution = getAttributionForAnalytics();
+  return { ...attribution, ...event };
+}
+
 function pushDataLayerEvent(event: DataLayerEvent) {
   if (typeof window === "undefined") return;
   if (!hasAnalyticsConsent() || isInternalTraffic()) return;
   window.dataLayer = window.dataLayer || [];
   const safePayload: DataLayerEvent = {};
-  Object.entries(event).forEach(([k, v]) => {
+  Object.entries(withAttribution(event)).forEach(([k, v]) => {
     safePayload[k] = sanitizeValue(v);
   });
   window.dataLayer.push(safePayload);
@@ -96,6 +110,83 @@ export function trackFormSubmit(formId: string, formAction?: string) {
     form_id: formId || "unknown_form",
     form_action: formAction || "",
     page_path: window.location.pathname,
+  });
+}
+
+export function trackSignUp(method: "email" | "google") {
+  pushDataLayerEvent({
+    event: "sign_up",
+    method,
+    page_path: window.location.pathname,
+  });
+}
+
+export function trackBeginCheckout(params: {
+  item_type: string;
+  value: number;
+  currency: string;
+  items?: CheckoutItem[];
+}) {
+  pushDataLayerEvent({
+    event: "begin_checkout",
+    item_type: params.item_type,
+    value: params.value,
+    currency: params.currency,
+    items: params.items ? JSON.stringify(params.items) : undefined,
+    page_path: window.location.pathname,
+  });
+}
+
+export function trackPurchase(params: {
+  transaction_id: string;
+  value: number;
+  currency: string;
+  item_type: string;
+  items?: CheckoutItem[];
+}) {
+  pushDataLayerEvent({
+    event: "purchase",
+    transaction_id: params.transaction_id,
+    value: params.value,
+    currency: params.currency,
+    item_type: params.item_type,
+    items: params.items ? JSON.stringify(params.items) : undefined,
+    page_path: window.location.pathname,
+  });
+}
+
+export function trackJobApplyClick(params: {
+  job_id: string;
+  company: string;
+  platform: string;
+  destination_url: string;
+}) {
+  let destinationHost = "";
+  try {
+    destinationHost = new URL(params.destination_url).hostname;
+  } catch {
+    destinationHost = params.destination_url.slice(0, 120);
+  }
+
+  pushDataLayerEvent({
+    event: "job_apply_click",
+    job_id: params.job_id,
+    company: params.company,
+    platform: params.platform,
+    destination_url: params.destination_url,
+    destination_host: destinationHost,
+    page_path: window.location.pathname,
+  });
+}
+
+export function trackCustomEvent(
+  eventName: string,
+  params?: Record<string, DataLayerValue>
+) {
+  pushDataLayerEvent({
+    event: eventName,
+    page_path: window.location.pathname,
+    ...params,
   });
 }
 

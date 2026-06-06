@@ -15,7 +15,9 @@ import {
   validateGoogleOAuthState,
 } from '@/lib/googleDirectAuth';
 import { LOGIN_API_URL } from '@/lib/apiConfig';
+import { trackSignUp } from '@/lib/analytics';
 import { scheduleOnboardingTour } from '@/lib/onboardingTour';
+import { getAttributionForApi } from '@/lib/utmAttribution';
 import { requestPasswordReset, resetPassword } from '@/lib/passwordReset';
 import { sendEmailVerification, verifyEmail } from '@/lib/emailVerification';
 import VerificationCodeInput from './VerificationCodeInput';
@@ -49,6 +51,7 @@ interface ApiResponse {
     profilePictureUrl?: string | null;
     /** Present after direct Google OAuth (`google_oauth_exchange`). */
     idToken?: string;
+    isNewUser?: boolean;
     emailVerificationSent?: boolean;
     emailVerified?: boolean;
   };
@@ -395,6 +398,7 @@ const AuthPage: React.FC = () => {
             code,
             redirect_uri: redirectUri,
             code_verifier,
+            attribution: getAttributionForApi(),
           }),
         });
 
@@ -408,6 +412,9 @@ const AuthPage: React.FC = () => {
           }
           localStorage.setItem('userData', JSON.stringify(userRest));
           const userRole = data.data.role === 'admin' ? 'admin' : 'user';
+          if (data.data.isNewUser) {
+            trackSignUp('google');
+          }
           login(data.data.userId, data.data.email, userRole);
         } else {
           setError(data.error?.message || 'Could not complete sign-in with Google.');
@@ -444,6 +451,7 @@ const AuthPage: React.FC = () => {
           phoneNumber: formData.phoneNumber.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
+          attribution: getAttributionForApi(),
         }),
       });
 
@@ -538,6 +546,7 @@ const AuthPage: React.FC = () => {
         };
         localStorage.setItem('userData', JSON.stringify(userData));
         scheduleOnboardingTour();
+        trackSignUp('email');
 
         login(data.data.userId, data.data.email, userRole);
         return true;
