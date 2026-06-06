@@ -174,7 +174,20 @@ https://codexcareer.com?utm_source=instagram&utm_medium=social&utm_campaign=cour
 
 ---
 
-## 8. Backend Deployment Checklist
+## 8. Admin Dashboard
+
+UTM data is visible in the admin panel:
+
+| Location | What you see |
+|----------|----------------|
+| **User Management** | Campaign column, UTM filters, attributed signup count |
+| **User Profile** (View Details) | Full Marketing Attribution panel per user |
+| **Revenue Analytics** | Campaign breakdown + recent attributed signups |
+| **Google Sheet** | All attributed signups (after Sheets setup) |
+
+---
+
+## 9. Backend Deployment Checklist
 
 After frontend changes, redeploy `lambda/login_handler.py` to AWS Lambda so signup/OAuth attribution is persisted to DynamoDB.
 

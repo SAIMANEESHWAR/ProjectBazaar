@@ -58,6 +58,12 @@ except ImportError:
         return None
 
 try:
+    from google_sheets_sync import append_user_attribution_row
+except ImportError:
+    def append_user_attribution_row(*_args, **_kwargs):
+        return False
+
+try:
     import jwt
     from jwt import PyJWKClient
 except ImportError:
@@ -134,6 +140,13 @@ def _apply_attribution_to_user_item(item: dict, attribution: dict) -> dict:
         if value:
             item[field] = value
     return item
+
+
+def _sync_attribution_to_google_sheets(user_item: dict, signup_method: str) -> None:
+    try:
+        append_user_attribution_row(user_item, signup_method)
+    except Exception as exc:
+        print("attribution google sheets sync failed:", str(exc))
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
@@ -881,6 +894,7 @@ def handle_signup(body):
         }
         _apply_attribution_to_user_item(user_item, _extract_attribution_from_body(body))
         table.put_item(Item=user_item)
+        _sync_attribution_to_google_sheets(user_item, "email")
 
     email_sent = False
     try:
@@ -1376,6 +1390,7 @@ def handle_google_oauth_exchange(body):
         }
         _apply_attribution_to_user_item(google_user_item, _extract_attribution_from_body(body))
         table.put_item(Item=google_user_item)
+        _sync_attribution_to_google_sheets(google_user_item, "google")
     except Exception as e:
         return response(500, {
             "success": False,

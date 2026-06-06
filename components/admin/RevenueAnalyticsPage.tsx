@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import UserAttributionSummary from './UserAttributionSummary';
 
 interface Transaction {
     id: string;
@@ -249,6 +250,8 @@ const RevenueAnalyticsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <UserAttributionSummary />
+
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
