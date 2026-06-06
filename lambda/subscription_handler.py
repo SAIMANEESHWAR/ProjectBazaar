@@ -8,6 +8,8 @@ Actions:
   - create_subscription_order     — Razorpay order for plan checkout
   - verify_subscription_payment   — verify Razorpay payment + activate plan
   - create_subscription           — dev-only stub when Razorpay keys unset
+  - get_feature_entitlements      — per-feature trial/plan access for user
+  - consume_feature_use           — increment trial use after completed action
 
 Environment:
   ALLOWED_ORIGIN, USERS_TABLE, SUBSCRIPTIONS_TABLE, REGION
@@ -29,6 +31,13 @@ from typing import Any, Dict, List, Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
+
+from feature_entitlement import (
+    FREE_USE_LIMIT as ENTITLEMENT_FREE_USE_LIMIT,
+    consume_feature_use,
+    get_all_entitlements,
+    resolve_entitlement,
+)
 
 REGION = os.environ.get("REGION", "ap-south-2")
 USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
@@ -52,6 +61,9 @@ PLAN_CONFIG: Dict[str, Dict[str, Any]] = {
             "job-hunt",
             "hackathons",
             "company-posts",
+            "preparation",
+            "ats-scorer",
+            "coding",
             "resume-builder",
         ],
         "durationMonths": 1,
@@ -88,6 +100,15 @@ PLAN_CONFIG: Dict[str, Dict[str, Any]] = {
         "durationMonths": None,
     },
 }
+
+# Keep in sync with frontend lib/subscriptionFeatures.ts
+FREE_USE_LIMIT = 5
+ALWAYS_FREE_FEATURES = frozenset({
+    "job-hunt", "hackathons", "company-posts", "preparation", "coding",
+})
+TRIAL_GATED_FEATURES = frozenset({
+    "live-ai", "ats-scorer", "resume-builder", "portfolio",
+})
 
 
 def decimal_to_native(obj: Any) -> Any:
@@ -632,6 +653,77 @@ def handle_create_subscription(body: Dict[str, Any]) -> Dict[str, Any]:
     })
 
 
+def handle_get_feature_entitlements(body: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = (body.get("userId") or "").strip()
+    if not user_id:
+        return response(400, {
+            "success": False,
+            "error": {"code": "VALIDATION_ERROR", "message": "userId is required"},
+        })
+
+    feature_id = (body.get("featureId") or "").strip()
+    try:
+        if feature_id:
+            ent = resolve_entitlement(user_id, feature_id)
+            return response(200, {
+                "success": True,
+                "data": ent,
+                "limit": ENTITLEMENT_FREE_USE_LIMIT,
+            })
+        entitlements = get_all_entitlements(user_id)
+        return response(200, {
+            "success": True,
+            "data": entitlements,
+            "limit": ENTITLEMENT_FREE_USE_LIMIT,
+        })
+    except ClientError as e:
+        print(f"get_feature_entitlements failed: {e}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "DB_ERROR", "message": "Could not load entitlements"},
+        })
+
+
+def handle_consume_feature_use(body: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = (body.get("userId") or "").strip()
+    feature_id = (body.get("featureId") or "").strip()
+    session_id = (body.get("sessionId") or "").strip() or None
+
+    if not user_id or not feature_id:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId and featureId are required",
+            },
+        })
+
+    try:
+        ok, ent, err = consume_feature_use(user_id, feature_id, session_id=session_id)
+    except ClientError as e:
+        print(f"consume_feature_use failed: {e}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "DB_ERROR", "message": "Could not consume feature use"},
+        })
+
+    if not ok:
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "TRIAL_EXHAUSTED",
+                "message": err or "Free trial uses exhausted",
+            },
+            "data": ent,
+        })
+
+    return response(200, {
+        "success": True,
+        "message": "Feature use recorded",
+        "data": ent,
+    })
+
+
 def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS" or event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS":
         return response(200, {"success": True})
@@ -656,13 +748,18 @@ def lambda_handler(event, context):
             return handle_verify_subscription_payment(body)
         if action == "create_subscription":
             return handle_create_subscription(body)
+        if action == "get_feature_entitlements":
+            return handle_get_feature_entitlements(body)
+        if action == "consume_feature_use":
+            return handle_consume_feature_use(body)
         return response(400, {
             "success": False,
             "error": {
                 "code": "UNKNOWN_ACTION",
                 "message": (
                     "Supported actions: get_active_subscription, create_subscription_order, "
-                    "verify_subscription_payment, create_subscription"
+                    "verify_subscription_payment, create_subscription, "
+                    "get_feature_entitlements, consume_feature_use"
                 ),
             },
         })

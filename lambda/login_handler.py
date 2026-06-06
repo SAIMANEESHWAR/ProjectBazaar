@@ -869,8 +869,9 @@ def handle_signup(body):
             "subscription": {
                 "plan": "free",
                 "startedAt": None,
-                "expiresAt": None
+                "expiresAt": None,
             },
+            "featureUsage": {},
 
             "credits": 0,
             "projectsCount": 0,
@@ -1372,6 +1373,7 @@ def handle_google_oauth_exchange(body):
                 "startedAt": None,
                 "expiresAt": None,
             },
+            "featureUsage": {},
             "credits": 0,
             "projectsCount": 0,
             "totalPurchases": 0,

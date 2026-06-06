@@ -30,6 +30,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useNavigation, useAuth } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
 import { useDashboard } from '../context/DashboardContext';
 import {
   AI_INTERVIEWER_NAME,
@@ -176,6 +177,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 }) => {
   const { navigateTo } = useNavigation();
   const { isLoggedIn, userId, userEmail } = useAuth();
+  const { refreshEntitlements } = useSubscription();
   const peerViewerDisplayName = userEmail ? userEmail.split('@')[0] || 'You' : 'You';
   const { dashboardMode, setActiveView } = useDashboard();
 
@@ -1251,6 +1253,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           evaluation: evaluationPayload,
         });
         setSaveStatus('saved');
+        await refreshEntitlements();
       } catch {
         setSaveStatus('error');
       }
@@ -1275,6 +1278,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     timeMinutes,
     script,
     transcribedAnswersBySegment,
+    refreshEntitlements,
   ]);
 
   const continueLabel = atEndOfSegment

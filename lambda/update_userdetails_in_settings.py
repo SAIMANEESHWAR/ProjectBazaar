@@ -12,6 +12,8 @@ from xml.sax.saxutils import escape
 from botocore.config import Config
 from boto3.dynamodb.conditions import Key
 
+from feature_entitlement import check_entitlement_or_error, consume_feature_use
+
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
 ATS_HISTORY_TABLE = (os.environ.get("ATS_HISTORY_TABLE") or "AtsScoreHistory").strip() or "AtsScoreHistory"
@@ -1145,6 +1147,10 @@ def handle_generate_resume_pdf(body):
     if not user_id:
         return response(400, {"success": False, "message": "userId is required"})
 
+    allowed, ent_err = check_entitlement_or_error(user_id, "resume-builder")
+    if not allowed:
+        return response(403, {"success": False, "message": ent_err})
+
     try:
         existing = table.get_item(Key={"userId": user_id})
     except Exception as e:
@@ -1193,6 +1199,13 @@ def handle_generate_resume_pdf(body):
     except Exception as e:
         print(f"generateResumePdf S3 error: {e}")
         return response(500, {"success": False, "message": str(e)})
+
+    session_id = (body.get("sessionId") or "").strip() or key
+    ok_consume, _, consume_err = consume_feature_use(
+        user_id, "resume-builder", session_id=session_id
+    )
+    if not ok_consume:
+        return response(403, {"success": False, "message": consume_err or "Trial limit reached"})
 
     return response(
         200,

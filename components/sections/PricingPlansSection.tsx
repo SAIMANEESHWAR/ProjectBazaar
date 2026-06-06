@@ -5,14 +5,19 @@ import { useNavigation, useAuth } from '../../context/appContext';
 import { savePendingPlan, clearPendingPlan } from '../../lib/pendingPlanStorage';
 import { userHasActivePremiumSubscription } from '../../services/subscriptionApi';
 import {
+  DISPLAY_PRICING_PLANS,
   PRICING_FEATURES,
-  PRICING_PLANS,
   SUBSCRIPTION_TEST_PRICE_INR,
   formatInr,
   isFeatureIncluded,
   type PlanId,
   type PricingPlanConfig,
 } from '../../data/pricingPlans';
+import {
+  FREE_USE_LIMIT,
+  isAlwaysFreeFeature,
+  isTrialGatedFeature,
+} from '../../lib/subscriptionFeatures';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -23,14 +28,23 @@ const cardVariants = {
   }),
 };
 
+function featureIncludedInPlan(plan: PricingPlanConfig, featureId: string): boolean {
+  if (plan.id === 'free') {
+    return isAlwaysFreeFeature(featureId) || isTrialGatedFeature(featureId);
+  }
+  return isFeatureIncluded(plan, featureId) || isAlwaysFreeFeature(featureId);
+}
+
 const PlanCard: React.FC<{
   plan: PricingPlanConfig;
   index: number;
   inView: boolean;
   checkingPlanId: string | null;
-  onSubscribe: (planId: string) => void;
-}> = ({ plan, index, inView, checkingPlanId, onSubscribe }) => {
+  onSubscribe: (planId: PlanId) => void;
+  onStartFree: () => void;
+}> = ({ plan, index, inView, checkingPlanId, onSubscribe, onStartFree }) => {
   const isPopular = plan.isPopular;
+  const isFree = plan.id === 'free';
   const isChecking = checkingPlanId === plan.id;
 
   return (
@@ -68,14 +82,14 @@ const PlanCard: React.FC<{
 
       <div className="relative mb-8 flex flex-wrap items-baseline gap-2">
         <span className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
-          {formatInr(plan.priceInr)}
+          {isFree ? '₹0' : formatInr(plan.priceInr)}
         </span>
         <span className="text-sm text-gray-500 dark:text-gray-400">{plan.periodLabel}</span>
       </div>
 
       <button
         type="button"
-        onClick={() => onSubscribe(plan.id)}
+        onClick={() => (isFree ? onStartFree() : onSubscribe(plan.id))}
         disabled={Boolean(checkingPlanId)}
         className={`relative mb-8 w-full rounded-xl py-3.5 text-sm font-semibold transition-all duration-200 disabled:opacity-70 ${
           isPopular
@@ -92,7 +106,9 @@ const PlanCard: React.FC<{
         </p>
         <ul className="space-y-3">
           {PRICING_FEATURES.map((feature) => {
-            const included = isFeatureIncluded(plan, feature.id);
+            const freeForAll = isAlwaysFreeFeature(feature.id);
+            const trialOnFree = isFree && isTrialGatedFeature(feature.id);
+            const included = featureIncludedInPlan(plan, feature.id);
             return (
               <li key={feature.id} className="flex items-start gap-3">
                 <span
@@ -103,7 +119,11 @@ const PlanCard: React.FC<{
                   }`}
                   aria-hidden
                 >
-                  {included ? <Check className="h-3 w-3" strokeWidth={3} /> : <X className="h-3 w-3" strokeWidth={3} />}
+                  {included ? (
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  ) : (
+                    <X className="h-3 w-3" strokeWidth={3} />
+                  )}
                 </span>
                 <div className={included ? '' : 'opacity-45'}>
                   <span
@@ -114,6 +134,16 @@ const PlanCard: React.FC<{
                     }`}
                   >
                     {feature.title}
+                    {freeForAll && included && (
+                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                        Free for all
+                      </span>
+                    )}
+                    {trialOnFree && included && (
+                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                        {FREE_USE_LIMIT} free uses
+                      </span>
+                    )}
                   </span>
                   <span
                     className={`block text-xs mt-0.5 ${
@@ -143,9 +173,23 @@ const PricingPlansSection: React.FC = () => {
   const [alreadyPremiumOpen, setAlreadyPremiumOpen] = useState(false);
   const [paymentDetailsError, setPaymentDetailsError] = useState<string | null>(null);
 
-  const handleSubscribe = async (planId: string) => {
+  const handleStartFree = () => {
+    clearPendingPlan();
+    if (isLoggedIn) {
+      navigateTo('dashboard');
+    } else {
+      navigateTo('auth');
+    }
+  };
+
+  const handleSubscribe = async (planId: PlanId) => {
+    if (planId === 'free') {
+      handleStartFree();
+      return;
+    }
+
     setPaymentDetailsError(null);
-    savePendingPlan(planId as PlanId);
+    savePendingPlan(planId);
 
     if (!isLoggedIn || !userId) {
       navigateTo('auth');
@@ -188,7 +232,7 @@ const PricingPlansSection: React.FC = () => {
         }}
       />
 
-      <div className="relative max-w-[1200px] mx-auto px-5 md:px-8">
+      <div className="relative max-w-[1400px] mx-auto px-5 md:px-8">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -220,8 +264,8 @@ const PricingPlansSection: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5 items-stretch">
-          {PRICING_PLANS.map((plan, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-5 items-stretch">
+          {DISPLAY_PRICING_PLANS.map((plan, index) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -229,6 +273,7 @@ const PricingPlansSection: React.FC = () => {
               inView={inView}
               checkingPlanId={checkingPlanId}
               onSubscribe={handleSubscribe}
+              onStartFree={handleStartFree}
             />
           ))}
         </div>

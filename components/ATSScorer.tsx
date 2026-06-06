@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
 import {
   analyzeAtsWithProvider,
   coerceMissingKeywordDetails,
@@ -261,6 +262,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
   const resultsRef = useRef<HTMLElement>(null);
   const historyPreviewRef = useRef<HTMLElement>(null);
   const { userId } = useAuth();
+  const { refreshEntitlements } = useSubscription();
   const providerLabel = PROVIDERS.find((p) => p.id === provider)?.label || provider;
   const hasSavedProviderKey = savedKeysByProvider[provider];
 
@@ -441,7 +443,10 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
       });
       setHasAnalyzed(true);
       setSelectedHistoryItem(null);
-      if (userId) refreshHistory();
+      if (userId) {
+        refreshHistory();
+        await refreshEntitlements();
+      }
       requestAnimationFrame(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });

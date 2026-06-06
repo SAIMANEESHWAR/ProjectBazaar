@@ -108,7 +108,7 @@ export const PRICING_FEATURES: PricingFeature[] = [
 
 
 
-export type PlanId = 'monthly' | 'yearly' | 'lifetime';
+export type PlanId = 'free' | 'monthly' | 'yearly' | 'lifetime';
 
 
 
@@ -136,8 +136,29 @@ export interface PricingPlanConfig {
 
 
 
-/** INR pricing — keep in sync with lambda/subscription_handler.py PLAN_CONFIG */
+/** Free tier shown on home pricing — not a purchasable Razorpay plan. */
+export const FREE_PLAN: PricingPlanConfig = {
+  id: 'free',
+  name: 'Free',
+  description: 'Core career tools free forever — try premium features with limited uses.',
+  priceInr: 0,
+  periodLabel: ' forever',
+  includedFeatureIds: [
+    'job-hunt',
+    'hackathons',
+    'company-posts',
+    'preparation',
+    'coding',
+    'live-ai',
+    'ats-scorer',
+    'resume-builder',
+    'portfolio',
+  ],
+  isPopular: false,
+  ctaLabel: 'Start free',
+};
 
+/** Paid plans — keep in sync with lambda/subscription_handler.py PLAN_CONFIG */
 export const PRICING_PLANS: PricingPlanConfig[] = [
 
   {
@@ -159,6 +180,12 @@ export const PRICING_PLANS: PricingPlanConfig[] = [
       'hackathons',
 
       'company-posts',
+
+      'preparation',
+
+      'ats-scorer',
+
+      'coding',
 
       'resume-builder',
 
@@ -230,7 +257,8 @@ export const PRICING_PLANS: PricingPlanConfig[] = [
 
 ];
 
-
+/** Home pricing grid: Free + paid plans */
+export const DISPLAY_PRICING_PLANS: PricingPlanConfig[] = [FREE_PLAN, ...PRICING_PLANS];
 
 /** Razorpay test checkout amount (Lambda SUBSCRIPTION_TEST_PRICE=1). */
 

@@ -1,5 +1,6 @@
 import type { SubscriptionCookiePayload } from '../lib/subscriptionCookie';
-import { SUBSCRIPTION_API_URL } from '../lib/apiConfig';
+import { FEATURE_ENTITLEMENT_API_URL, SUBSCRIPTION_API_URL } from '../lib/apiConfig';
+import { FREE_USE_LIMIT } from '../lib/subscriptionFeatures';
 
 export interface SubscriptionRecord {
   subscriptionId: string;
@@ -22,6 +23,47 @@ interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: { code?: string; message?: string };
+}
+
+async function postFeatureEntitlementRaw(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (!FEATURE_ENTITLEMENT_API_URL) {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_CONFIGURED',
+        message:
+          'Feature entitlement API URL is not set. Add VITE_FEATURE_ENTITLEMENT_API_URL to .env.local.',
+      },
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const res = await fetch(FEATURE_ENTITLEMENT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const data = (await res.json()) as Record<string, unknown>;
+    if (!res.ok && data.success !== false) {
+      return { success: false, error: { message: `Request failed (${res.status})` } };
+    }
+    return data;
+  } catch (e) {
+    console.error('featureEntitlementApi error:', e);
+    return {
+      success: false,
+      error: { message: e instanceof Error ? e.message : 'Network error' },
+    };
+  }
+}
+
+async function postFeatureEntitlement<T>(body: Record<string, unknown>): Promise<ApiResponse<T>> {
+  const data = await postFeatureEntitlementRaw(body);
+  return data as unknown as ApiResponse<T>;
 }
 
 async function postSubscriptionRaw(body: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -190,6 +232,61 @@ export async function verifySubscriptionPayment(
 export function isSubscriptionApiConfigured(): boolean {
   return Boolean(SUBSCRIPTION_API_URL?.trim());
 }
+
+export type FeatureEntitlementSource =
+  | 'always_free'
+  | 'plan'
+  | 'trial'
+  | 'exhausted';
+
+export interface FeatureEntitlement {
+  featureId: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  allowed: boolean;
+  source: FeatureEntitlementSource;
+}
+
+export async function getFeatureEntitlements(
+  userId: string
+): Promise<Record<string, FeatureEntitlement>> {
+  const res = await postFeatureEntitlement<Record<string, FeatureEntitlement>>({
+    action: 'get_feature_entitlements',
+    userId,
+  });
+  if (!res.success || !res.data) {
+    console.warn('getFeatureEntitlements:', res.error?.message);
+    return {};
+  }
+  return res.data;
+}
+
+export async function consumeFeatureUse(
+  userId: string,
+  featureId: string,
+  sessionId?: string
+): Promise<{ ok: true; data: FeatureEntitlement } | { ok: false; message: string }> {
+  const res = await postFeatureEntitlement<FeatureEntitlement>({
+    action: 'consume_feature_use',
+    userId,
+    featureId,
+    ...(sessionId ? { sessionId } : {}),
+  });
+  if (!res.success || !res.data) {
+    return {
+      ok: false,
+      message: res.error?.message || res.message || 'Could not record feature use',
+    };
+  }
+  return { ok: true, data: res.data };
+}
+
+export function isFeatureEntitlementApiConfigured(): boolean {
+  return Boolean(FEATURE_ENTITLEMENT_API_URL?.trim());
+}
+
+export { FREE_USE_LIMIT };
 
 /** True when user has a non-expired active subscription on the server. */
 export async function userHasActivePremiumSubscription(userId: string): Promise<boolean> {

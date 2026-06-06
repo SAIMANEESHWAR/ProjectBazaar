@@ -336,11 +336,7 @@ const AppContent: React.FC = () => {
       case 'mockHistory':
         return <MockAssessmentPage initialView="history" />;
       case 'codingQuestions':
-        return (
-          <SubscriptionFeatureGateWrapper featureId="coding">
-            <CodingInterviewQuestionsPage />
-          </SubscriptionFeatureGateWrapper>
-        );
+        return <CodingInterviewQuestionsPage />;
       case 'liveMockInterview':
         return (
           <SubscriptionFeatureGateWrapper featureId="live-ai">

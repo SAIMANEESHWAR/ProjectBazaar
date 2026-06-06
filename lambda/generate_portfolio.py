@@ -43,6 +43,8 @@ except ImportError:
     DYNAMODB_ENABLED = False
     PORTFOLIO_TABLE = None
 
+from feature_entitlement import check_entitlement_or_error, consume_feature_use
+
 # Import templates module
 try:
     from portfolio_templates import TEMPLATES, get_template_list, generate_portfolio_html
@@ -203,6 +205,10 @@ def handle_preview_portfolio(body: Dict[str, Any], headers: Dict[str, str]) -> D
 def handle_generate_portfolio(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, Any]:
     """Full portfolio generation: parse resume, generate HTML, deploy to Vercel."""
     user_id = body.get("userId", f"user_{int(datetime.now().timestamp())}")
+    if user_id and not str(user_id).startswith("user_"):
+        allowed, ent_err = check_entitlement_or_error(str(user_id).strip(), "portfolio")
+        if not allowed:
+            return error_response(ent_err or "Trial limit reached", headers)
     user_email = body.get("userEmail", "")
     file_name = body.get("fileName", "resume.pdf")
     file_type = body.get("fileType", "application/pdf")
@@ -253,6 +259,13 @@ def handle_generate_portfolio(body: Dict[str, Any], headers: Dict[str, str]) -> 
         live_url=deployment["liveUrl"],
         file_name=file_name
     )
+
+    if user_id and not str(user_id).startswith("user_"):
+        ok_consume, _, consume_err = consume_feature_use(
+            str(user_id).strip(), "portfolio", session_id=portfolio_id
+        )
+        if not ok_consume:
+            return error_response(consume_err or "Trial limit reached", headers)
 
     return {
         "statusCode": 200,
