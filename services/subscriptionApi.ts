@@ -16,6 +16,9 @@ export interface SubscriptionRecord {
   paymentId?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  invoiceNumber?: string;
+  invoiceS3Key?: string;
+  invoiceGeneratedAt?: string;
 }
 
 interface ApiResponse<T> {
@@ -181,13 +184,15 @@ export interface VerifySubscriptionPaymentRequest {
 export async function createSubscriptionOrder(
   userId: string,
   planId: string,
-  userEmail?: string
+  userEmail?: string,
+  upgradeFromPlanId?: string
 ): Promise<SubscriptionOrderResponse> {
   const data = await postSubscriptionRaw({
     action: 'create_subscription_order',
     userId,
     planId,
     userEmail,
+    ...(upgradeFromPlanId ? { upgradeFromPlanId } : {}),
   });
   if (!data.success) {
     const err = data.error as SubscriptionOrderResponse['error'];
@@ -297,4 +302,32 @@ export async function userHasActivePremiumSubscription(userId: string): Promise<
     if (!Number.isNaN(end) && end < Date.now()) return false;
   }
   return true;
+}
+
+export interface SubscriptionReceiptInfo {
+  invoiceUrl: string;
+  invoiceNumber?: string;
+  planName?: string;
+  planId?: string;
+  priceInr?: number;
+  paymentId?: string;
+  startDate?: string;
+}
+
+export async function getSubscriptionReceipt(
+  userId: string,
+  subscriptionId: string,
+  download = false
+): Promise<SubscriptionReceiptInfo | null> {
+  const res = await postSubscription<SubscriptionReceiptInfo>({
+    action: 'get_subscription_receipt',
+    userId,
+    subscriptionId,
+    download,
+  });
+  if (!res.success || !res.data?.invoiceUrl) {
+    console.warn('getSubscriptionReceipt:', res.error?.message);
+    return null;
+  }
+  return res.data;
 }

@@ -24,6 +24,8 @@ import { invalidateUserCache } from '../services/buyerApi';
 import { sendEmailVerification, verifyEmail } from '../lib/emailVerification';
 import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 import VerificationCodeInput from './VerificationCodeInput';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
+import { getSubscriptionReceipt } from '../services/subscriptionApi';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -176,6 +178,8 @@ const SettingsPage: React.FC = () => {
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(false);
     const [jobEmailNotifications, setJobEmailNotifications] = useState(false);
+    const [receiptLoading, setReceiptLoading] = useState(false);
+    const [receiptError, setReceiptError] = useState<string | null>(null);
 
     const [fullName, setFullName] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -246,6 +250,27 @@ const SettingsPage: React.FC = () => {
             setVerificationMessage('Network error. Please try again.');
         } finally {
             setEmailVerifyLoading(false);
+        }
+    };
+
+    const openSubscriptionReceipt = async (download: boolean) => {
+        if (!userId || !subscription?.subscriptionId) {
+            setReceiptError('No active subscription receipt available.');
+            return;
+        }
+        setReceiptLoading(true);
+        setReceiptError(null);
+        try {
+            const info = await getSubscriptionReceipt(userId, subscription.subscriptionId, download);
+            if (!info?.invoiceUrl) {
+                setReceiptError('Receipt is not available yet. It will appear after your payment is processed.');
+                return;
+            }
+            window.open(info.invoiceUrl, download ? '_self' : '_blank', 'noopener,noreferrer');
+        } catch {
+            setReceiptError('Could not load receipt. Try again later.');
+        } finally {
+            setReceiptLoading(false);
         }
     };
 
@@ -2149,21 +2174,70 @@ const SettingsPage: React.FC = () => {
                                 </div>
                                 {!isPremium && (
                                     <button
-                                        onClick={() => {
-                                            navigateTo('home');
-                                            setTimeout(() => {
-                                                const pricingSection = document.getElementById('pricing');
-                                                if (pricingSection) {
-                                                    pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                                }
-                                            }, 100);
-                                        }}
+                                        onClick={() => goToSubscriptionPlans(navigateTo)}
                                         className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                                     >
                                         Upgrade to Premium
                                     </button>
                                 )}
                             </div>
+
+                            {isPremium && subscription?.subscriptionId && (
+                                <div className="p-5 bg-white border border-orange-200 rounded-xl">
+                                    <div className="flex flex-wrap items-start justify-between gap-4">
+                                        <div>
+                                            <h4 className="text-lg font-bold text-gray-900 mb-1">Payment receipt</h4>
+                                            <p className="text-sm text-gray-500 mb-2">
+                                                CodeXCareer-branded invoice with watermark — same PDF sent to your email.
+                                            </p>
+                                            <p className="text-sm text-gray-700">
+                                                <span className="font-medium">{subscription.planName || subscription.planId}</span>
+                                                {subscription.startDate && (
+                                                    <span className="text-gray-500">
+                                                        {' '}
+                                                        · since{' '}
+                                                        {new Date(subscription.startDate).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                        })}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={receiptLoading}
+                                                onClick={() => void openSubscriptionReceipt(false)}
+                                                className="px-4 py-2 text-sm font-semibold rounded-lg border border-orange-300 text-orange-700 hover:bg-orange-50 disabled:opacity-60"
+                                            >
+                                                View receipt
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={receiptLoading}
+                                                onClick={() => void openSubscriptionReceipt(true)}
+                                                className="px-4 py-2 text-sm font-semibold rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-60"
+                                            >
+                                                Download PDF
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {receiptError && (
+                                        <p className="mt-3 text-sm text-amber-700">{receiptError}</p>
+                                    )}
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => goToSubscriptionPlans(navigateTo)}
+                                            className="text-sm font-semibold text-[#ff7a00] hover:underline"
+                                        >
+                                            Change plan or upgrade
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Credits Display */}
                             {isPremium && (
@@ -2213,18 +2287,10 @@ const SettingsPage: React.FC = () => {
 
                                     <div className="mt-6 pt-6 border-t border-gray-200">
                                         <button
-                                            onClick={() => {
-                                                navigateTo('home');
-                                                setTimeout(() => {
-                                                    const pricingSection = document.getElementById('pricing');
-                                                    if (pricingSection) {
-                                                        pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                                    }
-                                                }, 100);
-                                            }}
+                                            onClick={() => goToSubscriptionPlans(navigateTo)}
                                             className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                                         >
-                                            Buy More Credits
+                                            Change plan
                                         </button>
                                     </div>
                                 </div>

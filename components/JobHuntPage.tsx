@@ -17,6 +17,7 @@ import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { buildCorpus, joinCandidateSkillText, scoreJob, type Corpus } from '../lib/matchScore';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
+import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
 interface JobHuntPageProps {
@@ -723,6 +724,9 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
         }
         return next;
       });
+      if (willSave && uid) {
+        void recordFeatureTrialUse(uid, 'job-hunt', `job-save-${id}`);
+      }
       if (jobListTab === 'saved' && !willSave) {
         void loadPage('refresh');
       }

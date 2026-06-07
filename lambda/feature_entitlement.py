@@ -18,12 +18,18 @@ REGION = os.environ.get("REGION", "ap-south-2")
 USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
 SUBSCRIPTIONS_TABLE = os.environ.get("SUBSCRIPTIONS_TABLE", "UserSubscriptions")
 
-FREE_USE_LIMIT = 5
-ALWAYS_FREE_FEATURES: Set[str] = {
-    "job-hunt", "hackathons", "company-posts", "preparation", "coding",
-}
+FREE_USE_LIMIT = 2
+ALWAYS_FREE_FEATURES: Set[str] = set()
 TRIAL_GATED_FEATURES: Set[str] = {
-    "live-ai", "ats-scorer", "resume-builder", "portfolio",
+    "job-hunt",
+    "preparation",
+    "live-ai",
+    "hackathons",
+    "ats-scorer",
+    "coding",
+    "portfolio",
+    "resume-builder",
+    "company-posts",
 }
 
 _dynamodb = boto3.resource("dynamodb", region_name=REGION)
@@ -102,14 +108,14 @@ def resolve_entitlement(
     usage_map: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     feature_id = (feature_id or "").strip()
-    if feature_id in ALWAYS_FREE_FEATURES:
+    if feature_id not in TRIAL_GATED_FEATURES:
         return {
             "featureId": feature_id,
             "used": 0,
             "limit": FREE_USE_LIMIT,
-            "remaining": FREE_USE_LIMIT,
-            "allowed": True,
-            "source": "always_free",
+            "remaining": 0,
+            "allowed": False,
+            "source": "exhausted",
         }
 
     if plan_features is None:
@@ -157,10 +163,6 @@ def get_all_entitlements(user_id: str) -> Dict[str, Dict[str, Any]]:
     plan_features = get_user_plan_features(user_id)
     usage_map = get_user_feature_usage(user_id)
     result: Dict[str, Dict[str, Any]] = {}
-    for fid in sorted(ALWAYS_FREE_FEATURES):
-        result[fid] = resolve_entitlement(
-            user_id, fid, plan_features=plan_features, usage_map=usage_map
-        )
     for fid in sorted(TRIAL_GATED_FEATURES):
         result[fid] = resolve_entitlement(
             user_id, fid, plan_features=plan_features, usage_map=usage_map
@@ -192,7 +194,7 @@ def consume_feature_use(
         return False, {}, f"Feature {feature_id} is not trial-gated"
 
     ent = resolve_entitlement(user_id, feature_id)
-    if ent["source"] in ("always_free", "plan"):
+    if ent["source"] == "plan":
         return True, ent, None
     if not ent["allowed"]:
         return False, ent, "Free trial uses exhausted for this feature"
@@ -210,9 +212,8 @@ def consume_feature_use(
     if session_id and _session_already_consumed(user_item, feature_id, session_id):
         return True, ent, None
 
-    # Re-check plan in case subscription changed
     ent = resolve_entitlement(user_id, feature_id)
-    if ent["source"] in ("always_free", "plan"):
+    if ent["source"] == "plan":
         return True, ent, None
 
     used = ent["used"]

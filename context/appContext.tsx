@@ -23,6 +23,7 @@ export type Page =
   | 'privacy'
   | 'terms'
   | 'notFound'
+  | 'subscriptionPlans'
   | 'subscriptionCheckout'
   | 'verifyEmail'
   | 'forgotPassword'

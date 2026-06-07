@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUp, Crown } from 'lucide-react';
 import { useNavigation } from '../App';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 
 interface SidebarPremiumCardProps {
   expanded: boolean;
@@ -12,10 +13,7 @@ const SidebarPremiumCard: React.FC<SidebarPremiumCardProps> = ({ expanded, onNav
 
   const handleUpgrade = () => {
     onNavigate?.();
-    navigateTo('home');
-    setTimeout(() => {
-      document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-    }, 400);
+    goToSubscriptionPlans(navigateTo);
   };
 
   if (!expanded) {

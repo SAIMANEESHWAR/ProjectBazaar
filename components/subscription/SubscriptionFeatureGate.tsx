@@ -5,6 +5,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import type { SubscriptionFeatureId } from '../../lib/subscriptionFeatures';
 import { FREE_USE_LIMIT } from '../../lib/subscriptionFeatures';
 import { savePendingPlan } from '../../lib/pendingPlanStorage';
+import { goToSubscriptionPlans } from '../../lib/subscriptionNavigation';
 import FeatureStaticPreview from './FeatureStaticPreview';
 import FeatureUsageBanner from './FeatureUsageBanner';
 
@@ -42,10 +43,7 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
   const exhausted = usage.source === 'exhausted' || usage.remaining <= 0;
 
   const goUpgrade = () => {
-    navigateTo('home');
-    setTimeout(() => {
-      document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-    }, 400);
+    goToSubscriptionPlans(navigateTo, { highlightPlanId: 'yearly' });
   };
 
   const goAuth = () => {
@@ -58,13 +56,13 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
       <p className="mb-4 text-sm text-red-500/90">
         {exhausted ? (
           <>
-            You&apos;ve used all {FREE_USE_LIMIT} free completed uses for this feature.{' '}
+            You&apos;ve used both free trials for this feature.{' '}
             <button
               type="button"
               onClick={goUpgrade}
               className="underline text-[#ff7a00] hover:text-[#ff9533] font-medium"
             >
-              Upgrade your plan
+              Upgrade to Premium
             </button>{' '}
             to continue.
           </>
@@ -76,7 +74,7 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
               onClick={goUpgrade}
               className="underline text-[#ff7a00] hover:text-[#ff9533] font-medium"
             >
-              Click here to upgrade
+              Upgrade to Premium
             </button>
           </>
         )}
@@ -101,13 +99,13 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
           <p className="text-center text-gray-800 text-sm px-4 font-medium max-w-sm">
             {exhausted ? (
               <>
-                All {FREE_USE_LIMIT} free uses completed.{' '}
+                Free trial complete ({FREE_USE_LIMIT} uses).{' '}
                 <button
                   type="button"
                   onClick={goUpgrade}
                   className="text-[#ff7a00] font-semibold underline hover:text-[#ff9533]"
                 >
-                  Upgrade your plan
+                  Upgrade to Premium
                 </button>
               </>
             ) : (
@@ -119,7 +117,7 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
                     onClick={goUpgrade}
                     className="text-[#ff7a00] font-semibold underline hover:text-[#ff9533]"
                   >
-                    upgrade your plan
+                    upgrade to Premium
                   </button>
                 ) : (
                   <button

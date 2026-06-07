@@ -457,3 +457,167 @@ def send_job_digest_email(
         return True
     except Exception:
         return False
+
+
+def send_email_with_attachment(
+    to_email: str,
+    subject: str,
+    text_body: str,
+    html_body: Optional[str],
+    attachment_bytes: bytes,
+    attachment_filename: str,
+    attachment_mime: str = "application/pdf",
+) -> None:
+    if not is_smtp_configured():
+        raise RuntimeError(
+            "SMTP is not configured (set SMTP_USER and SMTP_APP_PASSWORD)"
+        )
+
+    from email.mime.application import MIMEApplication
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = _from_header()
+    msg["To"] = to_email
+
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(text_body, "plain", "utf-8"))
+    if html_body:
+        alt.attach(MIMEText(html_body, "html", "utf-8"))
+    msg.attach(alt)
+
+    part = MIMEApplication(attachment_bytes, _subtype=attachment_mime.split("/")[-1])
+    part.add_header("Content-Disposition", "attachment", filename=attachment_filename)
+    msg.attach(part)
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+        server.ehlo()
+        server.starttls(context=context)
+        server.ehlo()
+        server.login(SMTP_USER, SMTP_APP_PASSWORD)
+        server.sendmail(SMTP_FROM_EMAIL or SMTP_USER, [to_email], msg.as_string())
+
+
+def _build_subscription_receipt_email_html(
+    *,
+    plan_name: str,
+    price_inr: int,
+    invoice_number: str,
+    payment_id: Optional[str],
+    is_upgrade: bool,
+    upgrade_from_plan: Optional[str],
+) -> str:
+    upgrade_line = ""
+    if is_upgrade and upgrade_from_plan:
+        upgrade_line = (
+            f"<p style=\"margin:0 0 12px 0;font-size:14px;color:#4b5563;\">"
+            f"You upgraded from <strong>{_escape_html(upgrade_from_plan)}</strong> to "
+            f"<strong>{_escape_html(plan_name)}</strong>. Your previous plan was replaced immediately."
+            f"</p>"
+        )
+
+    payment_line = ""
+    if payment_id:
+        payment_line = (
+            f"<p style=\"margin:0;font-size:13px;color:#6b7280;\">"
+            f"Payment reference: <strong>{_escape_html(payment_id)}</strong></p>"
+        )
+
+    body_html = f"""
+    <div>
+      <p style="margin:0 0 12px 0;font-size:16px;color:#374151;">Hi there,</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:#4b5563;">
+        Thank you for {"upgrading to" if is_upgrade else "subscribing to"} <strong>{_escape_html(plan_name)}</strong>
+        on <strong>{BRAND_NAME}</strong>. Your payment was successful and your plan is now active.
+      </p>
+      {upgrade_line}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+        style="background:#fff8f1;border:1px solid #ffe4cc;border-radius:16px;margin:0 0 20px 0;">
+        <tr>
+          <td style="padding:16px 18px;">
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">Plan</p>
+            <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#111827;">{_escape_html(plan_name)}</p>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">Amount paid</p>
+            <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#FF6B00;">₹{int(price_inr):,}</p>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;">Invoice #</p>
+            <p style="margin:0;font-size:14px;font-weight:600;color:#111827;">{_escape_html(invoice_number)}</p>
+          </td>
+        </tr>
+      </table>
+      {payment_line}
+      <p style="margin:16px 0 20px 0;font-size:14px;color:#4b5563;">
+        Your invoice PDF is attached to this email (CodeXCareer watermark). You can also view it anytime
+        from Settings → Premium in your dashboard.
+      </p>
+      {_pill_button(f"{SITE_URL}/dashboard", "Go to Dashboard")}
+    </div>
+    """
+    return _build_branded_shell(
+        page_title=f"Payment confirmed — {BRAND_NAME}",
+        hero_title="Payment confirmed",
+        hero_subtitle=f"Thank you for choosing {plan_name}",
+        body_html=body_html,
+        footer_note_html=_peach_callout(
+            "Prices include GST where applicable",
+            "This receipt is for your records. Need help? Reply is not monitored — email support@codexcareer.com.",
+        ),
+    )
+
+
+def send_subscription_receipt_email(
+    to_email: str,
+    *,
+    plan_name: str,
+    price_inr: int,
+    invoice_number: str,
+    payment_id: Optional[str],
+    pdf_bytes: Optional[bytes],
+    is_upgrade: bool = False,
+    upgrade_from_plan: Optional[str] = None,
+) -> bool:
+    """Send thank-you email with optional invoice PDF attachment."""
+    if not is_smtp_configured():
+        return False
+
+    subject = (
+        f"Thank you for upgrading to {plan_name} — {BRAND_NAME}"
+        if is_upgrade
+        else f"Thank you for your {plan_name} plan — {BRAND_NAME}"
+    )
+    text_body = (
+        f"Thank you for {'upgrading to' if is_upgrade else 'subscribing to'} {plan_name} on {BRAND_NAME}.\n\n"
+        f"Amount paid: ₹{int(price_inr):,}\n"
+        f"Invoice #: {invoice_number}\n"
+        f"{f'Payment reference: {payment_id}' + chr(10) if payment_id else ''}"
+        f"\nYour plan is now active. Visit your dashboard: {SITE_URL}/dashboard\n\n"
+        f"Prices include GST where applicable.\n"
+        f"Need help? {SUPPORT_EMAIL}\n"
+    )
+    html_body = _build_subscription_receipt_email_html(
+        plan_name=plan_name,
+        price_inr=price_inr,
+        invoice_number=invoice_number,
+        payment_id=payment_id,
+        is_upgrade=is_upgrade,
+        upgrade_from_plan=upgrade_from_plan,
+    )
+
+    try:
+        if pdf_bytes:
+            send_email_with_attachment(
+                to_email,
+                subject,
+                text_body,
+                html_body,
+                pdf_bytes,
+                f"CodeXCareer-Invoice-{invoice_number}.pdf",
+            )
+        else:
+            send_email(to_email, subject, text_body, html_body)
+        return True
+    except Exception as exc:
+        print(f"send_subscription_receipt_email failed: {exc}")
+        return False

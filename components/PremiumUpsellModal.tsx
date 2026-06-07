@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Crown, Sparkles, X } from 'lucide-react';
 import { useNavigation } from '../App';
 import { PRICING_PLANS } from '../data/pricingPlans';
-import { savePendingPlan } from '../lib/pendingPlanStorage';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 import premiumHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
 interface PremiumUpsellModalProps {
@@ -31,9 +31,8 @@ const PremiumUpsellModal: React.FC<PremiumUpsellModalProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   const handleUpgrade = () => {
-    savePendingPlan('yearly');
     onClose();
-    navigateTo('subscriptionCheckout');
+    goToSubscriptionPlans(navigateTo, { highlightPlanId: 'yearly' });
   };
 
   const priceLabel = yearlyPlan
@@ -88,7 +87,7 @@ const PremiumUpsellModal: React.FC<PremiumUpsellModalProps> = ({ isOpen, onClose
                 onClick={handleUpgrade}
                 className="w-full rounded-full bg-gradient-to-r from-[#ff7a1a] to-[#FF6B00] px-6 py-3.5 text-base font-semibold text-white shadow-[0_14px_30px_rgba(255,107,0,0.28)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
-                Upgrade &amp; Unlock
+                View plans &amp; Upgrade
               </button>
               <p className="mt-4 text-xs leading-relaxed text-gray-400">
                 Cancel anytime from Settings. Premium unlocks advanced career tools across your dashboard.

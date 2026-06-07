@@ -15,37 +15,39 @@ export type SubscriptionFeatureId =
 
 export const PENDING_PLAN_STORAGE_KEY = 'pendingPlan';
 
-/** Free completed uses per trial-gated feature (keep in sync with lambda/subscription_handler.py). */
-export const FREE_USE_LIMIT = 5;
+/** Free completed uses per feature for users without plan entitlement (keep in sync with lambda). */
+export const FREE_USE_LIMIT = 2;
 
-/** Unlimited for all users — no subscription or trial required. */
-export const ALWAYS_FREE_FEATURES: SubscriptionFeatureId[] = [
+/** All career dashboard features subject to trial when not in active plan. */
+export const TRIAL_FEATURES: SubscriptionFeatureId[] = [
   'job-hunt',
-  'hackathons',
-  'company-posts',
   'preparation',
-  'coding',
-];
-
-/** Premium features with FREE_USE_LIMIT completed uses when not in plan. */
-export const TRIAL_GATED_FEATURES: SubscriptionFeatureId[] = [
   'live-ai',
+  'hackathons',
   'ats-scorer',
-  'resume-builder',
+  'coding',
   'portfolio',
+  'resume-builder',
+  'company-posts',
 ];
 
-export function isAlwaysFreeFeature(featureId: string): boolean {
-  return (ALWAYS_FREE_FEATURES as string[]).includes(featureId);
+/** @deprecated All features are trial-gated for free users — use TRIAL_FEATURES */
+export const ALWAYS_FREE_FEATURES: SubscriptionFeatureId[] = [];
+
+/** @deprecated Use TRIAL_FEATURES */
+export const TRIAL_GATED_FEATURES: SubscriptionFeatureId[] = TRIAL_FEATURES;
+
+export function isAlwaysFreeFeature(_featureId: string): boolean {
+  return false;
 }
 
 export function isTrialGatedFeature(featureId: string): boolean {
-  return (TRIAL_GATED_FEATURES as string[]).includes(featureId);
+  return (TRIAL_FEATURES as string[]).includes(featureId);
 }
 
 const VIEW_TO_FEATURE: Partial<Record<DashboardView, SubscriptionFeatureId>> = {
   'job-hunt': 'job-hunt',
-  'hackathons': 'hackathons',
+  hackathons: 'hackathons',
   'ats-scorer': 'ats-scorer',
   'coding-questions': 'coding',
   'build-portfolio': 'portfolio',

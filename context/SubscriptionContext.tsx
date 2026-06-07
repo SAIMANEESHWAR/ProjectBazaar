@@ -16,7 +16,6 @@ import {
 } from '../lib/subscriptionCookie';
 import {
   FREE_USE_LIMIT,
-  isAlwaysFreeFeature,
   type SubscriptionFeatureId,
 } from '../lib/subscriptionFeatures';
 import {
@@ -140,9 +139,6 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           source: ent.source,
         };
       }
-      if (isAlwaysFreeFeature(featureId)) {
-        return { used: 0, remaining: FREE_USE_LIMIT, limit: FREE_USE_LIMIT, source: 'always_free' };
-      }
       if (hasFeature(featureId)) {
         return { used: 0, remaining: FREE_USE_LIMIT, limit: FREE_USE_LIMIT, source: 'plan' };
       }
@@ -153,7 +149,6 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const canUseFeature = useCallback(
     (featureId: SubscriptionFeatureId | string) => {
-      if (isAlwaysFreeFeature(featureId)) return true;
       if (hasFeature(featureId)) return true;
       const ent = entitlements[featureId];
       if (ent) return ent.allowed;

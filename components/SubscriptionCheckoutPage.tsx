@@ -6,29 +6,32 @@ import { useSubscription } from '../context/SubscriptionContext';
 import { PRICING_PLANS, formatInr, type PlanId } from '../data/pricingPlans';
 import { getStoredAuth } from '../lib/authStorage';
 import { clearPendingPlan, getPendingPlan } from '../lib/pendingPlanStorage';
+import { isPaidPlanId, isUpgrade } from '../lib/planUpgrade';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 import { getRazorpayScriptStatus } from '../lib/razorpayCheckout';
 import { trackCustomEvent } from '../lib/analytics';
 import { runSubscriptionPaymentFlow } from '../lib/subscriptionPaymentFlow';
 import {
   createSubscription,
+  getActiveSubscription,
   subscriptionRecordToCookie,
-  userHasActivePremiumSubscription,
 } from '../services/subscriptionApi';
 
 const SubscriptionCheckoutPage: React.FC = () => {
   const { isLoggedIn, userId, userEmail } = useAuth();
   const { navigateTo } = useNavigation();
   const { setIsPremium } = usePremium();
-  const { applySubscription } = useSubscription();
+  const { applySubscription, subscription, refreshSubscription } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [alreadyPremium, setAlreadyPremium] = useState(false);
+  const [invalidCheckout, setInvalidCheckout] = useState(false);
   const [paymentDetailsRequired, setPaymentDetailsRequired] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [razorpayScriptError, setRazorpayScriptError] = useState<string | null>(null);
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(subscription?.planId ?? null);
   const preflightDoneRef = useRef(false);
 
   const storedAuth = useMemo(() => getStoredAuth(), [isLoggedIn, userId, authReady]);
@@ -39,6 +42,9 @@ const SubscriptionCheckoutPage: React.FC = () => {
   const plan = useMemo(
     () => (planId ? PRICING_PLANS.find((p) => p.id === planId) ?? null : null),
     [planId]
+  );
+  const isUpgradeCheckout = Boolean(
+    currentPlanId && isPaidPlanId(currentPlanId) && plan && isUpgrade(currentPlanId, plan.id)
   );
 
   useEffect(() => {
@@ -52,8 +58,9 @@ const SubscriptionCheckoutPage: React.FC = () => {
       plan_name: plan.name,
       value: plan.priceInr,
       currency: 'INR',
+      is_upgrade: isUpgradeCheckout,
     });
-  }, [plan]);
+  }, [plan, isUpgradeCheckout]);
 
   useEffect(() => {
     const { status, error: scriptErr } = getRazorpayScriptStatus();
@@ -67,9 +74,10 @@ const SubscriptionCheckoutPage: React.FC = () => {
       applySubscription(subscriptionRecordToCookie(record));
       setIsPremium(true);
       clearPendingPlan();
+      void refreshSubscription();
       navigateTo('dashboard');
     },
-    [applySubscription, navigateTo, setIsPremium]
+    [applySubscription, navigateTo, refreshSubscription, setIsPremium]
   );
 
   const startPayment = useCallback(async () => {
@@ -84,6 +92,7 @@ const SubscriptionCheckoutPage: React.FC = () => {
         userId: effectiveUserId,
         planId: plan.id as PlanId,
         userEmail: effectiveEmail,
+        upgradeFromPlanId: isUpgradeCheckout ? currentPlanId ?? undefined : undefined,
       });
 
       if (outcome.status === 'success') {
@@ -98,16 +107,19 @@ const SubscriptionCheckoutPage: React.FC = () => {
       if (outcome.status === 'cancelled') {
         return;
       }
-      if (outcome.message.toLowerCase().includes('already a premium')) {
-        setAlreadyPremium(true);
-        clearPendingPlan();
-        return;
-      }
       setError(outcome.message);
     } finally {
       setPaying(false);
     }
-  }, [effectiveEmail, effectiveUserId, finishSubscription, paying, plan]);
+  }, [
+    currentPlanId,
+    effectiveEmail,
+    effectiveUserId,
+    finishSubscription,
+    isUpgradeCheckout,
+    paying,
+    plan,
+  ]);
 
   const handleDevActivate = async () => {
     if (!effectiveUserId || !plan) return;
@@ -116,11 +128,6 @@ const SubscriptionCheckoutPage: React.FC = () => {
     try {
       const result = await createSubscription(effectiveUserId, plan.id);
       if (!result.ok) {
-        if (result.message.toLowerCase().includes('already a premium')) {
-          setAlreadyPremium(true);
-          clearPendingPlan();
-          return;
-        }
         setError(result.message);
         return;
       }
@@ -145,17 +152,23 @@ const SubscriptionCheckoutPage: React.FC = () => {
         setLoading(false);
         return;
       }
-      const isPremium = await userHasActivePremiumSubscription(effectiveUserId);
-      if (isPremium) {
-        setAlreadyPremium(true);
-        clearPendingPlan();
-        setLoading(false);
-        return;
+      const record = await getActiveSubscription(effectiveUserId);
+      const activePlanId = record?.planId ?? subscription?.planId ?? null;
+      setCurrentPlanId(activePlanId);
+
+      if (activePlanId && isPaidPlanId(activePlanId)) {
+        if (!isUpgrade(activePlanId, plan.id)) {
+          clearPendingPlan();
+          setInvalidCheckout(true);
+          setLoading(false);
+          return;
+        }
       }
+
       setCheckoutReady(true);
       setLoading(false);
     })();
-  }, [authReady, effectiveEmail, effectiveLoggedIn, effectiveUserId, plan]);
+  }, [authReady, effectiveEmail, effectiveLoggedIn, effectiveUserId, plan, subscription?.planId]);
 
   if (!authReady) {
     return (
@@ -189,35 +202,32 @@ const SubscriptionCheckoutPage: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-400 mb-6">No plan selected.</p>
           <button
             type="button"
-            onClick={() => navigateTo('home')}
+            onClick={() => goToSubscriptionPlans(navigateTo)}
             className="px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-600 font-semibold"
           >
-            View pricing
+            View plans
           </button>
         </div>
       </div>
     );
   }
 
-  if (alreadyPremium) {
+  if (invalidCheckout) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F7F7] dark:bg-[#0a0a0a] px-5">
         <div className="text-center max-w-sm w-full rounded-2xl border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] p-6 shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1A1E26]">
-            <Crown className="h-7 w-7 text-amber-400 fill-amber-400/30" strokeWidth={2} />
-          </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-            You are already a premium user
+            Plan change not available
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Your subscription is active. Enjoy premium features from your dashboard.
+            You cannot purchase this plan from checkout. Choose an upgrade option on the plans page.
           </p>
           <button
             type="button"
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => goToSubscriptionPlans(navigateTo)}
             className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#ff7a00] to-[#ff9533]"
           >
-            Go to Dashboard
+            View plans
           </button>
         </div>
       </div>
@@ -249,11 +259,11 @@ const SubscriptionCheckoutPage: React.FC = () => {
             type="button"
             onClick={() => {
               clearPendingPlan();
-              navigateTo('home');
+              goToSubscriptionPlans(navigateTo);
             }}
             className="w-full py-2 text-sm text-gray-500 hover:underline"
           >
-            Back to pricing
+            Back to plans
           </button>
         </div>
       </div>
@@ -272,7 +282,18 @@ const SubscriptionCheckoutPage: React.FC = () => {
 
         {checkoutReady && !loading && (
           <>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{plan.name}</h2>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#1A1E26]">
+              <Crown className="h-6 w-6 text-amber-400 fill-amber-400/30" strokeWidth={2} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              {isUpgradeCheckout ? `Upgrade to ${plan.name}` : plan.name}
+            </h2>
+            {isUpgradeCheckout && currentPlanId && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Upgrading from {subscription?.planName ?? currentPlanId}. Full price applies; your
+                current plan will be replaced.
+              </p>
+            )}
             <p className="text-2xl font-bold text-[#ff7a00] mb-1">
               {formatInr(plan.priceInr)}
               <span className="text-sm font-normal text-gray-500">{plan.periodLabel}</span>
@@ -316,14 +337,11 @@ const SubscriptionCheckoutPage: React.FC = () => {
               type="button"
               onClick={() => {
                 clearPendingPlan();
-                navigateTo('home');
-                setTimeout(() => {
-                  document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-                }, 300);
+                goToSubscriptionPlans(navigateTo);
               }}
               className="w-full py-2 text-sm text-gray-600 dark:text-gray-400 hover:underline"
             >
-              Back to pricing
+              Back to plans
             </button>
           </>
         )}

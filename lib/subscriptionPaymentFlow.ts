@@ -19,6 +19,7 @@ export async function runSubscriptionPaymentFlow(options: {
   userId: string;
   planId: PlanId;
   userEmail?: string;
+  upgradeFromPlanId?: string;
 }): Promise<SubscriptionPaymentOutcome> {
   const plan = PRICING_PLANS.find((p) => p.id === options.planId);
   if (!plan) {
@@ -37,7 +38,8 @@ export async function runSubscriptionPaymentFlow(options: {
     orderResponse = await createSubscriptionOrder(
       options.userId,
       options.planId,
-      options.userEmail
+      options.userEmail,
+      options.upgradeFromPlanId
     );
   } catch (err) {
     logRazorpayError('create_subscription_order_network', err);
@@ -49,6 +51,9 @@ export async function runSubscriptionPaymentFlow(options: {
     const msg = orderResponse.message || orderResponse.error?.message || 'Could not start payment';
     if (msg.toLowerCase().includes('already a premium') || orderResponse.error?.code === 'ALREADY_PREMIUM') {
       return { status: 'error', message: 'You are already a premium user' };
+    }
+    if (orderResponse.error?.code === 'INVALID_UPGRADE') {
+      return { status: 'error', message: msg };
     }
     return { status: 'error', message: msg };
   }

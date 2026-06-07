@@ -42,6 +42,7 @@ import { PremiumProvider, usePremium } from './context/PremiumContext';
 export { usePremium, PremiumContext } from './context/PremiumContext';
 import { hasPendingPlan, clearPendingPlan } from './lib/pendingPlanStorage';
 import SubscriptionCheckoutPage from './components/SubscriptionCheckoutPage';
+const SubscriptionPlansPage = lazy(() => import('./components/SubscriptionPlansPage'));
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -177,6 +178,7 @@ const PAGE_TITLES: Record<Page, string> = {
   privacy: 'Privacy Policy — CodeXCareer',
   terms: 'Terms & Conditions — CodeXCareer',
   notFound: 'Page Not Found — CodeXCareer',
+  subscriptionPlans: 'Subscription Plans — CodeXCareer',
   subscriptionCheckout: 'Checkout — CodeXCareer',
   verifyEmail: 'Verify Email — CodeXCareer',
   forgotPassword: 'Forgot Password — CodeXCareer',
@@ -290,6 +292,8 @@ const AppContent: React.FC = () => {
       case 'forgotPassword':
       case 'resetPassword':
         return <AuthPage />;
+      case 'subscriptionPlans':
+        return <SubscriptionPlansPage />;
       case 'subscriptionCheckout':
         return <SubscriptionCheckoutPage />;
       case 'admin':

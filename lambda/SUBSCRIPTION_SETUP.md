@@ -30,6 +30,8 @@ Billing: on-demand is fine for launch.
 | `ALLOWED_ORIGIN` | `https://codexcareer.com` or `http://localhost:5173` for dev |
 | `RAZORPAY_KEY_ID` | Same as course purchase Lambda (`rzp_test_*` or `rzp_live_*`) |
 | `RAZORPAY_KEY_SECRET` | Razorpay secret key (server-side only) |
+| `INVOICE_S3_BUCKET` | S3 bucket for subscription invoice PDFs (can reuse ATS bucket) |
+| `SMTP_USER` / `SMTP_APP_PASSWORD` | Gmail SMTP for payment receipt emails (same as login Lambda) |
 **IAM permissions** (attach to role `UserSubscriptions_handler-role-*`):
 
 Replace `290917471042` with your account ID if different.
@@ -82,6 +84,10 @@ Deploy `lambda/subscription_handler.py` as the function code (zip with only this
 
 ```json
 { "action": "create_subscription_order", "userId": "USER_UUID", "planId": "yearly", "userEmail": "user@example.com" }
+```
+
+```json
+{ "action": "get_subscription_receipt", "userId": "USER_UUID", "subscriptionId": "SUB_UUID", "download": false }
 ```
 
 ```json
