@@ -16,6 +16,8 @@ import {
 } from '../lib/subscriptionCookie';
 import {
   FREE_USE_LIMIT,
+  isTrialGatedFeature,
+  TRIAL_FEATURES,
   type SubscriptionFeatureId,
 } from '../lib/subscriptionFeatures';
 import {
@@ -76,7 +78,20 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       return;
     }
     const data = await getFeatureEntitlements(userId);
-    setEntitlements(data);
+    const merged: Record<string, FeatureEntitlement> = { ...data };
+    for (const fid of TRIAL_FEATURES) {
+      if (!merged[fid]) {
+        merged[fid] = {
+          featureId: fid,
+          used: 0,
+          limit: FREE_USE_LIMIT,
+          remaining: FREE_USE_LIMIT,
+          allowed: true,
+          source: 'trial',
+        };
+      }
+    }
+    setEntitlements(merged);
   }, [userId]);
 
   const refreshSubscription = useCallback(async () => {
@@ -149,12 +164,19 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const canUseFeature = useCallback(
     (featureId: SubscriptionFeatureId | string) => {
+      if (!isLoggedIn) return false;
       if (hasFeature(featureId)) return true;
       const ent = entitlements[featureId];
-      if (ent) return ent.allowed;
-      return false;
+      if (ent) {
+        if (ent.allowed) return true;
+        if (ent.source === 'trial' && ent.remaining > 0) return true;
+        return false;
+      }
+      // Entitlements still loading, API unavailable, or legacy payload missing this feature —
+      // grant trial uses (same default as getFeatureUsage below).
+      return isTrialGatedFeature(featureId);
     },
-    [entitlements, hasFeature]
+    [entitlements, hasFeature, isLoggedIn]
   );
 
   const value = useMemo(

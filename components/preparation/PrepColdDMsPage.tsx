@@ -7,6 +7,7 @@ import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepColdDMDetailSidebar from './PrepColdDMDetailSidebar';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import { useClampPrepPage, usePrepContentAccess } from './prepContentAccess';
 
 interface PrepColdDMsPageProps {
   toggleSidebar?: () => void;
@@ -52,6 +53,11 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [categories, setCategories] = useState<string[]>([]);
+  const { guardPageChange } = usePrepContentAccess();
+
+  useClampPrepPage(currentPage, setCurrentPage);
+
+  const handlePageChange = (page: number) => guardPageChange(page, setCurrentPage);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -300,7 +306,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 itemsPerPage={itemsPerPage}
                 totalItems={totalItems}
               />
@@ -371,7 +377,7 @@ const PrepColdDMsPage: React.FC<PrepColdDMsPageProps> = ({ toggleSidebar }) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 itemsPerPage={itemsPerPage}
                 totalItems={totalItems}
               />

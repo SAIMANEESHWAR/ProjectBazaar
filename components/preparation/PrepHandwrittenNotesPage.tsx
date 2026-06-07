@@ -2,12 +2,16 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { HandwrittenNote } from '../../data/preparationTypes';
 import { prepUserApi } from '../../services/preparationApi';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import PrepPaginationBar from './PrepPaginationBar';
+import { useClampPrepPage, usePrepContentAccess } from './prepContentAccess';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
 
 interface PrepHandwrittenNotesPageProps {
   toggleSidebar?: () => void;
 }
+
+const ITEMS_PER_PAGE = 12;
 
 const topicEmojis: Record<string, string> = {
   DSA: '📊',
@@ -24,9 +28,13 @@ const topicEmojis: Record<string, string> = {
 const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useViewMode('grid');
+  const [currentPage, setCurrentPage] = useState(1);
   const [notes, setNotes] = useState<HandwrittenNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { requireFullAccess } = usePrepContentAccess();
+
+  useClampPrepPage(currentPage, setCurrentPage);
 
   const fetchNotes = useCallback(async (cancelled = { current: false }) => {
     setLoading(true);
@@ -62,6 +70,16 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
         n.title.toLowerCase().includes(q) || n.description.toLowerCase().includes(q)
     );
   }, [notes, search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredNotes.length / ITEMS_PER_PAGE));
+  const paginatedNotes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredNotes.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredNotes, currentPage]);
 
   return (
     <div className="p-6">
@@ -108,7 +126,7 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
             <div className="text-center py-12 text-gray-500">No notes found.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredNotes.map((note) => (
+              {paginatedNotes.map((note) => (
                 <div
                   key={note.id}
                   className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-orange-200"
@@ -128,10 +146,18 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
                       <span className="text-sm text-gray-500">{note.pageCount} pages</span>
                     </div>
                     <div className="flex gap-2">
-                      <button className="flex-1 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-all duration-200">
+                      <button
+                        type="button"
+                        onClick={() => requireFullAccess()}
+                        className="flex-1 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-all duration-200"
+                      >
                         Download
                       </button>
-                      <button className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-orange-50 hover:border-orange-200 transition-all duration-200">
+                      <button
+                        type="button"
+                        onClick={() => requireFullAccess()}
+                        className="px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-orange-50 hover:border-orange-200 transition-all duration-200"
+                      >
                         View
                       </button>
                     </div>
@@ -140,6 +166,15 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
               ))}
             </div>
           )}
+          <PrepPaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={filteredNotes.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            itemLabel="notes"
+            onPageChange={setCurrentPage}
+            className="border-t-0"
+          />
         </>
       )}
 
@@ -158,9 +193,9 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredNotes.map((note, idx) => (
+              {paginatedNotes.map((note, idx) => (
                   <tr key={note.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
-                    <td className="px-5 py-4 text-sm text-gray-400 font-medium">{idx + 1}</td>
+                    <td className="px-5 py-4 text-sm text-gray-400 font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                     <td className="px-5 py-4 text-center text-xl">{topicEmojis[note.topic] || '📄'}</td>
                     <td className="px-5 py-4">
                       <p className="text-sm font-semibold text-gray-900">{note.title}</p>
@@ -170,8 +205,8 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
                     <td className="px-5 py-4 text-center text-sm text-gray-600">{note.pageCount}</td>
                     <td className="px-5 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors">Download</button>
-                        <button className="px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors">View</button>
+                        <button type="button" onClick={() => requireFullAccess()} className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors">Download</button>
+                        <button type="button" onClick={() => requireFullAccess()} className="px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors">View</button>
                       </div>
                     </td>
                   </tr>
@@ -182,6 +217,15 @@ const PrepHandwrittenNotesPage = (_props: PrepHandwrittenNotesPageProps) => {
           {filteredNotes.length === 0 && (
             <div className="py-12 text-center text-gray-500">No notes found.</div>
           )}
+          <PrepPaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={filteredNotes.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            itemLabel="notes"
+            onPageChange={setCurrentPage}
+            className="border-t border-gray-200"
+          />
         </div>
       )}
     </div>

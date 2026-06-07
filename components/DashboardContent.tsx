@@ -52,6 +52,7 @@ import ChatRoom from './ChatRoom';
 import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
+import { PrepContentAccessProvider } from './preparation/PrepContentAccessProvider';
 import SubscriptionFeatureGate from './subscription/SubscriptionFeatureGate';
 import { getFeatureIdForView } from '../lib/subscriptionFeatures';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
@@ -1250,7 +1251,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         const featureId = getFeatureIdForView(activeView);
         if (!featureId) return content;
         return (
-            <SubscriptionFeatureGate featureId={featureId}>
+            <SubscriptionFeatureGate
+                featureId={featureId}
+                hideUsageBanner={dashboardMode === 'preparation'}
+            >
                 {content}
             </SubscriptionFeatureGate>
         );
@@ -1265,6 +1269,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPreparationMode ? (isPrepDark ? 'bg-black' : 'bg-white') : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
+                <PrepContentAccessProvider>
                 <div
                     className={`prep-mode flex-1 min-h-0 overflow-y-auto overflow-x-hidden prep-animate-fade-in ${isPrepDark ? 'prep-theme-dark' : 'prep-theme-light'}`}
                 >
@@ -1278,6 +1283,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         {renderGatedModeContent()}
                     </div>
                 </div>
+                </PrepContentAccessProvider>
             ) : isToolViewWithStickyHeader ? (
                 <div
                     className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}

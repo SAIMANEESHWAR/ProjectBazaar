@@ -12,11 +12,14 @@ import FeatureUsageBanner from './FeatureUsageBanner';
 interface SubscriptionFeatureGateProps {
   featureId: SubscriptionFeatureId;
   children: React.ReactNode;
+  /** Hide the "Free trial: used X of Y" strip (e.g. Prep Mode uses its own page/answer limits). */
+  hideUsageBanner?: boolean;
 }
 
 const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
   featureId,
   children,
+  hideUsageBanner = false,
 }) => {
   const { canUseFeature, getFeatureUsage, isLoading } = useSubscription();
   const { isLoggedIn } = useAuth();
@@ -30,16 +33,19 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
     );
   }
 
-  if (canUseFeature(featureId)) {
+  const usage = getFeatureUsage(featureId);
+  const hasTrialRemaining =
+    isLoggedIn && usage.source === 'trial' && usage.remaining > 0;
+
+  if (canUseFeature(featureId) || hasTrialRemaining) {
     return (
       <>
-        <FeatureUsageBanner featureId={featureId} />
+        {!hideUsageBanner && <FeatureUsageBanner featureId={featureId} />}
         {children}
       </>
     );
   }
 
-  const usage = getFeatureUsage(featureId);
   const exhausted = usage.source === 'exhausted' || usage.remaining <= 0;
 
   const goUpgrade = () => {

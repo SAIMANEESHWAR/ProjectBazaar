@@ -6,6 +6,7 @@ import Pagination from '../Pagination';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import { useClampPrepPage, usePrepContentAccess } from './prepContentAccess';
 import TailorResumeModal from './TailorResumeModal';
 
 interface PrepJobPortalsPageProps {
@@ -28,6 +29,11 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const { guardPageChange } = usePrepContentAccess();
+
+  useClampPrepPage(currentPage, setCurrentPage);
+
+  const handlePageChange = (page: number) => guardPageChange(page, setCurrentPage);
   const [categories, setCategories] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
 
@@ -260,7 +266,7 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 itemsPerPage={itemsPerPage}
                 totalItems={totalItems}
                 onItemsPerPageChange={(v) => {
@@ -320,7 +326,7 @@ const PrepJobPortalsPage = (_props: PrepJobPortalsPageProps) => {
           </div>
           {portals.length > 0 && (
             <div className="mt-4">
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={totalItems} onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }} />
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} itemsPerPage={itemsPerPage} totalItems={totalItems} onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }} />
             </div>
           )}
           {portals.length === 0 && (

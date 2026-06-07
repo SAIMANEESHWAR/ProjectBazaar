@@ -115,7 +115,7 @@ const PremiumSubscriptionSync: React.FC = () => {
 const LANDING_THEME_KEY = 'landingTheme';
 
 /** Pages that use the landing page theme (dark/light). All other pages (dashboard, auth, etc.) always use light. */
-const LANDING_PAGES: Page[] = ['home', 'faq'];
+const LANDING_PAGES: Page[] = ['home', 'faq', 'subscriptionPlans'];
 
 const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children, page }) => {
   const isLanding = LANDING_PAGES.includes(page);

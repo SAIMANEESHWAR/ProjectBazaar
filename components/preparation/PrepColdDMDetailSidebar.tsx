@@ -1,6 +1,8 @@
 import { Copy, Check } from 'lucide-react';
 import type { ColdDMTemplate } from '../../data/preparationTypes';
 import PrepDetailSidebar, { PrepDetailActionButton } from './PrepDetailSidebar';
+import PrepLockedPremiumBlock from './PrepLockedPremiumBlock';
+import { usePrepContentAccess } from './prepContentAccess';
 
 interface PrepColdDMDetailSidebarProps {
   template: ColdDMTemplate;
@@ -23,6 +25,12 @@ export default function PrepColdDMDetailSidebar({
   hasNext = false,
   hasPrev = false,
 }: PrepColdDMDetailSidebarProps) {
+  const { canViewAnswers, promptUpgrade, requireFullAccess } = usePrepContentAccess();
+
+  const handleCopy = () => {
+    if (!requireFullAccess(onCopy)) return;
+  };
+
   return (
     <PrepDetailSidebar
       itemId={template.id}
@@ -40,7 +48,7 @@ export default function PrepColdDMDetailSidebar({
             icon={copied ? <Check size={16} /> : <Copy size={16} />}
             active={copied}
             activeTone={copied ? 'green' : 'white'}
-            onClick={onCopy}
+            onClick={handleCopy}
           >
             {copied ? 'Copied!' : 'Copy to clipboard'}
           </PrepDetailActionButton>
@@ -51,11 +59,19 @@ export default function PrepColdDMDetailSidebar({
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
           Template
         </p>
-        <div className="rounded-xl border border-white/10 bg-[#141414] p-5 shadow-inner">
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-200 md:text-base">
-            {template.content}
-          </p>
-        </div>
+        {canViewAnswers ? (
+          <div className="rounded-xl border border-white/10 bg-[#141414] p-5 shadow-inner">
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-neutral-200 md:text-base">
+              {template.content}
+            </p>
+          </div>
+        ) : (
+          <PrepLockedPremiumBlock
+            title="Template locked"
+            message="Upgrade to Premium to view and copy full cold DM templates."
+            onUpgrade={promptUpgrade}
+          />
+        )}
       </section>
     </PrepDetailSidebar>
   );
