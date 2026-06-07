@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode, Suspense, lazy } from 'react';
 import {
   AuthContext,
   NavigationContext,
@@ -84,6 +84,7 @@ type Theme = 'light' | 'dark';
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   isLanding: boolean;
 }
 
@@ -145,11 +146,16 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
     });
   };
 
+  const setTheme = useCallback((next: Theme) => {
+    setLandingTheme(next);
+    localStorage.setItem(LANDING_THEME_KEY, next);
+  }, []);
+
   // Expose effective theme: on landing use landingTheme, elsewhere always 'light'
   const theme = isLanding ? landingTheme : 'light';
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isLanding }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, isLanding }}>
       {children}
     </ThemeContext.Provider>
   );
