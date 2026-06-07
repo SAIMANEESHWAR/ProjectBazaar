@@ -260,12 +260,6 @@ export const PRICING_PLANS: PricingPlanConfig[] = [
 /** Home pricing grid: Free + paid plans */
 export const DISPLAY_PRICING_PLANS: PricingPlanConfig[] = [FREE_PLAN, ...PRICING_PLANS];
 
-/** Razorpay test checkout amount (Lambda SUBSCRIPTION_TEST_PRICE=1). */
-
-export const SUBSCRIPTION_TEST_PRICE_INR = 1;
-
-
-
 export function formatInr(amount: number): string {
 
   return new Intl.NumberFormat('en-IN', {

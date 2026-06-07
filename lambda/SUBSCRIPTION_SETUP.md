@@ -30,8 +30,6 @@ Billing: on-demand is fine for launch.
 | `ALLOWED_ORIGIN` | `https://codexcareer.com` or `http://localhost:5173` for dev |
 | `RAZORPAY_KEY_ID` | Same as course purchase Lambda (`rzp_test_*` or `rzp_live_*`) |
 | `RAZORPAY_KEY_SECRET` | Razorpay secret key (server-side only) |
-| `SUBSCRIPTION_TEST_PRICE` | Optional. Set to `1` to charge ₹1 at Razorpay for all plans (testing only) |
-
 **IAM permissions** (attach to role `UserSubscriptions_handler-role-*`):
 
 Replace `290917471042` with your account ID if different.

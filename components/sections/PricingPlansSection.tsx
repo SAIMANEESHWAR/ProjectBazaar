@@ -7,7 +7,6 @@ import { userHasActivePremiumSubscription } from '../../services/subscriptionApi
 import {
   DISPLAY_PRICING_PLANS,
   PRICING_FEATURES,
-  SUBSCRIPTION_TEST_PRICE_INR,
   formatInr,
   isFeatureIncluded,
   type PlanId,
@@ -39,11 +38,12 @@ const PlanCard: React.FC<{
   plan: PricingPlanConfig;
   index: number;
   inView: boolean;
+  isHighlighted: boolean;
   checkingPlanId: string | null;
   onSubscribe: (planId: PlanId) => void;
   onStartFree: () => void;
-}> = ({ plan, index, inView, checkingPlanId, onSubscribe, onStartFree }) => {
-  const isPopular = plan.isPopular;
+  onHover: () => void;
+}> = ({ plan, index, inView, isHighlighted, checkingPlanId, onSubscribe, onStartFree, onHover }) => {
   const isFree = plan.id === 'free';
   const isChecking = checkingPlanId === plan.id;
 
@@ -53,15 +53,16 @@ const PlanCard: React.FC<{
       variants={cardVariants}
       initial="hidden"
       animate={inView ? 'visible' : 'hidden'}
-      className={`relative flex flex-col rounded-2xl border p-6 md:p-7 transition-colors duration-300 ${
-        isPopular
+      onMouseEnter={onHover}
+      className={`relative flex flex-col rounded-2xl border p-6 md:p-7 transition-all duration-300 ${
+        isHighlighted
           ? 'border-[#ff7a00]/50 bg-white dark:bg-[#141414] shadow-[0_0_48px_rgba(255,122,0,0.15)] md:scale-[1.02] z-10'
-          : 'border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a]'
+          : 'border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] md:scale-100'
       }`}
     >
-      {isPopular && (
+      {isHighlighted && (
         <div
-          className="pointer-events-none absolute -inset-px rounded-2xl opacity-40 dark:opacity-60"
+          className="pointer-events-none absolute -inset-px rounded-2xl opacity-40 dark:opacity-60 transition-opacity duration-300"
           style={{
             background:
               'radial-gradient(ellipse at 50% 0%, rgba(255,122,0,0.35) 0%, transparent 65%)',
@@ -92,7 +93,7 @@ const PlanCard: React.FC<{
         onClick={() => (isFree ? onStartFree() : onSubscribe(plan.id))}
         disabled={Boolean(checkingPlanId)}
         className={`relative mb-8 w-full rounded-xl py-3.5 text-sm font-semibold transition-all duration-200 disabled:opacity-70 ${
-          isPopular
+          isHighlighted
             ? 'bg-gradient-to-r from-[#ff7a00] to-[#ff9533] text-white shadow-[0_8px_24px_rgba(255,122,0,0.35)] hover:brightness-110'
             : 'bg-gray-100 dark:bg-[#2a2a2a] text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-[#333]'
         }`}
@@ -172,6 +173,11 @@ const PricingPlansSection: React.FC = () => {
   const [checkingPlanId, setCheckingPlanId] = useState<string | null>(null);
   const [alreadyPremiumOpen, setAlreadyPremiumOpen] = useState(false);
   const [paymentDetailsError, setPaymentDetailsError] = useState<string | null>(null);
+  const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
+
+  const defaultHighlightedPlanId =
+    DISPLAY_PRICING_PLANS.find((p) => p.isPopular)?.id ?? DISPLAY_PRICING_PLANS[0]?.id;
+  const highlightedPlanId = hoveredPlanId ?? defaultHighlightedPlanId;
 
   const handleStartFree = () => {
     clearPendingPlan();
@@ -264,16 +270,21 @@ const PricingPlansSection: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-5 items-stretch">
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 md:gap-5 items-stretch"
+          onMouseLeave={() => setHoveredPlanId(null)}
+        >
           {DISPLAY_PRICING_PLANS.map((plan, index) => (
             <PlanCard
               key={plan.id}
               plan={plan}
               index={index}
               inView={inView}
+              isHighlighted={highlightedPlanId === plan.id}
               checkingPlanId={checkingPlanId}
               onSubscribe={handleSubscribe}
               onStartFree={handleStartFree}
+              onHover={() => setHoveredPlanId(plan.id)}
             />
           ))}
         </div>
@@ -284,12 +295,7 @@ const PricingPlansSection: React.FC = () => {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="mt-10 text-center text-sm text-gray-500 dark:text-gray-500 max-w-xl mx-auto leading-relaxed"
         >
-          Prices include GST where applicable. For payment testing, set{' '}
-          <code className="text-xs bg-gray-200 dark:bg-[#252525] px-1.5 py-0.5 rounded">
-            SUBSCRIPTION_TEST_PRICE=1
-          </code>{' '}
-          on the subscription Lambda — Razorpay checkout will charge{' '}
-          {formatInr(SUBSCRIPTION_TEST_PRICE_INR)} while plans above stay unchanged.
+          Prices include GST where applicable.
         </motion.p>
       </div>
 

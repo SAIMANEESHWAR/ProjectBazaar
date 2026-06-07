@@ -45,9 +45,6 @@ SUBSCRIPTIONS_TABLE = os.environ.get("SUBSCRIPTIONS_TABLE", "UserSubscriptions")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
-# Set to "1" to charge ₹1 at Razorpay for all plans (testing only)
-SUBSCRIPTION_TEST_PRICE = os.environ.get("SUBSCRIPTION_TEST_PRICE", "").strip()
-
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 users_table = dynamodb.Table(USERS_TABLE)
 subscriptions_table = dynamodb.Table(SUBSCRIPTIONS_TABLE)
@@ -382,11 +379,6 @@ def handle_create_subscription_order(body: Dict[str, Any]) -> Dict[str, Any]:
 
     cfg = PLAN_CONFIG[plan_id]
     amount_inr = int(cfg["priceInr"])
-    if SUBSCRIPTION_TEST_PRICE:
-        try:
-            amount_inr = max(1, int(SUBSCRIPTION_TEST_PRICE))
-        except ValueError:
-            pass
     amount_paise = amount_inr * 100
     internal_order_id = f"SUB_{uuid.uuid4().hex[:12].upper()}"
     timestamp = now_iso()
