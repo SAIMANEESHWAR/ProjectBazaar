@@ -514,6 +514,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const { userId, userEmail } = useAuth();
     const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
+    const prevActiveViewRef = useRef(activeView);
+    const [savedKeysRefreshNonce, setSavedKeysRefreshNonce] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
 
     // After login, show buyer dashboard with projects view
@@ -549,6 +551,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
         mainScrollRef.current?.scrollTo(0, 0);
+    }, [activeView]);
+
+    // Re-fetch ATS saved-key status after leaving Settings (keys may have been added there).
+    useEffect(() => {
+        if (prevActiveViewRef.current === 'settings') {
+            setSavedKeysRefreshNonce((n) => n + 1);
+        }
+        prevActiveViewRef.current = activeView;
     }, [activeView]);
 
     // Auto-hide scrollbar effect: show on scroll, hide after idle
@@ -990,6 +1000,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                   <ATSScorer
                     onBack={() => setActiveView('dashboard')}
                     onNavigateToSettings={() => setActiveView('settings')}
+                    savedKeysRefreshNonce={savedKeysRefreshNonce}
                   />
                 );
             case 'career-guidance':
@@ -1102,6 +1113,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                   <ATSScorer
                     onBack={() => setActiveView('dashboard')}
                     onNavigateToSettings={() => setActiveView('settings')}
+                    savedKeysRefreshNonce={savedKeysRefreshNonce}
                   />
                 );
             case 'career-guidance':
