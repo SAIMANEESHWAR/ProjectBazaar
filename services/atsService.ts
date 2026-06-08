@@ -176,7 +176,7 @@ export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
     hasGroqKey: !!data.hasGroqKey,
     hasAnyAtsKey: !!data.hasAnyAtsKey,
     atsActiveProvider:
-      typeof data.atsActiveProvider === 'string' ? data.atsActiveProvider : data.atsActiveProvider ?? null,
+      typeof data.atsActiveProvider === 'string' ? data.atsActiveProvider : null,
     providers: Array.isArray(data.providers) ? (data.providers as LlmProvider[]) : undefined,
     savedModels:
       data.savedModels && typeof data.savedModels === 'object'
