@@ -60,6 +60,9 @@ import {
 } from '../utils/liveInterviewMediaCheck';
 import interviewerFlowAnimation from '../lottiefiles/ai-animation-interviewer-Flow.json';
 import PeerInterviewSection from './PeerInterviewSection';
+import PremiumUpsellModal from './PremiumUpsellModal';
+import FeatureUsageBanner from './subscription/FeatureUsageBanner';
+import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
 import { ShimmerButton } from './ui/shimmer-button';
 import { getLlmKeysStatus } from '../services/atsService';
 import {
@@ -177,7 +180,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 }) => {
   const { navigateTo } = useNavigation();
   const { isLoggedIn, userId, userEmail } = useAuth();
-  const { refreshEntitlements } = useSubscription();
+  const { hasFeature, canUseFeature, refreshEntitlements } = useSubscription();
+  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
+  const interviewTrialSessionIdRef = useRef<string | null>(null);
   const peerViewerDisplayName = userEmail ? userEmail.split('@')[0] || 'You' : 'You';
   const { dashboardMode, setActiveView } = useDashboard();
 
@@ -1041,6 +1046,22 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const handleStartPracticeFromBriefing = useCallback(async () => {
     if (questionGenLoading) return;
 
+    if (!hasFeature('live-ai') && !canUseFeature('live-ai')) {
+      setShowPremiumUpsell(true);
+      return;
+    }
+    if (!hasFeature('live-ai') && userId) {
+      const sessionId = `live-ai-start-${Date.now()}`;
+      const ok = await recordFeatureTrialUse(userId, 'live-ai', sessionId, refreshEntitlements);
+      if (!ok) {
+        setShowPremiumUpsell(true);
+        return;
+      }
+      interviewTrialSessionIdRef.current = sessionId;
+    } else {
+      interviewTrialSessionIdRef.current = null;
+    }
+
     let ready = true;
     if (setupTab === 'role') {
       const roleName = selectedRoleTitle || sessionLabel.replace(/^Role:\s*/i, '').trim();
@@ -1084,6 +1105,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setPhase('prereq');
   }, [
     questionGenLoading,
+    hasFeature,
+    canUseFeature,
+    userId,
+    refreshEntitlements,
     setupTab,
     selectedRoleTitle,
     sessionLabel,
@@ -1251,6 +1276,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           answersByQuestion,
           transcript: transcriptForResult,
           evaluation: evaluationPayload,
+          trialSessionId: interviewTrialSessionIdRef.current ?? undefined,
         });
         setSaveStatus('saved');
         await refreshEntitlements();
@@ -1922,6 +1948,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             Results dashboard
           </button>
         </div>
+
+        {liveInterviewMode === 'ai' && <FeatureUsageBanner featureId="live-ai" />}
 
         {liveInterviewMode === 'peer' ? (
           <PeerInterviewSection
@@ -2992,6 +3020,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         </AnimatePresence>
         )}
       </div>
+      <PremiumUpsellModal
+        isOpen={showPremiumUpsell}
+        onClose={() => setShowPremiumUpsell(false)}
+      />
     </>
   );
 

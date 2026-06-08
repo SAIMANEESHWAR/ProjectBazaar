@@ -3,7 +3,7 @@ import { Lock } from 'lucide-react';
 import { useAuth, useNavigation } from '../../context/appContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { SubscriptionFeatureId } from '../../lib/subscriptionFeatures';
-import { FREE_USE_LIMIT } from '../../lib/subscriptionFeatures';
+import { FREE_USE_LIMIT, isAlwaysFreeFeature } from '../../lib/subscriptionFeatures';
 import { savePendingPlan } from '../../lib/pendingPlanStorage';
 import { goToSubscriptionPlans } from '../../lib/subscriptionNavigation';
 import FeatureStaticPreview from './FeatureStaticPreview';
@@ -24,6 +24,10 @@ const SubscriptionFeatureGate: React.FC<SubscriptionFeatureGateProps> = ({
   const { canUseFeature, getFeatureUsage, isLoading } = useSubscription();
   const { isLoggedIn } = useAuth();
   const { navigateTo } = useNavigation();
+
+  if (isAlwaysFreeFeature(featureId)) {
+    return <>{children}</>;
+  }
 
   if (isLoading && isLoggedIn) {
     return (

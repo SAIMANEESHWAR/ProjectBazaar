@@ -17,7 +17,10 @@ import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { buildCorpus, joinCandidateSkillText, scoreJob, type Corpus } from '../lib/matchScore';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
-import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
+import {
+  useClampJobHuntPage,
+  useJobHuntContentAccess,
+} from './jobHuntContentAccess';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
 interface JobHuntPageProps {
@@ -479,6 +482,7 @@ function JobDetailPanel({
 }
 
 const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
+  const { guardPageChange } = useJobHuntContentAccess();
   const { jobOpenRequest, consumeJobOpenRequest, savedJobsNavTick, browseAllNavTick } =
     useJobHuntShell();
   const [jobs, setJobs] = useState<JobListing[]>([]);
@@ -488,6 +492,14 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  useClampJobHuntPage(currentPage, setCurrentPage);
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      guardPageChange(page, setCurrentPage);
+    },
+    [guardPageChange]
+  );
 
   const [titleDraft, setTitleDraft] = useState('');
   const [locDraft, setLocDraft] = useState('');
@@ -724,9 +736,6 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
         }
         return next;
       });
-      if (willSave && uid) {
-        void recordFeatureTrialUse(uid, 'job-hunt', `job-save-${id}`);
-      }
       if (jobListTab === 'saved' && !willSave) {
         void loadPage('refresh');
       }
@@ -1215,12 +1224,12 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 itemsPerPage={itemsPerPage}
                 totalItems={total}
                 onItemsPerPageChange={(n) => {
                   setItemsPerPage(n);
-                  setCurrentPage(1);
+                  handlePageChange(1);
                 }}
               />
             </div>

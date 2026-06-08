@@ -16,6 +16,7 @@ import {
 } from '../lib/subscriptionCookie';
 import {
   FREE_USE_LIMIT,
+  isAlwaysFreeFeature,
   isTrialGatedFeature,
   TRIAL_FEATURES,
   type SubscriptionFeatureId,
@@ -165,6 +166,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const canUseFeature = useCallback(
     (featureId: SubscriptionFeatureId | string) => {
       if (!isLoggedIn) return false;
+      if (isAlwaysFreeFeature(featureId)) return true;
       if (hasFeature(featureId)) return true;
       const ent = entitlements[featureId];
       if (ent) {

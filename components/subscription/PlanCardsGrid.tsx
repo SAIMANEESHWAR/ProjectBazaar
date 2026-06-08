@@ -8,7 +8,10 @@ import {
   type PlanId,
   type PricingPlanConfig,
 } from '../../data/pricingPlans';
-import { FREE_USE_LIMIT, isTrialGatedFeature } from '../../lib/subscriptionFeatures';
+import {
+  getPlanTrialBadgeLimit,
+  isTrialGatedFeature,
+} from '../../lib/subscriptionFeatures';
 import { getPlanActionLabel, getUpgradeCtaLabel } from '../../lib/planUpgrade';
 
 const cardVariants = {
@@ -22,7 +25,7 @@ const cardVariants = {
 
 function featureIncludedInPlan(plan: PricingPlanConfig, featureId: string): boolean {
   if (plan.id === 'free') {
-    return isTrialGatedFeature(featureId);
+    return plan.includedFeatureIds.includes(featureId);
   }
   return isFeatureIncluded(plan, featureId);
 }
@@ -139,42 +142,50 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         </p>
         <ul className="space-y-3">
           {PRICING_FEATURES.map((feature) => {
-            const trialOnFree = isFree && isTrialGatedFeature(feature.id);
             const included = featureIncludedInPlan(plan, feature.id);
+            const trialBadgeLimit = getPlanTrialBadgeLimit(
+              plan.id as PlanId,
+              feature.id,
+              included
+            );
+            const trialOnFree = isFree && isTrialGatedFeature(feature.id) && included;
+            const hasExtendedTrial = trialBadgeLimit != null;
+            const showFullCheck = included && !trialOnFree && !hasExtendedTrial;
+            const showFeatureText = included || hasExtendedTrial;
             return (
               <li key={feature.id} className="flex items-start gap-3">
                 <span
                   className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                    included
+                    showFullCheck
                       ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                       : 'bg-red-500/10 text-red-500 dark:text-red-400'
                   }`}
                   aria-hidden
                 >
-                  {included ? (
+                  {showFullCheck ? (
                     <Check className="h-3 w-3" strokeWidth={3} />
                   ) : (
                     <X className="h-3 w-3" strokeWidth={3} />
                   )}
                 </span>
-                <div className={included ? '' : 'opacity-45'}>
+                <div className={showFeatureText ? '' : 'opacity-45'}>
                   <span
                     className={`block text-sm font-medium ${
-                      included
+                      showFeatureText
                         ? 'text-gray-900 dark:text-white'
                         : 'text-gray-500 dark:text-gray-500'
                     }`}
                   >
                     {feature.title}
-                    {trialOnFree && included && (
-                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                        {FREE_USE_LIMIT} free tries
+                    {hasExtendedTrial && (
+                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#ff7a00] dark:text-[#ff9533]">
+                        {trialBadgeLimit} free tries
                       </span>
                     )}
                   </span>
                   <span
                     className={`block text-xs mt-0.5 ${
-                      included
+                      showFeatureText
                         ? 'text-gray-600 dark:text-gray-400'
                         : 'text-gray-400 dark:text-gray-600'
                     }`}

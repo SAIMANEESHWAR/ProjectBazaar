@@ -348,11 +348,7 @@ const AppContent: React.FC = () => {
       case 'codingQuestions':
         return <CodingInterviewQuestionsPage />;
       case 'liveMockInterview':
-        return (
-          <SubscriptionFeatureGateWrapper featureId="live-ai">
-            <LiveMockInterviewPage />
-          </SubscriptionFeatureGateWrapper>
-        );
+        return <LiveMockInterviewPage />;
       case 'blog':
         return <BlogPage />;
       case 'blogPost':

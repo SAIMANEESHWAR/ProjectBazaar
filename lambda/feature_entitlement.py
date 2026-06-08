@@ -19,17 +19,23 @@ USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
 SUBSCRIPTIONS_TABLE = os.environ.get("SUBSCRIPTIONS_TABLE", "UserSubscriptions")
 
 FREE_USE_LIMIT = 2
-ALWAYS_FREE_FEATURES: Set[str] = set()
+# Extra trials for paid-plan subscribers on features not in their plan (sync with lib/subscriptionFeatures.ts)
+PLAN_TRIAL_LIMITS: Dict[str, Dict[str, int]] = {
+    "monthly": {"portfolio": 4, "live-ai": 4},
+    "yearly": {"portfolio": 7},
+}
+ALWAYS_FREE_FEATURES: Set[str] = {
+    "company-posts",
+    "coding",
+    "hackathons",
+    "peer-interview",
+}
 TRIAL_GATED_FEATURES: Set[str] = {
-    "job-hunt",
     "preparation",
     "live-ai",
-    "hackathons",
     "ats-scorer",
-    "coding",
     "portfolio",
     "resume-builder",
-    "company-posts",
 }
 
 _dynamodb = boto3.resource("dynamodb", region_name=REGION)
@@ -89,6 +95,26 @@ def get_user_plan_features(user_id: str) -> List[str]:
     return list(item.get("enabledFeatures") or [])
 
 
+def get_trial_limit(
+    user_id: str,
+    feature_id: str,
+    *,
+    plan_item: Optional[Dict[str, Any]] = None,
+    plan_features: Optional[List[str]] = None,
+) -> int:
+    """Resolve per-user trial cap (default 2; higher for plan-specific extended trials)."""
+    if plan_item is None:
+        plan_item = get_active_subscription_item(user_id)
+    plan_id = str((plan_item or {}).get("planId") or "").strip().lower()
+    overrides = PLAN_TRIAL_LIMITS.get(plan_id, {})
+    if feature_id in overrides:
+        if plan_features is None:
+            plan_features = list((plan_item or {}).get("enabledFeatures") or [])
+        if feature_id not in plan_features:
+            return overrides[feature_id]
+    return FREE_USE_LIMIT
+
+
 def get_user_feature_usage(user_id: str) -> Dict[str, int]:
     try:
         resp = _users_table.get_item(Key={"userId": user_id})
@@ -108,6 +134,15 @@ def resolve_entitlement(
     usage_map: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     feature_id = (feature_id or "").strip()
+    if feature_id in ALWAYS_FREE_FEATURES:
+        return {
+            "featureId": feature_id,
+            "used": 0,
+            "limit": FREE_USE_LIMIT,
+            "remaining": FREE_USE_LIMIT,
+            "allowed": True,
+            "source": "always_free",
+        }
     if feature_id not in TRIAL_GATED_FEATURES:
         return {
             "featureId": feature_id,
@@ -118,28 +153,33 @@ def resolve_entitlement(
             "source": "exhausted",
         }
 
+    plan_item = get_active_subscription_item(user_id)
     if plan_features is None:
-        plan_features = get_user_plan_features(user_id)
+        plan_features = list((plan_item or {}).get("enabledFeatures") or [])
     if usage_map is None:
         usage_map = get_user_feature_usage(user_id)
+
+    trial_limit = get_trial_limit(
+        user_id, feature_id, plan_item=plan_item, plan_features=plan_features
+    )
 
     if feature_id in plan_features:
         return {
             "featureId": feature_id,
             "used": 0,
-            "limit": FREE_USE_LIMIT,
-            "remaining": FREE_USE_LIMIT,
+            "limit": trial_limit,
+            "remaining": trial_limit,
             "allowed": True,
             "source": "plan",
         }
 
     used = usage_map.get(feature_id, 0)
-    remaining = max(0, FREE_USE_LIMIT - used)
+    remaining = max(0, trial_limit - used)
     if remaining > 0:
         return {
             "featureId": feature_id,
             "used": used,
-            "limit": FREE_USE_LIMIT,
+            "limit": trial_limit,
             "remaining": remaining,
             "allowed": True,
             "source": "trial",
@@ -148,7 +188,7 @@ def resolve_entitlement(
     return {
         "featureId": feature_id,
         "used": used,
-        "limit": FREE_USE_LIMIT,
+        "limit": trial_limit,
         "remaining": 0,
         "allowed": False,
         "source": "exhausted",
@@ -190,6 +230,9 @@ def consume_feature_use(
     feature_id = (feature_id or "").strip()
     if not user_id:
         return False, {}, "userId is required"
+    if feature_id in ALWAYS_FREE_FEATURES:
+        ent = resolve_entitlement(user_id, feature_id)
+        return True, ent, None
     if feature_id not in TRIAL_GATED_FEATURES:
         return False, {}, f"Feature {feature_id} is not trial-gated"
 
@@ -217,14 +260,15 @@ def consume_feature_use(
         return True, ent, None
 
     used = ent["used"]
-    if used >= FREE_USE_LIMIT:
+    trial_limit = _int_val(ent.get("limit")) or FREE_USE_LIMIT
+    if used >= trial_limit:
         return False, ent, "Free trial uses exhausted for this feature"
 
     expr_names = {"#fid": feature_id, "#fu": "featureUsage"}
     expr_values: Dict[str, Any] = {
         ":zero": 0,
         ":one": 1,
-        ":limit": FREE_USE_LIMIT,
+        ":limit": trial_limit,
         ":now": _now_iso(),
     }
     update_expr = (

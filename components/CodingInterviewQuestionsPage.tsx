@@ -3,7 +3,6 @@ import Lottie from 'lottie-react';
 import Editor from '@monaco-editor/react';
 import noCodingQuestionAnimation from '../lottiefiles/no_coding_question_animation.json';
 import SkeletonDashboard from './ui/skeleton-dashboard';
-import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
 import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 import { useNavigation } from '../App';
 
@@ -2574,9 +2573,6 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
     // Sync with API
     const userId = getCurrentUserId();
     if (userId) {
-      if (status === 'solved') {
-        void recordFeatureTrialUse(userId, 'coding', `coding-${questionId}`);
-      }
       try {
         await fetch(USER_PROGRESS_API, {
           method: 'POST',

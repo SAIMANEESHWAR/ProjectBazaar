@@ -20,6 +20,7 @@ const PREVIEW_MAP: Record<SubscriptionFeatureId, React.FC> = {
   'job-hunt': JobHuntPreview,
   preparation: PreparationPreview,
   coding: CodingQuestionsPreview,
+  'peer-interview': LiveAIPreview,
 };
 
 interface FeatureStaticPreviewProps {

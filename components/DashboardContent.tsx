@@ -53,6 +53,7 @@ import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
 import { PrepContentAccessProvider } from './preparation/PrepContentAccessProvider';
+import { JobHuntContentAccessProvider } from './JobHuntContentAccessProvider';
 import SubscriptionFeatureGate from './subscription/SubscriptionFeatureGate';
 import { getFeatureIdForView } from '../lib/subscriptionFeatures';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
@@ -1312,6 +1313,20 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     </div>
                     {renderGatedModeContent()}
                 </div>
+            ) : dashboardMode === 'jobHunt' ? (
+                <JobHuntContentAccessProvider>
+                    <div className="container mx-auto px-6 py-8">
+                        <DashboardHeader
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            buyerProjectView={buyerProjectView}
+                            setBuyerProjectView={setBuyerProjectView}
+                            isSidebarOpen={isSidebarOpen}
+                            toggleSidebar={toggleSidebar}
+                        />
+                        {renderGatedModeContent()}
+                    </div>
+                </JobHuntContentAccessProvider>
             ) : (
                 <div className="container mx-auto px-6 py-8">
                     <DashboardHeader
