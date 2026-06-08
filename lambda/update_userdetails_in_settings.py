@@ -140,6 +140,9 @@ def delete_s3_object(image_url):
     except Exception as e:
         print(f"S3 delete failed: {e}")
 
+# Groq sits behind Cloudflare; urllib's default User-Agent (Python-urllib/x.y) triggers 403 error code 1010.
+GROQ_USER_AGENT = "CodeXCareer-Lambda/1.0"
+
 # ---------- LLM API KEY TEST (OpenAI, Gemini, Claude) ----------
 def _test_openai_key(api_key):
     """Validate OpenAI API key with a minimal request."""
@@ -191,7 +194,10 @@ def _test_groq_key(api_key):
     """Validate Groq API key with models list."""
     req = urllib.request.Request(
         "https://api.groq.com/openai/v1/models",
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": GROQ_USER_AGENT,
+        },
         method="GET",
     )
     try:
@@ -401,6 +407,8 @@ def _call_openai_compatible_chat(api_key, endpoint, model, user_content, tempera
     if "openrouter.ai" in endpoint:
         headers["HTTP-Referer"] = "https://codexcareer.com"
         headers["X-Title"] = "CodeXCareer Live Interview"
+    if "groq.com" in endpoint:
+        headers["User-Agent"] = GROQ_USER_AGENT
     req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=90) as resp:
         out = json.loads(resp.read().decode("utf-8"))
