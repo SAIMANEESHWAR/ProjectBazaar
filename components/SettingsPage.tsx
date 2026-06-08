@@ -261,12 +261,12 @@ const SettingsPage: React.FC = () => {
         setReceiptLoading(true);
         setReceiptError(null);
         try {
-            const info = await getSubscriptionReceipt(userId, subscription.subscriptionId, download);
-            if (!info?.invoiceUrl) {
-                setReceiptError('Receipt is not available yet. It will appear after your payment is processed.');
+            const result = await getSubscriptionReceipt(userId, subscription.subscriptionId, download);
+            if (!result.ok) {
+                setReceiptError(result.message);
                 return;
             }
-            window.open(info.invoiceUrl, download ? '_self' : '_blank', 'noopener,noreferrer');
+            window.open(result.data.invoiceUrl, download ? '_self' : '_blank', 'noopener,noreferrer');
         } catch {
             setReceiptError('Could not load receipt. Try again later.');
         } finally {

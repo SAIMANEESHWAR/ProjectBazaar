@@ -24,8 +24,25 @@ except ImportError:
 
 BRAND_NAME = "CodeXCareer"
 BRAND_ORANGE = "#FF6B00"
-INVOICE_S3_BUCKET = os.environ.get("INVOICE_S3_BUCKET", os.environ.get("ATS_RESUME_S3_BUCKET", ""))
+S3_REGION = os.environ.get("REGION", "ap-south-2")
+# Reuse the same bucket as Settings resume PDFs / profile images unless overridden.
+DEFAULT_INVOICE_BUCKET = "project-bazaar-users-profile-images"
+INVOICE_S3_BUCKET = (
+    os.environ.get("INVOICE_S3_BUCKET")
+    or os.environ.get("ATS_RESUME_S3_BUCKET")
+    or DEFAULT_INVOICE_BUCKET
+).strip()
 INVOICE_S3_PREFIX = os.environ.get("INVOICE_S3_PREFIX", "subscription-invoices/")
+
+
+def _s3_client():
+    import boto3
+
+    return boto3.client(
+        "s3",
+        region_name=S3_REGION,
+        endpoint_url=f"https://s3.{S3_REGION}.amazonaws.com",
+    )
 
 
 def is_invoice_pdf_available() -> bool:
@@ -190,9 +207,7 @@ def upload_invoice_pdf(
     if not INVOICE_S3_BUCKET:
         return None, "INVOICE_S3_BUCKET not configured"
     try:
-        import boto3
-
-        s3 = boto3.client("s3", region_name=os.environ.get("REGION", "ap-south-2"))
+        s3 = _s3_client()
         key = f"{INVOICE_S3_PREFIX.rstrip('/')}/{user_id}/{subscription_id}.pdf"
         s3.put_object(
             Bucket=INVOICE_S3_BUCKET,
@@ -210,9 +225,7 @@ def get_invoice_presigned_url(s3_key: str, *, download: bool = False) -> Optiona
     if not INVOICE_S3_BUCKET or not s3_key:
         return None
     try:
-        import boto3
-
-        s3 = boto3.client("s3", region_name=os.environ.get("REGION", "ap-south-2"))
+        s3 = _s3_client()
         params: Dict[str, Any] = {
             "Bucket": INVOICE_S3_BUCKET,
             "Key": s3_key,

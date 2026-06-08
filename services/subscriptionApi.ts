@@ -318,7 +318,10 @@ export async function getSubscriptionReceipt(
   userId: string,
   subscriptionId: string,
   download = false
-): Promise<SubscriptionReceiptInfo | null> {
+): Promise<
+  | { ok: true; data: SubscriptionReceiptInfo }
+  | { ok: false; message: string }
+> {
   const res = await postSubscription<SubscriptionReceiptInfo>({
     action: 'get_subscription_receipt',
     userId,
@@ -326,8 +329,9 @@ export async function getSubscriptionReceipt(
     download,
   });
   if (!res.success || !res.data?.invoiceUrl) {
-    console.warn('getSubscriptionReceipt:', res.error?.message);
-    return null;
+    const message = res.error?.message || 'Receipt is not available yet.';
+    console.warn('getSubscriptionReceipt:', message);
+    return { ok: false, message };
   }
-  return res.data;
+  return { ok: true, data: res.data };
 }

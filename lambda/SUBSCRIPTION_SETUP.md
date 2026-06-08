@@ -30,7 +30,7 @@ Billing: on-demand is fine for launch.
 | `ALLOWED_ORIGIN` | `https://codexcareer.com` or `http://localhost:5173` for dev |
 | `RAZORPAY_KEY_ID` | Same as course purchase Lambda (`rzp_test_*` or `rzp_live_*`) |
 | `RAZORPAY_KEY_SECRET` | Razorpay secret key (server-side only) |
-| `INVOICE_S3_BUCKET` | S3 bucket for subscription invoice PDFs (can reuse ATS bucket) |
+| `INVOICE_S3_BUCKET` | Optional — defaults to `project-bazaar-users-profile-images` (same bucket as resume PDFs) |
 | `SMTP_USER` / `SMTP_APP_PASSWORD` | Gmail SMTP for payment receipt emails (same as login Lambda) |
 **IAM permissions** (attach to role `UserSubscriptions_handler-role-*`):
 
@@ -54,6 +54,11 @@ Replace `290917471042` with your account ID if different.
         "arn:aws:dynamodb:ap-south-2:290917471042:table/UserSubscriptions",
         "arn:aws:dynamodb:ap-south-2:290917471042:table/UserSubscriptions/index/*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::project-bazaar-users-profile-images/subscription-invoices/*"
     }
   ]
 }
@@ -67,7 +72,15 @@ Replace `290917471042` with your account ID if different.
 VITE_SUBSCRIPTION_API_URL=https://rnu2gfl2z1.execute-api.ap-south-2.amazonaws.com/default/UserSubscriptions_handler
 ```
 
-Deploy `lambda/subscription_handler.py` as the function code (zip with only this file unless you add shared libs).
+Deploy a zip containing at minimum:
+
+- `subscription_handler.py`
+- `subscription_invoice.py`
+- `email_service.py`
+- `feature_entitlement.py`
+- `reportlab` (from `requirements-resume-pdf.txt`)
+
+Without `subscription_invoice.py` + `reportlab`, payment receipts will activate the plan but **View/Download PDF** returns `NO_INVOICE`.
 
 ## 3. API Gateway
 

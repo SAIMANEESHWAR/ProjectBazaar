@@ -258,7 +258,9 @@ def issue_invoice_and_email(
     upgrade_from_plan: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate invoice PDF, store on S3, email user. Mutates item dict with invoice fields."""
-    if item.get("invoiceEmailSentAt"):
+    has_invoice = bool(item.get("invoiceS3Key"))
+    email_sent = bool(item.get("invoiceEmailSentAt"))
+    if has_invoice and email_sent:
         return item
 
     user_id = item["userId"]
@@ -271,8 +273,8 @@ def issue_invoice_and_email(
     payment_id = item.get("paymentId")
 
     pdf_bytes: Optional[bytes] = None
-    s3_key: Optional[str] = None
-    if is_invoice_pdf_available():
+    s3_key: Optional[str] = item.get("invoiceS3Key")
+    if not s3_key and is_invoice_pdf_available():
         try:
             pdf_bytes = build_subscription_invoice_pdf(
                 invoice_number=invoice_number,
@@ -311,7 +313,7 @@ def issue_invoice_and_email(
     )
 
     email = contact.get("email")
-    if email and is_smtp_configured():
+    if email and is_smtp_configured() and not email_sent:
         sent = send_subscription_receipt_email(
             email,
             plan_name=plan_name,
@@ -932,9 +934,23 @@ def handle_get_subscription_receipt(body: Dict[str, Any]) -> Dict[str, Any]:
 
     s3_key = active.get("invoiceS3Key")
     if not s3_key:
+        try:
+            active = issue_invoice_and_email(dict(active))
+            s3_key = active.get("invoiceS3Key")
+        except Exception as exc:
+            print(f"get_subscription_receipt invoice retry failed: {exc}")
+
+    if not s3_key:
         return response(404, {
             "success": False,
-            "error": {"code": "NO_INVOICE", "message": "Invoice not yet generated for this subscription"},
+            "error": {
+                "code": "NO_INVOICE",
+                "message": (
+                    "Invoice PDF is not available yet. "
+                    "Ensure reportlab is bundled with the subscription Lambda and it has s3:PutObject "
+                    "on project-bazaar-users-profile-images."
+                ),
+            },
         })
 
     url = get_invoice_presigned_url(s3_key, download=download)
