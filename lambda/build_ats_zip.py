@@ -18,7 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REQ = ROOT / "ats_resume_scorer_requirements.txt"
 HANDLER = ROOT / "ats_resume_scorer.py"
-SHARED = ROOT / "resume_text_extract.py"
+SHARED_MODULES = (
+    ROOT / "resume_text_extract.py",
+    ROOT / "feature_entitlement.py",
+)
 OUT = ROOT / "ats_resume_scorer.zip"
 PKG = ROOT / "package"
 
@@ -65,8 +68,11 @@ def main() -> None:
                 arc = path.relative_to(PKG).as_posix()
                 zf.write(path, arc)
         zf.write(HANDLER, "ats_resume_scorer.py")
-        if SHARED.is_file():
-            zf.write(SHARED, "resume_text_extract.py")
+        for mod in SHARED_MODULES:
+            if mod.is_file():
+                zf.write(mod, mod.name)
+            else:
+                print(f"warning: missing {mod.name} — zip may fail at import on Lambda")
     print(f"Wrote {OUT} ({OUT.stat().st_size // 1024} KB)")
 
 

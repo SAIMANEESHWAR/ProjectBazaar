@@ -28,6 +28,8 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 
+from feature_entitlement import check_entitlement_or_error, consume_feature_use
+
 # Optional AWS deps (local dev may not have boto3/botocore installed).
 try:
     import boto3  # type: ignore
@@ -819,6 +821,12 @@ def run_byok_provider(body):
     if not provider or not api_key:
         return None
 
+    user_id = _field_str(body, "userId", "user_id")
+    if user_id:
+        allowed, ent_err = check_entitlement_or_error(user_id, "ats-scorer")
+        if not allowed:
+            return response(403, {"success": False, "message": ent_err})
+
     job_description = _field_str(body, "jobDescription", "job_description")
     if not job_description:
         return response(400, {"success": False, "message": "jobDescription is required"})
@@ -870,6 +878,13 @@ def run_byok_provider(body):
     normalize_ats_result(result)
     refine_keyword_lists(result, resume_text)
     uid_hist = _field_str(body, "userId", "user_id")
+    if uid_hist:
+        session_id = _field_str(body, "sessionId", "session_id") or f"ats-byok-{uuid.uuid4()}"
+        ok_consume, _, consume_err = consume_feature_use(
+            uid_hist, "ats-scorer", session_id=session_id
+        )
+        if not ok_consume:
+            return response(403, {"success": False, "message": consume_err or "Trial limit reached"})
     _maybe_save_ats_history(
         uid_hist, provider, result, job_description, file_name, resume_bytes, resume_text
     )
@@ -890,6 +905,11 @@ def run_dynamodb_user_flow(body):
 
     if not user_id:
         return response(400, {"success": False, "message": "userId is required (or send provider + API key for BYOK)."})
+
+    allowed, ent_err = check_entitlement_or_error(user_id, "ats-scorer")
+    if not allowed:
+        return response(403, {"success": False, "message": ent_err})
+
     if not job_description:
         return response(400, {"success": False, "message": "jobDescription is required"})
     if b64:
@@ -969,6 +989,10 @@ def run_dynamodb_user_flow(body):
     _maybe_save_ats_history(
         user_id, hist_provider, result, job_description, file_name, resume_bytes, resume_text
     )
+    session_id = _field_str(body, "sessionId", "session_id") or str(uuid.uuid4())
+    ok_consume, _, consume_err = consume_feature_use(user_id, "ats-scorer", session_id=session_id)
+    if not ok_consume:
+        return response(403, {"success": False, "message": consume_err or "Trial limit reached"})
     return response(200, {"success": True, "atsResult": result})
 
 
