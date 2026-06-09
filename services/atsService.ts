@@ -14,13 +14,15 @@ const ATS_SCORER_DIRECT =
 
 const ATS_SCORER_ENDPOINT = import.meta.env.DEV ? '/dev-api/ats-scorer' : ATS_SCORER_DIRECT;
 
-/** Dedicated Fix My Resume Lambda (set in .env: VITE_FIX_RESUME_ENDPOINT). Dev uses Vite proxy /dev-api/fix-resume. */
-const FIX_RESUME_DIRECT =
-  (import.meta.env?.VITE_FIX_RESUME_ENDPOINT as string) || '';
+/** fix_resume_handler-API (55if5jjozg). Override with VITE_FIX_RESUME_ENDPOINT if needed. */
+const FIX_RESUME_DEFAULT =
+  'https://55if5jjozg.execute-api.ap-south-2.amazonaws.com/default/fix_resume_handler';
 
-const FIX_RESUME_ENDPOINT = import.meta.env.DEV
-  ? '/dev-api/fix-resume'
-  : FIX_RESUME_DIRECT || ATS_SCORER_DIRECT;
+/** Dedicated Fix My Resume Lambda. Dev uses Vite proxy /dev-api/fix-resume. */
+const FIX_RESUME_DIRECT =
+  (import.meta.env?.VITE_FIX_RESUME_ENDPOINT as string) || FIX_RESUME_DEFAULT;
+
+const FIX_RESUME_ENDPOINT = import.meta.env.DEV ? '/dev-api/fix-resume' : FIX_RESUME_DIRECT;
 
 export interface LlmProvider {
   id: string;
@@ -347,8 +349,7 @@ export interface FixResumeWithProviderParams {
 }
 
 /**
- * Fix My Resume: dedicated Lambda by default (VITE_FIX_RESUME_ENDPOINT or dev proxy).
- * If VITE_FIX_RESUME_ENDPOINT is unset in production, falls back to the ATS URL (legacy).
+ * Fix My Resume: dedicated Lambda (default same API Gateway as ATS; override via VITE_FIX_RESUME_ENDPOINT).
  */
 export async function fixResumeWithProvider(
   params: FixResumeWithProviderParams

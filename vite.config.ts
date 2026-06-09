@@ -38,12 +38,11 @@ export default defineConfig(({ mode }) => ({
         secure: true,
         rewrite: (p) => p.replace(/^\/dev-api\/ats-scorer/, '/default/ats_scorer_handler'),
       },
-      // Fix My Resume Lambda (ProjectBazaar API)
+      // Fix My Resume Lambda — fix_resume_handler-API (55if5jjozg)
       '/dev-api/fix-resume': {
-        // Local lambda wrapper: ProjectBazaar/lambda/local_fix_resume_server.py
-        target: 'http://127.0.0.1:9000',
+        target: 'https://55if5jjozg.execute-api.ap-south-2.amazonaws.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         rewrite: (p) => p.replace(/^\/dev-api\/fix-resume/, '/default/fix_resume_handler'),
       },
     },
