@@ -8,7 +8,7 @@ import PremiumBadge from './PremiumBadge';
 import SidebarPremiumCard from './SidebarPremiumCard';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
-import { useDashboard } from '../context/DashboardContext';
+import { LIVE_INTERVIEW_SETUP_TABS, useDashboard } from '../context/DashboardContext';
 import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
@@ -48,6 +48,7 @@ const CareerGuidanceIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const CompanyPostsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-6 4h4M5 5a2 2 0 00-2 2v11l3-3h11a2 2 0 002-2V7a2 2 0 00-2-2H5z" /></svg>;
 const MockAssessmentIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>;
 const LiveMockInterviewIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>;
+const PeerInterviewIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const CodingQuestionsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>;
 const PostProjectIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const MyBidsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
@@ -71,7 +72,8 @@ const LLDIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill
 
 const buyerNavItems = [
     { name: 'Dashboard', view: 'dashboard' as DashboardView, icon: DashboardIcon },
-    { name: 'Live AI Interviews', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
+    { name: 'Interview with AI', view: 'live-mock-interview' as DashboardView, icon: LiveMockInterviewIcon },
+    { name: 'Interview with peer', view: 'live-mock-interview-peer' as DashboardView, icon: PeerInterviewIcon },
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
     { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
@@ -182,7 +184,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const { subscription } = useSubscription();
     const hasPremium = isActiveSubscription(subscription);
     // Use global state
-    const { dashboardMode, activeView, setActiveView, setDashboardMode, prepDarkMode, togglePrepDarkMode, selectedCoreSubjectSlug, setSelectedCoreSubjectSlug } = useDashboard();
+    const {
+        dashboardMode,
+        activeView,
+        setActiveView,
+        setDashboardMode,
+        prepDarkMode,
+        togglePrepDarkMode,
+        selectedCoreSubjectSlug,
+        setSelectedCoreSubjectSlug,
+        liveInterviewSetupTab,
+        setLiveInterviewSetupTab,
+    } = useDashboard();
     const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
 
     const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
@@ -216,6 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     : sellerNavItems;
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
     const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
+    const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(true);
     const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
 
@@ -257,6 +271,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
             setExpandedGroups((prev) => ({ ...prev, Fundamentals: true }));
         }
     }, [activeView]);
+
+    useEffect(() => {
+        if (activeView === 'live-mock-interview') {
+            setLiveInterviewNavExpanded(true);
+        }
+    }, [activeView]);
+
+    const openLiveInterviewSetup = (tab: typeof liveInterviewSetupTab) => {
+        setLiveInterviewSetupTab(tab);
+        setActiveView('live-mock-interview');
+        if (window.innerWidth < 1024) onClose();
+    };
 
     useEffect(() => {
         if (prevModeRef.current !== dashboardMode) {
@@ -627,50 +653,130 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                             </button>
                         </div>
                     ) : (
-                        navItems.map((item, index) => (
-                            <button
-                                type="button"
-                                key={item.name}
-                                onClick={() => {
-                                    if (item.view === 'prep-core-subjects') {
-                                        setSelectedCoreSubjectSlug(null);
-                                    }
-                                    setActiveView(item.view);
-                                    if (window.innerWidth < 1024) {
-                                        onClose();
-                                    }
-                                }}
-                                className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
-                                    ? isDark
-                                        ? 'bg-white text-black'
-                                        : 'bg-orange-500 text-white'
-                                    : isDark
-                                        ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                        : 'text-gray-600 hover:bg-orange-50'
-                                    } ${isTransitioning ? 'nav-item-animate' : ''}`}
-                                style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
-                            >
-                                <div className="flex-shrink-0 relative">
-                                    {item.icon}
-                                    {item.view === 'cart' && cartCount > 0 && (
-                                        <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                            {cartCount > 9 ? '9+' : cartCount}
+                        navItems.map((item, index) => {
+                            if (item.view === 'live-mock-interview') {
+                                const isLiveInterviewActive = activeView === 'live-mock-interview';
+                                if (!isExpanded) {
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={item.name}
+                                            onClick={() => openLiveInterviewSetup(liveInterviewSetupTab)}
+                                            className={`w-full flex items-center px-2 justify-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${isLiveInterviewActive
+                                                ? isDark
+                                                    ? 'bg-white text-black'
+                                                    : 'bg-orange-500 text-white'
+                                                : isDark
+                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c2e] hover:text-white'
+                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                            style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                        >
+                                            <div className="flex-shrink-0 relative">{item.icon}</div>
+                                            <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                                {item.name}
+                                                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                            </div>
+                                        </button>
+                                    );
+                                }
+                                return (
+                                    <div key={item.name} className={isTransitioning ? 'nav-item-animate' : ''} style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLiveInterviewNavExpanded((prev) => !prev)}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isLiveInterviewActive
+                                                ? isDark
+                                                    ? 'bg-white text-black'
+                                                    : 'bg-orange-500 text-white'
+                                                : isDark
+                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                }`}
+                                        >
+                                            <span className="flex items-center min-w-0">
+                                                <span className="flex-shrink-0">{item.icon}</span>
+                                                <span className="ml-3 whitespace-nowrap truncate">{item.name}</span>
+                                            </span>
+                                            <ChevronRight
+                                                className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${liveInterviewNavExpanded ? 'rotate-90' : ''}`}
+                                                aria-hidden
+                                            />
+                                        </button>
+                                        {liveInterviewNavExpanded && (
+                                            <div className="mt-0.5 ml-2 space-y-0.5">
+                                                {LIVE_INTERVIEW_SETUP_TABS.map((tab) => {
+                                                    const isSubActive =
+                                                        isLiveInterviewActive && liveInterviewSetupTab === tab.id;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={tab.id}
+                                                            onClick={() => openLiveInterviewSetup(tab.id)}
+                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isSubActive
+                                                                ? isDark
+                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                    : 'bg-orange-500 text-white font-medium'
+                                                                : isDark
+                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                                }`}
+                                                        >
+                                                            <span className="whitespace-nowrap truncate">{tab.label}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <button
+                                    type="button"
+                                    key={item.name}
+                                    onClick={() => {
+                                        if (item.view === 'prep-core-subjects') {
+                                            setSelectedCoreSubjectSlug(null);
+                                        }
+                                        setActiveView(item.view);
+                                        if (window.innerWidth < 1024) {
+                                            onClose();
+                                        }
+                                    }}
+                                    className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
+                                        ? isDark
+                                            ? 'bg-white text-black'
+                                            : 'bg-orange-500 text-white'
+                                        : isDark
+                                            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                            : 'text-gray-600 hover:bg-orange-50'
+                                        } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                    style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                >
+                                    <div className="flex-shrink-0 relative">
+                                        {item.icon}
+                                        {item.view === 'cart' && cartCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                                {cartCount > 9 ? '9+' : cartCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isExpanded && (
+                                        <span className="ml-3 whitespace-nowrap">
+                                            {item.name}
                                         </span>
                                     )}
-                                </div>
-                                {isExpanded && (
-                                    <span className="ml-3 whitespace-nowrap">
-                                        {item.name}
-                                    </span>
-                                )}
-                                {!isExpanded && (
-                                    <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
-                                        {item.name}
-                                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
-                                    </div>
-                                )}
-                            </button>
-                        ))
+                                    {!isExpanded && (
+                                        <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                            {item.name}
+                                            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })
                     )}
                 </nav>
                 {!hasPremium && (

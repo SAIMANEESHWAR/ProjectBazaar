@@ -45,6 +45,13 @@ export default defineConfig(({ mode }) => ({
         secure: true,
         rewrite: (p) => p.replace(/^\/dev-api\/fix-resume/, '/default/fix_resume_handler'),
       },
+      // Live Mock Interview results API (g20pktgtz9)
+      '/dev-api/live-mock-interview': {
+        target: 'https://g20pktgtz9.execute-api.ap-south-2.amazonaws.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/dev-api\/live-mock-interview/, '/default/LiveMockinterview'),
+      },
     },
   },
 }))

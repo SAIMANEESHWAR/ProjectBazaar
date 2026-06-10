@@ -26,6 +26,7 @@ export type DashboardView =
     | 'company-posts'
     | 'mock-assessment'
     | 'live-mock-interview'
+    | 'live-mock-interview-peer'
     | 'live-peer-requests'
     | 'live-mock-interview-dashboard'
     | 'coding-questions'
@@ -67,6 +68,14 @@ export type DashboardView =
 
 export type BrowseView = 'all' | 'freelancers' | 'projects';
 
+export type LiveInterviewSetupTab = 'role' | 'company' | 'jd';
+
+export const LIVE_INTERVIEW_SETUP_TABS: { id: LiveInterviewSetupTab; label: string }[] = [
+    { id: 'role', label: 'Role Based' },
+    { id: 'company', label: 'Company Based' },
+    { id: 'jd', label: 'JD Based' },
+];
+
 /** Views that belong to preparation mode (keep in sync with Sidebar prep nav). */
 export const PREP_VIEWS: DashboardView[] = [
     'prep-hub',
@@ -98,10 +107,12 @@ interface DashboardContextType {
     browseView: BrowseView;
     prepDarkMode: boolean;
     selectedCoreSubjectSlug: string | null;
+    liveInterviewSetupTab: LiveInterviewSetupTab;
     setDashboardMode: (mode: DashboardMode) => void;
     setActiveView: (view: DashboardView) => void;
     setBrowseView: (view: BrowseView) => void;
     setSelectedCoreSubjectSlug: (slug: string | null) => void;
+    setLiveInterviewSetupTab: (tab: LiveInterviewSetupTab) => void;
     toggleDashboardMode: () => void;
     togglePrepDarkMode: () => void;
 }
@@ -164,6 +175,16 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         return null;
     });
 
+    const [liveInterviewSetupTab, setLiveInterviewSetupTabState] = useState<LiveInterviewSetupTab>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('liveInterviewSetupTab');
+            if (stored === 'role' || stored === 'company' || stored === 'jd') {
+                return stored;
+            }
+        }
+        return 'role';
+    });
+
     // Persist state changes to localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -202,8 +223,18 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     }, [selectedCoreSubjectSlug]);
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('liveInterviewSetupTab', liveInterviewSetupTab);
+        }
+    }, [liveInterviewSetupTab]);
+
     const setSelectedCoreSubjectSlug = (slug: string | null) => {
         setSelectedCoreSubjectSlugState(slug);
+    };
+
+    const setLiveInterviewSetupTab = (tab: LiveInterviewSetupTab) => {
+        setLiveInterviewSetupTabState(tab);
     };
 
     const setDashboardMode = (mode: DashboardMode) => {
@@ -246,10 +277,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
                 browseView,
                 prepDarkMode,
                 selectedCoreSubjectSlug,
+                liveInterviewSetupTab,
                 setDashboardMode,
                 setActiveView,
                 setBrowseView,
                 setSelectedCoreSubjectSlug,
+                setLiveInterviewSetupTab,
                 toggleDashboardMode,
                 togglePrepDarkMode,
             }}

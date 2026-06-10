@@ -16,7 +16,6 @@ import {
   MoreHorizontal,
   Phone,
   Search,
-  Settings as SettingsIcon,
   Sparkles,
   Square,
   Timer,
@@ -32,6 +31,7 @@ import {
 import { useNavigation, useAuth } from '../App';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useDashboard } from '../context/DashboardContext';
+import { useLlmKeysGate } from '../context/LlmKeysGateContext';
 import {
   AI_INTERVIEWER_NAME,
   ESTIMATED_DURATION_MIN,
@@ -74,7 +74,7 @@ import {
 } from '../services/liveMockInterviewApi';
 
 type FlowPhase = 'setup' | 'briefing' | 'prereq' | 'warming' | 'live' | 'results';
-type SetupTabId = 'role' | 'company' | 'jd' | 'custom';
+type SetupTabId = 'role' | 'company' | 'jd';
 type LiveInterviewMode = 'ai' | 'peer';
 
 type PrereqItemStatus =
@@ -92,29 +92,11 @@ type PrereqItemStatus =
 const initialPrereqStatuses = (): PrereqItemStatus[] =>
   PREREQUISITE_CHECK_LABELS.map(() => 'pending' as PrereqItemStatus);
 
-const PAGE_BG = 'bg-white dark:bg-[#12111a]';
-const LV_TITLE = 'text-[#1a1c2e] dark:text-white';
-/** Set by PeerInterviewRequestsDashboard before navigating back so the peer tab is selected. */
-const LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY = 'bazaar_live_mock_interview_mode';
-
-function readInitialLiveInterviewMode(): LiveInterviewMode {
-  if (typeof window === 'undefined') return 'ai';
-  try {
-    const v = sessionStorage.getItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY);
-    if (v === 'peer') {
-      sessionStorage.removeItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY);
-      return 'peer';
-    }
-  } catch {
-    /* ignore */
-  }
-  return 'ai';
-}
-
-/** Role / company picker — orange + white */
-const PICKER_SURFACE =
-  'bg-gradient-to-b from-orange-50/90 via-white to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
-const PICKER_BORDER = 'border-orange-100/90 dark:border-orange-900/40';
+const LIVE_INTERVIEW_PAGE_BG =
+  'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
+const PAGE_BG = 'bg-transparent';
+const PICKER_SURFACE = 'bg-transparent';
+const PICKER_BORDER = 'border-transparent';
 
 const formatMmSs = (totalSec: number) => {
   const m = Math.floor(totalSec / 60);
@@ -125,14 +107,8 @@ const formatMmSs = (totalSec: number) => {
 interface LiveMockInterviewPageProps {
   embedded?: boolean;
   toggleSidebar?: () => void;
+  mode?: LiveInterviewMode;
 }
-
-const SETUP_TABS: { id: SetupTabId; label: string }[] = [
-  { id: 'role', label: 'Role Based' },
-  { id: 'company', label: 'Company Based' },
-  { id: 'jd', label: 'JD Based' },
-  { id: 'custom', label: 'Create Your Own' },
-];
 
 function CompanyPickerLogo({
   name,
@@ -177,6 +153,7 @@ function CompanyPickerLogo({
 const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   embedded = false,
   toggleSidebar,
+  mode = 'ai',
 }) => {
   const { navigateTo } = useNavigation();
   const { isLoggedIn, userId, userEmail } = useAuth();
@@ -184,22 +161,27 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
   const interviewTrialSessionIdRef = useRef<string | null>(null);
   const peerViewerDisplayName = userEmail ? userEmail.split('@')[0] || 'You' : 'You';
-  const { dashboardMode, setActiveView } = useDashboard();
+  const {
+    dashboardMode,
+    setActiveView,
+    liveInterviewSetupTab: setupTab,
+  } = useDashboard();
+  const {
+    llmKeysStatus,
+    hasLiveInterviewKeys: hasGateLiveInterviewKeys,
+    promptForApiKeys,
+    ensureLiveInterviewKeys,
+  } = useLlmKeysGate();
+  const apiKeyPromptShownRef = useRef(false);
 
-  const [liveInterviewMode, setLiveInterviewMode] = useState<LiveInterviewMode>(readInitialLiveInterviewMode);
+  const liveInterviewMode = mode;
   const [phase, setPhase] = useState<FlowPhase>('setup');
-  const [setupTab, setSetupTab] = useState<SetupTabId>('role');
   const [roleSearch, setRoleSearch] = useState('');
   const [companySearch, setCompanySearch] = useState('');
   const [sessionLabel, setSessionLabel] = useState('');
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [track, setTrack] = useState<InterviewTrackId>('swe');
   const [level, setLevel] = useState<InterviewLevelId>('mid');
-
-  const [customStep, setCustomStep] = useState<1 | 2>(1);
-  const [customRole, setCustomRole] = useState('');
-  const [customRound, setCustomRound] = useState<string>(MOCK_INTERVIEW_ROUNDS[0].id);
-  const [customCompanyOpt, setCustomCompanyOpt] = useState('');
 
   const [jdJobTitle, setJdJobTitle] = useState('');
   const [jdInterviewType, setJdInterviewType] = useState<InterviewTrackId>('swe');
@@ -248,13 +230,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const liveInterviewModel =
     llmSavedModels[llmProvider] ||
     (llmProvider === 'groq' ? 'llama-3.1-8b-instant' : 'openai/gpt-4o-mini');
-  const goToSettings = useCallback(() => {
-    if (embedded) {
-      setActiveView('settings');
-      return;
-    }
-    navigateTo('dashboard');
-  }, [embedded, setActiveView, navigateTo]);
   const [aiEvaluation, setAiEvaluation] = useState<LiveInterviewEvaluation | null>(null);
   const [aiEvalLoading, setAiEvalLoading] = useState(false);
   const [aiEvalError, setAiEvalError] = useState<string | null>(null);
@@ -411,6 +386,30 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         /* ignore */
       });
   }, [userId]);
+
+  useEffect(() => {
+    if (liveInterviewMode !== 'ai') return;
+    setPhase('setup');
+    setQuestionGenError(null);
+    setQuestionGenLoading(false);
+  }, [setupTab, liveInterviewMode]);
+
+  useEffect(() => {
+    if (liveInterviewMode !== 'ai' || apiKeyPromptShownRef.current) return;
+    if (userId && llmKeysStatus === null) return;
+
+    const needsApiKey = !userId || !hasGateLiveInterviewKeys;
+    if (needsApiKey) {
+      apiKeyPromptShownRef.current = true;
+      promptForApiKeys('liveInterview');
+    }
+  }, [
+    liveInterviewMode,
+    userId,
+    llmKeysStatus,
+    hasGateLiveInterviewKeys,
+    promptForApiKeys,
+  ]);
 
   const toGeneratedScript = useCallback((questions: string[]): InterviewSegment[] => {
     return questions.map((question, idx) => ({
@@ -787,10 +786,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setCompanyName(undefined);
     setTrack('swe');
     setLevel('mid');
-    setCustomStep(1);
-    setCustomRole('');
-    setCustomRound(MOCK_INTERVIEW_ROUNDS[0].id);
-    setCustomCompanyOpt('');
     setJdJobTitle('');
     setJdInterviewType('swe');
     setJdText('');
@@ -1039,12 +1034,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     prereqStatuses.every((s) => s === 'pass' || s === 'skip') &&
     !prereqError;
 
-  const goToBriefing = useCallback(() => {
+  const goToBriefing = useCallback(async () => {
+    if (liveInterviewMode === 'ai') {
+      const ok = await ensureLiveInterviewKeys();
+      if (!ok) return;
+    }
     setPhase('briefing');
-  }, []);
+  }, [liveInterviewMode, ensureLiveInterviewKeys]);
 
   const handleStartPracticeFromBriefing = useCallback(async () => {
     if (questionGenLoading) return;
+
+    if (liveInterviewMode === 'ai') {
+      const ok = await ensureLiveInterviewKeys();
+      if (!ok) return;
+    }
 
     if (!hasFeature('live-ai') && !canUseFeature('live-ai')) {
       setShowPremiumUpsell(true);
@@ -1105,6 +1109,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setPhase('prereq');
   }, [
     questionGenLoading,
+    liveInterviewMode,
+    ensureLiveInterviewKeys,
     hasFeature,
     canUseFeature,
     userId,
@@ -1317,18 +1323,18 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const shell =
     'text-gray-900 dark:text-gray-100 ' +
-    (embedded ? `min-h-0 w-full min-w-0 ${PAGE_BG}` : `min-h-screen w-full ${PAGE_BG}`);
+    (embedded
+      ? `min-h-0 w-full min-w-0 ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`
+      : `min-h-screen w-full ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`);
 
   const mainInner =
-    (embedded ? 'pb-10 pt-2' : 'pb-16 pt-6') +
+    (embedded ? 'pb-10 pt-4 sm:pt-6' : 'pb-16 pt-6') +
     ' px-4 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 mx-auto max-w-[1320px]';
 
   const cardWhite =
     'rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
 
   const pillTabActive = 'bg-[#f97316] text-white shadow-md shadow-orange-500/25';
-  const pillTabIdle =
-    'bg-white/90 dark:bg-gray-800/90 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500/40';
 
   const renderRoleCompanyHeadline = () => {
     const isRole = setupTab === 'role';
@@ -1401,7 +1407,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       return (
         <div className="w-full max-w-4xl mx-auto mb-8 px-1">
           <form
-            className="flex rounded-full border-2 border-orange-600/90 dark:border-orange-500/55 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/40 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/35 pl-5 pr-1.5 py-1.5"
+            className="flex rounded-full border-2 border-orange-600/90 dark:border-orange-500/55 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/40 overflow-hidden outline-none ring-0 focus-within:ring-0 focus-within:border-[#f97316] pl-5 pr-1.5 py-1.5"
             onSubmit={(e) => {
               e.preventDefault();
               runCompanySearch();
@@ -1417,13 +1423,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 value={companySearch}
                 onChange={(e) => setCompanySearch(e.target.value)}
                 placeholder="Select or search any company"
-                className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
+                className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none ring-0 focus:ring-0 focus-visible:ring-0 placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
                 enterKeyHint="search"
               />
             </label>
             <button
               type="submit"
-              className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30"
+              className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30 outline-none focus-visible:outline-none focus-visible:ring-0"
             >
               Search
             </button>
@@ -1434,7 +1440,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     return (
       <div className="w-full max-w-3xl mx-auto mb-10 px-1">
         <form
-          className="flex rounded-full border-2 border-orange-500/70 dark:border-orange-500/45 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/30 overflow-hidden transition-shadow focus-within:shadow-lg focus-within:ring-2 focus-within:ring-[#f97316]/35 pl-5 pr-1.5 py-1.5"
+          className="flex rounded-full border-2 border-orange-500/70 dark:border-orange-500/45 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/30 overflow-hidden outline-none ring-0 focus-within:ring-0 focus-within:border-[#f97316] pl-5 pr-1.5 py-1.5"
           onSubmit={(e) => {
             e.preventDefault();
             runRoleSearch();
@@ -1450,13 +1456,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               value={roleSearch}
               onChange={(e) => setRoleSearch(e.target.value)}
               placeholder="Search for roles (e.g. Software Engineer, Data Analyst)"
-              className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
+              className="flex-1 min-w-0 py-3 bg-transparent text-sm outline-none ring-0 focus:ring-0 focus-visible:ring-0 placeholder:text-gray-400 text-gray-900 dark:text-gray-100"
               enterKeyHint="search"
             />
           </label>
           <button
             type="submit"
-            className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30"
+            className="shrink-0 rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] hover:bg-orange-600 transition-colors shadow-sm shadow-orange-500/30 outline-none focus-visible:outline-none focus-visible:ring-0"
           >
             Search
           </button>
@@ -1515,7 +1521,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 setTrack(inferTrackFromText(selectedRoleTitle));
                 setGeneratedScript(null);
                 setQuestionGenError(null);
-                goToBriefing();
+                void goToBriefing();
               }}
               className="rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
             >
@@ -1557,7 +1563,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 setGeneratedScript(null);
                 setQuestionGenError(null);
                 setQuestionGenLoading(false);
-                goToBriefing();
+                void goToBriefing();
               }}
                 className="group inline-flex min-w-0 max-w-[min(100%,17rem)] items-center gap-3 rounded-2xl border-2 border-orange-600/85 dark:border-orange-500/50 bg-white dark:bg-gray-900 pl-2 pr-4 py-2 text-left shadow-sm shadow-orange-900/[0.04] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-r hover:from-orange-50/90 hover:to-white dark:hover:from-orange-950/40 dark:hover:to-gray-900 hover:shadow-md hover:shadow-orange-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
               >
@@ -1579,85 +1585,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
     return null;
   };
-
-  const renderPickerSetupTabs = () => (
-    <div className="flex flex-wrap justify-center gap-2 mb-8">
-      {SETUP_TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => {
-            setSetupTab(t.id);
-            if (t.id === 'custom') setCustomStep(1);
-            setQuestionGenError(null);
-            setQuestionGenLoading(false);
-          }}
-          className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
-            setupTab === t.id ? pillTabActive : pillTabIdle
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-
-  const renderLiveInterviewLlmBanner = () => (
-    <div className="max-w-2xl mx-auto mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/70 p-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-        AI question generation &amp; scoring
-      </p>
-      {!userId ? (
-        <p className="text-sm text-amber-800 dark:text-amber-200">
-          Sign in and add an OpenRouter or Groq key in Settings to enable AI-generated questions and scoring.
-        </p>
-      ) : !hasLiveInterviewKey ? (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-sm text-orange-900 dark:text-orange-200">
-            Add a <strong>{llmProvider === 'groq' ? 'Groq' : 'OpenRouter'}</strong> API key in Settings to use AI features.
-          </p>
-          <button
-            type="button"
-            onClick={goToSettings}
-            className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-[#f97316] hover:brightness-105 shrink-0"
-          >
-            <SettingsIcon className="h-4 w-4" aria-hidden />
-            Open Settings
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setLlmProvider('openrouter')}
-              disabled={!hasOpenrouterKey}
-              className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'openrouter'
-                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                } disabled:opacity-40`}
-            >
-              OpenRouter {hasOpenrouterKey ? '✓' : ''}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLlmProvider('groq')}
-              disabled={!hasGroqKey}
-              className={`rounded-lg px-3 py-2 text-sm font-medium border ${llmProvider === 'groq'
-                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-500/10'
-                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                } disabled:opacity-40`}
-            >
-              Groq {hasGroqKey ? '✓' : ''}
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Using saved key and model ({liveInterviewModel}) from Settings.
-          </p>
-        </>
-      )}
-    </div>
-  );
 
   const jdValid = jdJobTitle.trim().length > 0 && questionCount > 0 && timeMinutes > 0;
 
@@ -1762,7 +1689,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 setTrack(inferred !== 'swe' ? inferred : jdInterviewType);
                 setGeneratedScript(null);
                 setQuestionGenError(null);
-                goToBriefing();
+                void goToBriefing();
               }}
               className="w-full sm:w-auto rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
             >
@@ -1771,104 +1698,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             {questionGenError ? (
               <p className="text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
             ) : null}
-          </div>
-        );
-      case 'custom':
-        if (customStep === 1) {
-          return (
-            <div className={`${cardWhite} max-w-xl mx-auto p-6 sm:p-8 space-y-6`}>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Step 1 of 2</p>
-              <div>
-                <label className="block text-sm font-semibold mb-1.5">Role name</label>
-                <input
-                  value={customRole}
-                  onChange={(e) => setCustomRole(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                  placeholder="Target role"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1.5">Interview round</label>
-                <select
-                  value={customRound}
-                  onChange={(e) => setCustomRound(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                >
-                  {MOCK_INTERVIEW_ROUNDS.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1.5">Company (optional)</label>
-                <input
-                  value={customCompanyOpt}
-                  onChange={(e) => setCustomCompanyOpt(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                  placeholder="e.g. Acme Inc."
-                />
-              </div>
-              <button
-                type="button"
-                disabled={!customRole.trim()}
-                onClick={() => setCustomStep(2)}
-                className="rounded-full px-8 py-3 text-sm font-bold text-white bg-[#f97316] disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          );
-        }
-        return (
-          <div className={`${cardWhite} max-w-xl mx-auto p-6 sm:p-8 space-y-6`}>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Step 2 of 2</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Choose your experience level for sample scoring.</p>
-            <div className="grid sm:grid-cols-3 gap-3">
-              {LEVEL_OPTIONS.map((l) => {
-                const selected = level === l.id;
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => setLevel(l.id)}
-                    className={`rounded-xl border-2 px-4 py-4 text-left transition-all ${
-                      selected
-                        ? 'border-[#f97316] bg-orange-50/90 dark:bg-orange-500/10 shadow-sm'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-orange-300'
-                    }`}
-                  >
-                    <span className="font-semibold text-gray-900 dark:text-white block">{l.label}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">{l.hint}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setCustomStep(1)}
-                className="rounded-full px-6 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const companyPart = customCompanyOpt.trim() ? ` · ${customCompanyOpt.trim()}` : '';
-                  setSessionLabel(`Custom: ${customRole.trim()}${companyPart}`);
-                  setCompanyName(customCompanyOpt.trim() || undefined);
-                  setTrack(inferTrackFromText(customRole));
-                  setGeneratedScript(null);
-                  setSelectedRoundId(customRound);
-                  goToBriefing();
-                }}
-                className="rounded-full px-8 py-3 text-sm font-bold text-white bg-[#f97316] shadow-md"
-              >
-                Continue
-              </button>
-            </div>
           </div>
         );
       default:
@@ -1895,59 +1724,17 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       )}
 
       <div className={`px-0 sm:px-0 ${mainInner}`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div
-            className="inline-flex rounded-full border border-gray-200 dark:border-gray-600 p-1 bg-gray-100/90 dark:bg-gray-900/90 shadow-inner"
-            role="tablist"
-            aria-label="Interview mode"
-          >
+        {!embedded && liveInterviewMode === 'ai' && phase !== 'live' && (
+          <div className="flex items-center justify-end gap-4 mb-3">
             <button
               type="button"
-              role="tab"
-              aria-selected={liveInterviewMode === 'ai'}
-              onClick={() => setLiveInterviewMode('ai')}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                liveInterviewMode === 'ai'
-                  ? 'bg-white dark:bg-gray-800 text-[#f97316] shadow-sm ring-1 ring-orange-200/80 dark:ring-orange-900/50'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
+              onClick={goResultsDashboard}
+              className="text-sm font-medium text-[#f97316] hover:underline"
             >
-              Interview with AI
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={liveInterviewMode === 'peer'}
-              onClick={() => setLiveInterviewMode('peer')}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
-                liveInterviewMode === 'peer'
-                  ? 'bg-white dark:bg-gray-800 text-[#f97316] shadow-sm ring-1 ring-orange-200/80 dark:ring-orange-900/50'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              Interview with peer
+              Results dashboard
             </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 sm:max-w-xs sm:text-right">
-            {liveInterviewMode === 'ai'
-              ? 'Full mock session with AI voice & scoring.'
-              : 'Match with peers, share slots, and open a Meet link when you accept.'}
-          </p>
-        </div>
-
-        <div
-          className={`flex items-center justify-end gap-4 mb-6 ${
-            liveInterviewMode !== 'ai' || (phase === 'live' && liveInterviewMode === 'ai') ? 'hidden' : ''
-          }`}
-        >
-          <button
-            type="button"
-            onClick={goResultsDashboard}
-            className="text-sm font-medium text-[#f97316] hover:underline"
-          >
-            Results dashboard
-          </button>
-        </div>
+        )}
 
         {liveInterviewMode === 'ai' && <FeatureUsageBanner featureId="live-ai" />}
 
@@ -1968,57 +1755,17 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               transition={{ duration: 0.25 }}
               className="w-full min-w-0"
             >
-              {['role', 'company'].includes(setupTab) ? (
-                <div
-                  className={`${PICKER_SURFACE} -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-10 rounded-2xl sm:rounded-3xl border ${PICKER_BORDER}`}
-                >
-                  {renderPickerSetupTabs()}
-                  {renderRoleCompanyHeadline()}
-                  {renderRoleCompanySearch()}
-                  {renderRoleCompanyGrid()}
-                  {renderLiveInterviewLlmBanner()}
-                </div>
-              ) : (
-                <>
-                <div className="mb-8 text-center sm:text-left space-y-3">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-500/40 bg-white dark:bg-gray-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#ea580c] dark:text-orange-400">
-                    <User className="w-3.5 h-3.5" aria-hidden />
-                    Live mock interview
-                  </span>
-                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                    <span className="text-[#f97316]">Practice</span>
-                    <span className="text-gray-400 dark:text-gray-500 font-light mx-2">|</span>
-                      <span className={LV_TITLE}>on your terms</span>
-                  </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xl">
-                    Pick a path below. All flows use the same demo transcript engine — no real recording.
-                  </p>
-                </div>
-
-                  <div className="flex flex-wrap justify-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-                {SETUP_TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setSetupTab(t.id);
-                      if (t.id === 'custom') setCustomStep(1);
-                      setQuestionGenError(null);
-                      setQuestionGenLoading(false);
-                    }}
-                    className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
-                      setupTab === t.id ? pillTabActive : pillTabIdle
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+              <div
+                className={`${PICKER_SURFACE} -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8`}
+              >
+                {setupTab !== 'jd' && (
+                  <>
+                    {renderRoleCompanyHeadline()}
+                    {renderRoleCompanySearch()}
+                  </>
+                )}
+                {renderSetupBody()}
               </div>
-
-              {renderSetupBody()}
-              {renderLiveInterviewLlmBanner()}
-                </>
-              )}
             </motion.div>
           )}
 
@@ -2156,23 +1903,16 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     </label>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      AI scoring
-                    </p>
-                    {hasLiveInterviewKey ? (
+                  {liveInterviewMode === 'ai' && hasLiveInterviewKey ? (
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        AI scoring
+                      </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Results will use your saved <strong>{llmProvider}</strong> key ({liveInterviewModel}) from Settings.
                       </p>
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Without a key in Settings, results use the demo rubric.{' '}
-                        <button type="button" onClick={goToSettings} className="text-[#f97316] font-semibold hover:underline">
-                          Add API key
-                        </button>
-                      </p>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
 
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Attempts remaining: <strong className="text-gray-900 dark:text-white">3</strong> (mock)

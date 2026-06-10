@@ -8,8 +8,6 @@ from decimal import Decimal
 import boto3
 from botocore.exceptions import ClientError
 
-from feature_entitlement import consume_feature_use
-
 TABLE_NAME = os.environ.get("LIVE_MOCK_INTERVIEW_TABLE", "LiveMockInterviewResults")
 
 _dynamodb = boto3.resource("dynamodb")
@@ -18,7 +16,7 @@ _table = _dynamodb.Table(TABLE_NAME)
 CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-user-id",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-user-id,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 }
 
@@ -98,6 +96,8 @@ def create_result(body):
     item = {k: v for k, v in item.items() if v is not None}
 
     try:
+        from feature_entitlement import consume_feature_use
+
         _table.put_item(Item=item)
         ok_consume, _, consume_err = consume_feature_use(
             user_id, "live-ai", session_id=trial_session_id
@@ -105,6 +105,14 @@ def create_result(body):
         if not ok_consume:
             return response(403, {"success": False, "error": consume_err or "Trial limit reached"})
         return response(201, {"success": True, "data": item})
+    except ImportError:
+        return response(
+            503,
+            {
+                "success": False,
+                "error": "feature_entitlement.py missing from Lambda package. Redeploy with build_live_mock_interview_zip.py.",
+            },
+        )
     except ClientError as exc:
         return response(500, {"success": False, "error": str(exc)})
 
@@ -127,19 +135,26 @@ def list_results(event):
         filtered.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
         return response(200, {"success": True, "data": filtered})
     except ClientError as exc:
+        code = (exc.response.get("Error") or {}).get("Code", "")
+        if code == "ResourceNotFoundException":
+            return response(200, {"success": True, "data": []})
         return response(500, {"success": False, "error": str(exc)})
 
 
 def lambda_handler(event, context):
-    method = get_method(event)
-    if method == "OPTIONS":
-        return response(200, {"ok": True})
-    if method == "POST":
-        body = parse_body(event)
-        if body is None:
-            return response(400, {"success": False, "error": "Invalid JSON body"})
-        return create_result(body)
-    if method == "GET":
-        return list_results(event)
-    return response(405, {"success": False, "error": f"Method {method} not allowed"})
+    try:
+        method = get_method(event)
+        if method == "OPTIONS":
+            return response(200, {"ok": True})
+        if method == "POST":
+            body = parse_body(event)
+            if body is None:
+                return response(400, {"success": False, "error": "Invalid JSON body"})
+            return create_result(body)
+        if method == "GET":
+            return list_results(event)
+        return response(405, {"success": False, "error": f"Method {method} not allowed"})
+    except Exception as exc:
+        print(f"live_mock_interview_handler error: {exc}")
+        return response(500, {"success": False, "error": str(exc)})
 

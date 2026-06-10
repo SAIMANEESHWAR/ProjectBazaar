@@ -56,9 +56,6 @@ const tdBase =
 const PAGE_SURFACE =
   'relative w-full min-w-0 bg-gradient-to-b from-white via-slate-50 to-white dark:from-gray-950 dark:via-slate-950 dark:to-gray-950 rounded-3xl border border-gray-200/90 dark:border-gray-800 shadow-sm overflow-hidden';
 
-/** Must match LiveMockInterviewPage — opens Live interview on the Peer tab after back navigation. */
-const LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY = 'bazaar_live_mock_interview_mode';
-
 const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> = ({ toggleSidebar }) => {
   const { userId } = useAuth();
   const { setActiveView } = useDashboard();
@@ -132,14 +129,7 @@ const PeerInterviewRequestsDashboard: React.FC<{ toggleSidebar?: () => void }> =
   );
 
   const goBackToLiveMockInterviewPeer = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(LIVE_MOCK_INTERVIEW_MODE_SESSION_KEY, 'peer');
-      } catch {
-        /* ignore */
-      }
-    }
-    setActiveView('live-mock-interview');
+    setActiveView('live-mock-interview-peer');
   }, [setActiveView]);
 
   const incomingRequests = useMemo(() => {

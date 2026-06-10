@@ -535,6 +535,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         if (dashboardMode === 'preparation') {
             if (
                 activeView === 'live-mock-interview'
+                || activeView === 'live-mock-interview-peer'
                 || (!isPrepView(activeView) && activeView !== 'settings' && activeView !== 'live-peer-requests')
             ) {
                 setActiveView('prep-hub');
@@ -1011,7 +1012,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
-                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} mode="ai" />;
+            case 'live-mock-interview-peer':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} mode="peer" />;
             case 'live-peer-requests':
                 return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview-dashboard':
@@ -1122,7 +1125,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview':
-                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} />;
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} mode="ai" />;
+            case 'live-mock-interview-peer':
+                return <LiveMockInterviewPage embedded toggleSidebar={toggleSidebar} mode="peer" />;
             case 'live-peer-requests':
                 return <PeerInterviewRequestsDashboard toggleSidebar={toggleSidebar} />;
             case 'live-mock-interview-dashboard':
@@ -1248,9 +1253,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     };
 
     const isCodingQuestions = activeView === 'coding-questions';
-    const isLiveMockInterview = activeView === 'live-mock-interview';
+    const isLiveMockInterviewAi = activeView === 'live-mock-interview';
+    const isLiveMockInterview =
+        activeView === 'live-mock-interview' || activeView === 'live-mock-interview-peer';
     const isPeerRequestsDashboard = activeView === 'live-peer-requests';
     const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview || isPeerRequestsDashboard;
+    const liveInterviewAiPageBg =
+        'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
 
     const renderModeContent = () => {
         if (dashboardMode === 'jobHunt') return renderJobHuntContent();
@@ -1279,7 +1288,13 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     return (
         <main
             ref={mainScrollRef}
-            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPreparationMode ? (isPrepDark ? 'bg-black' : 'bg-white') : 'bg-white'} custom-scrollbar transition-colors duration-500`}
+            className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${
+                isPreparationMode
+                    ? (isPrepDark ? 'bg-black' : 'bg-white')
+                    : isLiveMockInterviewAi
+                        ? liveInterviewAiPageBg
+                        : 'bg-white'
+            } custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
                 <PrepContentAccessProvider>
@@ -1299,9 +1314,15 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 </PrepContentAccessProvider>
             ) : isToolViewWithStickyHeader ? (
                 <div
-                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}
+                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${
+                        isLiveMockInterviewAi
+                            ? `pt-4 sm:pt-6 px-0 min-h-full ${liveInterviewAiPageBg}`
+                            : isLiveMockInterview
+                                ? 'pt-0 px-0'
+                                : 'pt-8 px-6'
+                    }`}
                 >
-                    <div className="flex-shrink-0">
+                    <div className={`flex-shrink-0 ${isLiveMockInterviewAi ? 'px-4 sm:px-6 lg:px-8 xl:px-10' : ''}`}>
                         <DashboardHeader
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}

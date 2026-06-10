@@ -39,6 +39,7 @@ import { clearSubscriptionCookie } from './lib/subscriptionCookie';
 import SubscriptionFeatureGate from './components/subscription/SubscriptionFeatureGate';
 import type { SubscriptionFeatureId } from './lib/subscriptionFeatures';
 import { PremiumProvider, usePremium } from './context/PremiumContext';
+import { LlmKeysGateProvider } from './context/LlmKeysGateContext';
 export { usePremium, PremiumContext } from './context/PremiumContext';
 import { hasPendingPlan, clearPendingPlan } from './lib/pendingPlanStorage';
 import SubscriptionCheckoutPage from './components/SubscriptionCheckoutPage';
@@ -593,10 +594,12 @@ const App: React.FC = () => {
                   <PeerInterviewBackendSync />
                   <SocketProvider>
                     <NavigationContext.Provider value={{ page, navigateTo }}>
-                      <ShepherdTourWrapper>
-                        <AppContent />
-                      </ShepherdTourWrapper>
-                      <CookieConsent />
+                      <LlmKeysGateProvider>
+                        <ShepherdTourWrapper>
+                          <AppContent />
+                        </ShepherdTourWrapper>
+                        <CookieConsent />
+                      </LlmKeysGateProvider>
                     </NavigationContext.Provider>
                   </SocketProvider>
                 </SubscriptionProvider>

@@ -18,7 +18,7 @@ const LiveAIPreview: React.FC = () => (
 
     <div className="mx-4 mt-4 rounded-3xl bg-[#fff8f3] border border-orange-100 p-8 md:p-12">
       <div className="flex flex-wrap justify-center gap-2 mb-6">
-        {['Role Based', 'Company Based', 'JD Based', 'Create Your Own'].map((tab, i) => (
+        {['Role Based', 'Company Based', 'JD Based'].map((tab, i) => (
           <span
             key={tab}
             className={`px-5 py-2 rounded-full text-sm font-medium border ${

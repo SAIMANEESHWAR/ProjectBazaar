@@ -106,7 +106,8 @@ const viewTitles: Record<DashboardView, string> = {
   'career-guidance': 'Career Guidance Hub',
   'company-posts': 'Company Posts',
   'mock-assessment': 'Mock Assessments',
-  'live-mock-interview': 'Live AI Interview',
+  'live-mock-interview': 'Interview with AI',
+  'live-mock-interview-peer': 'Interview with peer',
   'live-peer-requests': 'Peer match requests',
   'live-mock-interview-dashboard': 'Interview Reports',
   'coding-questions': 'Coding Interview Questions',
@@ -151,7 +152,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const { navigateTo } = useNavigation();
   const title = viewTitles[activeView] || 'Dashboard';
   const isLiveInterviewView =
-    activeView === 'live-mock-interview' || activeView === 'live-peer-requests';
+    activeView === 'live-mock-interview'
+    || activeView === 'live-mock-interview-peer'
+    || activeView === 'live-peer-requests';
+  const hideInterviewPageTitle =
+    activeView === 'live-mock-interview' || activeView === 'live-mock-interview-peer';
   const isBuyerDashboard =
     activeView === 'project-bazaar' && dashboardMode === 'buyer';
   const isMarketplaceScopeView = [
@@ -300,16 +305,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+    <div className={hideInterviewPageTitle ? 'mb-6 sm:mb-8' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
+      <div className={`flex items-center ${hideInterviewPageTitle ? 'justify-end' : 'justify-between'}`}>
+        <div className={`flex items-center gap-4 min-w-0 ${hideInterviewPageTitle ? 'lg:hidden' : 'flex-1'}`}>
           <button
             onClick={toggleSidebar}
             className="lg:hidden p-2 rounded-lg hover:bg-orange-50 shrink-0"
           >
             ☰
           </button>
-          {dashboardMode !== 'jobHunt' && (
+          {dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && (
             <h1
               className={`text-3xl ${activeView === 'dashboard' ? 'font-semibold' : 'font-bold'} text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
             >
@@ -329,6 +334,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {/* Quick Access: Job Hunt + contextual actions */}
           {(dashboardMode === 'buyer' || dashboardMode === 'seller' || dashboardMode === 'preparation' || dashboardMode === 'jobHunt') && (
             <div className="order-3 ml-2 flex items-center gap-1.5 flex-wrap justify-end">
+              {activeView === 'live-mock-interview' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveView('live-mock-interview-dashboard')}
+                  className="inline-flex items-center rounded-full px-3 py-2 text-xs sm:text-sm font-semibold text-[#f97316] hover:bg-orange-50 transition-colors"
+                >
+                  Results dashboard
+                </button>
+              )}
               {(dashboardMode === 'preparation' || (dashboardMode === 'buyer' && !isMarketplaceScopeView)) && (
                 <>
                   <button

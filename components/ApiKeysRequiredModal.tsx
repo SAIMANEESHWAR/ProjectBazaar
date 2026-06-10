@@ -23,8 +23,8 @@ const COPY: Record<
   },
   liveInterview: {
     title: 'API key required for Live AI Interview',
-    body: 'Add an OpenRouter or Groq API key in Settings to generate questions and AI scoring.',
-    settingsHint: 'Settings → AI & LLM API keys',
+    body: 'Paste your OpenRouter or Groq API key in Settings to proceed with AI-generated questions and scoring.',
+    settingsHint: 'Go to Settings → AI & LLM API keys',
   },
 };
 

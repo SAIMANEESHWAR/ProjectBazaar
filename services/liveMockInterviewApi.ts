@@ -37,9 +37,14 @@ export interface LiveInterviewRecord {
   evaluation: LiveInterviewEvaluation;
 }
 
-const LIVE_INTERVIEW_DB_API_URL =
-  import.meta.env.VITE_LIVE_INTERVIEW_DB_API_URL ||
+const LIVE_INTERVIEW_DB_DIRECT =
+  (import.meta.env.VITE_LIVE_INTERVIEW_DB_API_URL as string | undefined) ||
   'https://g20pktgtz9.execute-api.ap-south-2.amazonaws.com/default/LiveMockinterview';
+
+/** Dev: Vite proxy avoids browser CORS on localhost. Prod: direct API Gateway URL. */
+const LIVE_INTERVIEW_DB_API_URL = import.meta.env.DEV
+  ? '/dev-api/live-mock-interview'
+  : LIVE_INTERVIEW_DB_DIRECT;
 
 const FALLBACK_EVALUATION: LiveInterviewEvaluation = {
   overall: '74/100',
@@ -207,11 +212,16 @@ export async function saveLiveInterviewResult(record: Omit<LiveInterviewRecord, 
 export async function fetchLiveInterviewResults(userId: string): Promise<LiveInterviewRecord[]> {
   const response = await fetch(`${LIVE_INTERVIEW_DB_API_URL}?userId=${encodeURIComponent(userId)}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
   });
-  if (!response.ok) {
-    throw new Error(`Fetch failed (${response.status})`);
+  let payload: { success?: boolean; data?: LiveInterviewRecord[]; error?: string; message?: string } = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
   }
-  const payload = await response.json();
+  if (!response.ok) {
+    const detail = payload.error || payload.message || `HTTP ${response.status}`;
+    throw new Error(`Could not load interview results: ${detail}`);
+  }
   return Array.isArray(payload?.data) ? payload.data : [];
 }

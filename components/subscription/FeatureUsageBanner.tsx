@@ -14,7 +14,7 @@ const FeatureUsageBanner: React.FC<FeatureUsageBannerProps> = ({ featureId }) =>
   if (usage.source !== 'trial') return null;
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-[#ff7a00]/30 bg-[#fff8f2] dark:bg-[#1a1208] px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-orange-200/60 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/20 px-4 py-2.5 text-sm text-gray-800 dark:text-gray-200">
       <Sparkles className="h-4 w-4 text-[#ff7a00] shrink-0" aria-hidden />
       <span>
         Free trial: used <strong>{usage.used}</strong> of <strong>{usage.limit}</strong> completed
