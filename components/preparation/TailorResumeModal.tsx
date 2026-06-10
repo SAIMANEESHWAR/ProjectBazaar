@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Loader2, Printer, Sparkles, Upload, X } from 'lucide-react';
 import { useAuth } from '../../App';
-import type { JobPortal } from '../../data/preparationMockData';
+import type { JobPortal } from '../../data/preparationTypes';
 import {
   getLlmKeysStatus,
   type AtsProvider,

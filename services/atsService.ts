@@ -234,7 +234,8 @@ function fileToBase64(file: File): Promise<string> {
 
 export interface AnalyzeAtsWithProviderParams {
   provider: AtsProvider;
-  userId: string;
+  userId?: string;
+  apiKey?: string;
   jobDescription: string;
   resumeFile: File;
   /** Provider model id (optional), e.g. gemini-2.0-flash, gpt-4o-mini, claude-3-haiku-20240307 */
@@ -347,18 +348,19 @@ export async function fixResumeWithProvider(
 export async function analyzeAtsWithProvider(
   params: AnalyzeAtsWithProviderParams
 ): Promise<{ success: boolean; atsResult?: AtsResult; message?: string }> {
-  const { provider, userId, jobDescription, resumeFile, model } = params;
+  const { provider, userId, apiKey, jobDescription, resumeFile, model } = params;
   const resumeBase64 = await fileToBase64(resumeFile);
   const legacyProvider = provider === 'anthropic' ? 'claude' : provider;
   const res = await fetch(ATS_SCORER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      userId,
       provider: legacyProvider,
       jobDescription,
       resumeBase64,
       resumeFileName: resumeFile.name || 'resume.pdf',
+      ...(userId ? { userId } : {}),
+      ...(apiKey?.trim() ? { apiKey: apiKey.trim() } : {}),
       ...(model ? { model } : {}),
     }),
   });
