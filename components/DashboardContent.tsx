@@ -1313,15 +1313,21 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                 </PrepContentAccessProvider>
             ) : isToolViewWithStickyHeader ? (
                 <div
-                    className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${
+                    className={`flex-1 min-h-0 overflow-y-auto ${
                         isLiveMockInterviewAi
-                            ? `pt-4 sm:pt-6 px-0 min-h-full ${liveInterviewAiPageBg}`
+                            ? `overflow-x-hidden px-0 min-h-full ${liveInterviewAiPageBg}`
                             : isLiveMockInterview
-                                ? 'pt-0 px-0'
-                                : 'pt-8 px-6'
+                                ? 'overflow-x-hidden pt-0 px-0'
+                                : 'overflow-x-hidden pt-8 px-6'
                     }`}
                 >
-                    <div className={`flex-shrink-0 ${isLiveMockInterviewAi ? 'px-4 sm:px-6 lg:px-8 xl:px-10' : ''}`}>
+                    <div
+                        className={
+                            isLiveMockInterviewAi
+                                ? 'sticky top-0 z-30 mb-4 flex-shrink-0 border-b border-[#E5E7EB]/70 bg-[#FFFCF8]/92 px-4 py-3 backdrop-blur-md dark:border-gray-700/70 dark:bg-[#12111a]/92 sm:mb-5 sm:px-6 sm:py-4 lg:px-8 xl:px-10'
+                                : 'flex-shrink-0'
+                        }
+                    >
                         <DashboardHeader
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}

@@ -75,6 +75,7 @@ import PremiumUpsellModal from './PremiumUpsellModal';
 import FeatureUsageBanner from './subscription/FeatureUsageBanner';
 import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
 import { ShimmerButton } from './ui/shimmer-button';
+import FloatingLines from './ui/FloatingLines';
 import { getLlmKeysStatus } from '../services/atsService';
 import {
   evaluateInterviewWithProvider,
@@ -1679,7 +1680,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   );
 
   const mainInner =
-    (embedded ? 'pb-10 pt-4 sm:pt-6' : 'pb-16 pt-6') +
+    (embedded ? 'pb-10 pt-2 sm:pt-4' : 'pb-16 pt-6') +
     ' px-4 sm:px-6 lg:px-8 xl:px-10 w-full min-w-0 mx-auto max-w-[1320px]';
 
   const cardWhite =
@@ -2577,7 +2578,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               className="w-full min-w-0"
             >
               <div
-                className={`${PICKER_SURFACE} -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8`}
+                className={`${PICKER_SURFACE} -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 scroll-mt-28 px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8`}
               >
                 {setupTab !== 'jd' && (
                   <>

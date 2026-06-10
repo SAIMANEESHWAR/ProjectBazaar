@@ -305,8 +305,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <div className={hideInterviewPageTitle ? 'mb-6 sm:mb-8' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
-      <div className={`flex items-center ${hideInterviewPageTitle ? 'justify-end' : 'justify-between'}`}>
+    <div className={hideInterviewPageTitle ? 'mb-0' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
+      <div
+        className={`flex items-center gap-2 sm:gap-3 ${
+          hideInterviewPageTitle ? 'min-h-[44px] flex-wrap justify-end' : 'justify-between'
+        }`}
+      >
         <div className={`flex items-center gap-4 min-w-0 ${hideInterviewPageTitle ? 'lg:hidden' : 'flex-1'}`}>
           <button
             onClick={toggleSidebar}
@@ -330,10 +334,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           {/* Quick Access: Job Hunt + contextual actions */}
           {(dashboardMode === 'buyer' || dashboardMode === 'seller' || dashboardMode === 'preparation' || dashboardMode === 'jobHunt') && (
-            <div className="order-3 ml-2 flex items-center gap-1.5 flex-wrap justify-end">
+            <div className="order-3 flex items-center gap-1.5 flex-wrap justify-end">
               {activeView === 'live-mock-interview' && (
                 <button
                   type="button"
