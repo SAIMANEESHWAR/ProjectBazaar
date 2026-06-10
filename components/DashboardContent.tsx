@@ -1258,8 +1258,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         activeView === 'live-mock-interview' || activeView === 'live-mock-interview-peer';
     const isPeerRequestsDashboard = activeView === 'live-peer-requests';
     const isToolViewWithStickyHeader = isCodingQuestions || isLiveMockInterview || isPeerRequestsDashboard;
-    const liveInterviewAiPageBg =
-        'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
+    const liveInterviewAiPageBg = 'bg-transparent';
 
     const renderModeContent = () => {
         if (dashboardMode === 'jobHunt') return renderJobHuntContent();

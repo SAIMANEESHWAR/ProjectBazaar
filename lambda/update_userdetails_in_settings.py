@@ -443,10 +443,32 @@ def _build_live_evaluate_prompt(body):
     ])
 
 
+LIVE_INTERVIEW_JD_MAX_CHARS = 6000
+LIVE_INTERVIEW_RESUME_MAX_CHARS = 6000
+
+
+def _truncate_live_interview_field(text, max_chars):
+    """Keep LLM prompts bounded so question generation finishes within Lambda timeout."""
+    if text is None:
+        return ""
+    s = str(text).strip()
+    if len(s) <= max_chars:
+        return s
+    return s[:max_chars] + "\n\n[... truncated for length ...]"
+
+
 def _build_live_questions_prompt(body):
     setup_mode = body.get("setupMode") or body.get("mode") or ""
     if setup_mode in ("evaluate", "generateQuestions"):
         setup_mode = ""
+    jd_text = _truncate_live_interview_field(
+        body.get("jdText", ""),
+        LIVE_INTERVIEW_JD_MAX_CHARS,
+    )
+    resume_text = _truncate_live_interview_field(
+        body.get("resumeText", ""),
+        LIVE_INTERVIEW_RESUME_MAX_CHARS,
+    )
     return "\n".join([
         "Generate interview questions and return ONLY valid JSON.",
         'Schema:',
@@ -457,8 +479,8 @@ def _build_live_questions_prompt(body):
         f"role: {body.get('role', '')}",
         f"company: {body.get('company', '')}",
         f"jobTitle: {body.get('jobTitle', '')}",
-        f"jobDescription: {body.get('jdText', '')}",
-        f"resume: {body.get('resumeText', '')}",
+        f"jobDescription: {jd_text}",
+        f"resume: {resume_text}",
         "Rules:",
         "- Return exactly questionCount items.",
         "- Questions should be concise and interview-realistic.",
@@ -494,6 +516,19 @@ def handle_invoke_live_interview_llm(body):
     if model_override:
         model = model_override
 
+    setup_mode = (body.get("setupMode") or body.get("mode") or "").strip()
+    jd_len = len(str(body.get("jdText") or ""))
+    resume_len = len(str(body.get("resumeText") or ""))
+    print(
+        "invokeLiveInterviewLlm start",
+        f"invokeMode={invoke_mode}",
+        f"provider={provider}",
+        f"setupMode={setup_mode}",
+        f"jdChars={jd_len}",
+        f"resumeChars={resume_len}",
+        f"userId={user_id[:8]}...",
+    )
+
     endpoint = (
         "https://api.groq.com/openai/v1/chat/completions"
         if provider == "groq"
@@ -507,6 +542,7 @@ def handle_invoke_live_interview_llm(body):
             return response(200, {"success": True, "content": raw})
         prompt = _build_live_questions_prompt(body)
         raw = _call_openai_compatible_chat(api_key, endpoint, model, prompt, temperature=0.4)
+        print(f"invokeLiveInterviewLlm success invokeMode={invoke_mode} contentLen={len(raw)}")
         return response(200, {"success": True, "content": raw})
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", errors="ignore") or str(e)

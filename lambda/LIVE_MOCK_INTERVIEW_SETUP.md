@@ -5,6 +5,30 @@ API: `https://g20pktgtz9.execute-api.ap-south-2.amazonaws.com/default/LiveMockin
 Frontend: `services/liveMockInterviewApi.ts`  
 Lambda: `live_mock_interview_handler.py`
 
+## Question generation (Settings Lambda — required)
+
+**Start Interview** calls `invokeLiveInterviewLlm` on **Update_userdetails_in_settings** (not LiveMockinterview).
+
+| | |
+|--|--|
+| **API** | `https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings` |
+| **Handler** | `update_userdetails_in_settings.py` → `handle_invoke_live_interview_llm` |
+| **Action** | `POST` body `{ "action": "invokeLiveInterviewLlm", "invokeMode": "generateQuestions", ... }` |
+
+### Fix "Start Interview" timeout (CloudWatch: `Status: timeout`, Duration: 3000 ms)
+
+The default Lambda timeout is **3 seconds**. OpenRouter/Groq calls often need **10–45 seconds**, especially with Job Hunt JD + resume prefill.
+
+1. AWS Console → **Lambda** → **Update_userdetails_in_settings**
+2. **Configuration** → **General configuration** → **Edit**
+3. Set **Timeout** to **90 seconds** (minimum **60**)
+4. Set **Memory** to **256 MB** or higher (optional, helps cold starts)
+5. Redeploy `update_userdetails_in_settings.py` (latest zip with `invokeLiveInterviewLlm`)
+
+After deploy, CloudWatch should show `invokeLiveInterviewLlm start` log lines and `invokeLiveInterviewLlm success` instead of 3000 ms timeouts.
+
+**HTTP API note:** API Gateway HTTP API may cut off around **30 s**. Question generation usually finishes under that; evaluation at end of interview can be heavier—if evaluate times out, use a Lambda Function URL (same pattern as ATS in `ATS_RESUME_SCORER_SETUP.md`).
+
 ## Deploy Lambda
 
 ```bash

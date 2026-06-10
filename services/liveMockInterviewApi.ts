@@ -99,23 +99,65 @@ function parseEvaluationStrict(raw: string): LiveInterviewEvaluation {
   };
 }
 
+const LIVE_INTERVIEW_JD_MAX_CHARS = 6000;
+const LIVE_INTERVIEW_RESUME_MAX_CHARS = 6000;
+
+function truncateLiveInterviewField(text: string | undefined, maxChars: number): string | undefined {
+  if (!text?.trim()) return text;
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, maxChars)}\n\n[... truncated for length ...]`;
+}
+
+function liveInterviewLlmErrorMessage(status: number, message?: string): string {
+  const raw = message?.trim() || `LLM request failed (${status})`;
+  if (raw.includes('Invalid action')) {
+    return 'Live Interview AI is not available on the server yet. Redeploy the Update_userdetails_in_settings Lambda with the latest code, then try again.';
+  }
+  if (
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    /timeout|timed out|task timed out/i.test(raw)
+  ) {
+    return 'Interview question generation timed out on the server. In AWS Lambda → Update_userdetails_in_settings, set Timeout to at least 60 seconds (90 recommended), then redeploy the latest handler code.';
+  }
+  return raw;
+}
+
 async function invokeLiveInterviewLlm(
   userId: string,
   provider: LlmProvider,
   invokeMode: 'evaluate' | 'generateQuestions',
   payload: Record<string, unknown>
 ): Promise<string> {
-  const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'invokeLiveInterviewLlm',
-      userId,
-      provider,
-      invokeMode,
-      ...payload,
-    }),
-  });
+  const body: Record<string, unknown> = {
+    action: 'invokeLiveInterviewLlm',
+    userId,
+    provider,
+    invokeMode,
+    ...payload,
+  };
+  if (typeof body.jdText === 'string') {
+    body.jdText = truncateLiveInterviewField(body.jdText, LIVE_INTERVIEW_JD_MAX_CHARS);
+  }
+  if (typeof body.resumeText === 'string') {
+    body.resumeText = truncateLiveInterviewField(body.resumeText, LIVE_INTERVIEW_RESUME_MAX_CHARS);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error(
+      'Could not reach the interview server. Check your connection, or ask your admin to set Update_userdetails_in_settings Lambda timeout to at least 60 seconds.'
+    );
+  }
+
   let data: { success?: boolean; content?: string; message?: string } = {};
   try {
     data = await res.json();
@@ -123,13 +165,7 @@ async function invokeLiveInterviewLlm(
     data = {};
   }
   if (!res.ok || !data.success || typeof data.content !== 'string') {
-    const msg = data.message || `LLM request failed (${res.status})`;
-    if (msg.includes('Invalid action')) {
-      throw new Error(
-        'Live Interview AI is not available on the server yet. Redeploy the Update_userdetails_in_settings Lambda with the latest code, then try again.'
-      );
-    }
-    throw new Error(msg);
+    throw new Error(liveInterviewLlmErrorMessage(res.status, data.message));
   }
   return data.content;
 }

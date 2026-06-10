@@ -3,6 +3,7 @@ import Lottie from 'lottie-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight,
+  BadgeCheck,
   Calendar,
   Check,
   ChevronLeft,
@@ -12,16 +13,20 @@ import {
   Briefcase,
   Building2,
   Code2,
+  FileText,
   Layers,
+  Lightbulb,
   Menu,
   MessageCircle,
   Mic,
   MicOff,
   MoreHorizontal,
   Phone,
+  RotateCcw,
   Search,
   Sparkles,
   Square,
+  Target,
   Timer,
   UploadCloud,
   User,
@@ -97,13 +102,13 @@ type PrereqItemStatus =
 const initialPrereqStatuses = (): PrereqItemStatus[] =>
   PREREQUISITE_CHECK_LABELS.map(() => 'pending' as PrereqItemStatus);
 
-const LIVE_INTERVIEW_PAGE_BG =
-  'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
+const LIVE_INTERVIEW_PAGE_BG = 'bg-transparent';
 const PAGE_BG = 'bg-transparent';
 const PICKER_SURFACE = 'bg-transparent';
 const BRIEFING_SURFACE = 'bg-[#FAF8F5] dark:bg-[#12111a]';
 const BRIEFING_CARD =
   'rounded-xl border border-[#E5E7EB] dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
+const JD_TEXT_MAX = 2000;
 
 const ROUND_TAB_META: Record<string, { icon: typeof Briefcase; label: string }> = {
   'role-related': { icon: Briefcase, label: 'Role Related' },
@@ -134,66 +139,172 @@ function refreshSpeechVoices(): SpeechSynthesisVoice[] {
   return cachedSpeechVoices;
 }
 
-function pickSpeechVoice(locale: string): SpeechSynthesisVoice | undefined {
+const FEMALE_VOICE_PATTERN =
+  /female|woman|samantha|victoria|karen|fiona|moira|tessa|veena|zira|susan|kate|serena|paulina/i;
+const MALE_VOICE_PATTERN =
+  /male|man|daniel|alex|fred|aaron|rishi|david|james|tom|lee|oliver|arthur|gordon/i;
+
+function pickSpeechVoiceForInterviewer(locale: string, interviewerId?: string): SpeechSynthesisVoice | undefined {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return undefined;
-  const baseLang = locale.split('-')[0] ?? 'en';
   const voices = refreshSpeechVoices();
-  return (
-    voices.find((v) => v.lang === locale) ||
-    voices.find((v) => v.lang.startsWith(baseLang)) ||
-    voices.find((v) => v.default) ||
-    voices[0]
+  if (!voices.length) return undefined;
+
+  const baseLang = locale.split('-')[0] ?? 'en';
+  const localePool = voices.filter(
+    (v) => v.lang === locale || v.lang.startsWith(`${baseLang}-`) || v.lang === baseLang,
   );
+  const pool = localePool.length ? localePool : voices;
+  const byPattern = (pattern: RegExp) => pool.find((v) => pattern.test(v.name));
+
+  if (interviewerId === 'ava' || interviewerId === 'mia') {
+    return byPattern(FEMALE_VOICE_PATTERN) || pool.find((v) => v.lang === locale) || pool[0];
+  }
+  if (interviewerId === 'kai' || interviewerId === 'leo') {
+    return byPattern(MALE_VOICE_PATTERN) || pool.find((v) => v.lang === locale) || pool[0];
+  }
+
+  return pool.find((v) => v.lang === locale) || pool.find((v) => v.default) || pool[0];
 }
 
+/** Unlock speech output during a user gesture (Chrome/Safari can block later speaks otherwise). */
 function primeSpeechSynthesis(): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   refreshSpeechVoices();
   window.speechSynthesis.resume();
 }
 
-/** Speak immediately on user gesture; retries once if the voice list was still loading. */
-function speakUtterance(utter: SpeechSynthesisUtterance, onDone?: () => void): () => void {
+type SpeakUtteranceOptions = {
+  interviewerId?: string;
+  onDone?: () => void;
+  /** Must be true when called from a click/tap so Chrome allows audio in the same turn. */
+  immediate?: boolean;
+};
+
+/** Speak with Chrome/Safari workarounds; retries when the voice list is still loading. */
+function speakUtterance(utter: SpeechSynthesisUtterance, options?: SpeakUtteranceOptions): () => void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return () => {};
 
   let cancelled = false;
-  let retryId = 0;
+  let finished = false;
+  let hasStarted = false;
+  let retryCount = 0;
+  let speakDelayId = 0;
+  let voiceRetryId = 0;
+  let resumeIntervalId = 0;
+  let watchdogId = 0;
+  let voicesListener: (() => void) | null = null;
+
+  const cleanupTimers = () => {
+    if (speakDelayId) window.clearTimeout(speakDelayId);
+    if (voiceRetryId) window.clearTimeout(voiceRetryId);
+    if (resumeIntervalId) window.clearInterval(resumeIntervalId);
+    if (watchdogId) window.clearTimeout(watchdogId);
+    speakDelayId = 0;
+    voiceRetryId = 0;
+    resumeIntervalId = 0;
+    watchdogId = 0;
+    if (voicesListener) {
+      window.speechSynthesis.removeEventListener('voiceschanged', voicesListener);
+      voicesListener = null;
+    }
+  };
 
   const finish = () => {
-    if (!cancelled) onDone?.();
+    if (cancelled || finished) return;
+    finished = true;
+    cleanupTimers();
+    options?.onDone?.();
   };
-  utter.onend = finish;
-  utter.onerror = finish;
 
-  const start = () => {
-    if (cancelled) return;
-    const match = pickSpeechVoice(utter.lang);
-    if (match) utter.voice = match;
+  const beginSpeak = (useDefaultVoice = false) => {
+    if (cancelled || finished) return;
+
+    if (useDefaultVoice) {
+      utter.voice = null;
+    } else {
+      const match = pickSpeechVoiceForInterviewer(utter.lang, options?.interviewerId);
+      utter.voice = match ?? null;
+    }
+
+    utter.onstart = () => {
+      hasStarted = true;
+    };
+    utter.onend = finish;
+    utter.onerror = (event) => {
+      const code = (event as SpeechSynthesisErrorEvent).error;
+      if (code === 'canceled' || code === 'interrupted') return;
+      finish();
+    };
+
     window.speechSynthesis.resume();
     window.speechSynthesis.speak(utter);
+
+    if (!resumeIntervalId) {
+      resumeIntervalId = window.setInterval(() => {
+        if (cancelled || finished) return;
+        if (window.speechSynthesis.speaking && window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        if (hasStarted && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          finish();
+        }
+      }, 200);
+    }
   };
 
-  start();
+  const armWatchdog = (ms: number) => {
+    if (watchdogId) window.clearTimeout(watchdogId);
+    watchdogId = window.setTimeout(() => {
+      if (cancelled || finished) return;
+      if (hasStarted && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        finish();
+        return;
+      }
+      if (!hasStarted && retryCount < 2) {
+        retryCount += 1;
+        window.speechSynthesis.cancel();
+        beginSpeak(retryCount > 1);
+        armWatchdog(ms);
+        return;
+      }
+      finish();
+    }, ms);
+  };
 
-  if (cachedSpeechVoices.length === 0) {
-    const retry = () => {
-      if (cancelled || cachedSpeechVoices.length === 0) return;
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) return;
-      start();
+  const startSpeaking = (deferMs = 0) => {
+    if (cancelled || finished) return;
+    if (!options?.immediate || deferMs > 0) {
+      window.speechSynthesis.cancel();
+    }
+    if (deferMs > 0) {
+      speakDelayId = window.setTimeout(beginSpeak, deferMs);
+    } else {
+      beginSpeak();
+    }
+    armWatchdog(options?.immediate ? 7000 : 15000);
+  };
+
+  refreshSpeechVoices();
+  window.speechSynthesis.resume();
+
+  if (refreshSpeechVoices().length === 0) {
+    voicesListener = () => {
+      if (refreshSpeechVoices().length > 0) startSpeaking(options?.immediate ? 0 : 30);
     };
-    const onVoicesChanged = () => retry();
-    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged, { once: true });
-    retryId = window.setTimeout(retry, 80);
-    return () => {
-      cancelled = true;
-      if (retryId) window.clearTimeout(retryId);
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-    };
+    window.speechSynthesis.addEventListener('voiceschanged', voicesListener);
+    window.speechSynthesis.getVoices();
+    voiceRetryId = window.setTimeout(
+      () => startSpeaking(options?.immediate ? 0 : 30),
+      options?.immediate ? 120 : 400,
+    );
+  } else {
+    startSpeaking(options?.immediate ? 0 : 30);
   }
 
   return () => {
     cancelled = true;
-    if (retryId) window.clearTimeout(retryId);
+    cleanupTimers();
+    window.speechSynthesis.cancel();
   };
 }
 
@@ -305,6 +416,15 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const liveInterviewMode = mode;
   const [phase, setPhase] = useState<FlowPhase>('setup');
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const [roleSearch, setRoleSearch] = useState('');
   const [companySearch, setCompanySearch] = useState('');
   const [sessionLabel, setSessionLabel] = useState('');
@@ -469,21 +589,23 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     previewStopRef.current?.();
     window.speechSynthesis.cancel();
+    primeSpeechSynthesis();
     setPreviewingVoiceId(inv.id);
-    const utter = new SpeechSynthesisUtterance(`Hi, I'm ${inv.name}.`);
+    const utter = new SpeechSynthesisUtterance(`Hi, I'm ${inv.name}. I'll be your interviewer today.`);
     utter.lang = inv.ttsLocale;
-    utter.rate = 1.08;
+    utter.rate = 1.05;
     utter.volume = 1;
-    previewStopRef.current = speakUtterance(utter, () => setPreviewingVoiceId(null));
+    previewStopRef.current = speakUtterance(utter, {
+      interviewerId: inv.id,
+      immediate: true,
+      onDone: () => setPreviewingVoiceId(null),
+    });
   }, []);
 
-  const selectAndPreviewInterviewer = useCallback(
-    (inv: MockInterviewer) => {
-      setSelectedInterviewerId(inv.id);
-      previewInterviewerVoice(inv);
-    },
-    [previewInterviewerVoice],
-  );
+  const selectAndPreviewInterviewer = useCallback((inv: MockInterviewer) => {
+    setSelectedInterviewerId(inv.id);
+    previewInterviewerVoice(inv);
+  }, [previewInterviewerVoice]);
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
@@ -679,7 +801,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     if (phase !== 'live') return;
 
-    if (!useAudio || !liveAiUtterance) {
+    if (!liveAiUtterance) {
       window.speechSynthesis.cancel();
       return;
     }
@@ -691,13 +813,16 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     utter.pitch = 1;
     utter.volume = 1;
 
-    const stopPending = speakUtterance(utter, () => setAiState('listening'));
+    const stopPending = speakUtterance(utter, {
+      interviewerId: selectedInterviewerId,
+      onDone: () => setAiState('listening'),
+    });
 
     return () => {
       stopPending();
       window.speechSynthesis.cancel();
     };
-  }, [phase, useAudio, liveAiUtterance?.key, liveAiUtterance?.text, ttsLang]);
+  }, [phase, liveAiUtterance?.key, liveAiUtterance?.text, ttsLang, selectedInterviewerId]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -924,6 +1049,16 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setActiveView('live-mock-interview-dashboard');
     navigateTo('dashboard');
   }, [embedded, setActiveView, navigateTo]);
+
+  const resetJdForm = useCallback(() => {
+    setJdJobTitle('');
+    setJdInterviewType('swe');
+    setJdText('');
+    setResumeText('');
+    setQuestionCount(8);
+    setTimeMinutes(20);
+    setQuestionGenError(null);
+  }, []);
 
   const resetSession = useCallback(() => {
     stopLocalMedia();
@@ -1234,6 +1369,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const handleStartPracticeFromBriefing = useCallback(async () => {
     if (questionGenLoading) return;
+    primeSpeechSynthesis();
 
     if (liveInterviewMode === 'ai') {
       const ok = await ensureLiveInterviewKeys();
@@ -1512,10 +1648,35 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       : 'Continue';
 
   const shell =
-    'text-gray-900 dark:text-gray-100 ' +
+    'relative text-gray-900 dark:text-gray-100 ' +
     (embedded
       ? `min-h-0 w-full min-w-0 ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`
       : `min-h-screen w-full ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`);
+
+  const showAnimatedBackground = liveInterviewMode === 'ai' && phase !== 'live';
+
+  const renderAiInterviewBackground = () => (
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_35%,#FFFCF8_0%,#FFF7EE_35%,#F5EBE0_70%,#EDE3D6_100%)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_35%,#1a1714_0%,#15121a_40%,#12111a_75%,#0e0d12_100%)]" />
+      {!prefersReducedMotion ? (
+        <div className="absolute inset-0 opacity-35 dark:opacity-30">
+          <FloatingLines
+            linesGradient={['#c2410c', '#ea580c', '#f97316', '#fdba74']}
+            enabledWaves={['top', 'middle', 'bottom']}
+            lineCount={8}
+            lineDistance={8}
+            bendRadius={8}
+            bendStrength={-2}
+            interactive
+            parallax
+            animationSpeed={1}
+            lineBrightness={1}
+            mixBlendMode="overlay"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
 
   const mainInner =
     (embedded ? 'pb-10 pt-4 sm:pt-6' : 'pb-16 pt-6') +
@@ -1720,13 +1881,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     }
 
     return (
-      <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-1.5 text-sm">
+      <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-1.5 text-base">
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;
           return (
             <React.Fragment key={`${crumb.label}-${index}`}>
               {index > 0 ? (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" aria-hidden />
+                <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600" aria-hidden />
               ) : null}
               {crumb.onClick && !isLast ? (
                 <button
@@ -1868,25 +2029,25 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               <div className="flex min-w-0 items-start gap-3">
                 <CompanyPickerLogo name={briefingLogo.name} logoUrl={briefingLogo.logoUrl} />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
                     Interview setup
                   </p>
                   <h1
                     id="briefing-role-title"
-                    className="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-[#1F2937] dark:text-white"
+                    className="mt-0.5 text-xl sm:text-2xl font-bold tracking-tight text-[#1F2937] dark:text-white"
                   >
                     {briefingRoleTitle}
                   </h1>
                   {companyName ? (
-                    <p className="mt-1 text-xs text-[#6B7280] dark:text-gray-400">
+                    <p className="mt-1 text-sm text-[#6B7280] dark:text-gray-400">
                       Company focus: <span className="font-medium text-[#1F2937] dark:text-gray-200">{companyName}</span>
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className="inline-flex items-center rounded-full border border-[#E5E7EB] dark:border-gray-600 bg-[#FAF8F5] dark:bg-gray-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1F2937] dark:text-gray-200">
+                    <span className="inline-flex items-center rounded-full border border-[#E5E7EB] dark:border-gray-600 bg-[#FAF8F5] dark:bg-gray-800 px-2.5 py-0.5 text-xs font-semibold text-[#1F2937] dark:text-gray-200">
                       {briefingTrackLabel}
                     </span>
-                    <span className="inline-flex items-center rounded-full border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 text-[11px] font-semibold text-[#FF7A00]">
+                    <span className="inline-flex items-center rounded-full border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 text-xs font-semibold text-[#FF7A00]">
                       {briefingLevelLabel} Level
                     </span>
                   </div>
@@ -1895,9 +2056,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               <button
                 type="button"
                 onClick={goBackToSetup}
-                className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-2.5 py-1.5 text-xs font-medium text-[#6B7280] transition-colors hover:border-orange-200 hover:text-[#FF7A00] dark:text-gray-400 dark:hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
+                className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-2.5 py-1.5 text-sm font-medium text-[#6B7280] transition-colors hover:border-orange-200 hover:text-[#FF7A00] dark:text-gray-400 dark:hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
               >
-                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+                <ChevronLeft className="h-4 w-4" aria-hidden />
                 Change selection
               </button>
             </div>
@@ -1909,23 +2070,23 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               <p className="text-2xl font-bold tracking-tight text-[#1F2937] dark:text-white">
                 {questionCount}
               </p>
-              <p className="mt-0.5 text-xs font-medium text-[#6B7280] dark:text-gray-400">Questions</p>
+              <p className="mt-0.5 text-sm font-medium text-[#6B7280] dark:text-gray-400">Questions</p>
             </div>
             <div className={`${BRIEFING_CARD} p-3.5 sm:p-4`}>
               <p className="text-2xl font-bold tracking-tight text-[#1F2937] dark:text-white">
                 {timeMinutes}
-                <span className="ml-0.5 text-sm font-semibold text-[#6B7280] dark:text-gray-400">min</span>
+                <span className="ml-0.5 text-base font-semibold text-[#6B7280] dark:text-gray-400">min</span>
               </p>
-              <p className="mt-0.5 text-xs font-medium text-[#6B7280] dark:text-gray-400">Duration</p>
+              <p className="mt-0.5 text-sm font-medium text-[#6B7280] dark:text-gray-400">Duration</p>
             </div>
           </section>
-          <p className="-mt-2 text-[11px] text-[#6B7280] dark:text-gray-500">
+          <p className="-mt-2 text-sm text-[#6B7280] dark:text-gray-500">
             Session auto-ends when the time limit is reached if questions remain.
           </p>
 
           {/* Round selection */}
           <section aria-labelledby="briefing-round-label">
-            <h2 id="briefing-round-label" className="mb-2 text-xs font-semibold text-[#1F2937] dark:text-white">
+            <h2 id="briefing-round-label" className="mb-2 text-sm font-semibold text-[#1F2937] dark:text-white">
               Interview round
             </h2>
             <div
@@ -1944,13 +2105,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     role="tab"
                     aria-selected={active}
                     onClick={() => setSelectedRoundId(round.id)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 ${
                       active
                         ? 'border-[#FF7A00] bg-[#FF7A00] text-white shadow-md shadow-orange-500/25'
                         : 'border-[#E5E7EB] dark:border-gray-600 bg-white dark:bg-gray-900 text-[#6B7280] dark:text-gray-300 hover:border-orange-200 hover:text-[#FF7A00] dark:hover:border-orange-700'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
                     {meta.label}
                   </button>
                 );
@@ -1960,7 +2121,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
           {/* Interviewer selection */}
           <section aria-labelledby="briefing-interviewer-label">
-            <h2 id="briefing-interviewer-label" className="mb-2 text-xs font-semibold text-[#1F2937] dark:text-white">
+            <h2 id="briefing-interviewer-label" className="mb-2 text-sm font-semibold text-[#1F2937] dark:text-white">
               Choose your interviewer
             </h2>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -1973,9 +2134,11 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                     type="button"
                     aria-pressed={active}
                     aria-label={`Select ${inv.name}, ${inv.voiceLabel}. Tap to hear voice sample.`}
-                    disabled={isPreviewing}
-                    onClick={() => selectAndPreviewInterviewer(inv)}
-                    className={`group relative flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 disabled:cursor-wait ${
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      selectAndPreviewInterviewer(inv);
+                    }}
+                    className={`group relative flex w-full items-center gap-3 rounded-xl border-2 p-3.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 disabled:cursor-wait ${
                       active
                         ? 'border-[#FF7A00] bg-orange-50/80 dark:bg-orange-950/25 shadow-md shadow-orange-500/10 ring-1 ring-orange-200/80 dark:ring-orange-800/50'
                         : 'border-[#E5E7EB] dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-orange-200 hover:shadow-sm dark:hover:border-orange-800/60'
@@ -1983,18 +2146,18 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   >
                     {active ? (
                       <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF7A00] text-white shadow-sm">
-                        <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+                        <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
                       </span>
                     ) : null}
                     <InterviewerAvatar interviewer={inv} size="sm" />
-                    <p className="min-w-0 flex-1 truncate pr-5 text-sm text-[#1F2937] dark:text-white">
+                    <p className="min-w-0 flex-1 truncate pr-5 text-base text-[#1F2937] dark:text-white">
                       <span className="font-bold">{inv.name}</span>
                       <span className="text-[#6B7280] dark:text-gray-400"> · </span>
                       <span className="inline-flex items-center gap-1 font-medium text-[#6B7280] dark:text-gray-400">
                         {isPreviewing ? (
-                          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[#FF7A00]" aria-hidden />
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#FF7A00]" aria-hidden />
                         ) : (
-                          <Volume2 className="h-3 w-3 shrink-0 text-[#FF7A00]" aria-hidden />
+                          <Volume2 className="h-3.5 w-3.5 shrink-0 text-[#FF7A00]" aria-hidden />
                         )}
                         {isPreviewing ? 'Playing…' : inv.voiceLabel}
                       </span>
@@ -2007,6 +2170,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
           {/* Media preferences */}
           <section className={`${BRIEFING_CARD} divide-y divide-[#E5E7EB] dark:divide-gray-700`} aria-label="Media preferences">
+            <p className="px-3 pt-3 text-sm text-[#6B7280] dark:text-gray-400">
+              Interviewer voice plays through your speakers. Tap an interviewer card to preview.
+            </p>
             <label className="flex cursor-pointer items-center gap-2.5 p-3">
               <input
                 type="checkbox"
@@ -2015,7 +2181,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 className="h-4 w-4 rounded border-gray-300 text-[#FF7A00] focus:ring-[#FF7A00]"
               />
               <Mic className="h-4 w-4 shrink-0 text-[#FF7A00]" aria-hidden />
-              <span className="text-xs font-medium text-[#1F2937] dark:text-gray-200">Use microphone / audio</span>
+              <span className="text-sm font-medium text-[#1F2937] dark:text-gray-200">Use microphone</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2.5 p-3">
               <input
@@ -2025,13 +2191,13 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 className="h-4 w-4 rounded border-gray-300 text-[#FF7A00] focus:ring-[#FF7A00]"
               />
               <Video className="h-4 w-4 shrink-0 text-[#FF7A00]" aria-hidden />
-              <span className="text-xs font-medium text-[#1F2937] dark:text-gray-200">Use camera / video</span>
+              <span className="text-sm font-medium text-[#1F2937] dark:text-gray-200">Use camera / video</span>
             </label>
           </section>
 
           {/* Interview summary */}
           <section className={`${BRIEFING_CARD} p-4 sm:p-5`} aria-labelledby="briefing-summary-title">
-            <h2 id="briefing-summary-title" className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
+            <h2 id="briefing-summary-title" className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
               Interview summary
             </h2>
             <dl className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2">
@@ -2044,17 +2210,17 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 { term: 'Track', value: briefingTrackLabel },
               ].map((row) => (
                 <div key={row.term} className="flex items-baseline justify-between gap-3 border-b border-[#E5E7EB]/80 dark:border-gray-700/80 pb-2 last:border-0 sm:last:border-b">
-                  <dt className="text-xs text-[#6B7280] dark:text-gray-400">{row.term}</dt>
-                  <dd className="text-xs font-semibold text-[#1F2937] dark:text-white text-right">{row.value}</dd>
+                  <dt className="text-sm text-[#6B7280] dark:text-gray-400">{row.term}</dt>
+                  <dd className="text-sm font-semibold text-[#1F2937] dark:text-white text-right">{row.value}</dd>
                 </div>
               ))}
             </dl>
             {liveInterviewMode === 'ai' && hasLiveInterviewKey ? (
-              <p className="mt-3 rounded-lg bg-orange-50/80 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/40 px-3 py-2 text-[11px] text-[#6B7280] dark:text-gray-400">
+              <p className="mt-3 rounded-lg bg-orange-50/80 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/40 px-3 py-2 text-sm text-[#6B7280] dark:text-gray-400">
                 AI scoring via your saved <strong className="text-[#1F2937] dark:text-gray-200">{llmProvider}</strong> key ({liveInterviewModel}).
               </p>
             ) : null}
-            <p className="mt-2 text-[11px] text-[#6B7280] dark:text-gray-500">
+            <p className="mt-2 text-sm text-[#6B7280] dark:text-gray-500">
               Attempts remaining: <strong className="text-[#1F2937] dark:text-white">3</strong> (mock)
             </p>
           </section>
@@ -2067,9 +2233,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           <button
             type="button"
             onClick={goBackToSetup}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-4 py-2 text-xs font-medium text-[#6B7280] transition-colors hover:bg-white dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-[#6B7280] transition-colors hover:bg-white dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
           >
-            <X className="h-3.5 w-3.5" aria-hidden />
+            <X className="h-4 w-4" aria-hidden />
             Cancel
           </button>
           <button
@@ -2077,7 +2243,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             disabled={!briefingCanStart || questionGenLoading}
             onClick={() => void handleStartPracticeFromBriefing()}
             aria-busy={questionGenLoading}
-            className="inline-flex w-full sm:w-auto sm:min-w-[220px] items-center justify-center gap-1.5 rounded-lg bg-[#FF7A00] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-500/25 transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+            className="inline-flex w-full sm:w-auto sm:min-w-[220px] items-center justify-center gap-1.5 rounded-lg bg-[#FF7A00] px-6 py-3 text-base font-bold text-white shadow-md shadow-orange-500/25 transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
           >
             {questionGenLoading ? (
               <>
@@ -2103,109 +2269,254 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
         return renderRoleCompanyGrid();
       case 'jd':
         return (
-          <div className={`${cardWhite} max-w-2xl mx-auto p-6 sm:p-8 space-y-6`}>
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                Job title <span className="text-red-500">*</span>
-              </label>
-              <input
-                value={jdJobTitle}
-                onChange={(e) => setJdJobTitle(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                placeholder="e.g. Senior Software Engineer"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                Interview type <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={jdInterviewType}
-                onChange={(e) => setJdInterviewType(e.target.value as InterviewTrackId)}
-                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-              >
-                {TRACK_OPTIONS.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                Job description
-              </label>
-              <textarea
-                value={jdText}
-                onChange={(e) => setJdText(e.target.value)}
-                rows={5}
-                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-3 text-sm"
-                placeholder="Paste key requirements…"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                Resume details
-              </label>
-              <textarea
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-3 text-sm"
-                placeholder="Paste resume summary / key experience…"
-              />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                  Number of questions
-                </label>
-                <input
-                  type="number"
-                  min={3}
-                  max={20}
-                  value={questionCount}
-                  onChange={(e) => setQuestionCount(Math.max(3, Math.min(20, Number(e.target.value) || 8)))}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                />
+          <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8">
+            <div className={`${cardWhite} p-6 sm:p-8`}>
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Create AI Mock Interview
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Tailor your mock interview to the role and company for the most relevant practice.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1.5">
-                  Total time (minutes)
-                </label>
-                <input
-                  type="number"
-                  min={5}
-                  max={90}
-                  value={timeMinutes}
-                  onChange={(e) => setTimeMinutes(Math.max(5, Math.min(90, Number(e.target.value) || 20)))}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                />
+
+              <div className="space-y-6">
+                <div className="flex gap-3 sm:gap-4">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                    <Briefcase className="h-4 w-4 text-[#f97316]" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Job title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={jdJobTitle}
+                      onChange={(e) => setJdJobTitle(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                      placeholder="e.g. Senior Software Engineer"
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Enter the job title you&apos;re interviewing for.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 sm:gap-4">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                    <Building2 className="h-4 w-4 text-[#f97316]" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Interview type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={jdInterviewType}
+                      onChange={(e) => setJdInterviewType(e.target.value as InterviewTrackId)}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100"
+                    >
+                      {TRACK_OPTIONS.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Select the type of interview.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 sm:gap-4">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                    <FileText className="h-4 w-4 text-[#f97316]" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Job description
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        value={jdText}
+                        onChange={(e) => setJdText(e.target.value.slice(0, JD_TEXT_MAX))}
+                        rows={5}
+                        maxLength={JD_TEXT_MAX}
+                        className="w-full resize-y rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-3 pb-8 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                        placeholder="Paste key requirements, responsibilities, and expectations..."
+                      />
+                      <span className="pointer-events-none absolute bottom-2.5 right-3 text-xs text-gray-400 dark:text-gray-500">
+                        {jdText.length} / {JD_TEXT_MAX}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Add the job description or key details about the role.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 sm:gap-4">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                    <User className="h-4 w-4 text-[#f97316]" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Resume details
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        value={resumeText}
+                        onChange={(e) => setResumeText(e.target.value.slice(0, JD_TEXT_MAX))}
+                        rows={4}
+                        maxLength={JD_TEXT_MAX}
+                        className="w-full resize-y rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-3 pb-8 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                        placeholder="Paste resume summary / key experience / skills..."
+                      />
+                      <span className="pointer-events-none absolute bottom-2.5 right-3 text-xs text-gray-400 dark:text-gray-500">
+                        {resumeText.length} / {JD_TEXT_MAX}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Share your background to get more relevant questions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Number of questions
+                    </label>
+                    <input
+                      type="number"
+                      min={3}
+                      max={20}
+                      value={questionCount}
+                      onChange={(e) => setQuestionCount(Math.max(3, Math.min(20, Number(e.target.value) || 8)))}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Recommended: 6 – 12</p>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Total time (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={90}
+                      value={timeMinutes}
+                      onChange={(e) => setTimeMinutes(Math.max(5, Math.min(90, Number(e.target.value) || 20)))}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Recommended: 15 – 30</p>
+                  </div>
+                </div>
               </div>
+
+              <div className="mt-8 flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  onClick={resetJdForm}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden />
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  disabled={!jdValid}
+                  onClick={() => {
+                    const inferred = inferTrackFromText(`${jdJobTitle} ${jdText}`);
+                    setSessionLabel(`JD: ${jdJobTitle.trim()}`);
+                    setCompanyName(undefined);
+                    setTrack(inferred !== 'swe' ? inferred : jdInterviewType);
+                    setGeneratedScript(null);
+                    setQuestionGenError(null);
+                    void goToBriefing();
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f97316] px-6 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/25 transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-[200px]"
+                >
+                  Create Interview
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+              {questionGenError ? (
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
+              ) : null}
             </div>
-            <div className="rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-              <UploadCloud className="w-8 h-8 mx-auto mb-2 text-[#f97316] opacity-80" aria-hidden />
-              Drag & drop a JD file (mock — no upload)
-            </div>
-            <button
-              type="button"
-              disabled={!jdValid}
-              onClick={() => {
-                const inferred = inferTrackFromText(`${jdJobTitle} ${jdText}`);
-                setSessionLabel(`JD: ${jdJobTitle.trim()}`);
-                setCompanyName(undefined);
-                setTrack(inferred !== 'swe' ? inferred : jdInterviewType);
-                setGeneratedScript(null);
-                setQuestionGenError(null);
-                void goToBriefing();
-              }}
-              className="w-full sm:w-auto rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
-            >
-              Continue
-            </button>
-            {questionGenError ? (
-              <p className="text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
-            ) : null}
+
+            <aside className="space-y-4 lg:space-y-5">
+              <div className={`${cardWhite} flex items-start gap-3 p-4 sm:p-5`}>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                  <Target className="h-4 w-4 text-[#f97316]" aria-hidden />
+                </span>
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                  <span className="font-semibold text-gray-900 dark:text-white">Personalized. Relevant. Effective.</span>{' '}
+                  Better practice leads to better performance.
+                </p>
+              </div>
+
+              <div className={`${cardWhite} p-4 sm:p-5`}>
+                <div className="mb-4 flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-[#f97316]" aria-hidden />
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Tips for best results</h3>
+                </div>
+                <ul className="space-y-4">
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                      <Sparkles className="h-3.5 w-3.5 text-[#f97316]" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">Be specific</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        Add details about the role and your experience for tailored questions.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                      <FileText className="h-3.5 w-3.5 text-[#f97316]" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">Paste key requirements</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        Include must-have skills, responsibilities, and expectations.
+                      </p>
+                    </div>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950/40">
+                      <BadgeCheck className="h-3.5 w-3.5 text-[#f97316]" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">Keep it honest</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        Accurate info helps generate realistic and relevant interviews.
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={`${cardWhite} p-4 sm:p-5`}>
+                <div className="mb-4 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-violet-500" aria-hidden />
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Add resume (optional)</h3>
+                </div>
+                <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-4 py-8 text-center dark:border-gray-600 dark:bg-gray-950/40">
+                  <UploadCloud className="mx-auto mb-3 h-9 w-9 text-violet-500 opacity-90" aria-hidden />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Drag &amp; drop your resume here
+                    <span className="block text-gray-400 dark:text-gray-500">or</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-3 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    Choose file
+                  </button>
+                  <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">PDF, DOCX (Max 5MB)</p>
+                  <p className="mt-2 text-[11px] italic text-gray-400 dark:text-gray-500">Upload coming soon — paste details in the form for now.</p>
+                </div>
+              </div>
+            </aside>
           </div>
         );
       default:
@@ -2561,7 +2872,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                   <button
                     type="button"
                     disabled={!prereqReadyForLive}
-                    onClick={() => setPhase('warming')}
+                    onClick={() => {
+                      primeSpeechSynthesis();
+                      setPhase('warming');
+                    }}
                     className="mt-8 w-full sm:w-auto rounded-full px-8 py-3 text-sm font-bold text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
                   >
                     Start practice
@@ -3116,13 +3430,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     </>
   );
 
+  const pageShell = (
+    <>
+      {showAnimatedBackground ? renderAiInterviewBackground() : null}
+      <div className="relative z-10">{content}</div>
+    </>
+  );
+
   if (embedded) {
-    return <div className={shell}>{content}</div>;
+    return <div className={shell}>{pageShell}</div>;
   }
 
   return (
     <div className={shell}>
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-700 w-full">
+      {showAnimatedBackground ? renderAiInterviewBackground() : null}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-700/80 w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 h-14 flex items-center justify-between gap-4">
           <button
             type="button"
@@ -3151,7 +3473,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
           </nav>
         </div>
       </header>
-      <main className="w-full min-w-0">{content}</main>
+      <main className="relative z-10 w-full min-w-0">{content}</main>
     </div>
   );
 };
