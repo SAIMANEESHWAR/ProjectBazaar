@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef, ReactNode, Suspense, lazy } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode, Suspense, lazy } from 'react';
 import {
   AuthContext,
   NavigationContext,
@@ -16,6 +16,14 @@ export {
   useNavigation,
 } from './context/appContext';
 import { SITE_ORIGIN } from './lib/apiConfig';
+import {
+  EMAIL_FLOW_PAGES,
+  getInitialPage,
+  normalizePath,
+  PAGE_TO_PATH,
+  PATH_TO_PAGE,
+  resolvePageFromPath,
+} from './lib/appRoutes';
 import { trackPageView } from './lib/analytics';
 import { DashboardProvider } from './context/DashboardContext';
 import { PeerInterviewQueueProvider } from './context/PeerInterviewQueueContext';
@@ -34,6 +42,7 @@ import { PremiumProvider, usePremium } from './context/PremiumContext';
 export { usePremium, PremiumContext } from './context/PremiumContext';
 import { hasPendingPlan, clearPendingPlan } from './lib/pendingPlanStorage';
 import SubscriptionCheckoutPage from './components/SubscriptionCheckoutPage';
+const SubscriptionPlansPage = lazy(() => import('./components/SubscriptionPlansPage'));
 
 // -- Eagerly loaded (above the fold on landing page) --
 import Header from './components/Header';
@@ -52,6 +61,7 @@ const ResumeHeroCard = lazy(() => import('./components/sections/ResumeHeroCard')
 const TopSellers = lazy(() => import('./components/TopSellers'));
 const PricingPlansSection = lazy(() => import('./components/sections/PricingPlansSection'));
 const AuthPage = lazy(() => import('./components/AuthPage'));
+const VerifyEmailPage = lazy(() => import('./components/VerifyEmailPage'));
 const DashboardPage = lazy(() => import('./components/DashboardPage'));
 const SellerDashboardPage = lazy(() => import('./components/SellerDashboardPage'));
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
@@ -74,6 +84,7 @@ type Theme = 'light' | 'dark';
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   isLanding: boolean;
 }
 
@@ -105,7 +116,7 @@ const PremiumSubscriptionSync: React.FC = () => {
 const LANDING_THEME_KEY = 'landingTheme';
 
 /** Pages that use the landing page theme (dark/light). All other pages (dashboard, auth, etc.) always use light. */
-const LANDING_PAGES: Page[] = ['home', 'faq'];
+const LANDING_PAGES: Page[] = ['home', 'faq', 'subscriptionPlans'];
 
 const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children, page }) => {
   const isLanding = LANDING_PAGES.includes(page);
@@ -135,11 +146,16 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
     });
   };
 
+  const setTheme = useCallback((next: Theme) => {
+    setLandingTheme(next);
+    localStorage.setItem(LANDING_THEME_KEY, next);
+  }, []);
+
   // Expose effective theme: on landing use landingTheme, elsewhere always 'light'
   const theme = isLanding ? landingTheme : 'light';
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isLanding }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, isLanding }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -168,7 +184,11 @@ const PAGE_TITLES: Record<Page, string> = {
   privacy: 'Privacy Policy — CodeXCareer',
   terms: 'Terms & Conditions — CodeXCareer',
   notFound: 'Page Not Found — CodeXCareer',
+  subscriptionPlans: 'Subscription Plans — CodeXCareer',
   subscriptionCheckout: 'Checkout — CodeXCareer',
+  verifyEmail: 'Verify Email — CodeXCareer',
+  forgotPassword: 'Forgot Password — CodeXCareer',
+  resetPassword: 'Reset Password — CodeXCareer',
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
@@ -191,32 +211,10 @@ function updatePageMeta(page: Page) {
   const title = PAGE_TITLES[page] || PAGE_TITLES.home;
   const description = PAGE_META_DESCRIPTIONS[page] || DEFAULT_META_DESCRIPTION;
   const base = SITE_ORIGIN;
-  const pageToPath: Record<Page, string> = {
-    home: '/',
-    auth: '/auth',
-    dashboard: '/dashboard',
-    seller: '/seller',
-    admin: '/admin',
-    faq: '/faq',
-    browseProjects: '/browse-projects',
-    freelancerProfile: '/freelancer',
-    buildPortfolio: '/build-portfolio',
-    buildResume: '/build-resume',
-    mockAssessment: '/mock-assessment',
-    mockLeaderboard: '/mock-assessment/leaderboard',
-    mockAchievements: '/mock-assessment/achievements',
-    mockDailyChallenge: '/mock-assessment/daily-challenge',
-    mockHistory: '/mock-assessment/history',
-    codingQuestions: '/coding-questions',
-    liveMockInterview: '/live-mock-interview',
-    blog: '/blog',
-    blogPost: window.location.pathname.startsWith('/blog/') ? window.location.pathname : '/blog',
-    privacy: '/privacy',
-    terms: '/terms',
-    notFound: '/404',
-    subscriptionCheckout: '/subscription/checkout',
-  };
-  const path = pageToPath[page] || '/';
+  const path =
+    page === 'blogPost' && window.location.pathname.startsWith('/blog/')
+      ? window.location.pathname
+      : PAGE_TO_PATH[page] || '/';
   const absoluteUrl = `${base}${path}`;
 
   document.title = title;
@@ -295,6 +293,13 @@ const AppContent: React.FC = () => {
     switch (page) {
       case 'auth':
         return <AuthPage />;
+      case 'verifyEmail':
+        return <VerifyEmailPage />;
+      case 'forgotPassword':
+      case 'resetPassword':
+        return <AuthPage />;
+      case 'subscriptionPlans':
+        return <SubscriptionPlansPage />;
       case 'subscriptionCheckout':
         return <SubscriptionCheckoutPage />;
       case 'admin':
@@ -341,17 +346,9 @@ const AppContent: React.FC = () => {
       case 'mockHistory':
         return <MockAssessmentPage initialView="history" />;
       case 'codingQuestions':
-        return (
-          <SubscriptionFeatureGateWrapper featureId="coding">
-            <CodingInterviewQuestionsPage />
-          </SubscriptionFeatureGateWrapper>
-        );
+        return <CodingInterviewQuestionsPage />;
       case 'liveMockInterview':
-        return (
-          <SubscriptionFeatureGateWrapper featureId="live-ai">
-            <LiveMockInterviewPage />
-          </SubscriptionFeatureGateWrapper>
-        );
+        return <LiveMockInterviewPage />;
       case 'blog':
         return <BlogPage />;
       case 'blogPost':
@@ -406,11 +403,8 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Initialize state from localStorage if available
-  const [page, setPage] = useState<Page>(() => {
-    const stored = localStorage.getItem('currentPage');
-    return (stored as Page) || 'home';
-  });
+  // Prefer URL on first load (email reset/verify links), then localStorage
+  const [page, setPage] = useState<Page>(getInitialPage);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -424,66 +418,8 @@ const App: React.FC = () => {
       const searchParams = new URLSearchParams(window.location.search);
       const route = searchParams.get('page') || hash || path;
 
-      // Define valid routes (exact matches only)
-      const validRoutes: Record<string, Page> = {
-        '/': 'home',
-        '/home': 'home',
-        '/auth': 'auth',
-        '/login': 'auth',
-        '/dashboard': 'dashboard',
-        '/seller': 'seller',
-        '/admin': 'admin',
-        '/faq': 'faq',
-        '/browse-projects': 'browseProjects',
-        '/freelancer': 'freelancerProfile',
-        '/build-portfolio': 'buildPortfolio',
-        '/build-resume': 'buildResume',
-        '/resume-builder': 'buildResume',
-        '/mock-assessment': 'mockAssessment',
-        '/mock-interview': 'mockAssessment',
-        '/mock-assessment/leaderboard': 'mockLeaderboard',
-        '/mock-assessment/achievements': 'mockAchievements',
-        '/mock-assessment/daily-challenge': 'mockDailyChallenge',
-        '/mock-assessment/history': 'mockHistory',
-        '/coding-questions': 'codingQuestions',
-        '/coding-interview-questions': 'codingQuestions',
-        '/live-mock-interview': 'liveMockInterview',
-        '/blog': 'blog',
-        '/privacy': 'privacy',
-        '/privacy-policy': 'privacy',
-        '/terms': 'terms',
-        '/terms-and-conditions': 'terms',
-        '/subscription/checkout': 'subscriptionCheckout',
-        '/404': 'notFound',
-        'home': 'home',
-        'auth': 'auth',
-        'login': 'auth',
-        'dashboard': 'dashboard',
-        'seller': 'seller',
-        'admin': 'admin',
-        'faq': 'faq',
-        'browseProjects': 'browseProjects',
-        'freelancerProfile': 'freelancerProfile',
-        'buildPortfolio': 'buildPortfolio',
-        'buildResume': 'buildResume',
-        'mockAssessment': 'mockAssessment',
-        'mockLeaderboard': 'mockLeaderboard',
-        'mockAchievements': 'mockAchievements',
-        'mockDailyChallenge': 'mockDailyChallenge',
-        'mockHistory': 'mockHistory',
-        'codingQuestions': 'codingQuestions',
-        'liveMockInterview': 'liveMockInterview',
-        'blog': 'blog',
-        'blogPost': 'blogPost',
-        'privacy': 'privacy',
-        'terms': 'terms',
-        'notFound': 'notFound',
-        'subscriptionCheckout': 'subscriptionCheckout',
-      };
-
-      // Extract base path (remove query params, hash, and trailing slashes)
-      const normalizedPath = path.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
-      const normalizedRoute = route.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+      const normalizedPath = normalizePath(path);
+      const normalizedRoute = normalizePath(route);
 
       // Check if it's a static asset (should be handled by server, but check anyway)
       const isStaticAsset = normalizedPath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|map)$/i) ||
@@ -497,14 +433,10 @@ const App: React.FC = () => {
         return;
       }
 
-      if (/^\/blog\/[^/]+$/.test(normalizedPath)) {
-        setPage('blogPost');
-        localStorage.setItem('currentPage', 'blogPost');
-        return;
-      }
-
-      // Check if route is valid (exact match)
-      const targetPage = validRoutes[normalizedRoute] || validRoutes[normalizedPath];
+      const targetPage =
+        resolvePageFromPath(normalizedPath) ??
+        resolvePageFromPath(normalizedRoute) ??
+        PATH_TO_PAGE[normalizedRoute];
 
       if (targetPage) {
         // Special handling for 404 page - always show it regardless of auth
@@ -573,10 +505,12 @@ const App: React.FC = () => {
           // Only auto-navigate if we're on home page or auth page
           // Don't override 404 pages - they should stay as 404
           const currentPage = localStorage.getItem('currentPage') as Page | null;
-          const stayOnCheckout =
-            currentPage === 'subscriptionCheckout' || hasPendingPlan();
+          const stayOnCurrentPage =
+            currentPage === 'subscriptionCheckout' ||
+            (currentPage != null && EMAIL_FLOW_PAGES.includes(currentPage)) ||
+            hasPendingPlan();
 
-          if ((page === 'home' || page === 'auth') && !stayOnCheckout) {
+          if ((page === 'home' || page === 'auth') && !stayOnCurrentPage) {
             if (role === 'admin') {
               setPage('admin');
             } else if (hasPendingPlan()) {
@@ -600,33 +534,7 @@ const App: React.FC = () => {
     localStorage.setItem('currentPage', targetPage);
 
     // Update URL without full page reload
-    const pageMap: Record<Page, string> = {
-      'home': '/',
-      'auth': '/auth',
-      'dashboard': '/dashboard',
-      'seller': '/seller',
-      'admin': '/admin',
-      'faq': '/faq',
-      'browseProjects': '/browse-projects',
-      'freelancerProfile': '/freelancer',
-      'buildPortfolio': '/build-portfolio',
-      'buildResume': '/build-resume',
-      'mockAssessment': '/mock-assessment',
-      'mockLeaderboard': '/mock-assessment/leaderboard',
-      'mockAchievements': '/mock-assessment/achievements',
-      'mockDailyChallenge': '/mock-assessment/daily-challenge',
-      'mockHistory': '/mock-assessment/history',
-      'codingQuestions': '/coding-questions',
-      'liveMockInterview': '/live-mock-interview',
-      'blog': '/blog',
-      'blogPost': '/blog',
-      'privacy': '/privacy',
-        'terms': '/terms',
-        'notFound': '/404',
-        'subscriptionCheckout': '/subscription/checkout',
-      };
-
-    const url = pageMap[targetPage] || '/';
+    const url = PAGE_TO_PATH[targetPage] || '/';
     // Use replaceState for 404 to avoid cluttering history, pushState for others
     if (targetPage === 'notFound') {
       window.history.replaceState({ page: 'notFound' }, '', url);

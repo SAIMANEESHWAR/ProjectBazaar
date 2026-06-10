@@ -15,6 +15,7 @@ import { useAuth } from '../App';
 import JobTailorResumeModal, { type TailorResumeSession } from './job-hunt/JobTailorResumeModal';
 import TailorProfileRequiredModal from './job-hunt/TailorProfileRequiredModal';
 import Pagination from './Pagination';
+import { trackJobApplyClick } from '../lib/analytics';
 import {
   fetchJobs,
   fetchSavedResumeProfile,
@@ -30,6 +31,10 @@ import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { buildCorpus, joinCandidateSkillText, scoreJob, type Corpus } from '../lib/matchScore';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
+import {
+  useClampJobHuntPage,
+  useJobHuntContentAccess,
+} from './jobHuntContentAccess';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
 
 interface JobHuntPageProps {
@@ -507,6 +512,7 @@ function JobDetailPanel({
 
 const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const { userEmail } = useAuth();
+  const { guardPageChange } = useJobHuntContentAccess();
   const { jobOpenRequest, consumeJobOpenRequest, savedJobsNavTick, browseAllNavTick } =
     useJobHuntShell();
   const [jobs, setJobs] = useState<JobListing[]>([]);
@@ -516,6 +522,14 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  useClampJobHuntPage(currentPage, setCurrentPage);
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      guardPageChange(page, setCurrentPage);
+    },
+    [guardPageChange]
+  );
 
   const [titleDraft, setTitleDraft] = useState('');
   const [locDraft, setLocDraft] = useState('');
@@ -718,7 +732,16 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
 
   const openApply = (job: JobListing) => {
     const url = job.apply_link?.trim();
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    if (!url) return;
+
+    trackJobApplyClick({
+      job_id: job.id,
+      company: job.company || 'unknown',
+      platform: job.source_platform || 'unknown',
+      destination_url: url,
+    });
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const toggleSave = useCallback(
@@ -1259,12 +1282,12 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 itemsPerPage={itemsPerPage}
                 totalItems={total}
                 onItemsPerPageChange={(n) => {
                   setItemsPerPage(n);
-                  setCurrentPage(1);
+                  handlePageChange(1);
                 }}
               />
             </div>

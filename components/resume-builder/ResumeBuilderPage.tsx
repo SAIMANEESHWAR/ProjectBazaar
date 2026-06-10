@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Lottie from 'lottie-react';
 import { useNavigation, useAuth } from '../../App';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { recordFeatureTrialUse } from '../../lib/featureTrialConsume';
+import PremiumUpsellModal from '../PremiumUpsellModal';
 import { ResumeInfoProvider, useResumeInfo } from '../../context/ResumeInfoContext';
 import PersonalDetailForm from './PersonalDetailForm';
 import SummaryForm from './SummaryForm';
@@ -53,9 +56,11 @@ const hexToRgba = (hex: string, alpha: number): string => {
 const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = false, onBack, toggleSidebar, onNavigateToSettings }) => {
   const { navigateTo } = useNavigation();
   const { userId } = useAuth();
+  const { hasFeature, canUseFeature, refreshEntitlements } = useSubscription();
   const { resumeInfo, saveResume, savedResumes, loadResume, resetResume, deleteResume } = useResumeInfo();
   
   const [activeStep, setActiveStep] = useState(1);
+  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
   const [enableNext, setEnableNext] = useState(true);
   const [showSavedResumes, setShowSavedResumes] = useState(false);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
@@ -180,7 +185,23 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    if (!hasFeature('resume-builder') && !canUseFeature('resume-builder')) {
+      setShowPremiumUpsell(true);
+      return;
+    }
+    if (!hasFeature('resume-builder') && userId) {
+      const ok = await recordFeatureTrialUse(
+        userId,
+        'resume-builder',
+        `resume-download-${Date.now()}`,
+        refreshEntitlements
+      );
+      if (!ok) {
+        setShowPremiumUpsell(true);
+        return;
+      }
+    }
     const title = `${resumeInfo.firstName} ${resumeInfo.lastName} - Resume`.trim();
     openResumePrintFromPreviewRoot(previewRef.current, title || 'Resume');
   };
@@ -950,6 +971,10 @@ const ResumeBuilderContent: React.FC<ResumeBuilderContentProps> = ({ embedded = 
           `}</style>
         </div>
       )}
+      <PremiumUpsellModal
+        isOpen={showPremiumUpsell}
+        onClose={() => setShowPremiumUpsell(false)}
+      />
     </div>
   );
 };

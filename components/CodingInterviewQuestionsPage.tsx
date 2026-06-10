@@ -3,6 +3,8 @@ import Lottie from 'lottie-react';
 import Editor from '@monaco-editor/react';
 import noCodingQuestionAnimation from '../lottiefiles/no_coding_question_animation.json';
 import SkeletonDashboard from './ui/skeleton-dashboard';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
+import { useNavigation } from '../App';
 
 // Lambda API endpoints
 const CODING_QUESTIONS_API = 'https://6918395pal.execute-api.ap-south-2.amazonaws.com/default/coding-questions-service';
@@ -2118,6 +2120,7 @@ interface CodingInterviewQuestionsPageProps {
 }
 
 const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> = ({ toggleSidebar }) => {
+  const { navigateTo } = useNavigation();
   const [activeTab, setActiveTab] = useState<'all' | 'bookmarks' | 'attempted' | 'solved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
@@ -2714,7 +2717,11 @@ const CodingInterviewQuestionsPage: React.FC<CodingInterviewQuestionsPageProps> 
                     <span className="text-gray-400 text-xs sm:text-sm ml-1 hidden sm:inline">+16 more</span>
                   </div>
                 </div>
-                <button className="relative z-10 w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToSubscriptionPlans(navigateTo)}
+                  className="relative z-10 w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm sm:text-base font-semibold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+                >
                   <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>

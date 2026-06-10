@@ -14,17 +14,38 @@ import {
   setSubscriptionCookie,
   type SubscriptionCookiePayload,
 } from '../lib/subscriptionCookie';
-import type { SubscriptionFeatureId } from '../lib/subscriptionFeatures';
+import {
+  FREE_USE_LIMIT,
+  isAlwaysFreeFeature,
+  isTrialGatedFeature,
+  TRIAL_FEATURES,
+  type SubscriptionFeatureId,
+} from '../lib/subscriptionFeatures';
 import {
   getActiveSubscription,
+  getFeatureEntitlements,
   subscriptionRecordToCookie,
+  type FeatureEntitlement,
 } from '../services/subscriptionApi';
+
+interface FeatureUsageInfo {
+  used: number;
+  remaining: number;
+  limit: number;
+  source: FeatureEntitlement['source'];
+}
 
 interface SubscriptionContextValue {
   subscription: SubscriptionCookiePayload | null;
   isLoading: boolean;
+  entitlements: Record<string, FeatureEntitlement>;
+  /** Plan includes this feature (subscription entitlement). */
   hasFeature: (featureId: SubscriptionFeatureId | string) => boolean;
+  /** Can access feature now (always-free, plan, or trial remaining). */
+  canUseFeature: (featureId: SubscriptionFeatureId | string) => boolean;
+  getFeatureUsage: (featureId: SubscriptionFeatureId | string) => FeatureUsageInfo;
   refreshSubscription: () => Promise<void>;
+  refreshEntitlements: () => Promise<void>;
   applySubscription: (payload: SubscriptionCookiePayload) => void;
   clearSubscription: () => void;
 }
@@ -38,6 +59,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [subscription, setSubscription] = useState<SubscriptionCookiePayload | null>(() =>
     getSubscriptionFromCookie()
   );
+  const [entitlements, setEntitlements] = useState<Record<string, FeatureEntitlement>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const applySubscription = useCallback((payload: SubscriptionCookiePayload) => {
@@ -48,7 +70,30 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const clearSubscription = useCallback(() => {
     clearSubscriptionCookie();
     setSubscription(null);
+    setEntitlements({});
   }, []);
+
+  const refreshEntitlements = useCallback(async () => {
+    if (!userId) {
+      setEntitlements({});
+      return;
+    }
+    const data = await getFeatureEntitlements(userId);
+    const merged: Record<string, FeatureEntitlement> = { ...data };
+    for (const fid of TRIAL_FEATURES) {
+      if (!merged[fid]) {
+        merged[fid] = {
+          featureId: fid,
+          used: 0,
+          limit: FREE_USE_LIMIT,
+          remaining: FREE_USE_LIMIT,
+          allowed: true,
+          source: 'trial',
+        };
+      }
+    }
+    setEntitlements(merged);
+  }, [userId]);
 
   const refreshSubscription = useCallback(async () => {
     if (!userId) {
@@ -63,14 +108,17 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         const expired = end !== null && !Number.isNaN(end) && end < Date.now();
         if (!expired) {
           applySubscription(subscriptionRecordToCookie(record));
+          await refreshEntitlements();
           return;
         }
       }
-      clearSubscription();
+      clearSubscriptionCookie();
+      setSubscription(null);
+      await refreshEntitlements();
     } finally {
       setIsLoading(false);
     }
-  }, [userId, applySubscription, clearSubscription]);
+  }, [userId, applySubscription, refreshEntitlements]);
 
   useEffect(() => {
     if (!isLoggedIn || !userId) {
@@ -96,16 +144,68 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     [subscription]
   );
 
+  const getFeatureUsage = useCallback(
+    (featureId: SubscriptionFeatureId | string): FeatureUsageInfo => {
+      const ent = entitlements[featureId];
+      if (ent) {
+        return {
+          used: ent.used,
+          remaining: ent.remaining,
+          limit: ent.limit,
+          source: ent.source,
+        };
+      }
+      if (hasFeature(featureId)) {
+        return { used: 0, remaining: FREE_USE_LIMIT, limit: FREE_USE_LIMIT, source: 'plan' };
+      }
+      return { used: 0, remaining: FREE_USE_LIMIT, limit: FREE_USE_LIMIT, source: 'trial' };
+    },
+    [entitlements, hasFeature]
+  );
+
+  const canUseFeature = useCallback(
+    (featureId: SubscriptionFeatureId | string) => {
+      if (!isLoggedIn) return false;
+      if (isAlwaysFreeFeature(featureId)) return true;
+      if (hasFeature(featureId)) return true;
+      const ent = entitlements[featureId];
+      if (ent) {
+        if (ent.allowed) return true;
+        if (ent.source === 'trial' && ent.remaining > 0) return true;
+        return false;
+      }
+      // Entitlements still loading, API unavailable, or legacy payload missing this feature —
+      // grant trial uses (same default as getFeatureUsage below).
+      return isTrialGatedFeature(featureId);
+    },
+    [entitlements, hasFeature, isLoggedIn]
+  );
+
   const value = useMemo(
     () => ({
       subscription,
       isLoading,
+      entitlements,
       hasFeature,
+      canUseFeature,
+      getFeatureUsage,
       refreshSubscription,
+      refreshEntitlements,
       applySubscription,
       clearSubscription,
     }),
-    [subscription, isLoading, hasFeature, refreshSubscription, applySubscription, clearSubscription]
+    [
+      subscription,
+      isLoading,
+      entitlements,
+      hasFeature,
+      canUseFeature,
+      getFeatureUsage,
+      refreshSubscription,
+      refreshEntitlements,
+      applySubscription,
+      clearSubscription,
+    ]
   );
 
   return (

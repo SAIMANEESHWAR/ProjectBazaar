@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigation } from '../../App';
+import { goToSubscriptionPlans } from '../../lib/subscriptionNavigation';
 
 interface FloatingIconProps {
   className?: string;
@@ -33,6 +35,8 @@ const FloatingIcon = ({
 );
 
 export const HeroSection: React.FC = () => {
+  const { navigateTo } = useNavigation();
+
   return (
     <section className="relative w-full min-h-[600px] bg-white pt-16 lg:pt-24 pb-12 overflow-hidden flex flex-col items-center justify-center text-center">
       <div className="max-w-7xl mx-auto px-4 relative">
@@ -140,6 +144,7 @@ export const HeroSection: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto px-4 md:px-0">
               <button
                 type="button"
+                onClick={() => goToSubscriptionPlans(navigateTo)}
                 className="h-12 px-8 text-[16px] font-semibold text-slate-700 bg-white border border-slate-700 rounded-lg transition-colors hover:bg-slate-50 cursor-pointer"
               >
                 Buy Premium

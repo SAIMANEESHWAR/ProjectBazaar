@@ -7,6 +7,8 @@ import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepDSADetailSidebar, { type PrepDSADetail } from './PrepDSADetailSidebar';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
+import PrepPaginationBar from './PrepPaginationBar';
+import { useClampPrepPage } from './prepContentAccess';
 
 type DSAProblemWithDetails = DSAProblem & {
   solutionLink?: string;
@@ -109,6 +111,8 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
   const [viewMode, setViewMode] = useViewMode();
   const [selectedProblem, setSelectedProblem] = useState<DSAProblemWithDetails | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useClampPrepPage(currentPage, setCurrentPage);
 
   // Server-side pagination: fetch only the current page with filters
   const fetchProblems = useCallback(async (cancelled = { current: false }) => {
@@ -478,59 +482,15 @@ export default function PrepDSAProblemsPage(_props: PrepDSAProblemsPageProps) {
         </>
       )}
 
-      {/* Pagination */}
-      {apiTotalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-5 border-t border-gray-200">
-          <p className="text-sm text-gray-500">
-            Showing{' '}
-            <span className="font-semibold text-gray-900">
-              {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
-            </span>{' '}
-            of <span className="font-semibold text-gray-900">{totalCount}</span> problems
-          </p>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
-            </button>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            {Array.from({ length: apiTotalPages }, (_, i) => i + 1).map((page) => {
-              if (apiTotalPages <= 7 || page === 1 || page === apiTotalPages || Math.abs(page - currentPage) <= 1) {
-                return (
-                  <button key={page} onClick={() => setCurrentPage(page)} className={`min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all duration-200 ${page === currentPage ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>{page}</button>
-                );
-              }
-              if ((page === 2 && currentPage > 3) || (page === apiTotalPages - 1 && currentPage < apiTotalPages - 2)) {
-                return <span key={page} className="px-1 text-gray-400 text-sm select-none">...</span>;
-              }
-              return null;
-            })}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(apiTotalPages, p + 1))}
-              disabled={currentPage === apiTotalPages}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            </button>
-            <button
-              onClick={() => setCurrentPage(apiTotalPages)}
-              disabled={currentPage === apiTotalPages}
-              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-            </button>
-          </div>
-        </div>
-      )}
+      <PrepPaginationBar
+        currentPage={currentPage}
+        totalPages={apiTotalPages}
+        totalCount={totalCount}
+        itemsPerPage={ITEMS_PER_PAGE}
+        itemLabel="problems"
+        onPageChange={setCurrentPage}
+        className="mt-6 pt-5 border-t-0"
+      />
 
       {selectedProblem && (
         <PrepDSADetailSidebar

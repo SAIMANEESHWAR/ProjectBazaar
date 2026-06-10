@@ -3,7 +3,9 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./globals.css";
 import { bootAnalytics } from "./lib/analytics";
+import { captureAttributionFromUrl } from "./lib/utmAttribution";
 
+captureAttributionFromUrl();
 bootAnalytics();
 
 window.addEventListener("storage", (e) => {

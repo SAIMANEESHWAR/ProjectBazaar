@@ -12,3 +12,8 @@ export const LOGIN_API_URL =
 export const SUBSCRIPTION_API_URL =
   import.meta.env.VITE_SUBSCRIPTION_API_URL?.trim() ||
   'https://rnu2gfl2z1.execute-api.ap-south-2.amazonaws.com/default/UserSubscriptions_handler';
+
+/** Feature entitlement Lambda (5 free uses / trial gating) — lambda/feature_entitlement.py */
+export const FEATURE_ENTITLEMENT_API_URL =
+  import.meta.env.VITE_FEATURE_ENTITLEMENT_API_URL?.trim() ||
+  'https://99j6d2af9b.execute-api.ap-south-2.amazonaws.com/default/feature_entitlement';

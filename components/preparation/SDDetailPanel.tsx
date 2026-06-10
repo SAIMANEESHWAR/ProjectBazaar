@@ -4,6 +4,8 @@ import { DiagramData } from "../../data/prepDiagramTypes";
 import PrepRichContentRenderer, {
   isRichHtmlContent,
 } from "./PrepRichContentRenderer";
+import PrepLockedPremiumBlock from "./PrepLockedPremiumBlock";
+import { usePrepContentAccess } from "./prepContentAccess";
 
 export interface SDQuestion {
   id: string;
@@ -36,6 +38,7 @@ export function SDDetailPanel({
   variant?: "default" | "nocturnal";
 }) {
   const isNocturnal = variant === "nocturnal";
+  const { canViewAnswers, promptUpgrade } = usePrepContentAccess();
   const rawContent = q.content ?? "";
   const embeddedRegex = /__DIAGRAM_DATA_START__([\s\S]*?)__DIAGRAM_DATA_END__/;
   const embMatch = rawContent.match(embeddedRegex);
@@ -109,7 +112,13 @@ export function SDDetailPanel({
             <button
               key={t.id}
               type="button"
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => {
+                if (!canViewAnswers) {
+                  promptUpgrade();
+                  return;
+                }
+                setActiveTab(t.id);
+              }}
               className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
                 activeTab === t.id
                   ? "text-orange-400 border-orange-400"
@@ -125,54 +134,71 @@ export function SDDetailPanel({
       {activeTab === "solution" && hasSolution && (
         <div>
           {visibleTabs.length === 1 && <p className={labelClass}>Solution</p>}
-          {isRichHtmlContent(solutionText) ? (
-            <PrepRichContentRenderer
-              html={solutionText}
-              variant={isNocturnal ? "nocturnal" : "default"}
-            />
-          ) : isPointwise ? (
-            <ul className="list-none space-y-2 mt-1">
-              {solutionText
-                .split(/\s*(?=\(\d+\))/)
-                .filter((p) => p.trim())
-                .map((point, idx) => (
-                  <li
-                    key={idx}
-                    className={`flex gap-2 ${isNocturnal ? bodyClass : "text-gray-600 dark:text-gray-300 text-sm"}`}
-                  >
-                    <span className="shrink-0 text-orange-500 font-bold">•</span>
-                    <span>{point.replace(/^\(\d+\)\s*/, "")}</span>
-                  </li>
-                ))}
-            </ul>
+          {canViewAnswers ? (
+            isRichHtmlContent(solutionText) ? (
+              <PrepRichContentRenderer
+                html={solutionText}
+                variant={isNocturnal ? "nocturnal" : "default"}
+              />
+            ) : isPointwise ? (
+              <ul className="list-none space-y-2 mt-1">
+                {solutionText
+                  .split(/\s*(?=\(\d+\))/)
+                  .filter((p) => p.trim())
+                  .map((point, idx) => (
+                    <li
+                      key={idx}
+                      className={`flex gap-2 ${isNocturnal ? bodyClass : "text-gray-600 dark:text-gray-300 text-sm"}`}
+                    >
+                      <span className="shrink-0 text-orange-500 font-bold">•</span>
+                      <span>{point.replace(/^\(\d+\)\s*/, "")}</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className={`whitespace-pre-wrap ${bodyClass}`}>{solutionText}</p>
+            )
           ) : (
-            <p className={`whitespace-pre-wrap ${bodyClass}`}>{solutionText}</p>
+            <PrepLockedPremiumBlock
+              title="Solution locked"
+              message="Upgrade to Premium to view system design solutions and diagrams."
+              onUpgrade={promptUpgrade}
+            />
           )}
         </div>
       )}
 
       {activeTab === "diagram" && (
         <div className="mt-1">
-          {finalDiagramData ? (
-            <SDDiagramRenderer data={finalDiagramData} />
-          ) : q.diagramUrl ? (
-            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(q.diagramUrl) ? (
-              <img
-                src={q.diagramUrl}
-                alt="Architecture diagram"
-                className={`max-w-full rounded-lg shadow-sm max-h-80 object-contain ${isNocturnal ? "border border-white/10" : "border border-gray-600"}`}
-              />
-            ) : (
-              <a
-                href={q.diagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-orange-400 hover:underline text-sm"
-              >
-                View diagram ↗
-              </a>
-            )
-          ) : null}
+          {canViewAnswers ? (
+            finalDiagramData ? (
+              <SDDiagramRenderer data={finalDiagramData} />
+            ) : q.diagramUrl ? (
+              /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(q.diagramUrl) ? (
+                <img
+                  src={q.diagramUrl}
+                  alt="Architecture diagram"
+                  className={`max-w-full rounded-lg shadow-sm max-h-80 object-contain ${isNocturnal ? "border border-white/10" : "border border-gray-600"}`}
+                />
+              ) : (
+                <a
+                  href={q.diagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-400 hover:underline text-sm"
+                >
+                  View diagram ↗
+                </a>
+              )
+            ) : null
+          ) : (
+            <PrepLockedPremiumBlock
+              compact
+              title="Diagram locked"
+              message="Upgrade to Premium to view architecture diagrams."
+              onUpgrade={promptUpgrade}
+            />
+          )}
         </div>
       )}
 
@@ -180,24 +206,33 @@ export function SDDetailPanel({
         q.additionalImageUrls &&
         q.additionalImageUrls.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-            {q.additionalImageUrls.map((url, i) => (
-              <div
-                key={i}
-                className={`rounded-lg overflow-hidden ${isNocturnal ? "border border-white/10 bg-[#141414]" : "border border-gray-600 bg-gray-900"}`}
-              >
-                <img
-                  src={url}
-                  alt={`Additional image ${i + 1}`}
-                  className="w-full object-contain max-h-64"
-                  onError={(e) => {
-                    const el = e.target as HTMLImageElement;
-                    if (el.parentElement)
-                      el.parentElement.innerHTML =
-                        '<p class="text-xs text-red-400 p-3">Image failed to load</p>';
-                  }}
-                />
-              </div>
-            ))}
+            {canViewAnswers ? (
+              q.additionalImageUrls.map((url, i) => (
+                <div
+                  key={i}
+                  className={`rounded-lg overflow-hidden ${isNocturnal ? "border border-white/10 bg-[#141414]" : "border border-gray-600 bg-gray-900"}`}
+                >
+                  <img
+                    src={url}
+                    alt={`Additional image ${i + 1}`}
+                    className="w-full object-contain max-h-64"
+                    onError={(e) => {
+                      const el = e.target as HTMLImageElement;
+                      if (el.parentElement)
+                        el.parentElement.innerHTML =
+                          '<p class="text-xs text-red-400 p-3">Image failed to load</p>';
+                    }}
+                  />
+                </div>
+              ))
+            ) : (
+              <PrepLockedPremiumBlock
+                compact
+                title="Images locked"
+                message="Upgrade to Premium to view reference images."
+                onUpgrade={promptUpgrade}
+              />
+            )}
           </div>
         )}
 

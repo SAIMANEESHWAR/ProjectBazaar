@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import UserAttributionPanel from './UserAttributionPanel';
+import { extractAttributionFromUser, type UserAttribution } from '../../lib/userAttribution';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 interface User {
@@ -18,6 +20,8 @@ interface User {
   credits?: number;
   totalPurchases?: number;
   status?: string;
+  createdBy?: string;
+  attribution?: UserAttribution;
 }
 
 interface AdminProject extends BuyerProject {
@@ -53,6 +57,17 @@ interface ApiUser {
   emailNotifications?: boolean;
   pushNotifications?: boolean;
   role?: string;
+  createdBy?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmTerm?: string;
+  utmContent?: string;
+  gclid?: string;
+  fbclid?: string;
+  landingPage?: string;
+  signupReferrer?: string;
+  attributionCapturedAt?: string;
 }
 
 interface ApiProject {
@@ -158,6 +173,8 @@ const AdminUserProfilePage: React.FC<AdminUserProfilePageProps> = ({
       projectsCount: apiUser.projectsCount || 0,
       joinDate: apiUser.createdAt ? new Date(apiUser.createdAt).toISOString().split('T')[0] : undefined,
       status: apiUser.status,
+      createdBy: apiUser.createdBy,
+      attribution: extractAttributionFromUser(apiUser),
       rating: 0, // API doesn't provide rating, can be calculated later
       totalSales: 0, // API doesn't provide totalSales directly, can be calculated from projects
     };
@@ -442,6 +459,13 @@ const AdminUserProfilePage: React.FC<AdminUserProfilePageProps> = ({
                       <span className="text-lg font-semibold text-gray-900">{userData.rating.toFixed(1)}</span>
                     </div>
                   )}
+                </div>
+
+                <div className="mt-4">
+                  <UserAttributionPanel
+                    attribution={userData.attribution || {}}
+                    createdBy={userData.createdBy}
+                  />
                 </div>
 
                 {/* Social Links */}

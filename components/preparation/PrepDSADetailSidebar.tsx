@@ -1,5 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import PrepDetailSidebar, { difficultyBadgeVariant } from './PrepDetailSidebar';
+import PrepLockedPremiumBlock from './PrepLockedPremiumBlock';
+import { usePrepContentAccess } from './prepContentAccess';
 
 export interface PrepDSADetail {
   id: string;
@@ -44,6 +46,8 @@ export default function PrepDSADetailSidebar({
   hasNext = false,
   hasPrev = false,
 }: PrepDSADetailSidebarProps) {
+  const { canViewAnswers, promptUpgrade } = usePrepContentAccess();
+
   const tags = [
     { label: problem.difficulty, variant: difficultyBadgeVariant(problem.difficulty) },
     { label: problem.topic, variant: 'default' as const },
@@ -120,23 +124,33 @@ export default function PrepDSADetailSidebar({
       {(problem.solution || problem.solutionLink) && (
         <section className="mb-8">
           <p className={sectionLabel}>Solution</p>
-          {problem.solution && (
-            <p className={`mb-4 whitespace-pre-line ${bodyText}`}>{problem.solution}</p>
-          )}
-          {problem.solutionLink ? (
-            <a
-              href={problem.solutionLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-medium text-orange-400 hover:text-orange-300"
-            >
-              <ExternalLink size={16} />
-              View full solution
-            </a>
+          {canViewAnswers ? (
+            <>
+              {problem.solution && (
+                <p className={`mb-4 whitespace-pre-line ${bodyText}`}>{problem.solution}</p>
+              )}
+              {problem.solutionLink ? (
+                <a
+                  href={problem.solutionLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-orange-400 hover:text-orange-300"
+                >
+                  <ExternalLink size={16} />
+                  View full solution
+                </a>
+              ) : (
+                !problem.solution && (
+                  <p className="text-sm italic text-neutral-500">No solution link available yet.</p>
+                )
+              )}
+            </>
           ) : (
-            !problem.solution && (
-              <p className="text-sm italic text-neutral-500">No solution link available yet.</p>
-            )
+            <PrepLockedPremiumBlock
+              title="Solution locked"
+              message="Upgrade to Premium to view DSA solutions and full walkthroughs."
+              onUpgrade={promptUpgrade}
+            />
           )}
         </section>
       )}
@@ -144,11 +158,20 @@ export default function PrepDSADetailSidebar({
       {problem.hints && problem.hints.length > 0 && (
         <section>
           <p className={sectionLabel}>Hints</p>
-          <ul className="list-inside list-disc space-y-2 text-[15px] leading-relaxed text-neutral-200 md:text-base">
-            {problem.hints.map((hint, i) => (
-              <li key={i}>{hint}</li>
-            ))}
-          </ul>
+          {canViewAnswers ? (
+            <ul className="list-inside list-disc space-y-2 text-[15px] leading-relaxed text-neutral-200 md:text-base">
+              {problem.hints.map((hint, i) => (
+                <li key={i}>{hint}</li>
+              ))}
+            </ul>
+          ) : (
+            <PrepLockedPremiumBlock
+              compact
+              title="Hints locked"
+              message="Upgrade to Premium to unlock hints."
+              onUpgrade={promptUpgrade}
+            />
+          )}
         </section>
       )}
     </PrepDetailSidebar>

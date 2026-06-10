@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigation } from '../../App';
+import { goToSubscriptionPlans } from '../../lib/subscriptionNavigation';
 
 const HI = 'https://files.hellointerview.com/build-assets/PRODUCTION/_next/static/media';
 
@@ -224,7 +225,7 @@ export const InterviewPrepBlackHero: React.FC = () => {
           <div className="mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-4">
             <motion.button
               type="button"
-              onClick={() => navigateTo('auth')}
+              onClick={() => goToSubscriptionPlans(navigateTo)}
               className="inline-flex h-12 items-center justify-center rounded-xl border border-white/20 bg-transparent px-8 text-[15px] font-medium text-white transition-colors hover:border-white/35 hover:bg-white/[0.06]"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

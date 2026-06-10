@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ProjectDashboardCard from './ProjectDashboardCard';
 import { useNavigation, usePremium, useAuth } from '../App';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 import { fetchProjectDetails, ProjectDetails } from '../services/buyerApi';
 import Lottie from 'lottie-react';
 import SkeletonDashboard from './ui/skeleton-dashboard';
@@ -2905,14 +2906,7 @@ const SellerDashboard: React.FC = () => {
                                             <button
                                                 onClick={() => {
                                                     setShowPremiumModal(false);
-                                                    navigateTo('home');
-                                                    // Scroll to pricing section after navigation
-                                                    setTimeout(() => {
-                                                        const pricingSection = document.getElementById('pricing');
-                                                        if (pricingSection) {
-                                                            pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                                        }
-                                                    }, 100);
+                                                    goToSubscriptionPlans(navigateTo);
                                                 }}
                                                 className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                                             >

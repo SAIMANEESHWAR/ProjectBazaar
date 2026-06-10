@@ -21,6 +21,11 @@ import ResumeSettingsProfileForm from './ResumeSettingsProfileForm';
 import GitHubContributionHeatmap from './GitHubContributionHeatmap';
 import verifiedFreelanceSvg from '../lottiefiles/verified_freelance.svg';
 import { invalidateUserCache } from '../services/buyerApi';
+import { sendEmailVerification, verifyEmail } from '../lib/emailVerification';
+import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
+import VerificationCodeInput from './VerificationCodeInput';
+import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
+import { getSubscriptionReceipt } from '../services/subscriptionApi';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -173,6 +178,8 @@ const SettingsPage: React.FC = () => {
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(false);
     const [jobEmailNotifications, setJobEmailNotifications] = useState(false);
+    const [receiptLoading, setReceiptLoading] = useState(false);
+    const [receiptError, setReceiptError] = useState<string | null>(null);
 
     const [fullName, setFullName] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -186,6 +193,86 @@ const SettingsPage: React.FC = () => {
     const [phoneVerified, setPhoneVerified] = useState(false);
     const [paymentVerified, setPaymentVerified] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+    const [emailVerifyCode, setEmailVerifyCode] = useState('');
+    const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+    const [emailVerifyLoading, setEmailVerifyLoading] = useState(false);
+
+    const handleSendEmailVerification = async () => {
+        if (!userId) {
+            setVerificationMessage('Sign in again to verify your email.');
+            return;
+        }
+        setEmailVerifyLoading(true);
+        setVerificationMessage(null);
+        try {
+            const result = await sendEmailVerification(userId);
+            if (result.success) {
+                setShowEmailCodeInput(true);
+                setVerificationMessage('Verification email sent. Enter the 6-digit code or use the link in your inbox.');
+            } else {
+                setVerificationMessage(result.error?.message || 'Could not send verification email.');
+            }
+        } catch {
+            setVerificationMessage('Network error. Please try again.');
+        } finally {
+            setEmailVerifyLoading(false);
+        }
+    };
+
+    const handleConfirmEmailCode = async () => {
+        if (!userId || emailVerifyCode.length !== 6) {
+            setVerificationMessage('Enter the 6-digit code from your email.');
+            return;
+        }
+        setEmailVerifyLoading(true);
+        setVerificationMessage(null);
+        try {
+            const result = await verifyEmail({ userId, code: emailVerifyCode });
+            if (result.success) {
+                setEmailVerified(true);
+                setShowEmailCodeInput(false);
+                setEmailVerifyCode('');
+                setVerificationMessage('Email verified successfully.');
+                try {
+                    const raw = localStorage.getItem('userData');
+                    if (raw) {
+                        const data = JSON.parse(raw);
+                        data.emailVerified = true;
+                        localStorage.setItem('userData', JSON.stringify(data));
+                    }
+                } catch {
+                    /* ignore */
+                }
+            } else {
+                setVerificationMessage(result.error?.message || 'Invalid or expired code.');
+            }
+        } catch {
+            setVerificationMessage('Network error. Please try again.');
+        } finally {
+            setEmailVerifyLoading(false);
+        }
+    };
+
+    const openSubscriptionReceipt = async (download: boolean) => {
+        if (!userId || !subscription?.subscriptionId) {
+            setReceiptError('No active subscription receipt available.');
+            return;
+        }
+        setReceiptLoading(true);
+        setReceiptError(null);
+        try {
+            const result = await getSubscriptionReceipt(userId, subscription.subscriptionId, download);
+            if (!result.ok) {
+                setReceiptError(result.message);
+                return;
+            }
+            window.open(result.data.invoiceUrl, download ? '_self' : '_blank', 'noopener,noreferrer');
+        } catch {
+            setReceiptError('Could not load receipt. Try again later.');
+        } finally {
+            setReceiptLoading(false);
+        }
+    };
 
     // Become a Freelancer: not every user is a freelancer; switch to opt-in and enter skills/projects
     const [isFreelancer, setIsFreelancer] = useState(false);
@@ -1768,13 +1855,44 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('Verification email sent. Check your inbox and click the link.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                onClick={handleSendEmailVerification}
+                                                disabled={emailVerifyLoading}
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-60"
                                             >
-                                                Verify
+                                                {emailVerifyLoading ? 'Sending…' : 'Verify'}
                                             </button>
                                         )}
                                     </div>
+                                    {!emailVerified && showEmailCodeInput && (
+                                        <div className="overflow-hidden rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-white to-orange-100">
+                                            <div className="border-b border-orange-100 bg-white px-4 py-4 text-center">
+                                                <img
+                                                    src={CODEXCAREER_LOGO_SRC}
+                                                    alt="CodeXCareer logo"
+                                                    className="mx-auto h-10 w-auto object-contain"
+                                                />
+                                                <p className="mt-2 text-sm font-semibold text-gray-900">Enter your verification code</p>
+                                                <p className="mt-1 text-xs text-gray-500">We sent a 6-digit code to {userEmail || 'your email'}.</p>
+                                            </div>
+                                            <div className="space-y-4 px-4 py-5">
+                                                <VerificationCodeInput
+                                                    value={emailVerifyCode}
+                                                    onChange={setEmailVerifyCode}
+                                                    disabled={emailVerifyLoading}
+                                                    idPrefix="settings-verify-code"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleConfirmEmailCode}
+                                                    disabled={emailVerifyLoading || emailVerifyCode.length !== 6}
+                                                    className="w-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-orange-600 hover:to-orange-700 disabled:opacity-60"
+                                                >
+                                                    {emailVerifyLoading ? 'Verifying…' : 'Confirm email'}
+                                                </button>
+                                                <p className="text-center text-xs text-gray-500">Codes expire in 15 minutes. Do not share this code.</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     {/* Phone */}
                                     <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
                                         <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${phoneVerified ? 'bg-green-100' : 'bg-gray-200'}`}>
@@ -1791,10 +1909,10 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('SMS with verification code will be sent. Enter the code when prompted.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                disabled
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Verify
+                                                🔒 Locked
                                             </button>
                                         )}
                                     </div>
@@ -1814,10 +1932,10 @@ const SettingsPage: React.FC = () => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => { setVerificationMessage('You will be redirected to add a payment method.'); setTimeout(() => setVerificationMessage(null), 5000); }}
-                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                                disabled
+                                                className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"
                                             >
-                                                Verify
+                                                🔒 Locked
                                             </button>
                                         )}
                                     </div>
@@ -1831,7 +1949,7 @@ const SettingsPage: React.FC = () => {
                             <ToggleSwitch label="Email Notifications" description="Get emails about new projects and offers." enabled={emailNotifications} setEnabled={(val) => handleToggleUpdate('emailNotifications', val)} />
                             <ToggleSwitch label="Push Notifications" description="Receive push notifications on your device." enabled={pushNotifications} setEnabled={(val) => handleToggleUpdate('pushNotifications', val)} />
                             <div className="border-t border-gray-100 pt-4">
-                                <ToggleSwitch label="📧 Email me when new jobs are posted" description="Receive an email whenever fresh job listings are scraped and added to the Job Hunt board." enabled={jobEmailNotifications} setEnabled={(val) => handleToggleUpdate('jobEmailNotificationsEnabled', val)} />
+                                <ToggleSwitch label="📧 Email me when new jobs are posted" description="Receive a branded digest email with up to 5 fresh listings whenever new jobs are scraped for Job Hunt." enabled={jobEmailNotifications} setEnabled={(val) => handleToggleUpdate('jobEmailNotificationsEnabled', val)} />
                             </div>
                         </div>
                     </SectionCard>
@@ -2056,21 +2174,70 @@ const SettingsPage: React.FC = () => {
                                 </div>
                                 {!isPremium && (
                                     <button
-                                        onClick={() => {
-                                            navigateTo('home');
-                                            setTimeout(() => {
-                                                const pricingSection = document.getElementById('pricing');
-                                                if (pricingSection) {
-                                                    pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                                }
-                                            }, 100);
-                                        }}
+                                        onClick={() => goToSubscriptionPlans(navigateTo)}
                                         className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                                     >
                                         Upgrade to Premium
                                     </button>
                                 )}
                             </div>
+
+                            {isPremium && subscription?.subscriptionId && (
+                                <div className="p-5 bg-white border border-orange-200 rounded-xl">
+                                    <div className="flex flex-wrap items-start justify-between gap-4">
+                                        <div>
+                                            <h4 className="text-lg font-bold text-gray-900 mb-1">Payment receipt</h4>
+                                            <p className="text-sm text-gray-500 mb-2">
+                                                CodeXCareer-branded invoice with watermark — same PDF sent to your email.
+                                            </p>
+                                            <p className="text-sm text-gray-700">
+                                                <span className="font-medium">{subscription.planName || subscription.planId}</span>
+                                                {subscription.startDate && (
+                                                    <span className="text-gray-500">
+                                                        {' '}
+                                                        · since{' '}
+                                                        {new Date(subscription.startDate).toLocaleDateString('en-IN', {
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                        })}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={receiptLoading}
+                                                onClick={() => void openSubscriptionReceipt(false)}
+                                                className="px-4 py-2 text-sm font-semibold rounded-lg border border-orange-300 text-orange-700 hover:bg-orange-50 disabled:opacity-60"
+                                            >
+                                                View receipt
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={receiptLoading}
+                                                onClick={() => void openSubscriptionReceipt(true)}
+                                                className="px-4 py-2 text-sm font-semibold rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-60"
+                                            >
+                                                Download PDF
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {receiptError && (
+                                        <p className="mt-3 text-sm text-amber-700">{receiptError}</p>
+                                    )}
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <button
+                                            type="button"
+                                            onClick={() => goToSubscriptionPlans(navigateTo)}
+                                            className="text-sm font-semibold text-[#ff7a00] hover:underline"
+                                        >
+                                            Change plan or upgrade
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Credits Display */}
                             {isPremium && (
@@ -2120,18 +2287,10 @@ const SettingsPage: React.FC = () => {
 
                                     <div className="mt-6 pt-6 border-t border-gray-200">
                                         <button
-                                            onClick={() => {
-                                                navigateTo('home');
-                                                setTimeout(() => {
-                                                    const pricingSection = document.getElementById('pricing');
-                                                    if (pricingSection) {
-                                                        pricingSection.scrollIntoView({ behavior: 'smooth' });
-                                                    }
-                                                }, 100);
-                                            }}
+                                            onClick={() => goToSubscriptionPlans(navigateTo)}
                                             className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                                         >
-                                            Buy More Credits
+                                            Change plan
                                         </button>
                                     </div>
                                 </div>

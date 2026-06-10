@@ -8,10 +8,13 @@ Actions:
   - create_subscription_order     — Razorpay order for plan checkout
   - verify_subscription_payment   — verify Razorpay payment + activate plan
   - create_subscription           — dev-only stub when Razorpay keys unset
+  - get_feature_entitlements      — per-feature trial/plan access for user
+  - get_subscription_receipt      — presigned URL for active plan invoice PDF
 
 Environment:
   ALLOWED_ORIGIN, USERS_TABLE, SUBSCRIPTIONS_TABLE, REGION
   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET (same as course purchase Lambda)
+  INVOICE_S3_BUCKET, SMTP_USER, SMTP_APP_PASSWORD (invoice PDF + receipt email)
 """
 import base64
 import hashlib
@@ -30,15 +33,52 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
+from feature_entitlement import (
+    FREE_USE_LIMIT as ENTITLEMENT_FREE_USE_LIMIT,
+    consume_feature_use,
+    get_all_entitlements,
+    resolve_entitlement,
+)
+
+try:
+    from email_service import is_smtp_configured, send_subscription_receipt_email
+except ImportError:
+    def is_smtp_configured() -> bool:
+        return False
+
+    def send_subscription_receipt_email(*_args, **_kwargs) -> bool:
+        return False
+
+try:
+    from subscription_invoice import (
+        build_subscription_invoice_pdf,
+        generate_invoice_number,
+        get_invoice_presigned_url,
+        is_invoice_pdf_available,
+        upload_invoice_pdf,
+    )
+except ImportError:
+    def is_invoice_pdf_available() -> bool:
+        return False
+
+    def generate_invoice_number() -> str:
+        return f"CXC-INV-{uuid.uuid4().hex[:8].upper()}"
+
+    def build_subscription_invoice_pdf(**_kwargs) -> bytes:
+        raise RuntimeError("subscription_invoice module not available")
+
+    def upload_invoice_pdf(*_args, **_kwargs):
+        return None, "subscription_invoice module not available"
+
+    def get_invoice_presigned_url(*_args, **_kwargs):
+        return None
+
 REGION = os.environ.get("REGION", "ap-south-2")
 USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
 SUBSCRIPTIONS_TABLE = os.environ.get("SUBSCRIPTIONS_TABLE", "UserSubscriptions")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
-# Set to "1" to charge ₹1 at Razorpay for all plans (testing only)
-SUBSCRIPTION_TEST_PRICE = os.environ.get("SUBSCRIPTION_TEST_PRICE", "").strip()
-
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 users_table = dynamodb.Table(USERS_TABLE)
 subscriptions_table = dynamodb.Table(SUBSCRIPTIONS_TABLE)
@@ -52,6 +92,9 @@ PLAN_CONFIG: Dict[str, Dict[str, Any]] = {
             "job-hunt",
             "hackathons",
             "company-posts",
+            "preparation",
+            "ats-scorer",
+            "coding",
             "resume-builder",
         ],
         "durationMonths": 1,
@@ -88,6 +131,10 @@ PLAN_CONFIG: Dict[str, Dict[str, Any]] = {
         "durationMonths": None,
     },
 }
+
+# Keep in sync with frontend lib/subscriptionFeatures.ts
+FREE_USE_LIMIT = 2
+PLAN_RANK: Dict[str, int] = {"monthly": 1, "yearly": 2, "lifetime": 3}
 
 
 def decimal_to_native(obj: Any) -> Any:
@@ -150,7 +197,145 @@ def subscription_to_payload(item: Dict[str, Any]) -> Dict[str, Any]:
         "paymentId": item.get("paymentId"),
         "createdAt": item.get("createdAt"),
         "updatedAt": item.get("updatedAt"),
+        "invoiceNumber": item.get("invoiceNumber"),
+        "invoiceS3Key": item.get("invoiceS3Key"),
+        "invoiceGeneratedAt": item.get("invoiceGeneratedAt"),
     }
+
+
+def get_plan_rank(plan_id: Optional[str]) -> int:
+    if not plan_id:
+        return 0
+    return PLAN_RANK.get(str(plan_id).lower(), 0)
+
+
+def is_valid_upgrade(existing: Dict[str, Any], target_plan_id: str) -> bool:
+    current = existing.get("planId")
+    return get_plan_rank(target_plan_id) > get_plan_rank(current)
+
+
+def deactivate_subscription(
+    item: Dict[str, Any],
+    *,
+    reason: str = "upgraded",
+    replaced_by: Optional[str] = None,
+) -> None:
+    ts = now_iso()
+    expr_values: Dict[str, Any] = {
+        ":s": reason,
+        ":u": ts,
+        ":inactive": "inactive" if reason != "upgraded" else "upgraded",
+    }
+    update_expr = "SET #st = :inactive, deactivatedAt = :u, deactivationReason = :s, updatedAt = :u"
+    expr_names = {"#st": "status"}
+    if replaced_by:
+        update_expr += ", replacedBySubscriptionId = :rb"
+        expr_values[":rb"] = replaced_by
+    subscriptions_table.update_item(
+        Key={"userId": item["userId"], "subscriptionId": item["subscriptionId"]},
+        UpdateExpression=update_expr,
+        ExpressionAttributeNames=expr_names,
+        ExpressionAttributeValues=expr_values,
+    )
+
+
+def get_user_contact(user_id: str) -> Dict[str, str]:
+    try:
+        resp = users_table.get_item(Key={"userId": user_id})
+    except ClientError:
+        return {"name": "Customer", "email": ""}
+    item = resp.get("Item") or {}
+    first = (item.get("firstName") or item.get("name") or "").strip()
+    last = (item.get("lastName") or "").strip()
+    name = (f"{first} {last}".strip() or item.get("fullName") or "Customer").strip()
+    email = (item.get("email") or "").strip()
+    return {"name": name, "email": email}
+
+
+def issue_invoice_and_email(
+    item: Dict[str, Any],
+    *,
+    upgrade_from_plan: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Generate invoice PDF, store on S3, email user. Mutates item dict with invoice fields."""
+    has_invoice = bool(item.get("invoiceS3Key"))
+    email_sent = bool(item.get("invoiceEmailSentAt"))
+    if has_invoice and email_sent:
+        return item
+
+    user_id = item["userId"]
+    subscription_id = item["subscriptionId"]
+    contact = get_user_contact(user_id)
+    invoice_number = item.get("invoiceNumber") or generate_invoice_number()
+    payment_date = item.get("startDate") or now_iso()
+    price_inr = int(item.get("priceInr") or PLAN_CONFIG.get(item.get("planId", ""), {}).get("priceInr", 0))
+    plan_name = item.get("planName") or item.get("planId", "Plan")
+    payment_id = item.get("paymentId")
+
+    pdf_bytes: Optional[bytes] = None
+    s3_key: Optional[str] = item.get("invoiceS3Key")
+    if not s3_key and is_invoice_pdf_available():
+        try:
+            pdf_bytes = build_subscription_invoice_pdf(
+                invoice_number=invoice_number,
+                user_name=contact["name"],
+                user_email=contact["email"],
+                plan_name=plan_name,
+                plan_id=str(item.get("planId") or ""),
+                price_inr=price_inr,
+                payment_id=str(payment_id) if payment_id else None,
+                payment_date_iso=payment_date,
+                upgrade_from_plan=upgrade_from_plan,
+            )
+            s3_key, upload_err = upload_invoice_pdf(user_id, subscription_id, pdf_bytes)
+            if upload_err:
+                print(f"invoice upload: {upload_err}")
+        except Exception as exc:
+            print(f"invoice pdf build failed: {exc}")
+
+    ts = now_iso()
+    item["invoiceNumber"] = invoice_number
+    item["invoiceGeneratedAt"] = ts
+    if s3_key:
+        item["invoiceS3Key"] = s3_key
+
+    subscriptions_table.update_item(
+        Key={"userId": user_id, "subscriptionId": subscription_id},
+        UpdateExpression=(
+            "SET invoiceNumber = :inv, invoiceGeneratedAt = :ts, updatedAt = :ts"
+            + (", invoiceS3Key = :key" if s3_key else "")
+        ),
+        ExpressionAttributeValues={
+            ":inv": invoice_number,
+            ":ts": ts,
+            **({":key": s3_key} if s3_key else {}),
+        },
+    )
+
+    email = contact.get("email")
+    if email and is_smtp_configured() and not email_sent:
+        sent = send_subscription_receipt_email(
+            email,
+            plan_name=plan_name,
+            price_inr=price_inr,
+            invoice_number=invoice_number,
+            payment_id=str(payment_id) if payment_id else None,
+            pdf_bytes=pdf_bytes,
+            is_upgrade=bool(upgrade_from_plan),
+            upgrade_from_plan=upgrade_from_plan,
+        )
+        subscriptions_table.update_item(
+            Key={"userId": user_id, "subscriptionId": subscription_id},
+            UpdateExpression="SET invoiceEmailSentAt = :ts, invoiceEmailStatus = :st, updatedAt = :ts",
+            ExpressionAttributeValues={
+                ":ts": ts,
+                ":st": "sent" if sent else "failed",
+            },
+        )
+        item["invoiceEmailSentAt"] = ts
+        item["invoiceEmailStatus"] = "sent" if sent else "failed"
+
+    return item
 
 
 def is_subscription_active(item: Dict[str, Any]) -> bool:
@@ -305,8 +490,16 @@ def build_subscription_item(
     }
 
 
-def activate_subscription_record(item: Dict[str, Any]) -> Dict[str, Any]:
+def activate_subscription_record(
+    item: Dict[str, Any],
+    *,
+    upgrade_from_plan: Optional[str] = None,
+) -> Dict[str, Any]:
     subscriptions_table.put_item(Item=item)
+    try:
+        item = issue_invoice_and_email(item, upgrade_from_plan=upgrade_from_plan)
+    except Exception as exc:
+        print(f"issue_invoice_and_email failed: {exc}")
     payload = subscription_to_payload(item)
     sync_users_subscription(item["userId"], payload)
     return payload
@@ -350,22 +543,17 @@ def handle_create_subscription_order(body: Dict[str, Any]) -> Dict[str, Any]:
         return err
 
     existing = get_active_subscription_item(user_id)
-    if existing:
+    if existing and not is_valid_upgrade(existing, plan_id):
         return response(400, {
             "success": False,
             "error": {
-                "code": "ALREADY_PREMIUM",
-                "message": "You are already a premium user",
+                "code": "INVALID_UPGRADE",
+                "message": "You are already on this plan or cannot downgrade. Visit /subscription to manage your plan.",
             },
         })
 
     cfg = PLAN_CONFIG[plan_id]
     amount_inr = int(cfg["priceInr"])
-    if SUBSCRIPTION_TEST_PRICE:
-        try:
-            amount_inr = max(1, int(SUBSCRIPTION_TEST_PRICE))
-        except ValueError:
-            pass
     amount_paise = amount_inr * 100
     internal_order_id = f"SUB_{uuid.uuid4().hex[:12].upper()}"
     timestamp = now_iso()
@@ -393,7 +581,12 @@ def handle_create_subscription_order(body: Dict[str, Any]) -> Dict[str, Any]:
         razorpay_order = create_razorpay_order(
             amount_paise,
             internal_order_id,
-            {"userId": user_id, "planId": plan_id, "planName": cfg["planName"]},
+            {
+                "userId": user_id,
+                "planId": plan_id,
+                "planName": cfg["planName"],
+                "upgradeFromPlanId": existing.get("planId") if existing else "",
+            },
         )
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
@@ -487,13 +680,16 @@ def handle_verify_subscription_payment(body: Dict[str, Any]) -> Dict[str, Any]:
             })
 
     existing = get_active_subscription_item(user_id)
+    upgrade_from: Optional[str] = None
     if existing:
-        payload = subscription_to_payload(existing)
-        return response(200, {
-            "success": True,
-            "message": "You are already a premium user",
-            "data": payload,
-        })
+        if not is_valid_upgrade(existing, plan_id):
+            payload = subscription_to_payload(existing)
+            return response(200, {
+                "success": True,
+                "message": "You are already a premium user",
+                "data": payload,
+            })
+        upgrade_from = str(existing.get("planName") or existing.get("planId") or "")
 
     try:
         item = build_subscription_item(
@@ -503,7 +699,9 @@ def handle_verify_subscription_payment(body: Dict[str, Any]) -> Dict[str, Any]:
             razorpay_order_id=razorpay_order_id,
             payment_status="paid",
         )
-        payload = activate_subscription_record(item)
+        if existing:
+            deactivate_subscription(existing, reason="upgraded", replaced_by=item["subscriptionId"])
+        payload = activate_subscription_record(item, upgrade_from_plan=upgrade_from)
 
         if pending and pending.get("subscriptionId", "").startswith("pending_"):
             subscriptions_table.update_item(
@@ -580,14 +778,18 @@ def handle_create_subscription(body: Dict[str, Any]) -> Dict[str, Any]:
         })
 
     existing = get_active_subscription_item(user_id)
-    if existing:
+    if existing and not is_valid_upgrade(existing, plan_id):
         return response(400, {
             "success": False,
             "error": {
-                "code": "ALREADY_PREMIUM",
-                "message": "You are already a premium user",
+                "code": "INVALID_UPGRADE",
+                "message": "You are already on this plan or cannot downgrade.",
             },
         })
+
+    upgrade_from: Optional[str] = None
+    if existing:
+        upgrade_from = str(existing.get("planName") or existing.get("planId") or "")
 
     cfg = PLAN_CONFIG[plan_id]
     start = now_iso()
@@ -614,7 +816,10 @@ def handle_create_subscription(body: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     try:
+        if existing:
+            deactivate_subscription(existing, reason="upgraded", replaced_by=subscription_id)
         subscriptions_table.put_item(Item=item)
+        item = issue_invoice_and_email(item, upgrade_from_plan=upgrade_from)
         payload = subscription_to_payload(item)
         sync_users_subscription(user_id, payload)
     except ClientError as e:
@@ -629,6 +834,143 @@ def handle_create_subscription(body: Dict[str, Any]) -> Dict[str, Any]:
         "success": True,
         "message": "Subscription created successfully",
         "data": payload,
+    })
+
+
+def handle_get_feature_entitlements(body: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = (body.get("userId") or "").strip()
+    if not user_id:
+        return response(400, {
+            "success": False,
+            "error": {"code": "VALIDATION_ERROR", "message": "userId is required"},
+        })
+
+    feature_id = (body.get("featureId") or "").strip()
+    try:
+        if feature_id:
+            ent = resolve_entitlement(user_id, feature_id)
+            return response(200, {
+                "success": True,
+                "data": ent,
+                "limit": ENTITLEMENT_FREE_USE_LIMIT,
+            })
+        entitlements = get_all_entitlements(user_id)
+        return response(200, {
+            "success": True,
+            "data": entitlements,
+            "limit": ENTITLEMENT_FREE_USE_LIMIT,
+        })
+    except ClientError as e:
+        print(f"get_feature_entitlements failed: {e}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "DB_ERROR", "message": "Could not load entitlements"},
+        })
+
+
+def handle_consume_feature_use(body: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = (body.get("userId") or "").strip()
+    feature_id = (body.get("featureId") or "").strip()
+    session_id = (body.get("sessionId") or "").strip() or None
+
+    if not user_id or not feature_id:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId and featureId are required",
+            },
+        })
+
+    try:
+        ok, ent, err = consume_feature_use(user_id, feature_id, session_id=session_id)
+    except ClientError as e:
+        print(f"consume_feature_use failed: {e}")
+        return response(500, {
+            "success": False,
+            "error": {"code": "DB_ERROR", "message": "Could not consume feature use"},
+        })
+
+    if not ok:
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "TRIAL_EXHAUSTED",
+                "message": err or "Free trial uses exhausted",
+            },
+            "data": ent,
+        })
+
+    return response(200, {
+        "success": True,
+        "message": "Feature use recorded",
+        "data": ent,
+    })
+
+
+def handle_get_subscription_receipt(body: Dict[str, Any]) -> Dict[str, Any]:
+    user_id = (body.get("userId") or "").strip()
+    subscription_id = (body.get("subscriptionId") or "").strip()
+    download = bool(body.get("download"))
+
+    if not user_id:
+        return response(400, {
+            "success": False,
+            "error": {"code": "VALIDATION_ERROR", "message": "userId is required"},
+        })
+
+    active = get_active_subscription_item(user_id)
+    if not active:
+        return response(404, {
+            "success": False,
+            "error": {"code": "NO_ACTIVE_SUB", "message": "No active subscription"},
+        })
+
+    if subscription_id and active.get("subscriptionId") != subscription_id:
+        return response(403, {
+            "success": False,
+            "error": {"code": "FORBIDDEN", "message": "Receipt not available for this subscription"},
+        })
+
+    s3_key = active.get("invoiceS3Key")
+    if not s3_key:
+        try:
+            active = issue_invoice_and_email(dict(active))
+            s3_key = active.get("invoiceS3Key")
+        except Exception as exc:
+            print(f"get_subscription_receipt invoice retry failed: {exc}")
+
+    if not s3_key:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "NO_INVOICE",
+                "message": (
+                    "Invoice PDF is not available yet. "
+                    "Ensure reportlab is bundled with the subscription Lambda and it has s3:PutObject "
+                    "on project-bazaar-users-profile-images."
+                ),
+            },
+        })
+
+    url = get_invoice_presigned_url(s3_key, download=download)
+    if not url:
+        return response(500, {
+            "success": False,
+            "error": {"code": "INVOICE_URL_ERROR", "message": "Could not generate invoice link"},
+        })
+
+    return response(200, {
+        "success": True,
+        "data": {
+            "invoiceUrl": url,
+            "invoiceNumber": active.get("invoiceNumber"),
+            "planName": active.get("planName"),
+            "planId": active.get("planId"),
+            "priceInr": active.get("priceInr"),
+            "paymentId": active.get("paymentId"),
+            "startDate": active.get("startDate"),
+        },
     })
 
 
@@ -656,13 +998,20 @@ def lambda_handler(event, context):
             return handle_verify_subscription_payment(body)
         if action == "create_subscription":
             return handle_create_subscription(body)
+        if action == "get_feature_entitlements":
+            return handle_get_feature_entitlements(body)
+        if action == "consume_feature_use":
+            return handle_consume_feature_use(body)
+        if action == "get_subscription_receipt":
+            return handle_get_subscription_receipt(body)
         return response(400, {
             "success": False,
             "error": {
                 "code": "UNKNOWN_ACTION",
                 "message": (
                     "Supported actions: get_active_subscription, create_subscription_order, "
-                    "verify_subscription_payment, create_subscription"
+                    "verify_subscription_payment, create_subscription, "
+                    "get_feature_entitlements, consume_feature_use, get_subscription_receipt"
                 ),
             },
         })

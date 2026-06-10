@@ -3,13 +3,18 @@ Single Lambda: email/password auth + Google OAuth + optional API Gateway TOKEN a
 
 HTTP POST JSON body must include "action":
 
-- "signup" — Email + phone + password.
+- "signup" — Email + phone + password; sends OTP (account stays pending until verify_email).
 - "login" — Email + password.
 - "google_oauth_config" — returns { googleEnabled, clientId? }; client id comes from env only.
 - "google_oauth_exchange" — code + redirect_uri + code_verifier (PKCE).
+- "send_email_verification" — userId; sends 6-digit code + confirm link (Gmail SMTP).
+- "verify_email" — userId + code or token; marks emailVerified true.
+- "forgot_password" — email; sends password reset code + link.
+- "reset_password" — userId + code or token + new password; updates password.
 
 Environment (this Lambda only):
-  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ALLOWED_ORIGIN
+  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ALLOWED_ORIGIN, ALLOWED_ORIGINS
+  SMTP_USER, SMTP_APP_PASSWORD (Gmail App Password); optional SMTP_HOST, SMTP_PORT
 
 Also handles API Gateway custom authorizer invocations (event.type == "TOKEN") using the same
 GOOGLE_CLIENT_ID to validate Google ID tokens (Bearer).
@@ -29,8 +34,20 @@ import urllib.parse
 import urllib.request
 import boto3
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
+
+try:
+    from email_service import is_smtp_configured, send_email_verification, send_password_reset
+except ImportError:
+    def is_smtp_configured():
+        return False
+
+    def send_email_verification(*_args, **_kwargs):
+        raise RuntimeError("email_service module not available")
+
+    def send_password_reset(*_args, **_kwargs):
+        raise RuntimeError("email_service module not available")
 from boto3.dynamodb.conditions import Key, Attr
 from decimal import Decimal
 
@@ -41,6 +58,12 @@ except ImportError:
         return None
 
 try:
+    from google_sheets_sync import append_user_attribution_row
+except ImportError:
+    def append_user_attribution_row(*_args, **_kwargs):
+        return False
+
+try:
     import jwt
     from jwt import PyJWKClient
 except ImportError:
@@ -49,13 +72,81 @@ except ImportError:
 
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://codexcareer.com").strip()
+APP_BASE_URL = os.environ.get("APP_BASE_URL", ALLOWED_ORIGIN).rstrip("/")
+ALLOWED_ORIGINS_RAW = os.environ.get("ALLOWED_ORIGINS", "").strip()
+ALLOWED_ORIGINS = [
+    o.strip() for o in ALLOWED_ORIGINS_RAW.split(",") if o.strip()
+] or [ALLOWED_ORIGIN]
+_CURRENT_REQUEST_ORIGIN = None
 
 # Google OAuth Web client — keep ID + secret only in Lambda configuration
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 
 EMAIL_REGEX = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+EMAIL_VERIFY_EXPIRY_MINUTES = 15
+PASSWORD_RESET_EXPIRY_MINUTES = 30
+
+ATTRIBUTION_FIELDS = (
+    "utmSource",
+    "utmMedium",
+    "utmCampaign",
+    "utmTerm",
+    "utmContent",
+    "gclid",
+    "fbclid",
+    "landingPage",
+    "signupReferrer",
+    "attributionCapturedAt",
+)
+
+
+def _clean_attribution_str(value) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    cleaned = value.strip()[:500]
+    return cleaned or None
+
+
+def _extract_attribution_from_body(body) -> dict:
+    raw = body.get("attribution")
+    if not isinstance(raw, dict):
+        return {}
+    mapping = {
+        "utmSource": _clean_attribution_str(raw.get("utmSource") or raw.get("utm_source")),
+        "utmMedium": _clean_attribution_str(raw.get("utmMedium") or raw.get("utm_medium")),
+        "utmCampaign": _clean_attribution_str(raw.get("utmCampaign") or raw.get("utm_campaign")),
+        "utmTerm": _clean_attribution_str(raw.get("utmTerm") or raw.get("utm_term")),
+        "utmContent": _clean_attribution_str(raw.get("utmContent") or raw.get("utm_content")),
+        "gclid": _clean_attribution_str(raw.get("gclid")),
+        "fbclid": _clean_attribution_str(raw.get("fbclid")),
+        "landingPage": _clean_attribution_str(raw.get("landingPage") or raw.get("landing_page")),
+        "signupReferrer": _clean_attribution_str(raw.get("signupReferrer") or raw.get("referrer")),
+        "attributionCapturedAt": _clean_attribution_str(
+            raw.get("attributionCapturedAt") or raw.get("captured_at")
+        ),
+    }
+    return {k: v for k, v in mapping.items() if v}
+
+
+def _apply_attribution_to_user_item(item: dict, attribution: dict) -> dict:
+    if not attribution:
+        return item
+    for field in ATTRIBUTION_FIELDS:
+        value = attribution.get(field)
+        if value:
+            item[field] = value
+    return item
+
+
+def _sync_attribution_to_google_sheets(user_item: dict, signup_method: str) -> None:
+    try:
+        append_user_attribution_row(user_item, signup_method)
+    except Exception as exc:
+        print("attribution google sheets sync failed:", str(exc))
 
 # ---------- AWS ----------
 dynamodb = boto3.resource("dynamodb")
@@ -90,12 +181,18 @@ def decimal_to_native(obj):
     return obj
 
 # ---------- RESPONSE ----------
+def _resolve_cors_origin() -> str:
+    if _CURRENT_REQUEST_ORIGIN and _CURRENT_REQUEST_ORIGIN in ALLOWED_ORIGINS:
+        return _CURRENT_REQUEST_ORIGIN
+    return ALLOWED_ORIGINS[0]
+
+
 def response(status, body):
     return {
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Origin": _resolve_cors_origin(),
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
             "Access-Control-Allow-Methods": "POST,OPTIONS",
             "Access-Control-Allow-Credentials": "true",
@@ -117,8 +214,480 @@ def get_password_error(password):
         return "Password must contain at least one special character"
     return None
 
+# ---------- EMAIL VERIFICATION ----------
+def _hash_verification_secret(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _generate_email_verification_pair() -> Tuple[str, str]:
+    code = f"{secrets.randbelow(900_000) + 100_000}"
+    token = secrets.token_urlsafe(32)
+    return code, token
+
+
+def _email_verification_expires_at() -> str:
+    return (
+        datetime.utcnow() + timedelta(minutes=EMAIL_VERIFY_EXPIRY_MINUTES)
+    ).isoformat()
+
+
+def _build_verify_email_link(user_id: str, token: str) -> str:
+    query = urllib.parse.urlencode({"userId": user_id, "token": token})
+    return f"{APP_BASE_URL}/verify-email?{query}"
+
+
+def _password_reset_expires_at() -> str:
+    return (
+        datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES)
+    ).isoformat()
+
+
+def _build_reset_password_link(user_id: str, token: str) -> str:
+    query = urllib.parse.urlencode({"userId": user_id, "token": token})
+    return f"{APP_BASE_URL}/reset-password?{query}"
+
+
+def _get_user_by_email(email: str):
+    if not email:
+        return None
+    result = table.scan(FilterExpression=Attr("email").eq(email))
+    if result.get("Count", 0) > 0:
+        return result["Items"][0]
+    return None
+
+
+def _get_user_by_id(user_id: str):
+    if not user_id:
+        return None
+    result = table.get_item(Key={"userId": user_id})
+    return result.get("Item")
+
+
+def _issue_and_send_email_verification(user: dict) -> Tuple[bool, Optional[str]]:
+    if user.get("emailVerified") is True:
+        return False, "Email is already verified"
+
+    if not is_smtp_configured():
+        return False, "Email service is not configured"
+
+    email = (user.get("email") or "").lower().strip()
+    if not email or not re.match(EMAIL_REGEX, email):
+        return False, "User has no valid email address"
+
+    code, token = _generate_email_verification_pair()
+    expires_at = _email_verification_expires_at()
+    now = datetime.utcnow().isoformat()
+
+    table.update_item(
+        Key={"userId": user["userId"]},
+        UpdateExpression="""
+            SET emailVerifyCodeHash = :c,
+                emailVerifyTokenHash = :t,
+                emailVerifyExpiresAt = :e,
+                updatedAt = :u
+        """,
+        ExpressionAttributeValues={
+            ":c": _hash_verification_secret(code),
+            ":t": _hash_verification_secret(token),
+            ":e": expires_at,
+            ":u": now,
+        },
+    )
+
+    verify_link = _build_verify_email_link(user["userId"], token)
+    try:
+        send_email_verification(email, code, verify_link)
+    except Exception as exc:
+        print("send_email_verification failed:", str(exc))
+        traceback.print_exc()
+        return False, "Could not send verification email"
+
+    return True, None
+
+
+def handle_send_email_verification(body):
+    user_id = (body.get("userId") or "").strip()
+    if not user_id:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId is required",
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("status") in ("blocked", "deleted"):
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "ACCOUNT_UNAVAILABLE",
+                "message": "This account cannot verify email right now",
+            },
+        })
+
+    sent, err = _issue_and_send_email_verification(user)
+    if not sent:
+        code = "EMAIL_ALREADY_VERIFIED" if err == "Email is already verified" else "EMAIL_SEND_FAILED"
+        if err == "Email service is not configured":
+            code = "NOT_CONFIGURED"
+        status = 200 if code == "EMAIL_ALREADY_VERIFIED" else 503 if code == "NOT_CONFIGURED" else 500
+        return response(status, {
+            "success": code == "EMAIL_ALREADY_VERIFIED",
+            "error": {
+                "code": code,
+                "message": err or "Could not send verification email",
+            },
+        })
+
+    return response(200, {
+        "success": True,
+        "message": "Verification email sent. Check your inbox for the code or link.",
+        "data": {"emailVerificationSent": True},
+    })
+
+
+def handle_verify_email(body):
+    user_id = (body.get("userId") or "").strip()
+    code = (body.get("code") or "").strip()
+    token = (body.get("token") or "").strip()
+
+    if not user_id or (not code and not token):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId and either code or token are required",
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("emailVerified") is True:
+        return response(200, {
+            "success": True,
+            "message": "Email is already verified",
+            "data": {"emailVerified": True},
+        })
+
+    expires_at = user.get("emailVerifyExpiresAt")
+    if not expires_at:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "NO_PENDING_VERIFICATION",
+                "message": "No verification request found. Send a new verification email.",
+            },
+        })
+
+    try:
+        if datetime.fromisoformat(expires_at) <= datetime.utcnow():
+            return response(400, {
+                "success": False,
+                "error": {
+                    "code": "VERIFICATION_EXPIRED",
+                    "message": "Verification code expired. Request a new email.",
+                },
+            })
+    except ValueError:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VERIFICATION_EXPIRED",
+                "message": "Verification code expired. Request a new email.",
+            },
+        })
+
+    expected_hash = None
+    if token:
+        expected_hash = user.get("emailVerifyTokenHash")
+        provided_hash = _hash_verification_secret(token)
+    else:
+        expected_hash = user.get("emailVerifyCodeHash")
+        provided_hash = _hash_verification_secret(code)
+
+    if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "INVALID_VERIFICATION",
+                "message": "Invalid verification code or link",
+            },
+        })
+
+    now = datetime.utcnow().isoformat()
+    activate_account = user.get("status") == "pending_verification"
+    update_expression = """
+        SET emailVerified = :v,
+            updatedAt = :u
+        REMOVE emailVerifyCodeHash, emailVerifyTokenHash, emailVerifyExpiresAt
+    """
+    expression_values = {
+        ":v": True,
+        ":u": now,
+    }
+    if activate_account:
+        update_expression = """
+            SET emailVerified = :v,
+                #st = :active,
+                updatedAt = :u
+            REMOVE emailVerifyCodeHash, emailVerifyTokenHash, emailVerifyExpiresAt
+        """
+        expression_values[":active"] = "active"
+
+    table.update_item(
+        Key={"userId": user_id},
+        UpdateExpression=update_expression,
+        ExpressionAttributeValues=expression_values,
+        **({"ExpressionAttributeNames": {"#st": "status"}} if activate_account else {}),
+    )
+
+    return response(200, {
+        "success": True,
+        "message": "Email verified successfully. Your account is now active.",
+        "data": {
+            "emailVerified": True,
+            "accountActivated": activate_account,
+        },
+    })
+
+
+# ---------- PASSWORD RESET ----------
+def _issue_and_send_password_reset(user: dict) -> Tuple[bool, Optional[str]]:
+    if not is_smtp_configured():
+        return False, "Email service is not configured"
+
+    email = (user.get("email") or "").lower().strip()
+    if not email or not re.match(EMAIL_REGEX, email):
+        return False, "User has no valid email address"
+
+    code, token = _generate_email_verification_pair()
+    expires_at = _password_reset_expires_at()
+    now = datetime.utcnow().isoformat()
+
+    table.update_item(
+        Key={"userId": user["userId"]},
+        UpdateExpression="""
+            SET passwordResetCodeHash = :c,
+                passwordResetTokenHash = :t,
+                passwordResetExpiresAt = :e,
+                updatedAt = :u
+        """,
+        ExpressionAttributeValues={
+            ":c": _hash_verification_secret(code),
+            ":t": _hash_verification_secret(token),
+            ":e": expires_at,
+            ":u": now,
+        },
+    )
+
+    reset_link = _build_reset_password_link(user["userId"], token)
+    try:
+        send_password_reset(email, code, reset_link)
+    except Exception as exc:
+        print("send_password_reset failed:", str(exc))
+        traceback.print_exc()
+        return False, "Could not send password reset email"
+
+    return True, None
+
+
+def handle_forgot_password(body):
+    email = (body.get("email") or "").lower().strip()
+    generic_message = (
+        "If an account exists for this email, we sent password reset instructions."
+    )
+
+    if not email or not re.match(EMAIL_REGEX, email):
+        return response(200, {
+            "success": True,
+            "message": generic_message,
+            "data": {"passwordResetSent": True},
+        })
+
+    user = _get_user_by_email(email)
+    if not user or user.get("status") in ("blocked", "deleted"):
+        return response(200, {
+            "success": True,
+            "message": generic_message,
+            "data": {"passwordResetSent": True},
+        })
+
+    sent, err = _issue_and_send_password_reset(user)
+    if not sent:
+        if err == "Email service is not configured":
+            return response(503, {
+                "success": False,
+                "error": {
+                    "code": "NOT_CONFIGURED",
+                    "message": "Password reset email is not available right now.",
+                },
+            })
+        return response(500, {
+            "success": False,
+            "error": {
+                "code": "EMAIL_SEND_FAILED",
+                "message": "Could not send password reset email. Try again later.",
+            },
+        })
+
+    return response(200, {
+        "success": True,
+        "message": generic_message,
+        "data": {"passwordResetSent": True},
+    })
+
+
+def handle_reset_password(body):
+    user_id = (body.get("userId") or "").strip()
+    code = (body.get("code") or "").strip()
+    token = (body.get("token") or "").strip()
+    password = body.get("password")
+    confirm_password = body.get("confirmPassword")
+
+    if not user_id or (not code and not token) or not password or not confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "userId, new password, confirmPassword, and code or token are required",
+            },
+        })
+
+    if password != confirm_password:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Passwords do not match",
+            },
+        })
+
+    password_error = get_password_error(password)
+    if password_error:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "PASSWORD_TOO_WEAK",
+                "message": password_error,
+            },
+        })
+
+    user = _get_user_by_id(user_id)
+    if not user:
+        return response(404, {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found",
+            },
+        })
+
+    if user.get("status") in ("blocked", "deleted"):
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "ACCOUNT_UNAVAILABLE",
+                "message": "This account cannot reset password right now",
+            },
+        })
+
+    expires_at = user.get("passwordResetExpiresAt")
+    if not expires_at:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "NO_PENDING_RESET",
+                "message": "No password reset request found. Request a new reset email.",
+            },
+        })
+
+    try:
+        if datetime.fromisoformat(expires_at) <= datetime.utcnow():
+            return response(400, {
+                "success": False,
+                "error": {
+                    "code": "RESET_EXPIRED",
+                    "message": "Reset code expired. Request a new password reset email.",
+                },
+            })
+    except ValueError:
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "RESET_EXPIRED",
+                "message": "Reset code expired. Request a new password reset email.",
+            },
+        })
+
+    if token:
+        expected_hash = user.get("passwordResetTokenHash")
+        provided_hash = _hash_verification_secret(token)
+    else:
+        expected_hash = user.get("passwordResetCodeHash")
+        provided_hash = _hash_verification_secret(code)
+
+    if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+        return response(400, {
+            "success": False,
+            "error": {
+                "code": "INVALID_RESET",
+                "message": "Invalid reset code or link",
+            },
+        })
+
+    pw_hash, pw_salt = _hash_password(password)
+    now = datetime.utcnow().isoformat()
+    table.update_item(
+        Key={"userId": user_id},
+        UpdateExpression="""
+            SET passwordHash = :h,
+                passwordSalt = :s,
+                passwordUpdatedAt = :p,
+                updatedAt = :u,
+                failedLoginAttempts = :z
+            REMOVE passwordResetCodeHash, passwordResetTokenHash, passwordResetExpiresAt
+        """,
+        ExpressionAttributeValues={
+            ":h": pw_hash,
+            ":s": pw_salt,
+            ":p": now,
+            ":u": now,
+            ":z": 0,
+        },
+    )
+
+    return response(200, {
+        "success": True,
+        "message": "Password reset successfully. You can sign in with your new password.",
+        "data": {"passwordReset": True},
+    })
+
 # ---------- MAIN HANDLER ----------
 def lambda_handler(event, context):
+    global _CURRENT_REQUEST_ORIGIN
+    headers = event.get("headers", {}) or {}
+    _CURRENT_REQUEST_ORIGIN = (
+        headers.get("origin") or headers.get("Origin") or None
+    )
+
     print("login_handler invoked", json.dumps({
         "hasType": "type" in event,
         "type": event.get("type"),
@@ -159,6 +728,34 @@ def lambda_handler(event, context):
             if blocked:
                 return blocked
             return handle_google_oauth_exchange(body)
+        elif action == "send_email_verification":
+            blocked = check_rate_limit(
+                event, action="send_email_verification", max_requests=5, window_seconds=900
+            )
+            if blocked:
+                return blocked
+            return handle_send_email_verification(body)
+        elif action == "verify_email":
+            blocked = check_rate_limit(
+                event, action="verify_email", max_requests=10, window_seconds=300
+            )
+            if blocked:
+                return blocked
+            return handle_verify_email(body)
+        elif action == "forgot_password":
+            blocked = check_rate_limit(
+                event, action="forgot_password", max_requests=5, window_seconds=900
+            )
+            if blocked:
+                return blocked
+            return handle_forgot_password(body)
+        elif action == "reset_password":
+            blocked = check_rate_limit(
+                event, action="reset_password", max_requests=10, window_seconds=300
+            )
+            if blocked:
+                return blocked
+            return handle_reset_password(body)
 
         return response(400, {
             "success": False,
@@ -224,12 +821,8 @@ def handle_signup(body):
             }
         })
 
-    # ---------- CHECK EMAIL EXISTS ----------
-    existing = table.scan(
-        FilterExpression=Attr("email").eq(email)
-    )
-
-    if existing["Count"] > 0:
+    existing_user = _get_user_by_email(email)
+    if existing_user and existing_user.get("status") != "pending_verification":
         return response(409, {
             "success": False,
             "error": {
@@ -238,57 +831,94 @@ def handle_signup(body):
             }
         })
 
-    user_id = str(uuid.uuid4())
+    user_id = existing_user["userId"] if existing_user else str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     pw_hash, pw_salt = _hash_password(password)
 
-    table.put_item(Item={
-        "userId": user_id,
-        "email": email,
-        "phoneNumber": phone,
-        "passwordHash": pw_hash,
-        "passwordSalt": pw_salt,
-        "role": "user",
-        "status": "active",
+    if existing_user:
+        table.update_item(
+            Key={"userId": user_id},
+            UpdateExpression="""
+                SET phoneNumber = :p,
+                    passwordHash = :h,
+                    passwordSalt = :s,
+                    passwordUpdatedAt = :u,
+                    updatedAt = :u
+            """,
+            ExpressionAttributeValues={
+                ":p": phone,
+                ":h": pw_hash,
+                ":s": pw_salt,
+                ":u": now,
+            },
+        )
+    else:
+        user_item = {
+            "userId": user_id,
+            "email": email,
+            "phoneNumber": phone,
+            "passwordHash": pw_hash,
+            "passwordSalt": pw_salt,
+            "role": "user",
+            "status": "pending_verification",
 
-        "emailVerified": False,
-        "phoneVerified": False,
+            "emailVerified": False,
+            "phoneVerified": False,
 
-        "isPremium": False,
-        "subscription": {
-            "plan": "free",
-            "startedAt": None,
-            "expiresAt": None
-        },
+            "isPremium": False,
+            "subscription": {
+                "plan": "free",
+                "startedAt": None,
+                "expiresAt": None,
+            },
+            "featureUsage": {},
 
-        "credits": 0,
-        "projectsCount": 0,
-        "totalPurchases": 0,
-        "totalSpent": 0,
+            "credits": 0,
+            "projectsCount": 0,
+            "totalPurchases": 0,
+            "totalSpent": 0,
 
-        "wishlist": [],
-        "cart": [],
-        "purchases": [],
+            "wishlist": [],
+            "cart": [],
+            "purchases": [],
 
-        "lastLoginAt": None,
-        "loginCount": 0,
+            "lastLoginAt": None,
+            "loginCount": 0,
 
-        "failedLoginAttempts": 0,
-        "accountLockedUntil": None,
-        "passwordUpdatedAt": now,
+            "failedLoginAttempts": 0,
+            "accountLockedUntil": None,
+            "passwordUpdatedAt": now,
 
-        "createdAt": now,
-        "updatedAt": now,
-        "createdBy": "self"
-    })
+            "createdAt": now,
+            "updatedAt": now,
+            "createdBy": "self"
+        }
+        _apply_attribution_to_user_item(user_item, _extract_attribution_from_body(body))
+        table.put_item(Item=user_item)
+        _sync_attribution_to_google_sheets(user_item, "email")
+
+    email_sent = False
+    try:
+        created_user = table.get_item(Key={"userId": user_id}).get("Item") or {
+            "userId": user_id,
+            "email": email,
+            "emailVerified": False,
+            "status": "pending_verification",
+        }
+        email_sent, _ = _issue_and_send_email_verification(created_user)
+    except Exception as exc:
+        print("signup verification email failed:", str(exc))
+        traceback.print_exc()
 
     return response(200, {
         "success": True,
-        "message": "User registered successfully",
+        "message": "Verification code sent. Enter the OTP to create your account.",
         "data": {
             "userId": user_id,
             "email": email,
-            "role": "user"
+            "role": "user",
+            "emailVerificationSent": email_sent,
+            "requiresEmailVerification": True,
         }
     })
 
@@ -320,6 +950,15 @@ def handle_login(body):
         })
 
     user = result["Items"][0]
+
+    if user.get("status") == "pending_verification":
+        return response(403, {
+            "success": False,
+            "error": {
+                "code": "EMAIL_NOT_VERIFIED",
+                "message": "Verify your email with the OTP sent during signup before signing in.",
+            },
+        })
 
     if user.get("status") == "blocked":
         return response(403, {
@@ -390,7 +1029,8 @@ def handle_login(body):
             "email": user["email"],
             "role": user["role"],
             "credits": user["credits"],
-            "status": user["status"]
+            "status": user["status"],
+            "emailVerified": user.get("emailVerified", False),
         }
     })
 
@@ -707,6 +1347,7 @@ def handle_google_oauth_exchange(body):
                 "credits": refreshed.get("credits", 0),
                 "status": refreshed.get("status", "active"),
                 "idToken": id_token,
+                "isNewUser": False,
             },
         })
 
@@ -715,41 +1356,43 @@ def handle_google_oauth_exchange(body):
     pw_hash, pw_salt = _hash_password(random_pw)
 
     try:
-        table.put_item(
-            Item={
-                "userId": user_id,
-                "email": email,
-                "passwordHash": pw_hash,
-                "passwordSalt": pw_salt,
-                "role": "user",
-                "status": "active",
-                "googleSub": google_sub,
-                "authProvider": "google",
-                "emailVerified": True,
-                "phoneVerified": False,
-                "isPremium": False,
-                "subscription": {
-                    "plan": "free",
-                    "startedAt": None,
-                    "expiresAt": None,
-                },
-                "credits": 0,
-                "projectsCount": 0,
-                "totalPurchases": 0,
-                "totalSpent": 0,
-                "wishlist": [],
-                "cart": [],
-                "purchases": [],
-                "lastLoginAt": now,
-                "loginCount": 1,
-                "failedLoginAttempts": 0,
-                "accountLockedUntil": None,
-                "passwordUpdatedAt": now,
-                "createdAt": now,
-                "updatedAt": now,
-                "createdBy": "google_oauth",
-            }
-        )
+        google_user_item = {
+            "userId": user_id,
+            "email": email,
+            "passwordHash": pw_hash,
+            "passwordSalt": pw_salt,
+            "role": "user",
+            "status": "active",
+            "googleSub": google_sub,
+            "authProvider": "google",
+            "emailVerified": True,
+            "phoneVerified": False,
+            "isPremium": False,
+            "subscription": {
+                "plan": "free",
+                "startedAt": None,
+                "expiresAt": None,
+            },
+            "featureUsage": {},
+            "credits": 0,
+            "projectsCount": 0,
+            "totalPurchases": 0,
+            "totalSpent": 0,
+            "wishlist": [],
+            "cart": [],
+            "purchases": [],
+            "lastLoginAt": now,
+            "loginCount": 1,
+            "failedLoginAttempts": 0,
+            "accountLockedUntil": None,
+            "passwordUpdatedAt": now,
+            "createdAt": now,
+            "updatedAt": now,
+            "createdBy": "google_oauth",
+        }
+        _apply_attribution_to_user_item(google_user_item, _extract_attribution_from_body(body))
+        table.put_item(Item=google_user_item)
+        _sync_attribution_to_google_sheets(google_user_item, "google")
     except Exception as e:
         return response(500, {
             "success": False,
@@ -770,5 +1413,6 @@ def handle_google_oauth_exchange(body):
             "credits": 0,
             "status": "active",
             "idToken": id_token,
+            "isNewUser": True,
         },
     })

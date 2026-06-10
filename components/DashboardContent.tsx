@@ -52,6 +52,8 @@ import ChatRoom from './ChatRoom';
 import CompanyPostsPage from './CompanyPostsPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
+import { PrepContentAccessProvider } from './preparation/PrepContentAccessProvider';
+import { JobHuntContentAccessProvider } from './JobHuntContentAccessProvider';
 import SubscriptionFeatureGate from './subscription/SubscriptionFeatureGate';
 import { getFeatureIdForView } from '../lib/subscriptionFeatures';
 import PrepInterviewQuestionsPage from './preparation/PrepInterviewQuestionsPage';
@@ -513,6 +515,8 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     const { userId, userEmail } = useAuth();
     const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
+    const prevActiveViewRef = useRef(activeView);
+    const [savedKeysRefreshNonce, setSavedKeysRefreshNonce] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
 
     // After login, show buyer dashboard with projects view
@@ -548,6 +552,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
     // Scroll main content to top when sidebar view changes
     useEffect(() => {
         mainScrollRef.current?.scrollTo(0, 0);
+    }, [activeView]);
+
+    // Re-fetch ATS saved-key status after leaving Settings (keys may have been added there).
+    useEffect(() => {
+        if (prevActiveViewRef.current === 'settings') {
+            setSavedKeysRefreshNonce((n) => n + 1);
+        }
+        prevActiveViewRef.current = activeView;
     }, [activeView]);
 
     // Auto-hide scrollbar effect: show on scroll, hide after idle
@@ -989,6 +1001,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                   <ATSScorer
                     onBack={() => setActiveView('dashboard')}
                     onNavigateToSettings={() => setActiveView('settings')}
+                    savedKeysRefreshNonce={savedKeysRefreshNonce}
                   />
                 );
             case 'career-guidance':
@@ -1101,6 +1114,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                   <ATSScorer
                     onBack={() => setActiveView('dashboard')}
                     onNavigateToSettings={() => setActiveView('settings')}
+                    savedKeysRefreshNonce={savedKeysRefreshNonce}
                   />
                 );
             case 'career-guidance':
@@ -1250,7 +1264,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         const featureId = getFeatureIdForView(activeView);
         if (!featureId) return content;
         return (
-            <SubscriptionFeatureGate featureId={featureId}>
+            <SubscriptionFeatureGate
+                featureId={featureId}
+                hideUsageBanner={dashboardMode === 'preparation'}
+            >
                 {content}
             </SubscriptionFeatureGate>
         );
@@ -1265,6 +1282,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             className={`flex-1 flex flex-col min-h-0 overflow-x-hidden ${isCodingQuestions ? 'overflow-hidden' : 'overflow-y-auto'} ${isPreparationMode ? (isPrepDark ? 'bg-black' : 'bg-white') : 'bg-white'} custom-scrollbar transition-colors duration-500`}
         >
             {isPreparationMode ? (
+                <PrepContentAccessProvider>
                 <div
                     className={`prep-mode flex-1 min-h-0 overflow-y-auto overflow-x-hidden prep-animate-fade-in ${isPrepDark ? 'prep-theme-dark' : 'prep-theme-light'}`}
                 >
@@ -1278,6 +1296,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                         {renderGatedModeContent()}
                     </div>
                 </div>
+                </PrepContentAccessProvider>
             ) : isToolViewWithStickyHeader ? (
                 <div
                     className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-8 ${isLiveMockInterview ? 'px-0' : 'px-6'}`}
@@ -1294,6 +1313,20 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     </div>
                     {renderGatedModeContent()}
                 </div>
+            ) : dashboardMode === 'jobHunt' ? (
+                <JobHuntContentAccessProvider>
+                    <div className="container mx-auto px-6 py-8">
+                        <DashboardHeader
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            buyerProjectView={buyerProjectView}
+                            setBuyerProjectView={setBuyerProjectView}
+                            isSidebarOpen={isSidebarOpen}
+                            toggleSidebar={toggleSidebar}
+                        />
+                        {renderGatedModeContent()}
+                    </div>
+                </JobHuntContentAccessProvider>
             ) : (
                 <div className="container mx-auto px-6 py-8">
                     <DashboardHeader

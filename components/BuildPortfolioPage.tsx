@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigation, useAuth } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
 import PortfolioHistory from './PortfolioHistory';
 
 // API Endpoint for portfolio generation (AWS Lambda)
@@ -49,6 +50,7 @@ interface BuildPortfolioPageProps {
 const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = false, toggleSidebar }) => {
   const { navigateTo } = useNavigation();
   const { isLoggedIn, userId, userEmail } = useAuth();
+  const { refreshEntitlements } = useSubscription();
   
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -648,6 +650,9 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = ({ embedded = fals
         liveUrl: result.liveUrl,
         previewUrl: result.previewUrl,
       });
+      if (userId) {
+        await refreshEntitlements();
+      }
 
     } catch (error) {
       clearInterval(deployInterval);

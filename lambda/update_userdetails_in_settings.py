@@ -12,6 +12,8 @@ from xml.sax.saxutils import escape
 from botocore.config import Config
 from boto3.dynamodb.conditions import Key
 
+from feature_entitlement import check_entitlement_or_error, consume_feature_use
+
 # ---------- CONFIG ----------
 USERS_TABLE = "Users"
 ATS_HISTORY_TABLE = (os.environ.get("ATS_HISTORY_TABLE") or "AtsScoreHistory").strip() or "AtsScoreHistory"
@@ -138,6 +140,9 @@ def delete_s3_object(image_url):
     except Exception as e:
         print(f"S3 delete failed: {e}")
 
+# Groq sits behind Cloudflare; urllib's default User-Agent (Python-urllib/x.y) triggers 403 error code 1010.
+GROQ_USER_AGENT = "CodeXCareer-Lambda/1.0"
+
 # ---------- LLM API KEY TEST (OpenAI, Gemini, Claude) ----------
 def _test_openai_key(api_key):
     """Validate OpenAI API key with a minimal request."""
@@ -189,7 +194,10 @@ def _test_groq_key(api_key):
     """Validate Groq API key with models list."""
     req = urllib.request.Request(
         "https://api.groq.com/openai/v1/models",
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": GROQ_USER_AGENT,
+        },
         method="GET",
     )
     try:
@@ -399,6 +407,8 @@ def _call_openai_compatible_chat(api_key, endpoint, model, user_content, tempera
     if "openrouter.ai" in endpoint:
         headers["HTTP-Referer"] = "https://codexcareer.com"
         headers["X-Title"] = "CodeXCareer Live Interview"
+    if "groq.com" in endpoint:
+        headers["User-Agent"] = GROQ_USER_AGENT
     req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=90) as resp:
         out = json.loads(resp.read().decode("utf-8"))
@@ -1145,6 +1155,10 @@ def handle_generate_resume_pdf(body):
     if not user_id:
         return response(400, {"success": False, "message": "userId is required"})
 
+    allowed, ent_err = check_entitlement_or_error(user_id, "resume-builder")
+    if not allowed:
+        return response(403, {"success": False, "message": ent_err})
+
     try:
         existing = table.get_item(Key={"userId": user_id})
     except Exception as e:
@@ -1193,6 +1207,13 @@ def handle_generate_resume_pdf(body):
     except Exception as e:
         print(f"generateResumePdf S3 error: {e}")
         return response(500, {"success": False, "message": str(e)})
+
+    session_id = (body.get("sessionId") or "").strip() or key
+    ok_consume, _, consume_err = consume_feature_use(
+        user_id, "resume-builder", session_id=session_id
+    )
+    if not ok_consume:
+        return response(403, {"success": False, "message": consume_err or "Trial limit reached"})
 
     return response(
         200,

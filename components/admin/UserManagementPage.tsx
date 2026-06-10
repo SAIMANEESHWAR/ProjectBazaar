@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import {
+  formatAttributionLabel,
+  hasAttribution,
+  type UserAttribution,
+} from '../../lib/userAttribution';
+import { fetchAllAdminUsers, getUserAttribution, type AdminApiUser } from '../../services/adminUsersApi';
 
-const GET_ALL_USERS_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
 const UPDATE_USER_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
 
 interface User {
@@ -25,24 +30,11 @@ interface User {
     credits?: number;
     phoneNumber?: string;
     accountLockedUntil?: string | null;
+    createdBy?: string;
+    attribution: UserAttribution;
 }
 
-interface ApiUser {
-    userId: string;
-    email: string;
-    fullName?: string;
-    role?: string;
-    status?: string;
-    isPremium?: boolean;
-    credits?: number;
-    projectsCount?: number;
-    totalPurchases?: number;
-    createdAt?: string;
-    lastLoginAt?: string;
-    phoneNumber?: string;
-    profilePictureUrl?: string;
-    accountLockedUntil?: string | null;
-}
+interface ApiUser extends AdminApiUser {}
 
 interface UserManagementPageProps {
     onViewUser?: (user: { id: string; name: string; email: string }) => void;
@@ -55,6 +47,8 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState<'all' | 'buyer' | 'seller'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+    const [utmFilter, setUtmFilter] = useState<'all' | 'attributed' | 'none'>('all');
+    const [utmSourceFilter, setUtmSourceFilter] = useState('all');
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -117,6 +111,8 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
             credits: apiUser.credits || 0,
             phoneNumber: apiUser.phoneNumber,
             accountLockedUntil: apiUser.accountLockedUntil,
+            createdBy: apiUser.createdBy,
+            attribution: getUserAttribution(apiUser),
         };
     };
 
@@ -127,42 +123,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
         setError(null);
         
         try {
-            console.log('Fetching users from:', GET_ALL_USERS_ENDPOINT);
-            
-            const response = await fetch(GET_ALL_USERS_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    role: 'admin',
-                    action: 'GET_ALL_USERS'
-                }),
-            });
-            
-            console.log('Response status:', response.status, response.statusText);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Response error:', errorText);
-                throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('API Response:', data);
-            
-            if (data.success && data.data && Array.isArray(data.data)) {
-                console.log('Users data received:', data.data.length, 'users');
-                const mappedUsers = data.data.map((apiUser: ApiUser) => 
-                    mapApiUserToComponent(apiUser)
-                );
-                setUsers(mappedUsers);
-                console.log('Mapped users:', mappedUsers.length);
-            } else {
-                console.error('Invalid response format:', data);
-                throw new Error('Invalid response format from API');
-            }
-            
+            const apiUsers = await fetchAllAdminUsers();
+            const mappedUsers = apiUsers.map((apiUser: ApiUser) => mapApiUserToComponent(apiUser));
+            setUsers(mappedUsers);
         } catch (err) {
             console.error('Error fetching users:', err);
             setError(err instanceof Error ? err.message : 'Failed to load users');
@@ -241,6 +204,19 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
         fetchUsers();
     }, []);
 
+    const utmSources = useMemo(() => {
+        const sources = new Set<string>();
+        users.forEach((user) => {
+            if (user.attribution.utmSource) sources.add(user.attribution.utmSource);
+        });
+        return Array.from(sources).sort();
+    }, [users]);
+
+    const attributedCount = useMemo(
+        () => users.filter((user) => hasAttribution(user.attribution)).length,
+        [users]
+    );
+
     const filteredUsers = useMemo(() => {
         return users.filter(user => {
             const matchesSearch = 
@@ -248,9 +224,17 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                 user.email.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesRole = roleFilter === 'all' || user.role === roleFilter;
             const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-            return matchesSearch && matchesRole && matchesStatus;
+            const hasUtm = hasAttribution(user.attribution);
+            const matchesUtm =
+                utmFilter === 'all' ||
+                (utmFilter === 'attributed' && hasUtm) ||
+                (utmFilter === 'none' && !hasUtm);
+            const matchesSource =
+                utmSourceFilter === 'all' ||
+                user.attribution.utmSource === utmSourceFilter;
+            return matchesSearch && matchesRole && matchesStatus && matchesUtm && matchesSource;
         });
-    }, [users, searchQuery, roleFilter, statusFilter]);
+    }, [users, searchQuery, roleFilter, statusFilter, utmFilter, utmSourceFilter]);
 
     const handleEditUser = (user: User) => {
         // Map UI status to API status
@@ -405,6 +389,19 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                         </div>
                     </div>
                 </div>
+                <div className="bg-white rounded-xl p-6 border border-purple-200 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-purple-50 to-white">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="text-sm text-purple-700 font-medium">UTM Attributed</p>
+                            <p className="text-2xl font-bold text-purple-900">{attributedCount}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Filters and Search */}
@@ -449,6 +446,25 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                             <option value="inactive">Inactive</option>
                             <option value="suspended">Suspended</option>
                         </select>
+                        <select
+                            value={utmFilter}
+                            onChange={(e) => setUtmFilter(e.target.value as 'all' | 'attributed' | 'none')}
+                            className="px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        >
+                            <option value="all">All attribution</option>
+                            <option value="attributed">With UTM</option>
+                            <option value="none">No UTM</option>
+                        </select>
+                        <select
+                            value={utmSourceFilter}
+                            onChange={(e) => setUtmSourceFilter(e.target.value)}
+                            className="px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        >
+                            <option value="all">All UTM sources</option>
+                            {utmSources.map((source) => (
+                                <option key={source} value={source}>{source}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* View Mode Toggle */}
@@ -491,6 +507,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">User</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Role</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Stats</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Campaign</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Join Date</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -499,7 +516,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {filteredUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center">
+                                        <td colSpan={7} className="px-6 py-12 text-center">
                                             <p className="text-gray-500">No users found. {users.length === 0 ? 'No users available.' : 'Try adjusting your filters.'}</p>
                                         </td>
                                     </tr>
@@ -549,6 +566,20 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                                         </>
                                                     )}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {hasAttribution(user.attribution) ? (
+                                                    <div>
+                                                        <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                                            {user.attribution.utmSource || 'UTM'}
+                                                        </span>
+                                                        <div className="text-xs text-gray-500 mt-1 max-w-[180px] truncate">
+                                                            {formatAttributionLabel(user.attribution)}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">—</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {user.joinDate}

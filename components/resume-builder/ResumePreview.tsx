@@ -17,14 +17,14 @@ const ResumePreview: React.FC = () => {
   const TemplateComponent = getTemplateComponent(template);
 
   return (
-    <>
+    <div data-resume-root>
       <style>{richTextStyles}</style>
-      <TemplateComponent 
-        resumeInfo={resumeInfo} 
-        themeColor={themeColor} 
+      <TemplateComponent
+        resumeInfo={resumeInfo}
+        themeColor={themeColor}
         formatDate={formatDate}
       />
-    </>
+    </div>
   );
 };
 

@@ -15,12 +15,14 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../App';
+import { useSubscription } from '../context/SubscriptionContext';
 import {
   analyzeAtsWithProvider,
   coerceMissingKeywordDetails,
   fixResumeWithProvider,
   getAtsScoreHistory,
   getLlmKeysStatus,
+  mapLlmKeysStatusToSavedByProvider,
   saveLlmApiKeyForProvider,
   type AtsHistoryItem,
   type AtsProvider,
@@ -222,9 +224,11 @@ function AtsResultDetailView({
 export interface ATSScorerProps {
   onBack?: () => void;
   onNavigateToSettings?: () => void;
+  /** Bumped when user leaves Settings so saved-key status is re-fetched. */
+  savedKeysRefreshNonce?: number;
 }
 
-const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _onNavigateToSettings }) => {
+const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, savedKeysRefreshNonce = 0 }) => {
   const [provider, setProvider] = useState<AtsProvider>('gemini');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -234,7 +238,8 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [useSavedKey, setUseSavedKey] = useState(false);
+  /** When true, user chose to paste a one-off key instead of the Settings-saved key. */
+  const [useDifferentKey, setUseDifferentKey] = useState(false);
   const [savedKeysByProvider, setSavedKeysByProvider] = useState<Record<AtsProvider, boolean>>({
     gemini: false,
     openai: false,
@@ -261,12 +266,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
   const resultsRef = useRef<HTMLElement>(null);
   const historyPreviewRef = useRef<HTMLElement>(null);
   const { userId } = useAuth();
+  const { refreshEntitlements } = useSubscription();
   const providerLabel = PROVIDERS.find((p) => p.id === provider)?.label || provider;
   const hasSavedProviderKey = savedKeysByProvider[provider];
+  const usingSavedKeyForAts = Boolean(userId && hasSavedProviderKey && !useDifferentKey);
 
-  const keyReady =
-    Boolean(apiKey.trim()) || Boolean(useSavedKey && hasSavedProviderKey && userId);
-  const usingSavedKeyForAts = Boolean(useSavedKey && hasSavedProviderKey && userId);
+  const keyReady = Boolean(apiKey.trim()) || usingSavedKeyForAts;
   const fixLlmPolishAllowed = Boolean(apiKey.trim()) && !usingSavedKeyForAts;
   const fixAiMapAllowed = Boolean((userId && hasSavedProviderKey) || fixRenderApiKey.trim());
 
@@ -306,21 +311,35 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
     }
   }, []);
 
-  useEffect(() => {
-    if (!userId) return;
-    getLlmKeysStatus(userId)
-      .then((status) => {
-        setSavedKeysByProvider({
-          openai: !!status.hasOpenAiKey,
-          openrouter: !!status.hasOpenrouterKey,
-          gemini: !!status.hasGeminiKey,
-          anthropic: !!status.hasClaudeKey,
-        });
-      })
-      .catch(() => {
-        /* ignore */
+  const refreshSavedKeysStatus = useCallback(async () => {
+    if (!userId) {
+      setSavedKeysByProvider({
+        gemini: false,
+        openai: false,
+        openrouter: false,
+        anthropic: false,
       });
+      return;
+    }
+    try {
+      const status = await getLlmKeysStatus(userId);
+      setSavedKeysByProvider(mapLlmKeysStatusToSavedByProvider(status));
+    } catch {
+      /* keep prior state on network error */
+    }
   }, [userId]);
+
+  useEffect(() => {
+    void refreshSavedKeysStatus();
+  }, [refreshSavedKeysStatus, savedKeysRefreshNonce]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshSavedKeysStatus();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refreshSavedKeysStatus]);
 
   const refreshHistory = useCallback(() => {
     if (!userId) return;
@@ -350,6 +369,10 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
       prev && !historyItems.some((h) => h.reportId === prev.reportId) ? null : prev
     );
   }, [historyItems]);
+
+  useEffect(() => {
+    setUseDifferentKey(false);
+  }, [provider]);
 
   useEffect(() => {
     try {
@@ -408,7 +431,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
   };
 
   const handleAnalyze = async () => {
-    const usingSavedKey = useSavedKey && hasSavedProviderKey && !!userId;
+    const usingSavedKey = usingSavedKeyForAts;
     if (!resumeFile || !jobDescription.trim() || (!usingSavedKey && !apiKey.trim())) return;
     setErrorMessage(null);
     setSaveKeyMessage(null);
@@ -441,7 +464,10 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
       });
       setHasAnalyzed(true);
       setSelectedHistoryItem(null);
-      if (userId) refreshHistory();
+      if (userId) {
+        refreshHistory();
+        await refreshEntitlements();
+      }
       requestAnimationFrame(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
@@ -468,7 +494,9 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
         return;
       }
       setSavedKeysByProvider((prev) => ({ ...prev, [provider]: true }));
+      setUseDifferentKey(false);
       setSaveKeyMessage(`${providerLabel} key saved.`);
+      void refreshSavedKeysStatus();
     } catch {
       setErrorMessage('Failed to save API key. Please try again.');
     } finally {
@@ -477,9 +505,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
   };
 
   const canAnalyze = Boolean(
-    resumeFile &&
-      jobDescription.trim() &&
-      ((useSavedKey && hasSavedProviderKey && userId) || apiKey.trim())
+    resumeFile && jobDescription.trim() && (usingSavedKeyForAts || apiKey.trim())
   );
 
   const handleFixResume = async () => {
@@ -742,85 +768,97 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings: _on
             </span>
             <div>
               <h2 className="text-sm font-bold text-gray-900">Model &amp; key</h2>
-              <p className="text-[11px] text-gray-500 mt-0.5">Saved key or paste below</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                {usingSavedKeyForAts ? 'Using your saved Settings key' : 'Paste an API key or save one in Settings'}
+              </p>
             </div>
           </div>
         </div>
         <div className="p-3.5 md:p-4 flex flex-col gap-3.5">
-        {userId && (
-          <div className="rounded-lg bg-gray-50/80 border border-gray-100 px-3 py-2.5">
-            <label className="inline-flex items-start gap-2.5 text-sm text-gray-800 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-0.5 rounded border-gray-300 text-[#FF6B00] focus:ring-[#FF6B00]/30"
-                checked={useSavedKey}
-                onChange={(e) => setUseSavedKey(e.target.checked)}
-                disabled={!hasSavedProviderKey}
-              />
-              <span>
-                <span className="font-medium">Saved {providerLabel} key</span>
-                <span className="block text-[11px] text-gray-500 mt-0.5">
-                  {hasSavedProviderKey ? 'Uncheck to paste another.' : 'Save below or in Settings.'}
-                </span>
-              </span>
-            </label>
-          </div>
-        )}
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="sm:w-48 lg:w-52 shrink-0">
             <label htmlFor="ats-provider" className="text-sm font-semibold text-gray-800 mb-2 block">
               LLM provider
             </label>
-            <div className="flex flex-col gap-1.5">
-              <select
-                id="ats-provider"
-                value={provider}
-                onChange={(e) => setProvider(e.target.value as AtsProvider)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white shadow-sm"
-              >
-                {PROVIDERS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {hasSavedProviderKey && (
-                <span className="text-[10px] font-medium text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />
-                  On file
-                </span>
-              )}
-            </div>
+            <select
+              id="ats-provider"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as AtsProvider)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] bg-white shadow-sm"
+            >
+              {PROVIDERS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <label htmlFor="ats-api-key" className="text-sm font-semibold text-gray-800">
-                API key
-              </label>
-              <div className="relative group inline-flex">
-                <button
-                  type="button"
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/40 rounded"
-                  aria-label="API keys stay in this browser unless you save"
-                >
-                  <Info className="h-4 w-4" />
-                </button>
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[min(240px,calc(100vw-2rem))] px-2 py-1 rounded-md bg-gray-900 text-white text-[10px] leading-snug font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none text-center">
-                  Stays in this browser until saved.
-                  <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-8 border-transparent border-t-gray-900" />
+            {usingSavedKeyForAts ? (
+              <div className="rounded-lg bg-emerald-50/90 border border-emerald-200 px-3.5 py-3">
+                <p className="text-sm text-emerald-900 flex items-center gap-2 font-medium">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                  Using saved {providerLabel} API key from Settings
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {onNavigateToSettings && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToSettings}
+                      className="inline-flex items-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-50/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+                    >
+                      Manage Keys in Settings
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setUseDifferentKey(true)}
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/30"
+                  >
+                    Use Different Key
+                  </button>
                 </div>
               </div>
-            </div>
-            <input
-              id="ats-api-key"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(e) => persistApiKey(e.target.value)}
-              placeholder={PROVIDERS.find((p) => p.id === provider)?.keyPlaceholder || ''}
-              disabled={Boolean(useSavedKey && hasSavedProviderKey && userId)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] font-mono shadow-sm"
-            />
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <label htmlFor="ats-api-key" className="text-sm font-semibold text-gray-800">
+                    API key
+                  </label>
+                  <div className="relative group inline-flex">
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00]/40 rounded"
+                      aria-label="API keys stay in this browser unless you save"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[min(240px,calc(100vw-2rem))] px-2 py-1 rounded-md bg-gray-900 text-white text-[10px] leading-snug font-medium shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all z-20 pointer-events-none text-center">
+                      Stays in this browser until saved.
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-8 border-transparent border-t-gray-900" />
+                    </div>
+                  </div>
+                </div>
+                <input
+                  id="ats-api-key"
+                  type="password"
+                  autoComplete="off"
+                  value={apiKey}
+                  onChange={(e) => persistApiKey(e.target.value)}
+                  placeholder={PROVIDERS.find((p) => p.id === provider)?.keyPlaceholder || ''}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] font-mono shadow-sm"
+                />
+                {userId && hasSavedProviderKey && useDifferentKey && (
+                  <button
+                    type="button"
+                    onClick={() => setUseDifferentKey(false)}
+                    className="mt-2 text-xs font-medium text-emerald-700 hover:text-emerald-900 focus:outline-none focus-visible:underline"
+                  >
+                    Use saved {providerLabel} key from Settings
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

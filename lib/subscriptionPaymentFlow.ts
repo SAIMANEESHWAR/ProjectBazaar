@@ -1,5 +1,6 @@
 import type { PlanId } from '../data/pricingPlans';
 import { PRICING_PLANS } from '../data/pricingPlans';
+import { trackBeginCheckout, trackPurchase } from './analytics';
 import { logRazorpayError, openRazorpayCheckout } from './razorpayCheckout';
 import {
   createSubscriptionOrder,
@@ -18,6 +19,7 @@ export async function runSubscriptionPaymentFlow(options: {
   userId: string;
   planId: PlanId;
   userEmail?: string;
+  upgradeFromPlanId?: string;
 }): Promise<SubscriptionPaymentOutcome> {
   const plan = PRICING_PLANS.find((p) => p.id === options.planId);
   if (!plan) {
@@ -36,7 +38,8 @@ export async function runSubscriptionPaymentFlow(options: {
     orderResponse = await createSubscriptionOrder(
       options.userId,
       options.planId,
-      options.userEmail
+      options.userEmail,
+      options.upgradeFromPlanId
     );
   } catch (err) {
     logRazorpayError('create_subscription_order_network', err);
@@ -48,6 +51,9 @@ export async function runSubscriptionPaymentFlow(options: {
     const msg = orderResponse.message || orderResponse.error?.message || 'Could not start payment';
     if (msg.toLowerCase().includes('already a premium') || orderResponse.error?.code === 'ALREADY_PREMIUM') {
       return { status: 'error', message: 'You are already a premium user' };
+    }
+    if (orderResponse.error?.code === 'INVALID_UPGRADE') {
+      return { status: 'error', message: msg };
     }
     return { status: 'error', message: msg };
   }
@@ -63,6 +69,23 @@ export async function runSubscriptionPaymentFlow(options: {
   if (!orderResponse.key || !orderResponse.amount) {
     return { status: 'error', message: 'Incomplete payment details from server' };
   }
+
+  const checkoutValue = plan.priceInr;
+  const checkoutCurrency = orderResponse.currency || 'INR';
+  const checkoutItems = [{
+    item_id: plan.id,
+    item_name: plan.name,
+    item_category: 'subscription',
+    price: checkoutValue,
+    quantity: 1,
+  }];
+
+  trackBeginCheckout({
+    item_type: 'subscription',
+    value: checkoutValue,
+    currency: checkoutCurrency,
+    items: checkoutItems,
+  });
 
   return new Promise((resolve) => {
     void openRazorpayCheckout({
@@ -91,6 +114,13 @@ export async function runSubscriptionPaymentFlow(options: {
             resolve({ status: 'error', message: verifyResult.message });
             return;
           }
+          trackPurchase({
+            transaction_id: payment.razorpay_payment_id || payment.razorpay_order_id,
+            value: checkoutValue,
+            currency: checkoutCurrency,
+            item_type: 'subscription',
+            items: checkoutItems,
+          });
           resolve({ status: 'success', record: verifyResult.data });
         } catch {
           resolve({

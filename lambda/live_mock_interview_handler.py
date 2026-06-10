@@ -8,6 +8,8 @@ from decimal import Decimal
 import boto3
 from botocore.exceptions import ClientError
 
+from feature_entitlement import consume_feature_use
+
 TABLE_NAME = os.environ.get("LIVE_MOCK_INTERVIEW_TABLE", "LiveMockInterviewResults")
 
 _dynamodb = boto3.resource("dynamodb")
@@ -72,9 +74,16 @@ def create_result(body):
     if err:
         return response(400, {"success": False, "error": err})
 
+    user_id = str(body["userId"]).strip()
+
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    interview_id = str(uuid.uuid4())
+    trial_session_id = (
+        str(body.get("trialSessionId") or body.get("sessionId") or "").strip()
+        or interview_id
+    )
     item = {
-        "interviewId": str(uuid.uuid4()),
+        "interviewId": interview_id,
         "userId": str(body["userId"]).strip(),
         "provider": body.get("provider"),
         "model": body.get("model"),
@@ -90,6 +99,11 @@ def create_result(body):
 
     try:
         _table.put_item(Item=item)
+        ok_consume, _, consume_err = consume_feature_use(
+            user_id, "live-ai", session_id=trial_session_id
+        )
+        if not ok_consume:
+            return response(403, {"success": False, "error": consume_err or "Trial limit reached"})
         return response(201, {"success": True, "data": item})
     except ClientError as exc:
         return response(500, {"success": False, "error": str(exc)})

@@ -14,6 +14,15 @@ Env:
   POLL_INTERVAL_SEC (default 5)
   MAX_WAIT_SEC (default 900) — max poll window (15 minutes)
   LOG_LEVEL (optional) — DEBUG, INFO, WARNING, ERROR (default INFO)
+  USERS_TABLE (default Users)
+  SOCKET_SERVER_URL — socket broadcast for in-app new_job toast
+  INTERNAL_SECRET — optional socket auth header
+  JOB_EMAIL_DIGEST_LIMIT (default 5) — max jobs per digest email
+  APP_BASE_URL (default https://codexcareer.com) — logo + links in branded emails
+  JOB_HUNT_URL (default {APP_BASE_URL}/dashboard)
+  SMTP_USER, SMTP_APP_PASSWORD — Gmail SMTP for job digest emails (same as login Lambda)
+
+Deploy package must include email_service.py alongside this file.
 
 Event (optional):
   { "prompt": "..." }  — one-off prompt override (else env or default)
@@ -35,6 +44,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from botocore.exceptions import ClientError
 
+from email_service import send_job_digest_email
+
 logger = logging.getLogger(__name__)
 _LOG_LEVEL = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 logger.setLevel(_LOG_LEVEL)
@@ -52,10 +63,9 @@ POLL_INTERVAL = max(1, int(os.environ.get("POLL_INTERVAL_SEC", "5")))
 MAX_WAIT_SEC = max(60, int(os.environ.get("MAX_WAIT_SEC", "900")))
 
 USERS_TABLE = os.environ.get("USERS_TABLE", "Users")
-SES_SENDER_EMAIL = os.environ.get("SES_SENDER_EMAIL", "noreply@codexcareer.com")
 SOCKET_SERVER_URL = os.environ.get("SOCKET_SERVER_URL", "https://projectbazaarsocketserver.onrender.com").rstrip("/")
 INTERNAL_SECRET = os.environ.get("INTERNAL_SECRET", "")
-SES_REGION = os.environ.get("SES_REGION", "ap-south-2")
+JOB_EMAIL_DIGEST_LIMIT = max(1, int(os.environ.get("JOB_EMAIL_DIGEST_LIMIT", "5")))
 
 # Firecrawl fills job_listings[]; partition key, created_at, scraped_at, and raw are set in normalize_item().
 DEFAULT_PROMPT = (
@@ -588,78 +598,6 @@ def get_users_for_notifications() -> List[Dict[str, Any]]:
     return results
 
 
-def _build_job_email_html(job: Dict[str, Any]) -> str:
-    title = job.get("job_title") or "New Job"
-    company = job.get("company") or "Unknown Company"
-    location = job.get("location") or ""
-    salary = job.get("salary") or ""
-    job_type = job.get("job_type") or ""
-    description = (job.get("description") or "")[:300]
-    apply_link = job.get("apply_link") or "#"
-    logo = job.get("company_logo") or ""
-
-    logo_html = (
-        f'<img src="{logo}" alt="{company} logo" style="max-height:50px;max-width:120px;object-fit:contain;" />'
-        if logo else ""
-    )
-    meta_parts = [p for p in [location, job_type, salary] if p]
-    meta_html = " &nbsp;|&nbsp; ".join(meta_parts) if meta_parts else ""
-
-    return f"""<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <tr><td style="background:#f97316;padding:24px 32px;">
-          <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">CodeXCareer</h1>
-          <p style="margin:4px 0 0;color:#fff7ed;font-size:13px;">New Job Alert</p>
-        </td></tr>
-        <tr><td style="padding:32px;">
-          {f'<div style="margin-bottom:16px;">{logo_html}</div>' if logo_html else ""}
-          <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">{title}</h2>
-          <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#374151;">{company}</p>
-          {f'<p style="margin:0 0 16px;font-size:13px;color:#6b7280;">{meta_html}</p>' if meta_html else ""}
-          {f'<p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.6;">{description}{"…" if len(job.get("description",""))>300 else ""}</p>' if description else ""}
-          <a href="{apply_link}" style="display:inline-block;background:#f97316;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600;">View &amp; Apply</a>
-        </td></tr>
-        <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;">You received this because you enabled job email notifications on CodeXCareer.
-          <br>To unsubscribe, visit Settings &rarr; Notifications and disable &ldquo;Email me when new jobs are posted&rdquo;.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>"""
-
-
-def send_email_via_ses(to_email: str, job: Dict[str, Any]) -> bool:
-    title = job.get("job_title") or "New Job"
-    company = job.get("company") or "Unknown Company"
-    try:
-        ses = boto3.client("ses", region_name=SES_REGION)
-        ses.send_email(
-            Source=SES_SENDER_EMAIL,
-            Destination={"ToAddresses": [to_email]},
-            Message={
-                "Subject": {"Data": f"New Job: {title} at {company}", "Charset": "UTF-8"},
-                "Body": {
-                    "Html": {"Data": _build_job_email_html(job), "Charset": "UTF-8"},
-                    "Text": {
-                        "Data": f"New Job: {title} at {company}\n\nApply: {job.get('apply_link') or 'Visit CodeXCareer'}",
-                        "Charset": "UTF-8",
-                    },
-                },
-            },
-        )
-        return True
-    except Exception as exc:
-        logger.error("SES send_email failed to=%s error=%s", to_email, exc)
-        return False
-
-
 def send_socket_notification(job: Dict[str, Any]) -> None:
     title = job.get("job_title") or "New Job"
     company = job.get("company") or "Unknown Company"
@@ -700,19 +638,28 @@ def notify_users_of_new_jobs(new_jobs: List[Dict[str, Any]]) -> None:
         logger.info("No users opted in for job email notifications; skipping emails.")
         return
 
-    # Send one notification per user using the first new job as the highlight
-    highlight = new_jobs[0]
+    digest_jobs = new_jobs[:JOB_EMAIL_DIGEST_LIMIT]
+    highlight = digest_jobs[0]
     emails_sent = 0
+    emails_failed = 0
     for user in users:
         email = user.get("email", "")
         if not email or not isinstance(email, str):
             continue
-        if send_email_via_ses(email, highlight):
+        if send_job_digest_email(email, digest_jobs):
             emails_sent += 1
+        else:
+            emails_failed += 1
+            logger.error("Job digest email failed to=%s", email)
 
-    logger.info("Job notification emails sent=%s for %s new jobs", emails_sent, len(new_jobs))
+    logger.info(
+        "Job digest emails sent=%s failed=%s digest_size=%s total_new_jobs=%s",
+        emails_sent,
+        emails_failed,
+        len(digest_jobs),
+        len(new_jobs),
+    )
 
-    # Broadcast to all online users via socket server
     send_socket_notification(highlight)
 
 

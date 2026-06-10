@@ -23,7 +23,11 @@ export type Page =
   | 'privacy'
   | 'terms'
   | 'notFound'
-  | 'subscriptionCheckout';
+  | 'subscriptionPlans'
+  | 'subscriptionCheckout'
+  | 'verifyEmail'
+  | 'forgotPassword'
+  | 'resetPassword';
 
 export type UserRole = 'user' | 'admin';
 

@@ -32,6 +32,7 @@ export interface LiveInterviewRecord {
   generatedQuestions?: string[];
   answersByQuestion?: Record<string, string>;
   transcript?: string;
+  trialSessionId?: string;
   createdAt: string;
   evaluation: LiveInterviewEvaluation;
 }

@@ -124,15 +124,53 @@ export function coerceMissingKeywordDetails(ar: {
     .map((keyword) => ({ keyword, suggestedSection: [] as string[] }));
 }
 
+const EMPTY_LLM_KEYS_STATUS: LlmKeysStatus = {
+  success: false,
+  hasOpenAiKey: false,
+  hasOpenrouterKey: false,
+  hasGeminiKey: false,
+  hasClaudeKey: false,
+  hasGroqKey: false,
+  hasAnyAtsKey: false,
+  atsActiveProvider: null,
+};
+
+/** Align top-level has*Key flags with Settings Lambda `providers` list (canonical DynamoDB ids). */
+function reconcileLlmKeysStatus(raw: LlmKeysStatus): LlmKeysStatus {
+  if (!raw.success || !raw.providers?.length) return raw;
+  const byId = new Map(
+    raw.providers.map((p) => [String(p.id || '').toLowerCase(), !!p.hasKey])
+  );
+  return {
+    ...raw,
+    hasOpenAiKey: raw.hasOpenAiKey || !!byId.get('openai'),
+    hasOpenrouterKey: raw.hasOpenrouterKey || !!byId.get('openrouter'),
+    hasGeminiKey: raw.hasGeminiKey || !!byId.get('gemini'),
+    hasClaudeKey: raw.hasClaudeKey || !!byId.get('claude'),
+    hasGroqKey: raw.hasGroqKey || !!byId.get('groq'),
+    hasAnyAtsKey:
+      raw.hasAnyAtsKey ||
+      ATS_PROVIDER_ORDER.some((p) => {
+        const settingsId = atsProviderToSettingsId(p);
+        return !!byId.get(settingsId);
+      }),
+  };
+}
+
 export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
   const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'getLlmKeysStatus', userId }),
   });
-  const data = await res.json();
-  return {
-    success: !!data.success,
+  let data: Record<string, unknown> = {};
+  try {
+    data = (await res.json()) as Record<string, unknown>;
+  } catch {
+    return { ...EMPTY_LLM_KEYS_STATUS };
+  }
+  const status = reconcileLlmKeysStatus({
+    success: !!data.success && res.ok,
     hasOpenAiKey: !!data.hasOpenAiKey,
     hasOpenrouterKey: !!data.hasOpenrouterKey,
     hasGeminiKey: !!data.hasGeminiKey,
@@ -140,10 +178,25 @@ export async function getLlmKeysStatus(userId: string): Promise<LlmKeysStatus> {
     hasGroqKey: !!data.hasGroqKey,
     hasAnyAtsKey: !!data.hasAnyAtsKey,
     atsActiveProvider:
-      typeof data.atsActiveProvider === 'string' ? data.atsActiveProvider : data.atsActiveProvider ?? null,
-    providers: Array.isArray(data.providers) ? data.providers : undefined,
+      typeof data.atsActiveProvider === 'string' ? data.atsActiveProvider : null,
+    providers: Array.isArray(data.providers) ? (data.providers as LlmProvider[]) : undefined,
     savedModels:
-      data.savedModels && typeof data.savedModels === 'object' ? data.savedModels : undefined,
+      data.savedModels && typeof data.savedModels === 'object'
+        ? (data.savedModels as Record<string, string>)
+        : undefined,
+  });
+  return status;
+}
+
+/** Map Settings/DynamoDB key status to ATS Scorer provider ids (anthropic ↔ claude). */
+export function mapLlmKeysStatusToSavedByProvider(
+  status: LlmKeysStatus | null | undefined
+): Record<AtsProvider, boolean> {
+  return {
+    openai: hasSavedAtsKey(status, 'openai'),
+    gemini: hasSavedAtsKey(status, 'gemini'),
+    openrouter: hasSavedAtsKey(status, 'openrouter'),
+    anthropic: hasSavedAtsKey(status, 'anthropic'),
   };
 }
 
@@ -173,18 +226,33 @@ export function hasSavedAtsKey(
   provider: AtsProvider
 ): boolean {
   if (!status?.success) return false;
+
+  const settingsId = atsProviderToSettingsId(provider);
+  const fromProviders = status.providers?.find(
+    (p) => String(p.id || '').toLowerCase() === settingsId
+  );
+  const fromProviderList = fromProviders !== undefined ? !!fromProviders.hasKey : null;
+
+  let fromFlags = false;
   switch (provider) {
     case 'openai':
-      return !!status.hasOpenAiKey;
+      fromFlags = !!status.hasOpenAiKey;
+      break;
     case 'openrouter':
-      return !!status.hasOpenrouterKey;
+      fromFlags = !!status.hasOpenrouterKey;
+      break;
     case 'gemini':
-      return !!status.hasGeminiKey;
+      fromFlags = !!status.hasGeminiKey;
+      break;
     case 'anthropic':
-      return !!status.hasClaudeKey;
+      fromFlags = !!status.hasClaudeKey;
+      break;
     default:
-      return false;
+      fromFlags = false;
   }
+
+  if (fromProviderList !== null) return fromProviderList || fromFlags;
+  return fromFlags;
 }
 
 export async function getAtsScore(

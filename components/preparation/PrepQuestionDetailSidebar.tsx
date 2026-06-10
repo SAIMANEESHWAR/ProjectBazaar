@@ -1,4 +1,6 @@
 import PrepDetailSidebar, { difficultyBadgeVariant } from './PrepDetailSidebar';
+import PrepLockedPremiumBlock from './PrepLockedPremiumBlock';
+import { usePrepContentAccess } from './prepContentAccess';
 
 export interface PrepQuestionDetail {
   id: string;
@@ -33,6 +35,8 @@ export default function PrepQuestionDetailSidebar({
   hasNext = false,
   hasPrev = false,
 }: PrepQuestionDetailSidebarProps) {
+  const { canViewAnswers, promptUpgrade } = usePrepContentAccess();
+
   const tags = [
     { label: question.difficulty, variant: difficultyBadgeVariant(question.difficulty) },
     { label: question.category, variant: 'default' as const },
@@ -59,12 +63,20 @@ export default function PrepQuestionDetailSidebar({
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
           Answer
         </p>
-        {question.answer ? (
-          <p className="whitespace-pre-line text-[15px] leading-relaxed text-neutral-200 md:text-base">
-            {question.answer}
-          </p>
+        {canViewAnswers ? (
+          question.answer ? (
+            <p className="whitespace-pre-line text-[15px] leading-relaxed text-neutral-200 md:text-base">
+              {question.answer}
+            </p>
+          ) : (
+            <p className="text-sm italic text-neutral-500">No answer available yet.</p>
+          )
         ) : (
-          <p className="text-sm italic text-neutral-500">No answer available yet.</p>
+          <PrepLockedPremiumBlock
+            title="Answer locked"
+            message="Upgrade to Premium to view interview answers and hints."
+            onUpgrade={promptUpgrade}
+          />
         )}
       </section>
 
@@ -73,11 +85,20 @@ export default function PrepQuestionDetailSidebar({
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Hints
           </p>
-          <ul className="list-inside list-disc space-y-2 text-[15px] leading-relaxed text-neutral-200 md:text-base">
-            {question.hints.map((hint, i) => (
-              <li key={i}>{hint}</li>
-            ))}
-          </ul>
+          {canViewAnswers ? (
+            <ul className="list-inside list-disc space-y-2 text-[15px] leading-relaxed text-neutral-200 md:text-base">
+              {question.hints.map((hint, i) => (
+                <li key={i}>{hint}</li>
+              ))}
+            </ul>
+          ) : (
+            <PrepLockedPremiumBlock
+              compact
+              title="Hints locked"
+              message="Upgrade to Premium to unlock hints for this question."
+              onUpgrade={promptUpgrade}
+            />
+          )}
         </section>
       )}
     </PrepDetailSidebar>

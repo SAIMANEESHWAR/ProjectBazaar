@@ -8,6 +8,8 @@ import {
   FileText,
 } from "lucide-react";
 import PrepRichContentRenderer from "./PrepRichContentRenderer";
+import PrepLockedPremiumBlock from "./PrepLockedPremiumBlock";
+import { usePrepContentAccess } from "./prepContentAccess";
 import PrepTopicQuizRunner from "./PrepTopicQuizRunner";
 import { groupByTopic } from "./prepTopicGrouping";
 import { type SDQuestion } from "./SDDetailPanel";
@@ -42,6 +44,7 @@ export default function PrepCoreSubjectLearningView({
     [concepts, activeConceptId],
   );
   const activeQuiz = activeQuizTopic ? quizzesByTopic[activeQuizTopic] ?? null : null;
+  const { canViewAnswers, promptUpgrade } = usePrepContentAccess();
 
   const toggleTopic = (topic: string) => {
     setExpandedTopics((prev) => {
@@ -182,7 +185,15 @@ export default function PrepCoreSubjectLearningView({
               {activeConcept.title}
             </h2>
             {activeConcept.content ? (
-              <PrepRichContentRenderer html={activeConcept.content} variant="nocturnal" />
+              canViewAnswers ? (
+                <PrepRichContentRenderer html={activeConcept.content} variant="nocturnal" />
+              ) : (
+                <PrepLockedPremiumBlock
+                  title="Content locked"
+                  message="Upgrade to Premium to read full concept notes and answers."
+                  onUpgrade={promptUpgrade}
+                />
+              )
             ) : (
               <p className="text-[var(--prep-text-tertiary)]">No content available for this concept.</p>
             )}

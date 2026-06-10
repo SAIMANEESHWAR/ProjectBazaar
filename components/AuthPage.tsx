@@ -15,11 +15,28 @@ import {
   validateGoogleOAuthState,
 } from '@/lib/googleDirectAuth';
 import { LOGIN_API_URL } from '@/lib/apiConfig';
+import { trackSignUp } from '@/lib/analytics';
 import { scheduleOnboardingTour } from '@/lib/onboardingTour';
+import { getAttributionForApi } from '@/lib/utmAttribution';
+import { requestPasswordReset, resetPassword } from '@/lib/passwordReset';
+import { sendEmailVerification, verifyEmail } from '@/lib/emailVerification';
+import VerificationCodeInput from './VerificationCodeInput';
 
 type FieldType = 'text' | 'email' | 'password';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'signupVerify' | 'forgotPassword' | 'resetPassword';
+
+const resetPasswordRequirements = [
+  { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { id: 'lowercase', label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'uppercase', label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'number', label: 'One number', test: (p: string) => /\d/.test(p) },
+  {
+    id: 'special',
+    label: 'One special character',
+    test: (p: string) => /[@$!%*?&#^()_+=\-\[\]{}|\\:;"'<>,./]/.test(p),
+  },
+];
 
 interface ApiResponse {
   success: boolean;
@@ -34,6 +51,9 @@ interface ApiResponse {
     profilePictureUrl?: string | null;
     /** Present after direct Google OAuth (`google_oauth_exchange`). */
     idToken?: string;
+    isNewUser?: boolean;
+    emailVerificationSent?: boolean;
+    emailVerified?: boolean;
   };
   error?: {
     code: string;
@@ -237,7 +257,7 @@ const PasswordStrengthIndicator: React.FC<{ password: string }> = ({ password })
 };
 
 const AuthPage: React.FC = () => {
-  const { navigateTo } = useNavigation();
+  const { page, navigateTo } = useNavigation();
   const { login } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [formData, setFormData] = useState({
@@ -250,8 +270,23 @@ const AuthPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [oauthWorking, setOauthWorking] = useState(false);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<string | null>(null);
+  const [resetUserId, setResetUserId] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [pendingSignupUserId, setPendingSignupUserId] = useState('');
+  const [signupVerifyCode, setSignupVerifyCode] = useState('');
+  const [signupVerifyMessage, setSignupVerifyMessage] = useState<string | null>(null);
 
   const isLogin = authMode === 'login';
+  const isSignup = authMode === 'signup';
+  const isSignupVerify = authMode === 'signupVerify';
+  const isForgot = authMode === 'forgotPassword';
+  const isReset = authMode === 'resetPassword';
+  const showGoogleAuth = googleOAuthEnabled && (isLogin || isSignup);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,10 +305,53 @@ const AuthPage: React.FC = () => {
     };
   }, []);
 
-  // Clear error when switching between login and signup
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (page === 'resetPassword') {
+      setAuthMode('resetPassword');
+      setResetUserId(params.get('userId')?.trim() || '');
+      setResetToken(params.get('token')?.trim() || '');
+      return;
+    }
+
+    if (page === 'forgotPassword') {
+      setAuthMode('forgotPassword');
+      return;
+    }
+
+    if (page === 'auth') {
+      setAuthMode((prev) =>
+        prev === 'forgotPassword' || prev === 'resetPassword' || prev === 'signupVerify'
+          ? 'login'
+          : prev
+      );
+    }
+  }, [page]);
+
   useEffect(() => {
     setError(null);
   }, [authMode]);
+
+  const goToLoginMode = () => {
+    setAuthMode('login');
+    setError(null);
+    setForgotSent(false);
+    setForgotMessage(null);
+    setResetSuccess(false);
+    setResetMessage(null);
+    setResetCode('');
+    setPendingSignupUserId('');
+    setSignupVerifyCode('');
+    setSignupVerifyMessage(null);
+    setFormData({
+      email: '',
+      phoneNumber: '',
+      password: '',
+      confirmPassword: '',
+    });
+    navigateTo('auth');
+  };
 
   // Google OAuth return: `/auth?code=...` — Lambda exchanges code (secret stays on server)
   useEffect(() => {
@@ -320,6 +398,7 @@ const AuthPage: React.FC = () => {
             code,
             redirect_uri: redirectUri,
             code_verifier,
+            attribution: getAttributionForApi(),
           }),
         });
 
@@ -333,6 +412,9 @@ const AuthPage: React.FC = () => {
           }
           localStorage.setItem('userData', JSON.stringify(userRest));
           const userRole = data.data.role === 'admin' ? 'admin' : 'user';
+          if (data.data.isNewUser) {
+            trackSignUp('google');
+          }
           login(data.data.userId, data.data.email, userRole);
         } else {
           setError(data.error?.message || 'Could not complete sign-in with Google.');
@@ -369,17 +451,27 @@ const AuthPage: React.FC = () => {
           phoneNumber: formData.phoneNumber.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
+          attribution: getAttributionForApi(),
         }),
       });
 
       const data: ApiResponse = await response.json();
 
       if (data.success && data.data) {
-        // Signup successful, now login the user
-        const loggedIn = await handleLoginAfterSignup();
-        if (!loggedIn) {
+        if (!data.data.userId) {
+          setError('Signup started but user id was missing. Please try again.');
           setLoading(false);
+          return;
         }
+        setPendingSignupUserId(data.data.userId);
+        setSignupVerifyCode('');
+        setSignupVerifyMessage(
+          data.data.emailVerificationSent
+            ? 'We sent a 6-digit code to your email. Enter it below to create your account.'
+            : 'Enter the verification code from your email to create your account.'
+        );
+        setAuthMode('signupVerify');
+        setLoading(false);
         return;
       } else {
         setError(data.error?.message || 'Signup failed. Please try again.');
@@ -417,6 +509,8 @@ const AuthPage: React.FC = () => {
 
         login(data.data.userId, data.data.email, userRole);
         return;
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        setError(data.error.message || 'Verify your email before signing in.');
       } else {
         setError(data.error?.message || 'Login failed. Please check your credentials.');
       }
@@ -446,8 +540,13 @@ const AuthPage: React.FC = () => {
       if (data.success && data.data) {
         const userRole = data.data.role === 'admin' ? 'admin' : 'user';
 
-        localStorage.setItem('userData', JSON.stringify(data.data));
+        const userData = {
+          ...data.data,
+          emailVerified: data.data.emailVerified ?? false,
+        };
+        localStorage.setItem('userData', JSON.stringify(userData));
         scheduleOnboardingTour();
+        trackSignUp('email');
 
         login(data.data.userId, data.data.email, userRole);
         return true;
@@ -462,10 +561,130 @@ const AuthPage: React.FC = () => {
     }
   };
 
+  const handleSignupVerify = async () => {
+    if (!pendingSignupUserId || signupVerifyCode.length !== 6) {
+      setError('Enter the full 6-digit verification code from your email.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await verifyEmail({
+        userId: pendingSignupUserId,
+        code: signupVerifyCode.trim(),
+      });
+      if (!result.success) {
+        setError(result.error?.message || 'Invalid or expired code. Try again or resend.');
+        setLoading(false);
+        return;
+      }
+
+      const loggedIn = await handleLoginAfterSignup();
+      if (!loggedIn) {
+        setLoading(false);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleResendSignupCode = async () => {
+    if (!pendingSignupUserId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await sendEmailVerification(pendingSignupUserId);
+      if (result.success) {
+        setSignupVerifyMessage('A new verification code has been sent to your email.');
+      } else {
+        setError(result.error?.message || 'Could not resend verification code.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!formData.email.trim()) {
+      setError('Enter the email linked to your account.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setForgotMessage(null);
+    try {
+      const result = await requestPasswordReset(formData.email.trim());
+      if (result.success) {
+        setForgotSent(true);
+        setForgotMessage(
+          result.message ||
+            'If an account exists for this email, we sent password reset instructions.'
+        );
+      } else {
+        setError(result.error?.message || 'Could not send reset email. Try again.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async () => {
+    const userId = resetUserId.trim();
+    const hasToken = Boolean(resetToken.trim());
+    const passwordValid = resetPasswordRequirements.every((req) => req.test(formData.password));
+    const passwordsMatch =
+      formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
+
+    if (!userId || !passwordValid || !passwordsMatch || (!hasToken && resetCode.length !== 6)) {
+      setError('Enter a valid password and complete the reset code or use the email link.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResetMessage(null);
+    try {
+      const result = await resetPassword({
+        userId,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        ...(hasToken ? { token: resetToken.trim() } : { code: resetCode }),
+      });
+      if (result.success) {
+        setResetSuccess(true);
+        setResetMessage(result.message || 'Your password has been reset. You can sign in now.');
+      } else {
+        setError(result.error?.message || 'Could not reset password. Request a new link.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
+    if (isSignupVerify) {
+      await handleSignupVerify();
+      return;
+    }
+    if (isForgot) {
+      await handleForgotPassword();
+      return;
+    }
+    if (isReset) {
+      await handleResetPasswordSubmit();
+      return;
+    }
     if (isLogin) {
       if (!formData.email || !formData.password) {
         setError('Please fill in all required fields.');
@@ -497,15 +716,26 @@ const AuthPage: React.FC = () => {
   };
 
   const toggleAuthMode = () => {
+    if (isForgot || isReset || isSignupVerify) {
+      goToLoginMode();
+      return;
+    }
     setAuthMode(isLogin ? 'signup' : 'login');
     setError(null);
-    // Clear form fields when switching modes
     setFormData({
       email: '',
       phoneNumber: '',
       password: '',
       confirmPassword: '',
     });
+  };
+
+  const openForgotPassword = () => {
+    setError(null);
+    setForgotSent(false);
+    setForgotMessage(null);
+    setAuthMode('forgotPassword');
+    navigateTo('forgotPassword');
   };
 
   const loginFields: Array<{
@@ -578,12 +808,92 @@ const AuthPage: React.FC = () => {
       },
     ];
 
-  const formFields = {
-    header: isLogin ? 'Welcome back' : 'Create an account',
-    subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
-    fields: isLogin ? loginFields : signupFields,
-    submitButton: isLogin ? 'Sign in' : 'Sign up',
-  };
+  const resetFields: typeof loginFields = [
+    {
+      label: 'Password',
+      required: true,
+      type: 'password',
+      placeholder: 'Enter your new password',
+      onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'password'),
+      helperComponent:
+        formData.password && resetPasswordRequirements.some((req) => !req.test(formData.password)) ? (
+          <div className="space-y-1">
+            {resetPasswordRequirements
+              .filter((req) => !req.test(formData.password))
+              .map((req) => (
+                <p key={req.id} className="text-xs text-red-400">
+                  {req.label}
+                </p>
+              ))}
+          </div>
+        ) : null,
+    },
+    {
+      label: 'ConfirmPassword',
+      required: true,
+      type: 'password',
+      placeholder: 'Confirm your new password',
+      onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'confirmPassword'),
+    },
+  ];
+
+  const forgotFields: typeof loginFields = [
+    {
+      label: 'Email',
+      required: true,
+      type: 'email',
+      placeholder: 'Enter your email address',
+      onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, 'email'),
+    },
+  ];
+
+  const formFields = isSignupVerify
+    ? {
+        header: 'Verify your email',
+        subHeader: signupVerifyMessage || 'Enter the 6-digit code we sent to your email to finish creating your account.',
+        fields: [],
+        submitButton: 'Create account',
+      }
+    : isForgot
+    ? {
+        header: 'Forgot password',
+        subHeader: 'Enter your email and we will send a reset link and code.',
+        fields: forgotFields,
+        submitButton: 'Send reset link',
+      }
+    : isReset
+      ? {
+          header: 'Reset password',
+          subHeader: resetToken
+            ? 'Choose a new password for your account.'
+            : 'Enter the code from your email and choose a new password.',
+          fields: resetFields,
+          submitButton: 'Reset password',
+        }
+      : {
+          header: isLogin ? 'Welcome back' : 'Create an account',
+          subHeader: isLogin ? 'Sign in to your account' : 'Sign up to get started',
+          fields: isLogin ? loginFields : signupFields,
+          submitButton: isLogin ? 'Sign in' : 'Sign up',
+        };
+
+  const accountToggleText = isSignupVerify
+    ? 'Back to sign in'
+    : isForgot
+    ? 'Remember your password? Sign in'
+    : isReset
+      ? 'Back to sign in'
+      : isLogin
+        ? "Don't have an account yet? Sign up"
+        : 'Already have an account? Log in';
+
+  const orbitText = isLogin
+    ? 'Welcome Back'
+    : isSignup || isSignupVerify
+      ? 'Get Started'
+      : isForgot
+        ? 'Forgot Password'
+        : 'New Password';
 
   const handleGoogleClick = () => {
     setError(null);
@@ -626,7 +936,7 @@ const AuthPage: React.FC = () => {
           </div>
           {/* Text and Icons - Above the animation, same center point */}
           <div className='relative z-10 w-full h-full flex items-center justify-center'>
-            <TechOrbitDisplay iconsArray={iconsArray} text={isLogin ? 'Welcome Back' : 'Get Started'} />
+            <TechOrbitDisplay iconsArray={iconsArray} text={orbitText} />
           </div>
         </div>
       </span>
@@ -655,7 +965,7 @@ const AuthPage: React.FC = () => {
         </button>
 
         <div className='w-full max-w-md flex flex-col items-center px-2 sm:px-0 max-h-full overflow-hidden'>
-          {googleOAuthEnabled && (
+          {showGoogleAuth && (
             <div className='w-full max-w-md mb-4 flex-shrink-0'>
               <button
                 type='button'
@@ -674,14 +984,109 @@ const AuthPage: React.FC = () => {
             </div>
           )}
           <div className='w-full flex-shrink-0' key={authMode}>
-            <AuthTabs
-              formFields={formFields}
-              goTo={() => { }}
-              handleSubmit={handleSubmit}
-              loading={loading}
-              accountToggleText={isLogin ? "Don't have an account yet? Sign up" : "Already have an account? Log in"}
-              onAccountToggle={toggleAuthMode}
-            />
+            {isForgot && forgotSent ? (
+              <div className='max-w-md w-full mx-auto text-center space-y-4'>
+                <h2 className='font-bold text-3xl text-white'>Check your email</h2>
+                <p className='text-sm text-white/80'>{forgotMessage}</p>
+                <button
+                  type='button'
+                  onClick={goToLoginMode}
+                  className='w-full rounded-md bg-black border border-gray-800 h-10 text-sm font-medium text-white hover:bg-gray-900 transition-colors'
+                >
+                  Back to sign in
+                </button>
+              </div>
+            ) : isReset && resetSuccess ? (
+              <div className='max-w-md w-full mx-auto text-center space-y-4'>
+                <h2 className='font-bold text-3xl text-white'>Password updated</h2>
+                <p className='text-sm text-white/80'>{resetMessage}</p>
+                <button
+                  type='button'
+                  onClick={goToLoginMode}
+                  className='w-full rounded-md bg-black border border-gray-800 h-10 text-sm font-medium text-white hover:bg-gray-900 transition-colors'
+                >
+                  Sign in
+                </button>
+              </div>
+            ) : (
+              <>
+                {isSignupVerify && (
+                  <div className='mb-4 max-w-md w-full mx-auto'>
+                    <p className='mb-3 text-center text-sm text-white/80'>6-digit verification code</p>
+                    <VerificationCodeInput
+                      value={signupVerifyCode}
+                      onChange={setSignupVerifyCode}
+                      disabled={loading}
+                      idPrefix='auth-signup-verify-code'
+                    />
+                    <p className='mt-3 text-center text-xs text-gray-400'>
+                      Sent to {formData.email || 'your email'}
+                    </p>
+                  </div>
+                )}
+                {isReset && !resetToken && (
+                  <div className='mb-4 max-w-md w-full mx-auto'>
+                    <p className='mb-3 text-center text-sm text-white/80'>6-digit reset code</p>
+                    <VerificationCodeInput
+                      value={resetCode}
+                      onChange={setResetCode}
+                      disabled={loading}
+                      idPrefix='auth-reset-code'
+                    />
+                  </div>
+                )}
+                {isReset && resetToken && (
+                  <p className='mb-4 max-w-md w-full mx-auto text-center text-sm text-orange-300/90'>
+                    Secure reset link detected. Enter your new password below.
+                  </p>
+                )}
+                <AuthTabs
+                  formFields={formFields}
+                  goTo={() => { }}
+                  handleSubmit={handleSubmit}
+                  loading={loading}
+                  accountToggleText={accountToggleText}
+                  onAccountToggle={toggleAuthMode}
+                />
+                {isLogin && (
+                  <div className='mt-3 text-center'>
+                    <button
+                      type='button'
+                      onClick={openForgotPassword}
+                      className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors'
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+                {isSignupVerify && (
+                  <div className='mt-3 text-center'>
+                    <button
+                      type='button'
+                      onClick={handleResendSignupCode}
+                      disabled={loading}
+                      className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50'
+                    >
+                      Resend verification code
+                    </button>
+                  </div>
+                )}
+                {isReset && (
+                  <div className='mt-3 text-center'>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setError(null);
+                        navigateTo('forgotPassword');
+                      }}
+                      className='text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors'
+                    >
+                      Request a new reset link
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {error && (
