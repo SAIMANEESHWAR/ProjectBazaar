@@ -7,12 +7,26 @@ import {
   MapPin,
   RefreshCw,
   Search,
+  Sparkles,
   Star,
   X,
 } from 'lucide-react';
+import { useAuth } from '../App';
+import JobTailorResumeModal, { type TailorResumeSession } from './job-hunt/JobTailorResumeModal';
+import TailorProfileRequiredModal from './job-hunt/TailorProfileRequiredModal';
 import Pagination from './Pagination';
 import { trackJobApplyClick } from '../lib/analytics';
-import { fetchJobs, fetchSavedResumeSkillNames, getJobHuntUserId, toggleJobSave } from '../services/buyerApi';
+import {
+  fetchJobs,
+  fetchSavedResumeProfile,
+  fetchSavedResumeSkillNames,
+  getJobHuntUserId,
+  toggleJobSave,
+} from '../services/buyerApi';
+import {
+  validateProfileForResumeTailoring,
+  type ProfileResumeTailoringValidation,
+} from '../services/tailorProfileValidation';
 import type { JobListing } from '../services/buyerApi';
 import { splitSkillsToChips } from '../lib/jobSkills';
 import { buildCorpus, joinCandidateSkillText, scoreJob, type Corpus } from '../lib/matchScore';
@@ -320,6 +334,8 @@ interface JobDetailPanelProps {
   saved: boolean;
   onToggleSave: () => void;
   openApply: (job: JobListing) => void;
+  onTailorResume: (job: JobListing) => void;
+  tailorResumeChecking?: boolean;
   candidateText: string;
   corpus: Corpus;
 }
@@ -330,6 +346,8 @@ function JobDetailPanel({
   saved,
   onToggleSave,
   openApply,
+  onTailorResume,
+  tailorResumeChecking,
   candidateText,
   corpus,
 }: JobDetailPanelProps) {
@@ -466,15 +484,26 @@ function JobDetailPanel({
             <Star className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-500' : ''}`} />
             {saved ? 'Saved' : 'Save'}
           </button>
-          <button
-            type="button"
-            onClick={() => openApply(job)}
-            disabled={!job.apply_link?.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Apply
-            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onTailorResume(job)}
+              disabled={tailorResumeChecking}
+              className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-semibold text-[#FF6B00] transition-colors hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles className={`h-4 w-4 shrink-0 ${tailorResumeChecking ? 'animate-pulse' : ''}`} aria-hidden />
+              {tailorResumeChecking ? 'Checking profile…' : 'Tailor My Resume'}
+            </button>
+            <button
+              type="button"
+              onClick={() => openApply(job)}
+              disabled={!job.apply_link?.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Apply
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+            </button>
+          </div>
         </footer>
       </aside>
     </div>
@@ -482,6 +511,7 @@ function JobDetailPanel({
 }
 
 const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
+  const { userEmail } = useAuth();
   const { guardPageChange } = useJobHuntContentAccess();
   const { jobOpenRequest, consumeJobOpenRequest, savedJobsNavTick, browseAllNavTick } =
     useJobHuntShell();
@@ -772,6 +802,34 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   };
 
   const huntUserId = getJobHuntUserId();
+  const [tailorSession, setTailorSession] = useState<TailorResumeSession | null>(null);
+  const [tailorProfileGate, setTailorProfileGate] = useState<{
+    validation: ProfileResumeTailoringValidation | null;
+    needsSignIn?: boolean;
+  } | null>(null);
+  const [tailorResumeChecking, setTailorResumeChecking] = useState(false);
+
+  const handleTailorResumeClick = useCallback(async (job: JobListing) => {
+    setTailorResumeChecking(true);
+    try {
+      const uid = getJobHuntUserId()?.trim();
+      if (!uid) {
+        setTailorProfileGate({ validation: null, needsSignIn: true });
+        return;
+      }
+      const profile = await fetchSavedResumeProfile(uid);
+      const validation = validateProfileForResumeTailoring(profile, {
+        accountEmail: userEmail,
+      });
+      if (!validation.isValid || !profile) {
+        setTailorProfileGate({ validation });
+        return;
+      }
+      setTailorSession({ job, profile });
+    } finally {
+      setTailorResumeChecking(false);
+    }
+  }, [userEmail]);
 
   const resultsTitle =
     jobListTab === 'saved'
@@ -1247,10 +1305,30 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           saved={savedIds.has(detailSelection.saveId)}
           onToggleSave={() => void toggleSave(detailSelection.saveId)}
           openApply={openApply}
+          onTailorResume={(job) => void handleTailorResumeClick(job)}
+          tailorResumeChecking={tailorResumeChecking}
           candidateText={candidateText}
           corpus={corpusForDetail}
         />
       ) : null}
+
+      <TailorProfileRequiredModal
+        validation={tailorProfileGate?.validation ?? null}
+        needsSignIn={tailorProfileGate?.needsSignIn}
+        onClose={() => setTailorProfileGate(null)}
+      />
+
+      <JobTailorResumeModal
+        session={tailorSession}
+        onClose={() => setTailorSession(null)}
+        onProfileInvalid={() =>
+          setTailorProfileGate({
+            validation: tailorSession
+              ? validateProfileForResumeTailoring(tailorSession.profile)
+              : validateProfileForResumeTailoring(null),
+          })
+        }
+      />
     </>
   );
 };

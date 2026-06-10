@@ -24,6 +24,9 @@ MODULES = [
     "resume_fix_latex.py",
     "resume_fix_pdf_simple.py",
     "resume_fix_pipeline.py",
+    # resume_fix_engine imports get_user_llm_config + _call_* from ats_resume_scorer for AI layout/JSON render
+    "feature_entitlement.py",
+    "ats_resume_scorer.py",
 ]
 TEMPLATE = ROOT / "templates" / "resume_fix_template.tex"
 OUT = ROOT / "fix_resume_lambda.zip"

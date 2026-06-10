@@ -28,6 +28,7 @@ from resume_fix_engine import (
     map_fields_with_optional_llm,
     render_resume_html_with_llm,
     render_resume_data_with_llm,
+    render_tailored_resume_from_profile,
     structured_to_preview_text,
 )
 
@@ -109,6 +110,63 @@ def _upload_fixed_pdf(user_id: str, pdf_bytes: bytes) -> tuple[str | None, str |
         return None, None
 
 
+def _resume_json_pipeline_response(
+    resume_data: dict[str, Any],
+    added: list[str],
+    user_id: str,
+    *,
+    pdf_file_name: str = "fixed-resume.pdf",
+) -> dict[str, Any]:
+    """Build API response for resumeData + optional PDF (shared by Fix and Tailor flows)."""
+    pdf_bytes: bytes | None = None
+    pdf_err: str | None = None
+    pdf_note: str | None = None
+    try:
+        from resume_fix_pdf_simple import build_simple_pdf_from_resume_data
+
+        pdf_bytes = build_simple_pdf_from_resume_data(resume_data)
+    except Exception as pdf_ex:
+        print(f"resume_data pdf: {pdf_ex}")
+        pdf_bytes = None
+        pdf_err = str(pdf_ex)[:500]
+    if pdf_bytes:
+        pdf_note = (
+            "Selectable text PDF (simple layout)—use this for ATS re-uploads, "
+            "not browser Print → Save as PDF (often image-only)."
+        )
+        pdf_err = None
+
+    pdf_url: str | None = None
+    s3_key: str | None = None
+    if pdf_bytes:
+        pdf_url, s3_key = _upload_fixed_pdf(user_id, pdf_bytes)
+
+    out: dict[str, Any] = {
+        "success": True,
+        "resumeData": resume_data,
+        "addedKeywords": added,
+        "pdfAvailable": bool(pdf_bytes),
+        "pdfUrl": pdf_url,
+        "pdfS3Key": s3_key,
+    }
+    if pdf_note:
+        out["pdfNote"] = pdf_note
+    if pdf_bytes and not pdf_url:
+        b64_out = base64.b64encode(pdf_bytes).decode("ascii")
+        if len(b64_out) <= _MAX_PDF_BASE64_RESPONSE_CHARS:
+            out["pdfBase64"] = b64_out
+            out["pdfFileName"] = pdf_file_name
+        else:
+            out["pdfError"] = (
+                "PDF is too large to return in the API response. Set environment variable "
+                "ATS_RESUME_S3_BUCKET on the Fix Resume Lambda and grant s3:PutObject so the file can be uploaded."
+            )
+            out["pdfAvailable"] = False
+    if not pdf_bytes and pdf_err:
+        out["pdfError"] = pdf_err[:500]
+    return out
+
+
 def run_fix_resume_pipeline(
     body: dict[str, Any],
     *,
@@ -118,11 +176,49 @@ def run_fix_resume_pipeline(
     Core implementation. extract_text_from_bytes is injected to avoid circular imports
     with ats_resume_scorer.extract_text_from_bytes.
     """
+    user_id = _field_str(body, "userId", "user_id")
+
+    # Job Hunt: tailor from saved profile + job description (no file upload).
+    if body.get("tailorFromProfile"):
+        profile = body.get("savedResumeProfile") or body.get("profileData")
+        job_description = _field_str(body, "jobDescription", "job_description")
+        if not isinstance(profile, dict) or not profile:
+            return {"success": False, "message": "savedResumeProfile is required for tailor mode."}
+        if not job_description:
+            return {"success": False, "message": "jobDescription is required for tailor mode."}
+        llm_cfg = {
+            "provider": _field_str(body, "provider", "llmProvider"),
+            "apiKey": _field_str(body, "apiKey", "api_key", "llmApiKey"),
+            "model": _field_str(body, "model", "llmModel"),
+        }
+        try:
+            from resume_fix_engine import validate_profile_for_tailor
+
+            missing_fields = validate_profile_for_tailor(profile)
+            if missing_fields:
+                return {
+                    "success": False,
+                    "message": (
+                        "Your profile is incomplete. Please update your profile before tailoring your resume."
+                    ),
+                    "missingFields": missing_fields,
+                }
+            resume_data, added = render_tailored_resume_from_profile(
+                profile,
+                job_description,
+                llm_cfg,
+                user_id=user_id or None,
+            )
+        except Exception as e:
+            return {"success": False, "message": f"Tailored resume failed: {e}"}
+        return _resume_json_pipeline_response(
+            resume_data, added, user_id, pdf_file_name="tailored-resume.pdf"
+        )
+
     missing = _normalize_missing_keywords(body.get("missingKeywords") or body.get("missing_keywords"))
     file_name = _field_str(body, "resumeFileName", "resume_file_name") or "resume.pdf"
     resume_text = _field_str(body, "resumeText", "resume_text")
     b64 = body.get("resumeBase64") or body.get("resume_base64")
-    user_id = _field_str(body, "userId", "user_id")
 
     if not missing:
         return {"success": False, "message": "missingKeywords is required and must be a non-empty list."}
@@ -157,55 +253,7 @@ def run_fix_resume_pipeline(
         except Exception as e:
             return {"success": False, "message": f"AI resume JSON render failed: {e}"}
 
-        # Text-layer PDF (selectable); browser Print→PDF from HTML is often rasterized.
-        pdf_bytes: bytes | None = None
-        pdf_err: str | None = None
-        pdf_note: str | None = None
-        try:
-            from resume_fix_pdf_simple import build_simple_pdf_from_resume_data
-
-            pdf_bytes = build_simple_pdf_from_resume_data(resume_data)
-        except Exception as pdf_ex:
-            print(f"resume_data pdf: {pdf_ex}")
-            pdf_bytes = None
-            pdf_err = str(pdf_ex)[:500]
-        if pdf_bytes:
-            pdf_note = (
-                "Selectable text PDF (simple layout)—use this for ATS re-uploads, "
-                "not browser Print → Save as PDF (often image-only)."
-            )
-            pdf_err = None
-
-        pdf_url: str | None = None
-        s3_key: str | None = None
-        if pdf_bytes:
-            pdf_url, s3_key = _upload_fixed_pdf(user_id, pdf_bytes)
-
-        out: dict[str, Any] = {
-            "success": True,
-            "resumeData": resume_data,
-            "addedKeywords": added,
-            "pdfAvailable": bool(pdf_bytes),
-            "pdfUrl": pdf_url,
-            "pdfS3Key": s3_key,
-        }
-        if pdf_note:
-            out["pdfNote"] = pdf_note
-        if pdf_bytes and not pdf_url:
-            b64 = base64.b64encode(pdf_bytes).decode("ascii")
-            if len(b64) <= _MAX_PDF_BASE64_RESPONSE_CHARS:
-                out["pdfBase64"] = b64
-                out["pdfFileName"] = "fixed-resume.pdf"
-            else:
-                out["pdfError"] = (
-                    "PDF is too large to return in the API response. Set environment variable "
-                    "ATS_RESUME_S3_BUCKET on the Fix Resume Lambda and grant s3:PutObject so the file can be uploaded."
-                )
-                out["pdfAvailable"] = False
-        if not pdf_bytes and pdf_err:
-            out["pdfError"] = pdf_err[:500]
-
-        return out
+        return _resume_json_pipeline_response(resume_data, added, user_id)
 
     # HTML render mode: LLM returns the final Garamond HTML document for preview + browser print.
     if body.get("useLlmRenderHtml"):
