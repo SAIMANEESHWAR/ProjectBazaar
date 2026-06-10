@@ -6,9 +6,13 @@ import {
   Calendar,
   Check,
   ChevronLeft,
+  ChevronRight,
   Circle,
   Loader2,
+  Briefcase,
   Building2,
+  Code2,
+  Layers,
   Menu,
   MessageCircle,
   Mic,
@@ -30,7 +34,8 @@ import {
 } from 'lucide-react';
 import { useNavigation, useAuth } from '../App';
 import { useSubscription } from '../context/SubscriptionContext';
-import { useDashboard } from '../context/DashboardContext';
+import { LIVE_INTERVIEW_SETUP_TABS, useDashboard } from '../context/DashboardContext';
+import { consumeLiveInterviewJobPrefill } from '../lib/liveInterviewJobPrefill';
 import { useLlmKeysGate } from '../context/LlmKeysGateContext';
 import {
   AI_INTERVIEWER_NAME,
@@ -50,6 +55,7 @@ import {
   type InterviewSegment,
   type InterviewLevelId,
   type InterviewTrackId,
+  type MockInterviewer,
 } from '../data/liveMockInterviewMockData';
 import {
   acquireLocalMedia,
@@ -95,12 +101,136 @@ const LIVE_INTERVIEW_PAGE_BG =
   'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
 const PAGE_BG = 'bg-transparent';
 const PICKER_SURFACE = 'bg-transparent';
+const BRIEFING_SURFACE = 'bg-[#FAF8F5] dark:bg-[#12111a]';
+const BRIEFING_CARD =
+  'rounded-xl border border-[#E5E7EB] dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
+
+const ROUND_TAB_META: Record<string, { icon: typeof Briefcase; label: string }> = {
+  'role-related': { icon: Briefcase, label: 'Role Related' },
+  behavioral: { icon: MessageCircle, label: 'Behavioral' },
+  technical: { icon: Code2, label: 'Technical' },
+  'system-design': { icon: Layers, label: 'System Design' },
+};
+
+const INTERVIEWER_AVATAR_GRADIENT: Record<string, string> = {
+  ava: 'from-rose-400 to-orange-500',
+  kai: 'from-blue-500 to-indigo-600',
+  mia: 'from-violet-500 to-purple-600',
+  leo: 'from-amber-500 to-orange-600',
+};
 
 const formatMmSs = (totalSec: number) => {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
+
+let cachedSpeechVoices: SpeechSynthesisVoice[] = [];
+
+function refreshSpeechVoices(): SpeechSynthesisVoice[] {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return cachedSpeechVoices;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) cachedSpeechVoices = voices;
+  return cachedSpeechVoices;
+}
+
+function pickSpeechVoice(locale: string): SpeechSynthesisVoice | undefined {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return undefined;
+  const baseLang = locale.split('-')[0] ?? 'en';
+  const voices = refreshSpeechVoices();
+  return (
+    voices.find((v) => v.lang === locale) ||
+    voices.find((v) => v.lang.startsWith(baseLang)) ||
+    voices.find((v) => v.default) ||
+    voices[0]
+  );
+}
+
+function primeSpeechSynthesis(): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  refreshSpeechVoices();
+  window.speechSynthesis.resume();
+}
+
+/** Speak immediately on user gesture; retries once if the voice list was still loading. */
+function speakUtterance(utter: SpeechSynthesisUtterance, onDone?: () => void): () => void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return () => {};
+
+  let cancelled = false;
+  let retryId = 0;
+
+  const finish = () => {
+    if (!cancelled) onDone?.();
+  };
+  utter.onend = finish;
+  utter.onerror = finish;
+
+  const start = () => {
+    if (cancelled) return;
+    const match = pickSpeechVoice(utter.lang);
+    if (match) utter.voice = match;
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(utter);
+  };
+
+  start();
+
+  if (cachedSpeechVoices.length === 0) {
+    const retry = () => {
+      if (cancelled || cachedSpeechVoices.length === 0) return;
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) return;
+      start();
+    };
+    const onVoicesChanged = () => retry();
+    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged, { once: true });
+    retryId = window.setTimeout(retry, 80);
+    return () => {
+      cancelled = true;
+      if (retryId) window.clearTimeout(retryId);
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+    };
+  }
+
+  return () => {
+    cancelled = true;
+    if (retryId) window.clearTimeout(retryId);
+  };
+}
+
+function InterviewerAvatar({
+  interviewer,
+  size = 'md',
+  className = '',
+}: {
+  interviewer: MockInterviewer;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const box = size === 'sm' ? 'h-10 w-10' : size === 'lg' ? 'h-12 w-12' : 'h-11 w-11';
+  const textSize = size === 'lg' ? 'text-base' : 'text-sm';
+  const gradient = INTERVIEWER_AVATAR_GRADIENT[interviewer.id] ?? 'from-orange-400 to-amber-500';
+
+  if (!failed && interviewer.avatarUrl) {
+    return (
+      <img
+        src={interviewer.avatarUrl}
+        alt=""
+        className={`${box} shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-black/5 ${className}`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={`${box} flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} ${textSize} font-bold text-white shadow-sm ${className}`}
+      aria-hidden
+    >
+      {interviewer.initial}
+    </span>
+  );
+}
 
 interface LiveMockInterviewPageProps {
   embedded?: boolean;
@@ -195,6 +325,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const [questionGenError, setQuestionGenError] = useState<string | null>(null);
 
   const [selectedInterviewerId, setSelectedInterviewerId] = useState(MOCK_INTERVIEWERS[0].id);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<string>(MOCK_INTERVIEW_ROUNDS[0].id);
   const [useAudio, setUseAudio] = useState(true);
   const [useVideo, setUseVideo] = useState(true);
@@ -329,11 +460,30 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const ttsLang = useMemo(() => {
     const inv = MOCK_INTERVIEWERS.find((i) => i.id === selectedInterviewerId);
-    const loc = inv?.locale ?? '';
-    if (loc.includes('UK')) return 'en-GB';
-    if (loc.includes('IN')) return 'en-IN';
-    return 'en-US';
+    return inv?.ttsLocale ?? 'en-US';
   }, [selectedInterviewerId]);
+
+  const previewStopRef = useRef<(() => void) | null>(null);
+
+  const previewInterviewerVoice = useCallback((inv: MockInterviewer) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    previewStopRef.current?.();
+    window.speechSynthesis.cancel();
+    setPreviewingVoiceId(inv.id);
+    const utter = new SpeechSynthesisUtterance(`Hi, I'm ${inv.name}.`);
+    utter.lang = inv.ttsLocale;
+    utter.rate = 1.08;
+    utter.volume = 1;
+    previewStopRef.current = speakUtterance(utter, () => setPreviewingVoiceId(null));
+  }, []);
+
+  const selectAndPreviewInterviewer = useCallback(
+    (inv: MockInterviewer) => {
+      setSelectedInterviewerId(inv.id);
+      previewInterviewerVoice(inv);
+    },
+    [previewInterviewerVoice],
+  );
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
@@ -392,6 +542,23 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setQuestionGenError(null);
     setQuestionGenLoading(false);
   }, [setupTab, liveInterviewMode]);
+
+  useEffect(() => {
+    if (liveInterviewMode !== 'ai' || phase !== 'setup') return;
+    const prefill = consumeLiveInterviewJobPrefill();
+    if (!prefill) return;
+    setLiveInterviewSetupTab('jd');
+    setJdJobTitle(prefill.jobTitle);
+    setJdText(prefill.jdText);
+    setResumeText(prefill.resumeText);
+    const inferred = inferTrackFromText(`${prefill.jobTitle} ${prefill.jdText}`);
+    setJdInterviewType(inferred);
+    setSessionLabel(
+      prefill.company
+        ? `JD: ${prefill.jobTitle} · ${prefill.company}`
+        : `JD: ${prefill.jobTitle}`,
+    );
+  }, [liveInterviewMode, phase, setLiveInterviewSetupTab]);
 
   useEffect(() => {
     if (liveInterviewMode !== 'ai' || apiKeyPromptShownRef.current) return;
@@ -510,7 +677,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    if (phase !== 'live' || !useAudio || !liveAiUtterance) {
+    if (phase !== 'live') return;
+
+    if (!useAudio || !liveAiUtterance) {
       window.speechSynthesis.cancel();
       return;
     }
@@ -520,46 +689,27 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     utter.lang = ttsLang;
     utter.rate = 0.95;
     utter.pitch = 1;
-    utter.onend = () => {
-      setAiState('listening');
-    };
-    utter.onerror = () => {
-      setAiState('listening');
-    };
+    utter.volume = 1;
 
-    const baseLang = ttsLang.split('-')[0] ?? 'en';
-    let cancelled = false;
-    let didStart = false;
-    const applyVoiceAndSpeak = () => {
-      if (cancelled || didStart) return;
-      const voices = window.speechSynthesis.getVoices();
-      const match =
-        voices.find((v) => v.lang === ttsLang) ||
-        voices.find((v) => v.lang.startsWith(baseLang)) ||
-        voices.find((v) => v.default);
-      if (match) utter.voice = match;
-      didStart = true;
-      window.speechSynthesis.speak(utter);
-    };
-    const onVoicesChanged = () => {
-      applyVoiceAndSpeak();
-    };
-
-    let timeoutId = 0;
-    if (window.speechSynthesis.getVoices().length > 0) {
-      applyVoiceAndSpeak();
-    } else {
-      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-      timeoutId = window.setTimeout(() => applyVoiceAndSpeak(), 600);
-    }
+    const stopPending = speakUtterance(utter, () => setAiState('listening'));
 
     return () => {
-      cancelled = true;
-      if (timeoutId) window.clearTimeout(timeoutId);
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+      stopPending();
       window.speechSynthesis.cancel();
     };
   }, [phase, useAudio, liveAiUtterance?.key, liveAiUtterance?.text, ttsLang]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    primeSpeechSynthesis();
+    const onVoicesChanged = () => refreshSpeechVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+  }, []);
+
+  useEffect(() => {
+    if (phase === 'briefing') primeSpeechSynthesis();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'live') return;
@@ -1041,6 +1191,47 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setPhase('briefing');
   }, [liveInterviewMode, ensureLiveInterviewKeys]);
 
+  const goBackToSetup = useCallback(() => {
+    setPhase('setup');
+    setQuestionGenError(null);
+  }, []);
+
+  const goBackToBriefing = useCallback(() => {
+    setPhase('briefing');
+  }, []);
+
+  const setupTabLabel = useMemo(
+    () => LIVE_INTERVIEW_SETUP_TABS.find((t) => t.id === setupTab)?.label ?? 'Role Based',
+    [setupTab],
+  );
+
+  const selectionLabel = useMemo(() => {
+    if (setupTab === 'role') {
+      return selectedRoleTitle || sessionLabel.replace(/^Role:\s*/i, '').trim() || null;
+    }
+    if (setupTab === 'company') {
+      return companyName || selectedCompanyTitle || null;
+    }
+    if (setupTab === 'jd') {
+      return jdJobTitle.trim() || null;
+    }
+    return null;
+  }, [setupTab, selectedRoleTitle, sessionLabel, companyName, selectedCompanyTitle, jdJobTitle]);
+
+  const startRoleInterview = useCallback(
+    async (roleTitle: string) => {
+      setSelectedRoleTitle(roleTitle);
+      setSessionLabel(`Role: ${roleTitle}`);
+      setCompanyName(undefined);
+      setTrack(inferTrackFromText(roleTitle));
+      setGeneratedScript(null);
+      setQuestionGenError(null);
+      setQuestionGenLoading(false);
+      await goToBriefing();
+    },
+    [goToBriefing],
+  );
+
   const handleStartPracticeFromBriefing = useCallback(async () => {
     if (questionGenLoading) return;
 
@@ -1333,7 +1524,38 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const cardWhite =
     'rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
 
-  const pillTabActive = 'bg-[#f97316] text-white shadow-md shadow-orange-500/25';
+  const briefingRoleTitle = useMemo(() => {
+    if (selectionLabel) return selectionLabel;
+    const stripped = sessionLabel.replace(/^(Role|Company|JD):\s*/i, '').trim();
+    return stripped || 'Your interview';
+  }, [selectionLabel, sessionLabel]);
+
+  const briefingLogo = useMemo(() => {
+    if (setupTab === 'company') {
+      const name = companyName || selectedCompanyTitle || briefingRoleTitle;
+      const company = MOCK_COMPANIES.find((c) => c.name === name);
+      return { name, logoUrl: company?.logo };
+    }
+    if (setupTab === 'role') {
+      const name = selectedRoleTitle || briefingRoleTitle;
+      const card = MOCK_ROLE_PICKER_CARDS.find((c) => c.title === name);
+      return { name, logoUrl: card?.logo };
+    }
+    return { name: briefingRoleTitle, logoUrl: undefined as string | undefined };
+  }, [setupTab, companyName, selectedCompanyTitle, selectedRoleTitle, briefingRoleTitle]);
+
+  const selectedRound = useMemo(
+    () => MOCK_INTERVIEW_ROUNDS.find((r) => r.id === selectedRoundId) ?? MOCK_INTERVIEW_ROUNDS[0],
+    [selectedRoundId],
+  );
+
+  const selectedInterviewer = useMemo(
+    () => MOCK_INTERVIEWERS.find((i) => i.id === selectedInterviewerId) ?? MOCK_INTERVIEWERS[0],
+    [selectedInterviewerId],
+  );
+
+  const briefingTrackLabel = TRACK_OPTIONS.find((x) => x.id === track)?.label ?? 'Software Engineering';
+  const briefingLevelLabel = LEVEL_OPTIONS.find((x) => x.id === level)?.label ?? 'Mid';
 
   const renderRoleCompanyHeadline = () => {
     const isRole = setupTab === 'role';
@@ -1470,6 +1692,68 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     );
   };
 
+  const renderInterviewBreadcrumb = () => {
+    if (phase === 'setup' || phase === 'live') return null;
+
+    const phaseLabels: Partial<Record<FlowPhase, string>> = {
+      briefing: 'Interview details',
+      prereq: 'Device check',
+      warming: 'Preparing session',
+      results: 'Results',
+    };
+
+    const crumbs: { label: string; onClick?: () => void }[] = [
+      { label: 'Interview with AI' },
+      { label: setupTabLabel, onClick: goBackToSetup },
+    ];
+
+    if (selectionLabel) {
+      crumbs.push({
+        label: selectionLabel,
+        onClick: phase !== 'briefing' ? goBackToBriefing : undefined,
+      });
+    }
+
+    const terminalLabel = phaseLabels[phase];
+    if (terminalLabel) {
+      crumbs.push({ label: terminalLabel });
+    }
+
+    return (
+      <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-1.5 text-sm">
+        {crumbs.map((crumb, index) => {
+          const isLast = index === crumbs.length - 1;
+          return (
+            <React.Fragment key={`${crumb.label}-${index}`}>
+              {index > 0 ? (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" aria-hidden />
+              ) : null}
+              {crumb.onClick && !isLast ? (
+                <button
+                  type="button"
+                  onClick={crumb.onClick}
+                  className="font-medium text-gray-500 transition-colors hover:text-[#f97316] dark:text-gray-400 dark:hover:text-orange-400"
+                >
+                  {crumb.label}
+                </button>
+              ) : (
+                <span
+                  className={
+                    isLast
+                      ? 'font-semibold text-gray-900 dark:text-white'
+                      : 'font-medium text-gray-500 dark:text-gray-400'
+                  }
+                >
+                  {crumb.label}
+                </span>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </nav>
+    );
+  };
+
   const renderRoleCompanyGrid = () => {
     if (setupTab === 'role') {
       return (
@@ -1489,10 +1773,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                 key={card.title}
               type="button"
                 title={card.title}
-              onClick={() => {
-                  setSelectedRoleTitle(card.title);
-                  setQuestionGenError(null);
-              }}
+              onClick={() => void startRoleInterview(card.title)}
                 className={`group relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 px-4 py-6 sm:py-7 text-center shadow-sm shadow-orange-900/[0.05] transition-all duration-200 hover:border-[#f97316] hover:bg-gradient-to-b hover:from-orange-50/95 hover:to-white dark:hover:from-orange-950/35 dark:hover:to-gray-900 hover:shadow-lg hover:shadow-orange-500/12 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 active:translate-y-0 active:scale-[0.99] ${
                   selectedRoleTitle === card.title
                     ? 'border-[#f97316] bg-orange-50/70 dark:bg-orange-500/10'
@@ -1510,26 +1791,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </button>
           ))}
           </div>
-          <div className="mt-6 flex flex-col items-center gap-3">
-            <button
-              type="button"
-              disabled={!selectedRoleTitle}
-              onClick={() => {
-                setSessionLabel(`Role: ${selectedRoleTitle}`);
-                setCompanyName(undefined);
-                setTrack(inferTrackFromText(selectedRoleTitle));
-                setGeneratedScript(null);
-                setQuestionGenError(null);
-                void goToBriefing();
-              }}
-              className="rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wide text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/20"
-            >
-              Continue
-            </button>
-            {questionGenError ? (
-              <p className="text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
-            ) : null}
-          </div>
+          {questionGenError ? (
+            <p className="mt-4 text-center text-xs text-red-600 dark:text-red-400">{questionGenError}</p>
+          ) : null}
           {filteredRoles.length === 0 ? (
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">No roles match your search.</p>
           ) : null}
@@ -1586,6 +1850,251 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   };
 
   const jdValid = jdJobTitle.trim().length > 0 && questionCount > 0 && timeMinutes > 0;
+
+  const renderBriefingPhase = () => (
+    <motion.div
+      key="briefing"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.25 }}
+      className={`w-full min-w-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 px-4 sm:px-6 lg:px-8 xl:px-10 py-3 sm:py-4 ${BRIEFING_SURFACE}`}
+    >
+      <div className="mx-auto w-full max-w-3xl pb-20 sm:pb-24">
+        <div className="space-y-4 sm:space-y-5">
+          {/* Premium role summary header */}
+          <section className={`${BRIEFING_CARD} p-4 sm:p-5`} aria-labelledby="briefing-role-title">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <CompanyPickerLogo name={briefingLogo.name} logoUrl={briefingLogo.logoUrl} />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
+                    Interview setup
+                  </p>
+                  <h1
+                    id="briefing-role-title"
+                    className="mt-0.5 text-lg sm:text-xl font-bold tracking-tight text-[#1F2937] dark:text-white"
+                  >
+                    {briefingRoleTitle}
+                  </h1>
+                  {companyName ? (
+                    <p className="mt-1 text-xs text-[#6B7280] dark:text-gray-400">
+                      Company focus: <span className="font-medium text-[#1F2937] dark:text-gray-200">{companyName}</span>
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center rounded-full border border-[#E5E7EB] dark:border-gray-600 bg-[#FAF8F5] dark:bg-gray-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1F2937] dark:text-gray-200">
+                      {briefingTrackLabel}
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-orange-200 dark:border-orange-800/60 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 text-[11px] font-semibold text-[#FF7A00]">
+                      {briefingLevelLabel} Level
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={goBackToSetup}
+                className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-2.5 py-1.5 text-xs font-medium text-[#6B7280] transition-colors hover:border-orange-200 hover:text-[#FF7A00] dark:text-gray-400 dark:hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+                Change selection
+              </button>
+            </div>
+          </section>
+
+          {/* Dashboard stat cards */}
+          <section className="grid grid-cols-2 gap-3 sm:max-w-xs" aria-label="Interview statistics">
+            <div className={`${BRIEFING_CARD} p-3.5 sm:p-4`}>
+              <p className="text-2xl font-bold tracking-tight text-[#1F2937] dark:text-white">
+                {questionCount}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-[#6B7280] dark:text-gray-400">Questions</p>
+            </div>
+            <div className={`${BRIEFING_CARD} p-3.5 sm:p-4`}>
+              <p className="text-2xl font-bold tracking-tight text-[#1F2937] dark:text-white">
+                {timeMinutes}
+                <span className="ml-0.5 text-sm font-semibold text-[#6B7280] dark:text-gray-400">min</span>
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-[#6B7280] dark:text-gray-400">Duration</p>
+            </div>
+          </section>
+          <p className="-mt-2 text-[11px] text-[#6B7280] dark:text-gray-500">
+            Session auto-ends when the time limit is reached if questions remain.
+          </p>
+
+          {/* Round selection */}
+          <section aria-labelledby="briefing-round-label">
+            <h2 id="briefing-round-label" className="mb-2 text-xs font-semibold text-[#1F2937] dark:text-white">
+              Interview round
+            </h2>
+            <div
+              className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide -mx-1 px-1"
+              role="tablist"
+              aria-label="Interview round"
+            >
+              {MOCK_INTERVIEW_ROUNDS.map((round) => {
+                const meta = ROUND_TAB_META[round.id] ?? { icon: Briefcase, label: round.label };
+                const Icon = meta.icon;
+                const active = selectedRoundId === round.id;
+                return (
+                  <button
+                    key={round.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setSelectedRoundId(round.id)}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 ${
+                      active
+                        ? 'border-[#FF7A00] bg-[#FF7A00] text-white shadow-md shadow-orange-500/25'
+                        : 'border-[#E5E7EB] dark:border-gray-600 bg-white dark:bg-gray-900 text-[#6B7280] dark:text-gray-300 hover:border-orange-200 hover:text-[#FF7A00] dark:hover:border-orange-700'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Interviewer selection */}
+          <section aria-labelledby="briefing-interviewer-label">
+            <h2 id="briefing-interviewer-label" className="mb-2 text-xs font-semibold text-[#1F2937] dark:text-white">
+              Choose your interviewer
+            </h2>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {MOCK_INTERVIEWERS.map((inv) => {
+                const active = selectedInterviewerId === inv.id;
+                const isPreviewing = previewingVoiceId === inv.id;
+                return (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    aria-pressed={active}
+                    aria-label={`Select ${inv.name}, ${inv.voiceLabel}. Tap to hear voice sample.`}
+                    disabled={isPreviewing}
+                    onClick={() => selectAndPreviewInterviewer(inv)}
+                    className={`group relative flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40 disabled:cursor-wait ${
+                      active
+                        ? 'border-[#FF7A00] bg-orange-50/80 dark:bg-orange-950/25 shadow-md shadow-orange-500/10 ring-1 ring-orange-200/80 dark:ring-orange-800/50'
+                        : 'border-[#E5E7EB] dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-orange-200 hover:shadow-sm dark:hover:border-orange-800/60'
+                    }`}
+                  >
+                    {active ? (
+                      <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF7A00] text-white shadow-sm">
+                        <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+                      </span>
+                    ) : null}
+                    <InterviewerAvatar interviewer={inv} size="sm" />
+                    <p className="min-w-0 flex-1 truncate pr-5 text-sm text-[#1F2937] dark:text-white">
+                      <span className="font-bold">{inv.name}</span>
+                      <span className="text-[#6B7280] dark:text-gray-400"> · </span>
+                      <span className="inline-flex items-center gap-1 font-medium text-[#6B7280] dark:text-gray-400">
+                        {isPreviewing ? (
+                          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[#FF7A00]" aria-hidden />
+                        ) : (
+                          <Volume2 className="h-3 w-3 shrink-0 text-[#FF7A00]" aria-hidden />
+                        )}
+                        {isPreviewing ? 'Playing…' : inv.voiceLabel}
+                      </span>
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Media preferences */}
+          <section className={`${BRIEFING_CARD} divide-y divide-[#E5E7EB] dark:divide-gray-700`} aria-label="Media preferences">
+            <label className="flex cursor-pointer items-center gap-2.5 p-3">
+              <input
+                type="checkbox"
+                checked={useAudio}
+                onChange={(e) => setUseAudio(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#FF7A00] focus:ring-[#FF7A00]"
+              />
+              <Mic className="h-4 w-4 shrink-0 text-[#FF7A00]" aria-hidden />
+              <span className="text-xs font-medium text-[#1F2937] dark:text-gray-200">Use microphone / audio</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2.5 p-3">
+              <input
+                type="checkbox"
+                checked={useVideo}
+                onChange={(e) => setUseVideo(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#FF7A00] focus:ring-[#FF7A00]"
+              />
+              <Video className="h-4 w-4 shrink-0 text-[#FF7A00]" aria-hidden />
+              <span className="text-xs font-medium text-[#1F2937] dark:text-gray-200">Use camera / video</span>
+            </label>
+          </section>
+
+          {/* Interview summary */}
+          <section className={`${BRIEFING_CARD} p-4 sm:p-5`} aria-labelledby="briefing-summary-title">
+            <h2 id="briefing-summary-title" className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400">
+              Interview summary
+            </h2>
+            <dl className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2">
+              {[
+                { term: 'Role', value: briefingRoleTitle },
+                { term: 'Round', value: ROUND_TAB_META[selectedRound.id]?.label ?? selectedRound.label },
+                { term: 'Questions', value: String(questionCount) },
+                { term: 'Duration', value: `${timeMinutes} minutes` },
+                { term: 'Interviewer', value: `${selectedInterviewer.name} · ${selectedInterviewer.voiceLabel}` },
+                { term: 'Track', value: briefingTrackLabel },
+              ].map((row) => (
+                <div key={row.term} className="flex items-baseline justify-between gap-3 border-b border-[#E5E7EB]/80 dark:border-gray-700/80 pb-2 last:border-0 sm:last:border-b">
+                  <dt className="text-xs text-[#6B7280] dark:text-gray-400">{row.term}</dt>
+                  <dd className="text-xs font-semibold text-[#1F2937] dark:text-white text-right">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {liveInterviewMode === 'ai' && hasLiveInterviewKey ? (
+              <p className="mt-3 rounded-lg bg-orange-50/80 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/40 px-3 py-2 text-[11px] text-[#6B7280] dark:text-gray-400">
+                AI scoring via your saved <strong className="text-[#1F2937] dark:text-gray-200">{llmProvider}</strong> key ({liveInterviewModel}).
+              </p>
+            ) : null}
+            <p className="mt-2 text-[11px] text-[#6B7280] dark:text-gray-500">
+              Attempts remaining: <strong className="text-[#1F2937] dark:text-white">3</strong> (mock)
+            </p>
+          </section>
+        </div>
+      </div>
+
+      {/* Sticky primary CTA */}
+      <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 border-t border-[#E5E7EB] dark:border-gray-700 bg-[#FAF8F5]/95 dark:bg-[#12111a]/95 px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={goBackToSetup}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] dark:border-gray-600 px-4 py-2 text-xs font-medium text-[#6B7280] transition-colors hover:bg-white dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/40"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!briefingCanStart || questionGenLoading}
+            onClick={() => void handleStartPracticeFromBriefing()}
+            aria-busy={questionGenLoading}
+            className="inline-flex w-full sm:w-auto sm:min-w-[220px] items-center justify-center gap-1.5 rounded-lg bg-[#FF7A00] px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-orange-500/25 transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+          >
+            {questionGenLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Generating questions…
+              </>
+            ) : (
+              <>
+                Start Interview
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
 
   const renderSetupBody = () => {
     switch (setupTab) {
@@ -1744,6 +2253,8 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             embedded={embedded}
           />
         ) : (
+        <>
+        {renderInterviewBreadcrumb()}
         <AnimatePresence mode="wait">
           {phase === 'setup' && (
             <motion.div
@@ -1768,177 +2279,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </motion.div>
           )}
 
-          {phase === 'briefing' && (
-            <motion.div
-              key="briefing"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-              className="w-full min-w-0 flex justify-center pt-1"
-            >
-              <div className={`w-full max-w-4xl ${cardWhite} overflow-hidden ring-1 ring-orange-100/70 dark:ring-orange-900/30`}>
-                <div className="border-b border-gray-100 dark:border-gray-800 px-6 py-5 bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-500/10 dark:to-transparent">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interview details</h2>
-                </div>
-                <div className="p-6 sm:p-7 space-y-6">
-                  <div className="rounded-xl bg-orange-50/80 dark:bg-orange-500/10 border border-orange-200/60 dark:border-orange-500/30 px-4 py-3 text-sm">
-                    <p className="font-semibold text-gray-900 dark:text-white">{sessionLabel || 'Session'}</p>
-                    {companyName && (
-                      <p className="text-gray-600 dark:text-gray-400 mt-1">Company focus: {companyName}</p>
-                    )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      Track: {TRACK_OPTIONS.find((x) => x.id === track)?.label} · Level:{' '}
-                      {LEVEL_OPTIONS.find((x) => x.id === level)?.label}
-                    </p>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                        Number of questions
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={20}
-                        value={questionCount}
-                        onChange={(e) =>
-                          setQuestionCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
-                        }
-                        className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                        Time limit (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={120}
-                        value={timeMinutes}
-                        onChange={(e) =>
-                          setTimeMinutes(Math.max(1, Math.min(120, Number(e.target.value) || 1)))
-                        }
-                        className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-950 px-4 py-2.5 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-                    Session auto-ends when the time limit is reached if questions are still remaining.
-                  </p>
-
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-                      Round
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {MOCK_INTERVIEW_ROUNDS.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setSelectedRoundId(r.id)}
-                          className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                            selectedRoundId === r.id
-                              ? pillTabActive
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-                      Interviewer
-                    </p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {MOCK_INTERVIEWERS.map((inv) => (
-                        <button
-                          key={inv.id}
-                          type="button"
-                          onClick={() => setSelectedInterviewerId(inv.id)}
-                          className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                            selectedInterviewerId === inv.id
-                              ? 'border-[#f97316] bg-orange-50/50 dark:bg-orange-500/10'
-                              : 'border-gray-200 dark:border-gray-600 hover:border-orange-200'
-                          }`}
-                        >
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#f97316] to-amber-500 text-lg font-bold text-white">
-                            {inv.initial}
-                          </span>
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-white">{inv.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{inv.locale}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 rounded-xl border border-gray-200 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
-                    <label className="flex items-center gap-3 p-4 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useAudio}
-                        onChange={(e) => setUseAudio(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]"
-                      />
-                      <Mic className="w-4 h-4 text-[#f97316] shrink-0" aria-hidden />
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Use microphone / audio</span>
-                    </label>
-                    <label className="flex items-center gap-3 p-4 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useVideo}
-                        onChange={(e) => setUseVideo(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]"
-                      />
-                      <Video className="w-4 h-4 text-[#f97316] shrink-0" aria-hidden />
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Use camera / video</span>
-                    </label>
-                  </div>
-
-                  {liveInterviewMode === 'ai' && hasLiveInterviewKey ? (
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-600 p-4 space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        AI scoring
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Results will use your saved <strong>{llmProvider}</strong> key ({liveInterviewModel}) from Settings.
-                      </p>
-                    </div>
-                  ) : null}
-
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Attempts remaining: <strong className="text-gray-900 dark:text-white">3</strong> (mock)
-                  </p>
-                </div>
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 border-t border-gray-100 dark:border-gray-800 px-6 py-4 bg-gray-50/80 dark:bg-gray-950/40">
-                  <button
-                    type="button"
-                    onClick={() => setPhase('setup')}
-                    className="inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600"
-                  >
-                    <X className="w-4 h-4" aria-hidden />
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                      disabled={!briefingCanStart || questionGenLoading}
-                      onClick={() => void handleStartPracticeFromBriefing()}
-                    className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-white bg-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-orange-500/25"
-                  >
-                      {questionGenLoading ? 'Generating questions...' : 'Start practice'}
-                    <ArrowRight className="w-4 h-4" aria-hidden />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
+          {phase === 'briefing' && renderBriefingPhase()}
 
           {phase === 'prereq' && (
             <motion.div
@@ -2315,11 +2656,19 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
                         aria-hidden
                       />
                       {/* Top overlays */}
-                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 rounded-full bg-black/45 dark:bg-black/55 backdrop-blur-md pl-1.5 pr-3 py-1.5 text-white text-xs font-medium max-w-[min(100%,18rem)]">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold">
-                          {interviewerInitials}
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2 rounded-full bg-black/45 dark:bg-black/55 backdrop-blur-md pl-1.5 pr-3 py-1.5 text-white text-xs font-medium max-w-[min(100%,20rem)]">
+                        {selectedInterviewer ? (
+                          <InterviewerAvatar interviewer={selectedInterviewer} size="sm" className="!h-8 !w-8 !rounded-full" />
+                        ) : (
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold">
+                            {interviewerInitials}
+                          </span>
+                        )}
+                        <span className="min-w-0 truncate font-semibold">
+                          {selectedInterviewer
+                            ? `${interviewerDisplay} · ${selectedInterviewer.voiceLabel}`
+                            : interviewerDisplay}
                         </span>
-                        <span className="truncate">{interviewerDisplay}</span>
                       </div>
                       {useVideo && localMediaStream?.getVideoTracks().length ? (
                         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 w-[28%] max-w-[200px] min-w-[120px] rounded-xl overflow-hidden border-2 border-white dark:border-gray-700 shadow-lg ring-1 ring-black/10">
@@ -2757,6 +3106,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        </>
         )}
       </div>
       <PremiumUpsellModal

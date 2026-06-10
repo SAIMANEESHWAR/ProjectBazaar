@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Clock,
   MapPin,
+  Mic,
   RefreshCw,
   Search,
   Sparkles,
@@ -12,10 +13,14 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../App';
+import { useDashboard } from '../context/DashboardContext';
 import JobTailorResumeModal, { type TailorResumeSession } from './job-hunt/JobTailorResumeModal';
 import TailorProfileRequiredModal from './job-hunt/TailorProfileRequiredModal';
 import Pagination from './Pagination';
-import { trackJobApplyClick } from '../lib/analytics';
+import { trackJobApplyClick, trackJobInterviewClick } from '../lib/analytics';
+import { setLiveInterviewJobPrefill } from '../lib/liveInterviewJobPrefill';
+import { buildResumeTextFromInfo } from '../services/atsService';
+import { buildJobTailoringJd } from '../services/tailorResume';
 import {
   fetchJobs,
   fetchSavedResumeProfile,
@@ -335,7 +340,9 @@ interface JobDetailPanelProps {
   onToggleSave: () => void;
   openApply: (job: JobListing) => void;
   onTailorResume: (job: JobListing) => void;
+  onStartLiveInterview: (job: JobListing) => void;
   tailorResumeChecking?: boolean;
+  liveInterviewChecking?: boolean;
   candidateText: string;
   corpus: Corpus;
 }
@@ -347,7 +354,9 @@ function JobDetailPanel({
   onToggleSave,
   openApply,
   onTailorResume,
+  onStartLiveInterview,
   tailorResumeChecking,
+  liveInterviewChecking,
   candidateText,
   corpus,
 }: JobDetailPanelProps) {
@@ -402,6 +411,17 @@ function JobDetailPanel({
                 <X className="h-5 w-5" />
               </button>
             </div>
+          </div>
+          <div className="border-t border-gray-100 px-5 py-3 sm:px-6">
+            <button
+              type="button"
+              onClick={() => onStartLiveInterview(job)}
+              disabled={liveInterviewChecking || tailorResumeChecking}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Mic className={`h-4 w-4 shrink-0 ${liveInterviewChecking ? 'animate-pulse' : ''}`} aria-hidden />
+              {liveInterviewChecking ? 'Checking profile…' : 'Take Live Interview AI'}
+            </button>
           </div>
         </header>
 
@@ -488,7 +508,7 @@ function JobDetailPanel({
             <button
               type="button"
               onClick={() => onTailorResume(job)}
-              disabled={tailorResumeChecking}
+              disabled={tailorResumeChecking || liveInterviewChecking}
               className="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-semibold text-[#FF6B00] transition-colors hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Sparkles className={`h-4 w-4 shrink-0 ${tailorResumeChecking ? 'animate-pulse' : ''}`} aria-hidden />
@@ -512,6 +532,11 @@ function JobDetailPanel({
 
 const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
   const { userEmail } = useAuth();
+  const {
+    setDashboardMode,
+    setActiveView,
+    setLiveInterviewSetupTab,
+  } = useDashboard();
   const { guardPageChange } = useJobHuntContentAccess();
   const { jobOpenRequest, consumeJobOpenRequest, savedJobsNavTick, browseAllNavTick } =
     useJobHuntShell();
@@ -808,6 +833,14 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
     needsSignIn?: boolean;
   } | null>(null);
   const [tailorResumeChecking, setTailorResumeChecking] = useState(false);
+  const [liveInterviewChecking, setLiveInterviewChecking] = useState(false);
+  const [liveInterviewError, setLiveInterviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!liveInterviewError) return;
+    const timer = window.setTimeout(() => setLiveInterviewError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [liveInterviewError]);
 
   const handleTailorResumeClick = useCallback(async (job: JobListing) => {
     setTailorResumeChecking(true);
@@ -830,6 +863,58 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
       setTailorResumeChecking(false);
     }
   }, [userEmail]);
+
+  const handleLiveInterviewClick = useCallback(async (job: JobListing) => {
+    setLiveInterviewChecking(true);
+    try {
+      const uid = getJobHuntUserId()?.trim();
+      if (!uid) {
+        setTailorProfileGate({ validation: null, needsSignIn: true });
+        return;
+      }
+      const profile = await fetchSavedResumeProfile(uid);
+      const validation = validateProfileForResumeTailoring(profile, {
+        accountEmail: userEmail,
+      });
+      if (!validation.isValid || !profile) {
+        setTailorProfileGate({ validation });
+        return;
+      }
+      const jdText = buildJobTailoringJd(job);
+      if (!jdText) {
+        setLiveInterviewError(
+          'This job has no description available. Try another listing or check back later.',
+        );
+        return;
+      }
+      const jobTitle = job.job_title?.trim() || 'Untitled role';
+      const resumeText = buildResumeTextFromInfo(profile);
+      setLiveInterviewJobPrefill({
+        jobId: job.id,
+        jobTitle,
+        jdText,
+        resumeText,
+        company: job.company?.trim() || undefined,
+        source: 'job-hunt',
+      });
+      trackJobInterviewClick({
+        job_id: job.id,
+        job_title: jobTitle,
+        company: job.company?.trim() || '',
+      });
+      setLiveInterviewSetupTab('jd');
+      setDashboardMode('buyer');
+      setActiveView('live-mock-interview');
+      setDetailSelection(null);
+    } finally {
+      setLiveInterviewChecking(false);
+    }
+  }, [
+    userEmail,
+    setLiveInterviewSetupTab,
+    setDashboardMode,
+    setActiveView,
+  ]);
 
   const resultsTitle =
     jobListTab === 'saved'
@@ -1298,6 +1383,15 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
       </div>
     </div>
 
+      {liveInterviewError ? (
+        <div
+          className="fixed bottom-6 right-4 z-[110] max-w-sm animate-dashboard-toast-in rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-800 shadow-lg sm:right-6"
+          role="alert"
+        >
+          {liveInterviewError}
+        </div>
+      ) : null}
+
       {detailSelection ? (
         <JobDetailPanel
           job={detailSelection.job}
@@ -1306,7 +1400,9 @@ const JobHuntPage: React.FC<JobHuntPageProps> = ({ toggleSidebar }) => {
           onToggleSave={() => void toggleSave(detailSelection.saveId)}
           openApply={openApply}
           onTailorResume={(job) => void handleTailorResumeClick(job)}
+          onStartLiveInterview={(job) => void handleLiveInterviewClick(job)}
           tailorResumeChecking={tailorResumeChecking}
+          liveInterviewChecking={liveInterviewChecking}
           candidateText={candidateText}
           corpus={corpusForDetail}
         />

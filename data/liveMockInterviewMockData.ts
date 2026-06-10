@@ -466,14 +466,54 @@ export interface MockInterviewer {
   id: string;
   name: string;
   locale: string;
+  style: string;
+  voiceLabel: string;
+  ttsLocale: string;
   initial: string;
+  avatarUrl: string;
 }
 
 export const MOCK_INTERVIEWERS: MockInterviewer[] = [
-  { id: 'ava', name: 'Ava', locale: 'US English', initial: 'A' },
-  { id: 'kai', name: 'Kai', locale: 'IN English', initial: 'K' },
-  { id: 'mia', name: 'Mia', locale: 'UK English', initial: 'M' },
-  { id: 'leo', name: 'Leo', locale: 'US English', initial: 'L' },
+  {
+    id: 'ava',
+    name: 'Ava',
+    locale: 'US English',
+    style: 'Friendly & Conversational',
+    voiceLabel: 'Warm US Female',
+    ttsLocale: 'en-US',
+    initial: 'A',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=Ava&size=128&backgroundColor=ffedd5',
+  },
+  {
+    id: 'kai',
+    name: 'Kai',
+    locale: 'Indian English',
+    style: 'Direct & Professional',
+    voiceLabel: 'Indian English Male',
+    ttsLocale: 'en-IN',
+    initial: 'K',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=Kai&size=128&backgroundColor=dbeafe',
+  },
+  {
+    id: 'mia',
+    name: 'Mia',
+    locale: 'UK English',
+    style: 'Structured & Detailed',
+    voiceLabel: 'British English Female',
+    ttsLocale: 'en-GB',
+    initial: 'M',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=Mia&size=128&backgroundColor=ede9fe',
+  },
+  {
+    id: 'leo',
+    name: 'Leo',
+    locale: 'US English',
+    style: 'Senior Hiring Manager Style',
+    voiceLabel: 'Deep US Male',
+    ttsLocale: 'en-US',
+    initial: 'L',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=Leo&size=128&backgroundColor=ffedd5',
+  },
 ];
 
 export const MOCK_INTERVIEW_ROUNDS = [

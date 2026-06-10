@@ -155,6 +155,20 @@ export function trackPurchase(params: {
   });
 }
 
+export function trackJobInterviewClick(params: {
+  job_id: string;
+  job_title: string;
+  company: string;
+}) {
+  pushDataLayerEvent({
+    event: "job_interview_click",
+    job_id: params.job_id,
+    job_title: params.job_title,
+    company: params.company,
+    page_path: window.location.pathname,
+  });
+}
+
 export function trackJobApplyClick(params: {
   job_id: string;
   company: string;
