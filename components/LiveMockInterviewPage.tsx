@@ -74,7 +74,6 @@ import {
 } from '../services/liveMockInterviewApi';
 
 type FlowPhase = 'setup' | 'briefing' | 'prereq' | 'warming' | 'live' | 'results';
-type SetupTabId = 'role' | 'company' | 'jd';
 type LiveInterviewMode = 'ai' | 'peer';
 
 type PrereqItemStatus =
@@ -96,7 +95,6 @@ const LIVE_INTERVIEW_PAGE_BG =
   'bg-gradient-to-b from-orange-50/90 via-orange-50/40 to-white dark:from-orange-950/25 dark:via-[#12111a] dark:to-[#12111a]';
 const PAGE_BG = 'bg-transparent';
 const PICKER_SURFACE = 'bg-transparent';
-const PICKER_BORDER = 'border-transparent';
 
 const formatMmSs = (totalSec: number) => {
   const m = Math.floor(totalSec / 60);
@@ -165,6 +163,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     dashboardMode,
     setActiveView,
     liveInterviewSetupTab: setupTab,
+    setLiveInterviewSetupTab,
   } = useDashboard();
   const {
     llmKeysStatus,
@@ -779,7 +778,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
   const resetSession = useCallback(() => {
     stopLocalMedia();
     setPhase('setup');
-    setSetupTab('role');
+    setLiveInterviewSetupTab('role');
     setRoleSearch('');
     setCompanySearch('');
     setSessionLabel('');
@@ -820,7 +819,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     setAiEvalError(null);
     setSaveStatus('idle');
     resultPersistedRef.current = false;
-  }, [stopLocalMedia]);
+  }, [stopLocalMedia, setLiveInterviewSetupTab]);
 
   const continueAfterMicResolved = useCallback(async () => {
     if (prereqNetworkPhaseStartedRef.current) return;
