@@ -1,17 +1,26 @@
 /**
  * Tailor resume for a job portal row: ATS analyze (synthetic JD from portal metadata) → Fix Resume (JSON + PDF).
  * Real per-posting JDs are not in JobPortal — see buildPortalTailoringJd.
+ *
+ * Job Hunt tailoring (`tailorResumeForJob`) uses saved profile data only — no file upload.
  */
 
+import type { ResumeInfo } from '../context/ResumeInfoContext';
 import type { JobPortal } from '../data/preparationTypes';
+import type { JobListing } from './buyerApi';
 import {
   analyzeAtsWithProvider,
   coerceMissingKeywordDetails,
   fixResumeWithProvider,
+  tailorResumeFromProfile,
   type AtsProvider,
   type AtsResult,
   type FixResumeResult,
 } from './atsService';
+import {
+  validateProfileForResumeTailoring,
+  type ProfileResumeTailoringValidation,
+} from './tailorProfileValidation';
 
 /** Synthetic “job description” from portal listing fields (not a specific requisition). */
 export function buildPortalTailoringJd(portal: JobPortal): string {
@@ -169,4 +178,92 @@ export async function tailorResumeForPortal(params: TailorResumeForPortalParams)
   }
 
   return { success: true, atsResult, fix, usedFallbackKeywords };
+}
+
+/** Build a job description string from a Job Hunt listing for tailoring. */
+export function buildJobTailoringJd(job: JobListing): string {
+  const parts: string[] = [];
+  if (job.job_title?.trim()) parts.push(`Job Title: ${job.job_title.trim()}`);
+  if (job.company?.trim()) parts.push(`Company: ${job.company.trim()}`);
+  if (job.location?.trim()) parts.push(`Location: ${job.location.trim()}`);
+  if (job.job_type?.trim()) parts.push(`Job Type: ${job.job_type.trim()}`);
+  if (job.experience_level?.trim()) parts.push(`Experience Level: ${job.experience_level.trim()}`);
+  if (job.salary?.trim()) parts.push(`Salary: ${job.salary.trim()}`);
+  if (job.skills?.trim()) parts.push(`Required Skills: ${job.skills.trim()}`);
+  if (job.source_platform?.trim()) parts.push(`Source: ${job.source_platform.trim()}`);
+  const desc = job.description?.trim();
+  if (desc) {
+    parts.push('');
+    parts.push('Job Description:');
+    parts.push(desc);
+  }
+  return parts.join('\n').trim();
+}
+
+export type JobTailorPhase = 'validating' | 'tailoring' | 'rendering';
+
+export type TailorResumeForJobParams = {
+  job: JobListing;
+  profile: ResumeInfo;
+  userId?: string;
+  accountEmail?: string | null;
+  provider?: AtsProvider;
+  onPhase?: (phase: JobTailorPhase) => void;
+};
+
+export type TailorJobResumeSuccess = {
+  success: true;
+  fix: FixResumeResult;
+};
+
+export type TailorJobResumeFailure = {
+  success: false;
+  message: string;
+  validation?: ProfileResumeTailoringValidation;
+};
+
+export type TailorJobResumeOutcome = TailorJobResumeSuccess | TailorJobResumeFailure;
+
+export async function tailorResumeForJob(params: TailorResumeForJobParams): Promise<TailorJobResumeOutcome> {
+  const { job, profile, userId, accountEmail, provider, onPhase } = params;
+
+  onPhase?.('validating');
+  const validation = validateProfileForResumeTailoring(profile, { accountEmail });
+  if (!validation.isValid) {
+    return {
+      success: false,
+      message: 'Your profile is incomplete. Please update your profile before tailoring your resume.',
+      validation,
+    };
+  }
+
+  const jobDescription = buildJobTailoringJd(job);
+  if (!jobDescription) {
+    return {
+      success: false,
+      message: 'This job has no description available. Try another listing or check back later.',
+      validation,
+    };
+  }
+
+  onPhase?.('tailoring');
+  await sleep(200);
+  onPhase?.('rendering');
+
+  const fix = await tailorResumeFromProfile({
+    savedResumeProfile: profile,
+    jobDescription,
+    ...(userId ? { userId } : {}),
+    provider,
+  });
+
+  if (!fix.success) {
+    return {
+      success: false,
+      message: fix.message || 'Could not tailor resume for this job.',
+      validation,
+    };
+  }
+
+  return { success: true, fix };
 }

@@ -263,6 +263,73 @@ export interface FixResumeResult {
   pdfNote?: string;
 }
 
+export interface TailorResumeFromProfileParams {
+  savedResumeProfile: ResumeInfo;
+  jobDescription: string;
+  userId?: string;
+  /** Optional — tailor is deterministic; provider is not used for content generation. */
+  provider?: AtsProvider;
+  apiKey?: string;
+  model?: string;
+}
+
+async function postFixResumeBody(body: Record<string, unknown>): Promise<FixResumeResult> {
+  const res = await fetch(FIX_RESUME_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let data: FixResumeResult = { success: false };
+  try {
+    const text = await res.text();
+    data = text ? (JSON.parse(text) as FixResumeResult) : { success: false };
+  } catch {
+    return { success: false, message: 'Invalid response from tailor-resume service' };
+  }
+  if (!res.ok || !data.success) {
+    const raw = data as unknown as Record<string, unknown>;
+    const message =
+      (typeof raw.message === 'string' && raw.message) ||
+      (typeof raw.Message === 'string' && raw.Message) ||
+      (typeof raw.errorMessage === 'string' && raw.errorMessage) ||
+      `Request failed (${res.status})`;
+    return { success: false, message };
+  }
+  return data;
+}
+
+/**
+ * Tailor My Resume (Job Hunt): dedicated `tailorFromProfile` mode only.
+ * Server builds resume deterministically from profile — no LLM content generation.
+ */
+export async function tailorResumeFromProfile(
+  params: TailorResumeFromProfileParams
+): Promise<FixResumeResult> {
+  const { savedResumeProfile, jobDescription, userId, provider, apiKey, model } = params;
+  const body: Record<string, unknown> = {
+    tailorFromProfile: true,
+    savedResumeProfile,
+    jobDescription: jobDescription.trim(),
+  };
+  if (userId) body.userId = userId;
+  if (provider) body.provider = provider;
+  if (apiKey?.trim()) body.apiKey = apiKey.trim();
+  if (model) body.model = model;
+
+  const result = await postFixResumeBody(body);
+  if (result.success) return result;
+
+  const msg = (result.message || '').toLowerCase();
+  if (msg.includes('missingkeywords') || msg.includes('missing keywords')) {
+    return {
+      success: false,
+      message:
+        'Tailor My Resume is not available on the server yet. Deploy the latest fix_resume_handler Lambda (tailorFromProfile mode), then try again.',
+    };
+  }
+  return result;
+}
+
 export interface FixResumeWithProviderParams {
   resumeFile: File;
   missingKeywords: string[];

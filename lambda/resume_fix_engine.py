@@ -496,6 +496,698 @@ def _merge_contacts_from_resume_text(
     return merged
 
 
+def _resolve_llm_credentials(
+    llm_config: dict[str, Any] | None,
+    *,
+    user_id: str | None = None,
+) -> tuple[str, str, str | None]:
+    """Returns (provider, api_key, model). Raises RuntimeError when provider/key missing."""
+    provider = _norm_provider(str((llm_config or {}).get("provider") or ""))
+    api_key = str((llm_config or {}).get("apiKey") or "").strip()
+    model = str((llm_config or {}).get("model") or "").strip() or None
+
+    if (not api_key) and user_id:
+        from ats_resume_scorer import get_user_llm_config  # type: ignore
+
+        keys, models = get_user_llm_config(user_id)
+        keys = keys or {}
+        models = models or {}
+        api_key = (keys.get(provider) or "").strip()
+        if not model:
+            model = (models.get(provider) or "").strip() or None
+
+    if not api_key:
+        env_key = ""
+        if provider == "openrouter":
+            env_key = os.environ.get("OPENROUTER_API_KEY", "") or os.environ.get("OPENROUTER_KEY", "")
+        elif provider == "openai":
+            env_key = os.environ.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_KEY", "")
+        elif provider == "gemini":
+            env_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+        elif provider == "anthropic":
+            env_key = os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")
+        if env_key.strip():
+            api_key = env_key.strip()
+
+    if not api_key or not provider:
+        raise RuntimeError(
+            "No LLM API key available to render resume JSON. "
+            "Saved keys are read from DynamoDB on this server (needs AWS credentials when running locally). "
+            "Paste your key in the app, leave the same key in the main API key field, "
+            "or set OPENROUTER_API_KEY / OPENAI_API_KEY / etc. on the Fix server process."
+        )
+    return provider, api_key, model
+
+
+def _finalize_resume_preview_from_llm(
+    obj: dict[str, Any],
+    contact_source_text: str,
+    missing_keywords: list[str],
+) -> tuple[dict[str, Any], list[str]]:
+    """Validate/normalize LLM resume JSON and inject ATS keywords."""
+    rt = (contact_source_text or "").strip()
+    kw = [k.strip() for k in (missing_keywords or []) if isinstance(k, str) and k.strip()][:25]
+
+    out: dict[str, Any] = {}
+    out["name"] = str(obj.get("name") or "").strip()
+    subtitle = obj.get("subtitle")
+    out["subtitle"] = [str(x).strip() for x in subtitle] if isinstance(subtitle, list) else []
+    contacts = obj.get("contacts")
+    if isinstance(contacts, list):
+        c_out = []
+        for c in contacts:
+            if not isinstance(c, dict):
+                continue
+            icon = str(c.get("icon") or "").strip()
+            label = str(c.get("label") or "").strip()
+            href = str(c.get("href") or "").strip()
+
+            low_label = label.lower()
+            low_icon = icon.lower()
+            if href.startswith("mailto:"):
+                email = href.split(":", 1)[1].strip()
+                if low_label in ("email", "e-mail", "mail") or (not label and email):
+                    label = email
+                if low_icon in ("email", "mail", ""):
+                    icon = "✉"
+            elif href.startswith("tel:"):
+                phone = href.split(":", 1)[1].strip()
+                if low_label in ("phone", "mobile", "contact") or (not label and phone):
+                    label = phone
+                if low_icon in ("phone", "mobile", ""):
+                    icon = "📞"
+            elif "linkedin.com" in href:
+                if low_label in ("linkedin", "link", "profile") or not label:
+                    label = href.replace("https://", "").replace("http://", "")
+                if low_icon in ("linkedin", "in", ""):
+                    icon = "in"
+            elif "github.com" in href:
+                if low_label in ("github", "git", "") or not label:
+                    label = href.replace("https://", "").replace("http://", "")
+                if low_icon in ("github", "git", ""):
+                    icon = "⌥"
+
+            if label.strip().lower() in ("email", "phone", "location", "github", "linkedin"):
+                continue
+            if label and href:
+                c_out.append({"icon": icon, "label": label, "href": href})
+            if len(c_out) >= 12:
+                break
+        out["contacts"] = _merge_contacts_from_resume_text(rt, c_out)
+    else:
+        out["contacts"] = _merge_contacts_from_resume_text(rt, [])
+
+    sections = obj.get("sections")
+    if not isinstance(sections, list):
+        raise RuntimeError("resume.sections must be an array.")
+    out_secs = []
+    for sec in sections[:30]:
+        if not isinstance(sec, dict):
+            continue
+        t = str(sec.get("type") or "").strip()
+        title = str(sec.get("title") or "").strip()
+        if t not in ("table", "skills", "entries", "list") or not title:
+            continue
+        s2: dict[str, Any] = {"type": t, "title": title}
+        if t == "table":
+            headers = sec.get("headers")
+            rows = sec.get("rows")
+            s2["headers"] = [str(h).strip() for h in headers] if isinstance(headers, list) else []
+            if isinstance(rows, list):
+                clean_rows = []
+                for r in rows[:30]:
+                    if isinstance(r, list):
+                        clean_rows.append([str(c).strip() for c in r][:10])
+                s2["rows"] = clean_rows
+            else:
+                s2["rows"] = []
+        elif t == "skills":
+            items = sec.get("items")
+            it_out = []
+            if isinstance(items, list):
+                for it in items[:40]:
+                    if isinstance(it, dict):
+                        label = str(it.get("label") or "").strip()
+                        value = str(it.get("value") or "").strip()
+                        if value:
+                            it_out.append({"label": label, "value": value})
+            s2["items"] = it_out
+        elif t == "entries":
+            items = sec.get("items")
+            ent_out = []
+            if isinstance(items, list):
+                for it in items[:40]:
+                    if not isinstance(it, dict):
+                        continue
+                    et = str(it.get("title") or "").strip()
+                    org = str(it.get("org") or "").strip()
+                    bullets = it.get("bullets")
+                    b_out = []
+                    if isinstance(bullets, list):
+                        for b in bullets[:8]:
+                            bs = str(b).strip()
+                            if bs:
+                                b_out.append(bs)
+                    if et and b_out:
+                        e = {"title": et, "bullets": b_out}
+                        if org:
+                            e["org"] = org
+                        ent_out.append(e)
+            s2["items"] = ent_out
+        else:
+            items = sec.get("items")
+            list_out: list[Any] = []
+            if isinstance(items, list):
+                for it in items[:60]:
+                    if isinstance(it, str):
+                        s = it.strip()
+                        if s:
+                            list_out.append(s)
+                    elif isinstance(it, dict):
+                        text = str(it.get("text") or "").strip()
+                        if not text:
+                            continue
+                        x: dict[str, Any] = {"text": text}
+                        meta = it.get("meta")
+                        desc = it.get("desc")
+                        if isinstance(meta, str) and meta.strip():
+                            x["meta"] = meta.strip()
+                        if isinstance(desc, str) and desc.strip():
+                            x["desc"] = desc.strip()
+                        list_out.append(x)
+            s2["items"] = list_out
+        out_secs.append(s2)
+    out["sections"] = out_secs
+
+    if not out["name"] and not out_secs:
+        raise RuntimeError("Resume JSON was empty after validation.")
+    out, added_kw = apply_missing_keywords_to_resume_preview_data(out, kw)
+    return out, added_kw
+
+
+def _profile_dict_to_source_text(profile: dict[str, Any]) -> str:
+    """Plain-text résumé from saved profile JSON (mirrors frontend buildResumeTextFromInfo)."""
+    lines: list[str] = []
+    first = str(profile.get("firstName") or "").strip()
+    last = str(profile.get("lastName") or "").strip()
+    name = f"{first} {last}".strip()
+    if name:
+        lines.append(name)
+    for key in ("jobTitle", "address", "phone", "email"):
+        v = str(profile.get(key) or "").strip()
+        if v:
+            lines.append(v)
+    for label, key in (("LinkedIn", "linkedIn"), ("GitHub", "github"), ("Portfolio", "portfolio")):
+        v = str(profile.get(key) or "").strip()
+        if v:
+            lines.append(f"{label}: {v}")
+    lines.append("")
+
+    summary = str(profile.get("summary") or "").strip()
+    if summary:
+        lines.extend(["SUMMARY", summary, ""])
+
+    experience = profile.get("experience")
+    if isinstance(experience, list) and experience:
+        lines.append("EXPERIENCE")
+        for exp in experience:
+            if not isinstance(exp, dict):
+                continue
+            title = str(exp.get("title") or "").strip()
+            company = str(exp.get("companyName") or "").strip()
+            city = str(exp.get("city") or "").strip()
+            state = str(exp.get("state") or "").strip()
+            loc = ", ".join([x for x in (city, state) if x])
+            head = f"{title} at {company}" if company else title
+            if loc:
+                head += f", {loc}"
+            if head.strip():
+                lines.append(head)
+            start = str(exp.get("startDate") or "").strip()
+            end = "Present" if exp.get("currentlyWorking") else str(exp.get("endDate") or "").strip()
+            if start or end:
+                lines.append(f"{start} - {end}".strip(" -"))
+            ws = str(exp.get("workSummary") or "").strip()
+            if ws:
+                lines.append(ws)
+            lines.append("")
+
+    education = profile.get("education")
+    if isinstance(education, list) and education:
+        lines.append("EDUCATION")
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            degree = str(edu.get("degree") or "").strip()
+            major = str(edu.get("major") or "").strip()
+            uni = str(edu.get("universityName") or "").strip()
+            lines.append(f"{degree} in {major}, {uni}".strip(" ,"))
+            start = str(edu.get("startDate") or "").strip()
+            end = str(edu.get("endDate") or "").strip()
+            if start or end:
+                lines.append(f"{start} - {end}".strip(" -"))
+            desc = str(edu.get("description") or "").strip()
+            if desc:
+                lines.append(desc)
+            lines.append("")
+
+    skills = profile.get("skills")
+    if isinstance(skills, list) and skills:
+        names = []
+        for s in skills:
+            if isinstance(s, dict):
+                n = str(s.get("name") or "").strip()
+                if n:
+                    names.append(n)
+        if names:
+            lines.extend(["SKILLS", ", ".join(names), ""])
+
+    projects = profile.get("projects")
+    if isinstance(projects, list) and projects:
+        lines.append("PROJECTS")
+        for proj in projects:
+            if not isinstance(proj, dict):
+                continue
+            pname = str(proj.get("name") or "").strip()
+            if pname:
+                lines.append(pname)
+            pdesc = str(proj.get("description") or "").strip()
+            if pdesc:
+                lines.append(pdesc)
+            tech = proj.get("technologies")
+            if isinstance(tech, list):
+                tnames = [str(t).strip() for t in tech if str(t).strip()]
+                if tnames:
+                    lines.append(", ".join(tnames))
+            lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+_JD_RELEVANCE_STOP = frozenset(
+    {
+        "job", "title", "company", "location", "description", "required", "skills",
+        "type", "level", "experience", "salary", "source", "the", "and", "for", "with",
+        "our", "you", "will", "are", "this", "that", "from", "have", "has", "your",
+        "work", "role", "team", "using", "ability", "including", "within", "across",
+    }
+)
+
+
+def _strip_html_text(raw: str) -> str:
+    return re.sub(r"<[^>]+>", " ", raw or "").replace("\xa0", " ").strip()
+
+
+def _text_to_bullets(raw: str, *, max_bullets: int = 8) -> list[str]:
+    """Split existing profile text into bullets — never invent wording."""
+    text = _strip_html_text(raw)
+    if not text:
+        return []
+    parts: list[str] = []
+    for line in re.split(r"[\n\r]+", text):
+        line = re.sub(r"^[\s•\-–—*]+", "", line).strip()
+        if line:
+            parts.append(line)
+    if len(parts) <= 1:
+        for chunk in re.split(r"(?<=[.!?])\s+", text):
+            chunk = chunk.strip()
+            if chunk and len(chunk) > 2:
+                parts.append(chunk)
+    out: list[str] = []
+    seen: set[str] = set()
+    for p in parts:
+        if p.lower() in seen:
+            continue
+        seen.add(p.lower())
+        out.append(p[:500])
+        if len(out) >= max_bullets:
+            break
+    return out
+
+
+def _jd_relevance_tokens(job_description: str) -> set[str]:
+    jd = (job_description or "").lower()
+    tokens = {t for t in re.findall(r"[a-z0-9+#.]{3,}", jd) if t not in _JD_RELEVANCE_STOP}
+    return tokens
+
+
+def _relevance_score(text: str, jd_tokens: set[str]) -> int:
+    if not text or not jd_tokens:
+        return 0
+    words = set(re.findall(r"[a-z0-9+#.]{3,}", text.lower()))
+    return len(words & jd_tokens)
+
+
+_DEMO_EMAILS = frozenset({"james.carter@example.com"})
+_DEMO_PROJECT_NAMES = frozenset({"e-commerce platform", "task management app"})
+
+
+def _is_placeholder_email(email: str) -> bool:
+    e = (email or "").strip().lower()
+    if not e:
+        return True
+    if e in _DEMO_EMAILS or e.endswith("@example.com"):
+        return True
+    return False
+
+
+def is_sample_resume_profile(profile: dict[str, Any]) -> bool:
+    """Detect default resume-builder template (James Carter demo)."""
+    first = str(profile.get("firstName") or "").strip().lower()
+    last = str(profile.get("lastName") or "").strip().lower()
+    email = str(profile.get("email") or "").strip().lower()
+    phone = str(profile.get("phone") or "").strip()
+    address = str(profile.get("address") or "").strip().lower()
+    signals = 0
+    if first == "james" and last == "carter":
+        signals += 1
+    if _is_placeholder_email(email):
+        signals += 1
+    if phone == "(123) 456-7890":
+        signals += 1
+    if address.startswith("525 n tryon"):
+        signals += 1
+    projects = profile.get("projects")
+    if isinstance(projects, list):
+        names = [
+            str(p.get("name") or "").strip().lower()
+            for p in projects
+            if isinstance(p, dict) and str(p.get("name") or "").strip()
+        ]
+        if names and all(n in _DEMO_PROJECT_NAMES for n in names):
+            signals += 1
+    experience = profile.get("experience")
+    if isinstance(experience, list):
+        companies = [
+            str(e.get("companyName") or "").strip().lower()
+            for e in experience
+            if isinstance(e, dict)
+        ]
+        if "amazon" in companies and "google" in companies:
+            signals += 1
+    return signals >= 2
+
+
+def validate_profile_for_tailor(profile: dict[str, Any]) -> list[str]:
+    """Return human-readable missing required fields. Empty list = valid."""
+    required = ["Full Name", "Email", "Skills", "Education", "Projects"]
+    if not profile or is_sample_resume_profile(profile):
+        return list(required)
+
+    missing: list[str] = []
+    first = str(profile.get("firstName") or "").strip()
+    last = str(profile.get("lastName") or "").strip()
+    if (not first and not last) or (first.lower() == "james" and last.lower() == "carter"):
+        missing.append("Full Name")
+    email = str(profile.get("email") or "").strip()
+    if not email or _is_placeholder_email(email):
+        missing.append("Email")
+
+    skills = profile.get("skills")
+    has_skill = False
+    if isinstance(skills, list):
+        for s in skills:
+            if isinstance(s, dict) and str(s.get("name") or "").strip():
+                has_skill = True
+                break
+    if not has_skill:
+        missing.append("Skills")
+
+    education = profile.get("education")
+    has_edu = False
+    if isinstance(education, list):
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            if any(
+                str(edu.get(k) or "").strip()
+                for k in ("universityName", "degree", "major")
+            ):
+                has_edu = True
+                break
+    if not has_edu:
+        missing.append("Education")
+
+    projects = profile.get("projects")
+    has_proj = False
+    if isinstance(projects, list):
+        for proj in projects:
+            if not isinstance(proj, dict):
+                continue
+            name = str(proj.get("name") or "").strip()
+            if not name or name.lower() in _DEMO_PROJECT_NAMES:
+                continue
+            desc = str(proj.get("description") or "").strip()
+            tech = proj.get("technologies")
+            has_tech = isinstance(tech, list) and any(str(t).strip() for t in tech)
+            if desc or has_tech:
+                has_proj = True
+                break
+    if not has_proj:
+        missing.append("Projects")
+    return missing
+
+
+def _profile_contacts_from_dict(profile: dict[str, Any]) -> list[dict[str, str]]:
+    contacts: list[dict[str, str]] = []
+    email = str(profile.get("email") or "").strip()
+    if email:
+        contacts.append({"icon": "✉", "label": email, "href": f"mailto:{email}"})
+    phone = str(profile.get("phone") or "").strip()
+    if phone:
+        href = phone if phone.startswith("tel:") else f"tel:{re.sub(r'[^0-9+]', '', phone)}"
+        contacts.append({"icon": "📞", "label": phone, "href": href})
+    linkedin = str(profile.get("linkedIn") or "").strip()
+    if linkedin:
+        href = linkedin if linkedin.startswith("http") else f"https://{linkedin.lstrip('/')}"
+        label = linkedin.replace("https://", "").replace("http://", "")
+        contacts.append({"icon": "in", "label": label, "href": href})
+    github = str(profile.get("github") or "").strip()
+    if github:
+        href = github if github.startswith("http") else f"https://{github.lstrip('/')}"
+        label = github.replace("https://", "").replace("http://", "")
+        contacts.append({"icon": "⌥", "label": label, "href": href})
+    portfolio = str(profile.get("portfolio") or "").strip()
+    if portfolio:
+        href = portfolio if portfolio.startswith("http") else f"https://{portfolio.lstrip('/')}"
+        contacts.append({"icon": "", "label": href.replace("https://", ""), "href": href})
+    return contacts[:12]
+
+
+def _suggested_ats_highlights(profile: dict[str, Any], job_description: str) -> list[str]:
+    """Profile skill names that also appear in the JD — highlight only, never inject."""
+    jd_low = (job_description or "").lower()
+    out: list[str] = []
+    seen: set[str] = set()
+    skills = profile.get("skills")
+    if not isinstance(skills, list):
+        return out
+    for s in skills:
+        if not isinstance(s, dict):
+            continue
+        name = str(s.get("name") or "").strip()
+        if not name or len(name) < 2:
+            continue
+        low = name.lower()
+        if low in seen:
+            continue
+        if low in jd_low or re.search(rf"\b{re.escape(low)}\b", jd_low):
+            seen.add(low)
+            out.append(name)
+    return out[:20]
+
+
+def build_tailored_resume_preview_from_profile(
+    profile: dict[str, Any],
+    job_description: str,
+) -> tuple[dict[str, Any], list[str]]:
+    """
+    Deterministic tailor: profile JSON → resume template JSON.
+    Reorders by job relevance only. Never invents content or injects JD keywords.
+    """
+    missing = validate_profile_for_tailor(profile)
+    if missing:
+        raise RuntimeError(
+            "Your profile is incomplete. Please update your profile before tailoring your resume. "
+            f"Missing: {', '.join(missing)}."
+        )
+
+    jd = (job_description or "").strip()
+    if not jd:
+        raise RuntimeError("Job description is empty; cannot tailor resume.")
+
+    jd_tokens = _jd_relevance_tokens(jd)
+    first = str(profile.get("firstName") or "").strip()
+    last = str(profile.get("lastName") or "").strip()
+    name = f"{first} {last}".strip()
+    job_title = str(profile.get("jobTitle") or "").strip()
+
+    out: dict[str, Any] = {
+        "name": name,
+        "subtitle": [job_title] if job_title else [],
+        "contacts": _profile_contacts_from_dict(profile),
+        "sections": [],
+    }
+    sections: list[dict[str, Any]] = []
+
+    summary = _strip_html_text(str(profile.get("summary") or ""))
+    if summary:
+        sections.append({"type": "list", "title": "Professional Summary", "items": [summary]})
+
+    experience = profile.get("experience")
+    exp_items: list[dict[str, Any]] = []
+    if isinstance(experience, list):
+        scored_exp: list[tuple[int, dict[str, Any]]] = []
+        for exp in experience:
+            if not isinstance(exp, dict):
+                continue
+            title = str(exp.get("title") or "").strip()
+            company = str(exp.get("companyName") or "").strip()
+            if not title and not company:
+                continue
+            city = str(exp.get("city") or "").strip()
+            state = str(exp.get("state") or "").strip()
+            loc = ", ".join(x for x in (city, state) if x)
+            start = str(exp.get("startDate") or "").strip()
+            end = "Present" if exp.get("currentlyWorking") else str(exp.get("endDate") or "").strip()
+            date_line = f"{start} – {end}".strip(" –") if start or end else ""
+            ws = str(exp.get("workSummary") or "")
+            bullets = _text_to_bullets(ws)
+            blob = " ".join([title, company, loc, ws, date_line])
+            scored_exp.append((_relevance_score(blob, jd_tokens), {
+                "title": title or company,
+                "org": company if title else "",
+                "bullets": bullets,
+                "_meta": date_line,
+            }))
+        scored_exp.sort(key=lambda x: -x[0])
+        for _, item in scored_exp:
+            org = str(item.get("org") or "").strip()
+            meta = str(item.get("_meta") or "").strip()
+            if org and meta:
+                org = f"{org} · {meta}"
+            elif meta and not org:
+                org = meta
+            entry: dict[str, Any] = {"title": item["title"], "bullets": item["bullets"]}
+            if org:
+                entry["org"] = org
+            exp_items.append(entry)
+    if exp_items:
+        sections.append({"type": "entries", "title": "Experience", "items": exp_items})
+
+    projects = profile.get("projects")
+    proj_items: list[dict[str, Any]] = []
+    if isinstance(projects, list):
+        scored_proj: list[tuple[int, dict[str, Any]]] = []
+        for proj in projects:
+            if not isinstance(proj, dict):
+                continue
+            pname = str(proj.get("name") or "").strip()
+            if not pname:
+                continue
+            pdesc = _strip_html_text(str(proj.get("description") or ""))
+            tech = proj.get("technologies")
+            tech_line = ""
+            if isinstance(tech, list):
+                tnames = [str(t).strip() for t in tech if str(t).strip()]
+                if tnames:
+                    tech_line = "Technologies: " + ", ".join(tnames)
+            bullets = _text_to_bullets(pdesc)
+            if tech_line:
+                bullets.append(tech_line)
+            link = str(proj.get("link") or "").strip()
+            if link:
+                bullets.append(link)
+            blob = " ".join([pname, pdesc, tech_line])
+            scored_proj.append((_relevance_score(blob, jd_tokens), {
+                "title": pname,
+                "bullets": bullets,
+            }))
+        scored_proj.sort(key=lambda x: -x[0])
+        proj_items = [x[1] for x in scored_proj]
+    if proj_items:
+        sections.append({"type": "entries", "title": "Projects", "items": proj_items})
+
+    education = profile.get("education")
+    edu_rows: list[list[str]] = []
+    if isinstance(education, list):
+        scored_edu: list[tuple[int, list[str]]] = []
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            degree = str(edu.get("degree") or "").strip()
+            major = str(edu.get("major") or "").strip()
+            uni = str(edu.get("universityName") or "").strip()
+            if not degree and not major and not uni:
+                continue
+            degree_col = degree
+            if major:
+                degree_col = f"{degree} in {major}".strip() if degree else major
+            start = str(edu.get("startDate") or "").strip()
+            end = str(edu.get("endDate") or "").strip()
+            dates = f"{start} – {end}".strip(" –") if start or end else ""
+            desc = _strip_html_text(str(edu.get("description") or ""))
+            blob = " ".join([degree_col, uni, desc, dates])
+            row = [degree_col, uni, dates]
+            scored_edu.append((_relevance_score(blob, jd_tokens), row))
+        scored_edu.sort(key=lambda x: -x[0])
+        edu_rows = [x[1] for x in scored_edu]
+    if edu_rows:
+        sections.append({
+            "type": "table",
+            "title": "Education",
+            "headers": ["Degree", "Institution", "Dates"],
+            "rows": edu_rows,
+        })
+
+    skills = profile.get("skills")
+    skill_names: list[str] = []
+    if isinstance(skills, list):
+        scored_skills: list[tuple[int, str]] = []
+        for s in skills:
+            if not isinstance(s, dict):
+                continue
+            n = str(s.get("name") or "").strip()
+            if n:
+                scored_skills.append((_relevance_score(n, jd_tokens), n))
+        scored_skills.sort(key=lambda x: -x[0])
+        seen_sk: set[str] = set()
+        for _, n in scored_skills:
+            low = n.lower()
+            if low in seen_sk:
+                continue
+            seen_sk.add(low)
+            skill_names.append(n)
+    if skill_names:
+        sections.append({
+            "type": "skills",
+            "title": "Skills",
+            "items": [{"label": "", "value": ", ".join(skill_names)}],
+        })
+
+    out["sections"] = sections
+    if not name and not sections:
+        raise RuntimeError("Profile has no renderable resume content.")
+
+    highlights = _suggested_ats_highlights(profile, jd)
+    return out, highlights
+
+
+def render_tailored_resume_from_profile(
+    profile: dict[str, Any],
+    job_description: str,
+    llm_config: dict[str, Any] | None = None,
+    *,
+    user_id: str | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """
+    Job Hunt tailor — deterministic profile-only builder (no LLM, no keyword injection).
+    llm_config / user_id retained for API compatibility; not used for content generation.
+    """
+    _ = llm_config, user_id
+    return build_tailored_resume_preview_from_profile(profile, job_description)
+
+
 def render_resume_data_with_llm(
     resume_text: str,
     missing_keywords: list[str],
@@ -610,145 +1302,7 @@ def render_resume_data_with_llm(
     obj = _parse_possible_json(raw)
     if not obj:
         raise RuntimeError("LLM returned invalid JSON for resume data.")
-
-    # Minimal validation + normalization
-    out: dict[str, Any] = {}
-    out["name"] = str(obj.get("name") or "").strip()
-    subtitle = obj.get("subtitle")
-    out["subtitle"] = [str(x).strip() for x in subtitle] if isinstance(subtitle, list) else []
-    contacts = obj.get("contacts")
-    if isinstance(contacts, list):
-        c_out = []
-        for c in contacts:
-            if not isinstance(c, dict):
-                continue
-            icon = str(c.get("icon") or "").strip()
-            label = str(c.get("label") or "").strip()
-            href = str(c.get("href") or "").strip()
-
-            # Normalize common placeholder outputs from models.
-            low_label = label.lower()
-            low_icon = icon.lower()
-            if href.startswith("mailto:"):
-                email = href.split(":", 1)[1].strip()
-                if low_label in ("email", "e-mail", "mail") or (not label and email):
-                    label = email
-                if low_icon in ("email", "mail", ""):
-                    icon = "✉"
-            elif href.startswith("tel:"):
-                phone = href.split(":", 1)[1].strip()
-                if low_label in ("phone", "mobile", "contact") or (not label and phone):
-                    label = phone
-                if low_icon in ("phone", "mobile", ""):
-                    icon = "📞"
-            elif "linkedin.com" in href:
-                if low_label in ("linkedin", "link", "profile") or not label:
-                    label = href.replace("https://", "").replace("http://", "")
-                if low_icon in ("linkedin", "in", ""):
-                    icon = "in"
-            elif "github.com" in href:
-                if low_label in ("github", "git", "") or not label:
-                    label = href.replace("https://", "").replace("http://", "")
-                if low_icon in ("github", "git", ""):
-                    icon = "⌥"
-
-            # Drop still-placeholder contacts.
-            if label.strip().lower() in ("email", "phone", "location", "github", "linkedin"):
-                continue
-            if label and href:
-                c_out.append({"icon": icon, "label": label, "href": href})
-            if len(c_out) >= 12:
-                break
-        out["contacts"] = _merge_contacts_from_resume_text(rt, c_out)
-    else:
-        out["contacts"] = _merge_contacts_from_resume_text(rt, [])
-
-    sections = obj.get("sections")
-    if not isinstance(sections, list):
-        raise RuntimeError("resume.sections must be an array.")
-    out_secs = []
-    for sec in sections[:30]:
-        if not isinstance(sec, dict):
-            continue
-        t = str(sec.get("type") or "").strip()
-        title = str(sec.get("title") or "").strip()
-        if t not in ("table", "skills", "entries", "list") or not title:
-            continue
-        s2: dict[str, Any] = {"type": t, "title": title}
-        if t == "table":
-            headers = sec.get("headers")
-            rows = sec.get("rows")
-            s2["headers"] = [str(h).strip() for h in headers] if isinstance(headers, list) else []
-            if isinstance(rows, list):
-                clean_rows = []
-                for r in rows[:30]:
-                    if isinstance(r, list):
-                        clean_rows.append([str(c).strip() for c in r][:10])
-                s2["rows"] = clean_rows
-            else:
-                s2["rows"] = []
-        elif t == "skills":
-            items = sec.get("items")
-            it_out = []
-            if isinstance(items, list):
-                for it in items[:40]:
-                    if isinstance(it, dict):
-                        label = str(it.get("label") or "").strip()
-                        value = str(it.get("value") or "").strip()
-                        if value:
-                            it_out.append({"label": label, "value": value})
-            s2["items"] = it_out
-        elif t == "entries":
-            items = sec.get("items")
-            ent_out = []
-            if isinstance(items, list):
-                for it in items[:40]:
-                    if not isinstance(it, dict):
-                        continue
-                    et = str(it.get("title") or "").strip()
-                    org = str(it.get("org") or "").strip()
-                    bullets = it.get("bullets")
-                    b_out = []
-                    if isinstance(bullets, list):
-                        for b in bullets[:8]:
-                            bs = str(b).strip()
-                            if bs:
-                                b_out.append(bs)
-                    if et and b_out:
-                        e = {"title": et, "bullets": b_out}
-                        if org:
-                            e["org"] = org
-                        ent_out.append(e)
-            s2["items"] = ent_out
-        else:  # list
-            items = sec.get("items")
-            list_out: list[Any] = []
-            if isinstance(items, list):
-                for it in items[:60]:
-                    if isinstance(it, str):
-                        s = it.strip()
-                        if s:
-                            list_out.append(s)
-                    elif isinstance(it, dict):
-                        text = str(it.get("text") or "").strip()
-                        if not text:
-                            continue
-                        x: dict[str, Any] = {"text": text}
-                        meta = it.get("meta")
-                        desc = it.get("desc")
-                        if isinstance(meta, str) and meta.strip():
-                            x["meta"] = meta.strip()
-                        if isinstance(desc, str) and desc.strip():
-                            x["desc"] = desc.strip()
-                        list_out.append(x)
-            s2["items"] = list_out
-        out_secs.append(s2)
-    out["sections"] = out_secs
-
-    if not out["name"] and not out_secs:
-        raise RuntimeError("Resume JSON was empty after validation.")
-    out, added_kw = apply_missing_keywords_to_resume_preview_data(out, kw)
-    return out, added_kw
+    return _finalize_resume_preview_from_llm(obj, rt, kw)
 
 # Max missing phrases to try to place (cost + readability).
 _DEFAULT_MAX_KEYWORDS = 12

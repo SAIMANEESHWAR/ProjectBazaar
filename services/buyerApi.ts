@@ -1,6 +1,7 @@
 /**
  * API service for buyer actions (like, cart, purchase)
  */
+import type { ResumeInfo } from '../context/ResumeInfoContext';
 import { cachedFetch, invalidateCache } from '../lib/apiCache';
 
 const LAMBDA_ENDPOINT = 'https://tcladht447.execute-api.ap-south-2.amazonaws.com/default/Like_Addtocart_purcaseproject_for_Buyer';
@@ -167,6 +168,28 @@ export async function fetchSavedResumeSkillNames(userId: string): Promise<string
   } catch (e) {
     console.error('Error fetching resume skills for job match:', e);
     return [];
+  }
+}
+
+/** Full resume profile from Settings → Resume (`savedResumeProfile` on the user record). */
+export async function fetchSavedResumeProfile(userId: string): Promise<ResumeInfo | null> {
+  const id = userId?.trim();
+  if (!id) return null;
+  try {
+    const response = await fetch(GET_USER_DETAILS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const user = data.data || data.user || {};
+    const saved = user.savedResumeProfile;
+    if (!saved || typeof saved !== 'object') return null;
+    return saved as ResumeInfo;
+  } catch (e) {
+    console.error('Error fetching saved resume profile:', e);
+    return null;
   }
 }
 
