@@ -124,6 +124,69 @@ const HEADLINE_FADE_UP = {
   },
 };
 
+const HEADLINE_WORD = {
+  hidden: { opacity: 0, y: 22, filter: 'blur(6px)' },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+const HEADLINE_WORD_EMPHASIS = {
+  hidden: { opacity: 0, y: 28, scale: 0.94, filter: 'blur(8px)' },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: { duration: 0.58, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+function AnimatedHeadlineLine({
+  text,
+  className,
+  delay = 0.12,
+  emphasis = false,
+  reducedMotion = false,
+}: {
+  text: string;
+  className?: string;
+  delay?: number;
+  emphasis?: boolean;
+  reducedMotion?: boolean;
+}) {
+  if (reducedMotion) {
+    return <span className={className}>{text}</span>;
+  }
+
+  const words = text.split(' ');
+  const wordVariant = emphasis ? HEADLINE_WORD_EMPHASIS : HEADLINE_WORD;
+
+  return (
+    <motion.span
+      className={className}
+      aria-label={text}
+      initial="hidden"
+      animate="show"
+      variants={{
+        hidden: {},
+        show: { transition: { staggerChildren: 0.09, delayChildren: delay } },
+      }}
+    >
+      <span className="inline-flex flex-wrap justify-center gap-x-[0.32em]" aria-hidden>
+        {words.map((word, i) => (
+          <motion.span key={`${word}-${i}`} className="inline-block" variants={wordVariant}>
+            {word}
+          </motion.span>
+        ))}
+      </span>
+    </motion.span>
+  );
+}
+
 const LITE_ORANGE_BG =
   'bg-gradient-to-b from-orange-50/95 via-[#FFF7EE] to-[#FFEDD5] dark:from-[#1a1714] dark:via-[#15121a] dark:to-[#12111a]';
 
@@ -1770,14 +1833,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             <span>{chipLabel}</span>
           </ShimmerButton>
         </HeadlineItem>
-        <HeadlineItem {...(!prefersReducedMotion ? { variants: HEADLINE_FADE_UP } : {})}>
-          <h1 className="font-bold tracking-tight text-gray-900 dark:text-white">
-            <span className="block text-2xl sm:text-3xl md:text-4xl">{titleLine1}</span>
-            <span className="mt-1 block text-3xl text-[#f97316] sm:text-4xl md:text-5xl dark:text-orange-400">
-              AI Mock Interviews
-            </span>
-          </h1>
-        </HeadlineItem>
+        <h1 className="font-bold tracking-tight text-gray-900 dark:text-white">
+          <AnimatedHeadlineLine
+            text={titleLine1}
+            className="block text-2xl sm:text-3xl md:text-4xl"
+            delay={0.14}
+            reducedMotion={prefersReducedMotion}
+          />
+          <AnimatedHeadlineLine
+            text="AI Mock Interviews"
+            className="mt-1 block text-3xl text-[#f97316] sm:text-4xl md:text-5xl dark:text-orange-400"
+            delay={0.38}
+            emphasis
+            reducedMotion={prefersReducedMotion}
+          />
+        </h1>
         <HeadlineItem {...(!prefersReducedMotion ? { variants: HEADLINE_FADE_UP } : {})}>
           <p className="mx-auto max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-400 sm:text-base">
             {description}

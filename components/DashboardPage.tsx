@@ -1,8 +1,10 @@
-import React, { useState, createContext, useContext, ReactNode, useEffect, useCallback } from 'react';
+import React, { useState, createContext, useContext, ReactNode, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './Sidebar';
 import DashboardContent from './DashboardContent';
+import JobHuntIntroOverlay from './JobHuntIntroOverlay';
 import { useAuth } from '../App';
 import { usePremium } from '../context/PremiumContext';
+import { useDashboard } from '../context/DashboardContext';
 import PremiumUpsellModal from './PremiumUpsellModal';
 import { MessagesUnreadProvider } from '../context/MessagesUnreadContext';
 import { JobHuntShellProvider } from '../context/JobHuntShellContext';
@@ -358,6 +360,7 @@ const PREMIUM_UPSELL_DELAY_MS = 30_000;
 const DashboardPage: React.FC = () => {
     const { userId, userEmail } = useAuth();
     const { isPremium } = usePremium();
+    const { dashboardMode } = useDashboard();
     const { subscribe } = useSocket();
     // Local UI state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -367,6 +370,23 @@ const DashboardPage: React.FC = () => {
     const [jobToastMessage, setJobToastMessage] = useState('');
     const [showJobToast, setShowJobToast] = useState(false);
     const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
+    const [showJobHuntIntro, setShowJobHuntIntro] = useState(false);
+    const prevDashboardModeRef = useRef(dashboardMode);
+    const isFirstModeSyncRef = useRef(true);
+
+    useEffect(() => {
+        if (isFirstModeSyncRef.current) {
+            isFirstModeSyncRef.current = false;
+            prevDashboardModeRef.current = dashboardMode;
+            return;
+        }
+
+        if (dashboardMode === 'jobHunt' && prevDashboardModeRef.current !== 'jobHunt') {
+            setShowJobHuntIntro(true);
+        }
+
+        prevDashboardModeRef.current = dashboardMode;
+    }, [dashboardMode]);
 
     useEffect(() => {
         const unsub = subscribe('new_job', (data: { title?: string; company?: string; message?: string }) => {
@@ -450,6 +470,10 @@ const DashboardPage: React.FC = () => {
                     <PremiumUpsellModal
                         isOpen={showPremiumUpsell}
                         onClose={() => setShowPremiumUpsell(false)}
+                    />
+                    <JobHuntIntroOverlay
+                        visible={showJobHuntIntro}
+                        onComplete={() => setShowJobHuntIntro(false)}
                     />
                     {/* Overlay for mobile */}
                     {isSidebarOpen && (
