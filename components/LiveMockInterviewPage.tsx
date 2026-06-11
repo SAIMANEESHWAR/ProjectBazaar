@@ -75,7 +75,6 @@ import PremiumUpsellModal from './PremiumUpsellModal';
 import FeatureUsageBanner from './subscription/FeatureUsageBanner';
 import { recordFeatureTrialUse } from '../lib/featureTrialConsume';
 import { ShimmerButton } from './ui/shimmer-button';
-import FloatingLines from './ui/FloatingLines';
 import { getLlmKeysStatus } from '../services/atsService';
 import {
   evaluateInterviewWithProvider,
@@ -106,10 +105,27 @@ const initialPrereqStatuses = (): PrereqItemStatus[] =>
 const LIVE_INTERVIEW_PAGE_BG = 'bg-transparent';
 const PAGE_BG = 'bg-transparent';
 const PICKER_SURFACE = 'bg-transparent';
-const BRIEFING_SURFACE = 'bg-[#FAF8F5] dark:bg-[#12111a]';
+const BRIEFING_SURFACE = 'bg-transparent';
 const BRIEFING_CARD =
   'rounded-xl border border-[#E5E7EB] dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm';
 const JD_TEXT_MAX = 2000;
+
+const HEADLINE_STAGGER = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.11, delayChildren: 0.05 } },
+};
+
+const HEADLINE_FADE_UP = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+const LITE_ORANGE_BG =
+  'bg-gradient-to-b from-orange-50/95 via-[#FFF7EE] to-[#FFEDD5] dark:from-[#1a1714] dark:via-[#15121a] dark:to-[#12111a]';
 
 const ROUND_TAB_META: Record<string, { icon: typeof Briefcase; label: string }> = {
   'role-related': { icon: Briefcase, label: 'Role Related' },
@@ -1654,29 +1670,10 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       ? `min-h-0 w-full min-w-0 ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`
       : `min-h-screen w-full ${mode === 'ai' ? LIVE_INTERVIEW_PAGE_BG : PAGE_BG}`);
 
-  const showAnimatedBackground = liveInterviewMode === 'ai' && phase !== 'live';
+  const showInterviewBackground = liveInterviewMode === 'ai' && phase !== 'live';
 
   const renderAiInterviewBackground = () => (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_35%,#FFFCF8_0%,#FFF7EE_35%,#F5EBE0_70%,#EDE3D6_100%)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_35%,#1a1714_0%,#15121a_40%,#12111a_75%,#0e0d12_100%)]" />
-      {!prefersReducedMotion ? (
-        <div className="absolute inset-0 opacity-35 dark:opacity-30">
-          <FloatingLines
-            linesGradient={['#c2410c', '#ea580c', '#f97316', '#fdba74']}
-            enabledWaves={['top', 'middle', 'bottom']}
-            lineCount={8}
-            lineDistance={8}
-            bendRadius={8}
-            bendStrength={-2}
-            interactive
-            parallax
-            animationSpeed={1}
-            lineBrightness={1}
-            mixBlendMode="overlay"
-          />
-        </div>
-      ) : null}
-    </div>
+    <div className={`pointer-events-none fixed inset-0 z-0 overflow-hidden ${LITE_ORANGE_BG}`} aria-hidden />
   );
 
   const mainInner =
@@ -1726,9 +1723,26 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     const chipLabel = isRole ? '3000+ roles available' : 'Practice by company';
     const chipClass =
       'h-auto min-h-0 border-orange-200 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ea580c] shadow-lg shadow-orange-500/10';
+    const titleLine1 = isRole ? 'Role-Specific' : 'Company-Specific';
+    const description = isRole
+      ? `Practice role-specific interviews with real-world questions. Improve domain knowledge, articulation and communication with an instant feedback-style report (demo). Typical walkthrough about ${ESTIMATED_DURATION_MIN} minutes.`
+      : 'Practice company-targeted scenarios and talking points. Build confidence for recruiter screens and onsite loops — tailored demo script per company.';
+
+    const HeadlineRoot = prefersReducedMotion ? 'div' : motion.div;
+    const HeadlineItem = prefersReducedMotion ? 'div' : motion.div;
+
     return (
-      <div className="mb-8 text-center max-w-3xl mx-auto space-y-5 px-2">
-        <div className="flex justify-center">
+      <HeadlineRoot
+        key={setupTab}
+        className="mb-8 max-w-3xl mx-auto space-y-5 px-2 text-center"
+        {...(!prefersReducedMotion
+          ? { initial: 'hidden', animate: 'show', variants: HEADLINE_STAGGER }
+          : {})}
+      >
+        <HeadlineItem
+          className="flex justify-center"
+          {...(!prefersReducedMotion ? { variants: HEADLINE_FADE_UP } : {})}
+        >
           <ShimmerButton
             type="button"
             tabIndex={-1}
@@ -1755,30 +1769,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             <Zap className="h-4 w-4 shrink-0 text-orange-400" aria-hidden />
             <span>{chipLabel}</span>
           </ShimmerButton>
-        </div>
-        <h1 className="font-bold tracking-tight text-gray-900 dark:text-white">
-          {isRole ? (
-            <>
-              <span className="block text-2xl sm:text-3xl md:text-4xl">Role-Specific</span>
-              <span className="block text-3xl sm:text-4xl md:text-5xl mt-1 text-[#f97316] dark:text-orange-400">
-                AI Mock Interviews
-          </span>
-            </>
-          ) : (
-            <>
-              <span className="block text-2xl sm:text-3xl md:text-4xl">Company-Specific</span>
-              <span className="block text-3xl sm:text-4xl md:text-5xl mt-1 text-[#f97316] dark:text-orange-400">
-                AI Mock Interviews
-              </span>
-            </>
-          )}
+        </HeadlineItem>
+        <HeadlineItem {...(!prefersReducedMotion ? { variants: HEADLINE_FADE_UP } : {})}>
+          <h1 className="font-bold tracking-tight text-gray-900 dark:text-white">
+            <span className="block text-2xl sm:text-3xl md:text-4xl">{titleLine1}</span>
+            <span className="mt-1 block text-3xl text-[#f97316] sm:text-4xl md:text-5xl dark:text-orange-400">
+              AI Mock Interviews
+            </span>
           </h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto">
-          {isRole
-            ? `Practice role-specific interviews with real-world questions. Improve domain knowledge, articulation and communication with an instant feedback-style report (demo). Typical walkthrough about ${ESTIMATED_DURATION_MIN} minutes.`
-            : 'Practice company-targeted scenarios and talking points. Build confidence for recruiter screens and onsite loops — tailored demo script per company.'}
+        </HeadlineItem>
+        <HeadlineItem {...(!prefersReducedMotion ? { variants: HEADLINE_FADE_UP } : {})}>
+          <p className="mx-auto max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-400 sm:text-base">
+            {description}
           </p>
-        </div>
+        </HeadlineItem>
+      </HeadlineRoot>
     );
   };
 
@@ -1786,9 +1791,21 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
     const isRole = setupTab === 'role';
     const isCompany = setupTab === 'company';
     if (!isRole && !isCompany) return null;
+    const SearchWrap = prefersReducedMotion ? 'div' : motion.div;
+    const searchMotionProps = prefersReducedMotion
+      ? {}
+      : {
+          key: `search-${setupTab}`,
+          initial: { opacity: 0, y: 16 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] as const },
+        };
     if (isCompany) {
       return (
-        <div className="w-full max-w-4xl mx-auto mb-8 px-1">
+        <SearchWrap
+          className="w-full max-w-4xl mx-auto mb-8 px-1"
+          {...searchMotionProps}
+        >
           <form
             className="flex rounded-full border-2 border-orange-600/90 dark:border-orange-500/55 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/40 overflow-hidden outline-none ring-0 focus-within:ring-0 focus-within:border-[#f97316] pl-5 pr-1.5 py-1.5"
             onSubmit={(e) => {
@@ -1817,11 +1834,14 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
               Search
             </button>
           </form>
-          </div>
+        </SearchWrap>
       );
     }
     return (
-      <div className="w-full max-w-3xl mx-auto mb-10 px-1">
+      <SearchWrap
+        className="w-full max-w-3xl mx-auto mb-10 px-1"
+        {...searchMotionProps}
+      >
         <form
           className="flex rounded-full border-2 border-orange-500/70 dark:border-orange-500/45 bg-white dark:bg-gray-900 shadow-md shadow-orange-900/[0.08] dark:shadow-black/30 overflow-hidden outline-none ring-0 focus-within:ring-0 focus-within:border-[#f97316] pl-5 pr-1.5 py-1.5"
           onSubmit={(e) => {
@@ -1850,7 +1870,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             Search
           </button>
         </form>
-      </div>
+      </SearchWrap>
     );
   };
 
@@ -2229,7 +2249,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       </div>
 
       {/* Sticky primary CTA */}
-      <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 border-t border-[#E5E7EB] dark:border-gray-700 bg-[#FAF8F5]/95 dark:bg-[#12111a]/95 px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 backdrop-blur-md">
+      <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 border-t border-orange-100/80 dark:border-gray-700 bg-[#FFF7EE]/95 dark:bg-[#12111a]/95 px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
@@ -2544,6 +2564,9 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
       )}
 
       <div className={`px-0 sm:px-0 ${mainInner}`}>
+        {!embedded && liveInterviewMode === 'ai' ? (
+          <FeatureUsageBanner featureId="live-ai" compact />
+        ) : null}
         {!embedded && liveInterviewMode === 'ai' && phase !== 'live' && (
           <div className="flex items-center justify-end gap-4 mb-3">
             <button
@@ -2555,8 +2578,6 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
             </button>
           </div>
         )}
-
-        {liveInterviewMode === 'ai' && <FeatureUsageBanner featureId="live-ai" />}
 
         {liveInterviewMode === 'peer' ? (
           <PeerInterviewSection
@@ -3433,7 +3454,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   const pageShell = (
     <>
-      {showAnimatedBackground ? renderAiInterviewBackground() : null}
+      {showInterviewBackground ? renderAiInterviewBackground() : null}
       <div className="relative z-10">{content}</div>
     </>
   );
@@ -3444,7 +3465,7 @@ const LiveMockInterviewPage: React.FC<LiveMockInterviewPageProps> = ({
 
   return (
     <div className={shell}>
-      {showAnimatedBackground ? renderAiInterviewBackground() : null}
+      {showInterviewBackground ? renderAiInterviewBackground() : null}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-700/80 w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 h-14 flex items-center justify-between gap-4">
           <button

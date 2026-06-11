@@ -8,6 +8,7 @@ import { useDashboard } from '../context/DashboardContext';
 import { useMessagesUnread } from '../context/MessagesUnreadContext';
 import { playNotification } from '../utils/sounds';
 import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
+import FeatureUsageBanner from './subscription/FeatureUsageBanner';
 
 const NOTIFICATION_API =
   'https://lgxynb5z76.execute-api.ap-south-2.amazonaws.com/default/read_notification_from_sqs';
@@ -308,16 +309,23 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     <div className={hideInterviewPageTitle ? 'mb-0' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
       <div
         className={`flex items-center gap-2 sm:gap-3 ${
-          hideInterviewPageTitle ? 'min-h-[44px] flex-wrap justify-end' : 'justify-between'
+          hideInterviewPageTitle ? 'min-h-[44px] flex-wrap justify-between' : 'justify-between'
         }`}
       >
-        <div className={`flex items-center gap-4 min-w-0 ${hideInterviewPageTitle ? 'lg:hidden' : 'flex-1'}`}>
+        <div
+          className={`flex min-w-0 items-center gap-2 ${
+            hideInterviewPageTitle ? 'flex-1 lg:flex-none' : 'flex-1 gap-4'
+          }`}
+        >
           <button
             onClick={toggleSidebar}
             className="lg:hidden p-2 rounded-lg hover:bg-orange-50 shrink-0"
           >
             ☰
           </button>
+          {hideInterviewPageTitle && activeView === 'live-mock-interview' ? (
+            <FeatureUsageBanner featureId="live-ai" compact inline />
+          ) : null}
           {dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && (
             <h1
               className={`text-3xl ${activeView === 'dashboard' ? 'font-semibold' : 'font-bold'} text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}

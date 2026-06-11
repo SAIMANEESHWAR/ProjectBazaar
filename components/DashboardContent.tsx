@@ -1274,7 +1274,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
         return (
             <SubscriptionFeatureGate
                 featureId={featureId}
-                hideUsageBanner={dashboardMode === 'preparation'}
+                hideUsageBanner={dashboardMode === 'preparation' || activeView === 'live-mock-interview'}
             >
                 {content}
             </SubscriptionFeatureGate>
@@ -1324,7 +1324,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
                     <div
                         className={
                             isLiveMockInterviewAi
-                                ? 'sticky top-0 z-30 mb-4 flex-shrink-0 border-b border-[#E5E7EB]/70 bg-[#FFFCF8]/92 px-4 py-3 backdrop-blur-md dark:border-gray-700/70 dark:bg-[#12111a]/92 sm:mb-5 sm:px-6 sm:py-4 lg:px-8 xl:px-10'
+                                ? 'sticky top-0 z-30 mb-3 flex-shrink-0 border-b border-[#E5E7EB]/70 bg-[#FFFCF8]/92 px-4 py-2 backdrop-blur-md dark:border-gray-700/70 dark:bg-[#12111a]/92 sm:mb-4 sm:px-6 sm:py-2.5 lg:px-8 xl:px-10'
                                 : 'flex-shrink-0'
                         }
                     >

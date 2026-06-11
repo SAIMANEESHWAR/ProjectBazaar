@@ -1,6 +1,9 @@
 import React, { type ComponentPropsWithoutRef, type CSSProperties } from 'react';
 import { cn } from '../../lib/utils';
 
+const RAINBOW_CONIC =
+  'conic-gradient(from 0deg, #ff0000, #ff7f00, #ffff00, #00ff00, #00ffff, #0000ff, #8b00ff, #ff0000)';
+
 export interface ShimmerButtonProps extends ComponentPropsWithoutRef<'button'> {
   shimmerColor?: string;
   shimmerSize?: string;
@@ -8,6 +11,7 @@ export interface ShimmerButtonProps extends ComponentPropsWithoutRef<'button'> {
   shimmerDuration?: string;
   background?: string;
   className?: string;
+  rainbow?: boolean;
   children?: React.ReactNode;
 }
 
@@ -20,11 +24,15 @@ export const ShimmerButton = React.forwardRef<HTMLButtonElement, ShimmerButtonPr
       borderRadius = '100px',
       background = 'rgba(0, 0, 0, 1)',
       className,
+      rainbow = false,
       children,
       ...props
     },
     ref
   ) => {
+    const speed = rainbow ? '2s' : shimmerDuration;
+    const cut = rainbow ? '2px' : shimmerSize;
+
     return (
       <button
         style={
@@ -32,26 +40,33 @@ export const ShimmerButton = React.forwardRef<HTMLButtonElement, ShimmerButtonPr
             '--spread': '90deg',
             '--shimmer-color': shimmerColor,
             '--radius': borderRadius,
-            '--speed': shimmerDuration,
-            '--cut': shimmerSize,
+            '--speed': speed,
+            '--cut': cut,
             '--bg': background,
           } as CSSProperties
         }
         className={cn(
-          'group relative z-0 flex cursor-pointer items-center justify-center overflow-hidden [border-radius:var(--radius)] border border-white/10 px-6 py-3 whitespace-nowrap [background:var(--bg)]',
+          'group relative z-0 flex cursor-pointer items-center justify-center overflow-hidden [border-radius:var(--radius)] px-6 py-3 whitespace-nowrap [background:var(--bg)]',
+          rainbow ? 'border-0' : 'border border-white/10',
           'transform-gpu transition-transform duration-300 ease-in-out active:translate-y-px',
           className
         )}
         ref={ref}
         {...props}
       >
-        <div className="pointer-events-none absolute inset-0 -z-30 overflow-hidden blur-[2px]">
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-0 -z-30 overflow-hidden',
+            rainbow ? 'blur-[3px] opacity-95' : 'blur-[2px]'
+          )}
+        >
           <div className="animate-shimmer-slide absolute inset-0 h-full w-full [mask:none]">
             <div
               className="animate-spin-around absolute -inset-full h-[200%] w-[200%]"
               style={{
-                background:
-                  'conic-gradient(from calc(270deg - (var(--spread) * 0.5)), transparent 0, var(--shimmer-color) var(--spread), transparent var(--spread))',
+                background: rainbow
+                  ? RAINBOW_CONIC
+                  : 'conic-gradient(from calc(270deg - (var(--spread) * 0.5)), transparent 0, var(--shimmer-color) var(--spread), transparent var(--spread))',
               }}
             />
           </div>

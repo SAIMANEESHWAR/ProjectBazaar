@@ -41,6 +41,7 @@ import {
   useJobHuntContentAccess,
 } from './jobHuntContentAccess';
 import jobHuntHeroImage from './icons/vecteezy_png-3d-render-of-a-woman-working-on-a-laptop-against_67218466.png';
+import { ShimmerButton } from './ui/shimmer-button';
 
 interface JobHuntPageProps {
   toggleSidebar?: () => void;
@@ -413,15 +414,20 @@ function JobDetailPanel({
             </div>
           </div>
           <div className="border-t border-gray-100 px-5 py-3 sm:px-6">
-            <button
+            <ShimmerButton
               type="button"
+              rainbow
               onClick={() => onStartLiveInterview(job)}
               disabled={liveInterviewChecking || tailorResumeChecking}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full py-3 shadow-2xl disabled:cursor-not-allowed disabled:opacity-50"
+              borderRadius="12px"
+              background="rgba(0, 0, 0, 1)"
             >
-              <Mic className={`h-4 w-4 shrink-0 ${liveInterviewChecking ? 'animate-pulse' : ''}`} aria-hidden />
-              {liveInterviewChecking ? 'Checking profile…' : 'Take Live Interview AI'}
-            </button>
+              <span className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
+                <Mic className={`h-4 w-4 shrink-0 ${liveInterviewChecking ? 'animate-pulse' : ''}`} aria-hidden />
+                {liveInterviewChecking ? 'Checking profile…' : 'Take Live Interview AI'}
+              </span>
+            </ShimmerButton>
           </div>
         </header>
 
