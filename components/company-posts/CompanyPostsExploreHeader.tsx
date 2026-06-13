@@ -13,8 +13,7 @@ const FILTER_CHIPS: Array<{
     showChevron?: boolean;
     action:
         | { type: 'browse'; kind: BrowseFilterKind; value?: string; title: string }
-        | { type: 'category'; category: PostCategory; title: string }
-        | { type: 'all' };
+        | { type: 'category'; category: PostCategory; title: string };
 }> = [
     {
         id: 'experience',
@@ -89,12 +88,14 @@ export const CompanyPostsExploreHeader: React.FC<CompanyPostsExploreHeaderProps>
             onCategorySelect(action.category, action.title);
             return;
         }
-        onSelect({
-            kind: action.kind,
-            value: action.value ?? '',
-            title: action.value || action.title,
-            subtitle: chip.label,
-        });
+        if (action.type === 'browse') {
+            onSelect({
+                kind: action.kind,
+                value: action.value ?? '',
+                title: action.value || action.title,
+                subtitle: chip.label,
+            });
+        }
     };
 
     const handleSearchSubmit = (e: React.FormEvent) => {
