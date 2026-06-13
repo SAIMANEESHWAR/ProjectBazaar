@@ -121,7 +121,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({
     return (
         <motion.div
             whileHover={{ y: -4 }}
-            className="flex flex-col w-[237px] h-[244px] bg-white rounded-xl overflow-hidden shadow-sm"
+            className="flex flex-col flex-shrink-0 w-[237px] h-[244px] bg-white rounded-xl overflow-hidden shadow-sm"
         >
             <div
                 className="flex justify-between items-start p-4 border-b border-[#EBF0F6]"
@@ -282,7 +282,7 @@ export const CompanyCollectionIndia: React.FC<Pick<CompanyPostsExplorerProps, 'o
                 </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 mt-5 w-full z-10">
+            <div className="flex flex-nowrap justify-center gap-3 mt-5 w-full z-10 overflow-x-auto pb-1 scrollbar-hide">
                 {COLLECTION_DATA.map(card => (
                     <CollectionCard
                         key={card.id}
