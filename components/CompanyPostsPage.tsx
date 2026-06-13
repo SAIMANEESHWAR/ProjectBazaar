@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Lottie from 'lottie-react';
 import { useAuth } from '../App';
 import CompanyPostDetailView from './CompanyPostDetailView';
+import CompanyPostsExplorer from './company-posts/CompanyPostsExplorer';
+import { postMatchesBrowseFilter } from './company-posts/applyBrowseFilter';
+import type { CompanyPostsBrowseFilter, ExplorerSelectPayload } from './company-posts/explorerTypes';
 import engagementLottie from '../lottiefiles/wired-outline-2803-engagement-alt-hover-pinch.json';
 import type {
     CompanyPost,
@@ -339,6 +342,9 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
     const [isSubmittingPost, setIsSubmittingPost] = useState(false);
     const [detailPostId, setDetailPostId] = useState<string | null>(null);
+    const [pageView, setPageView] = useState<'explore' | 'posts'>('explore');
+    const [browseFilter, setBrowseFilter] = useState<CompanyPostsBrowseFilter | null>(null);
+    const postsSectionRef = useRef<HTMLElement>(null);
     const pageRootRef = useRef<HTMLDivElement>(null);
     const [mainPanelInset, setMainPanelInset] = useState<{ left: number; width: number } | null>(null);
 
@@ -487,6 +493,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
 
     const filteredPosts = useMemo(() => {
         return posts.filter(post => {
+            if (browseFilter && !postMatchesBrowseFilter(post, browseFilter)) return false;
             if (selectedCompanyFilter !== 'all' && post.companyName !== selectedCompanyFilter) return false;
             if (selectedCategoryFilter !== 'all' && post.category !== selectedCategoryFilter) return false;
             if (viewMineOnly) {
@@ -515,7 +522,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
             }
             return true;
         });
-    }, [posts, selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery, currentUserName, userEmail]);
+    }, [posts, browseFilter, selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery, currentUserName, userEmail]);
 
     const filterExcludedAll =
         posts.length > 0 && filteredPosts.length === 0;
@@ -526,6 +533,60 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         setViewMineOnly(false);
         setSearchQuery('');
     };
+
+    const openBrowsePosts = useCallback((payload: ExplorerSelectPayload) => {
+        setBrowseFilter({
+            kind: payload.kind,
+            value: payload.value,
+            title: payload.title,
+            subtitle: payload.subtitle,
+        });
+        setPageView('posts');
+        clearListFilters();
+        requestAnimationFrame(() => {
+            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+
+    const openAllPosts = useCallback(() => {
+        setBrowseFilter(null);
+        setPageView('posts');
+        clearListFilters();
+        requestAnimationFrame(() => {
+            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+
+    const openSearchPosts = useCallback((query: string) => {
+        setBrowseFilter(null);
+        setSelectedCompanyFilter('all');
+        setSelectedCategoryFilter('all');
+        setViewMineOnly(false);
+        setSearchQuery(query);
+        setPageView('posts');
+        requestAnimationFrame(() => {
+            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+
+    const openCategoryPosts = useCallback((category: PostCategory, _title: string) => {
+        setBrowseFilter(null);
+        setSelectedCompanyFilter('all');
+        setSelectedCategoryFilter(category);
+        setViewMineOnly(false);
+        setSearchQuery('');
+        setPageView('posts');
+        requestAnimationFrame(() => {
+            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+
+    const backToExplore = useCallback(() => {
+        setBrowseFilter(null);
+        setPageView('explore');
+        clearListFilters();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
     const sortedAdminCompanyOptions = useMemo(
         () => [...allCompanies.admin].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
@@ -762,11 +823,12 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     return (
         <div
             ref={pageRootRef}
-            className="relative h-full min-h-0 flex flex-col bg-gradient-to-b from-white via-slate-50 to-white"
+            className={`relative h-full min-h-0 flex flex-col ${pageView === 'explore' ? 'bg-white' : 'bg-gradient-to-b from-white via-slate-50 to-white'}`}
         >
             <main className="w-full min-w-0">
-                <div className="max-w-7xl mx-auto px-4">
-                    {/* Page hero + filters — full-width sticky bar (navbar-style); posts scroll underneath */}
+                <div className={`mx-auto ${pageView === 'explore' ? 'w-full max-w-[1024px] px-2 sm:px-4' : 'max-w-7xl px-4'}`}>
+                    {/* Page hero + filters — shown on posts view only */}
+                    {pageView === 'posts' && (
                     <div className="sticky top-0 z-30 -mx-4 px-0 mb-1 bg-gradient-to-b from-white via-slate-50 to-slate-50">
                         <div className="w-full">
                             <div className="px-4 sm:px-5 pt-4 pb-4">
@@ -1012,10 +1074,51 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                     </div>
                         </div>
                     </div>
+                    )}
 
-                    <div className="pt-4 pb-8 space-y-4">
+                    {pageView === 'explore' ? (
+                        <CompanyPostsExplorer
+                            onSelect={openBrowsePosts}
+                            onViewAllPosts={openAllPosts}
+                            onSearch={openSearchPosts}
+                            onCategorySelect={openCategoryPosts}
+                            onAddPost={() => setIsCreating(true)}
+                        />
+                    ) : (
+                        <div className="pt-2 pb-2">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-1">
+                                <button
+                                    type="button"
+                                    onClick={backToExplore}
+                                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                                >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    Back to explore
+                                </button>
+                                <div className="min-w-0 text-right">
+                                    <h2 className="text-lg font-bold text-gray-900 truncate">
+                                        {searchQuery.trim()
+                                            ? `Results for "${searchQuery.trim()}"`
+                                            : browseFilter?.value
+                                              ? browseFilter.title
+                                              : browseFilter?.title ??
+                                                (selectedCategoryFilter !== 'all'
+                                                    ? CATEGORY_META[selectedCategoryFilter].label
+                                                    : 'All company posts')}
+                                    </h2>
+                                    {browseFilter?.subtitle && (
+                                        <p className="text-xs text-gray-500 truncate">{browseFilter.subtitle}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={pageView === 'explore' ? 'hidden' : 'pt-4 pb-8 space-y-4'}>
                     {/* Posts list - full width */}
-                    <section className="space-y-3">
+                    <section ref={postsSectionRef} className="space-y-3">
                             {postsFetchError && useCompanyPostsApi && (
                                 <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-wrap items-center justify-between gap-2">
                                     <span>{postsFetchError}</span>
