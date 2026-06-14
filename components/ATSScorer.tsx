@@ -33,6 +33,8 @@ import { mapImprovedResumeToResumeInfo } from '../services/improvedResumeMapper'
 import { highlightAddedKeywords } from '../utils/highlightAddedKeywords';
 import FixResumeTemplatePreview from './fix-resume/FixResumeTemplatePreview';
 import { ResumePreviewTemplateView, type ResumePreviewData } from './fix-resume/ResumePreviewTemplateView';
+import { formatProviderError, type FormattedProviderError } from '../lib/formatProviderError';
+import ProviderErrorBanner from './ProviderErrorBanner';
 
 const SELECTED_PROVIDER_STORAGE = 'pb_ats_llm_provider';
 const API_KEY_STORAGE_PREFIX = 'pb_ats_api_key_';
@@ -237,7 +239,8 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<FormattedProviderError | null>(null);
+  const analyzeErrorRetryRef = useRef<(() => void) | null>(null);
   /** When true, user chose to paste a one-off key instead of the Settings-saved key. */
   const [useDifferentKey, setUseDifferentKey] = useState(false);
   const [savedKeysByProvider, setSavedKeysByProvider] = useState<Record<AtsProvider, boolean>>({
@@ -254,7 +257,8 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
   const [fileHint, setFileHint] = useState<string | null>(null);
   /** Fix My Resume: loading, errors, and Lambda response (preview + PDF). */
   const [fixLoading, setFixLoading] = useState(false);
-  const [fixError, setFixError] = useState<string | null>(null);
+  const [fixError, setFixError] = useState<FormattedProviderError | null>(null);
+  const fixErrorRetryRef = useRef<(() => void) | null>(null);
   const [fixOutcome, setFixOutcome] = useState<FixResumeResult | null>(null);
   const [fixUseLlmPolish, setFixUseLlmPolish] = useState(false);
   const [fixUseAiMapFields, setFixUseAiMapFields] = useState(true);
@@ -408,6 +412,26 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
     }
   }, [provider]);
 
+  const setAnalyzeProviderError = (raw: unknown, retry?: () => void) => {
+    setErrorMessage(formatProviderError(provider, raw));
+    analyzeErrorRetryRef.current = retry ?? null;
+  };
+
+  const clearAnalyzeError = () => {
+    setErrorMessage(null);
+    analyzeErrorRetryRef.current = null;
+  };
+
+  const setFixProviderError = (raw: unknown, retry?: () => void) => {
+    setFixError(formatProviderError(provider, raw));
+    fixErrorRetryRef.current = retry ?? null;
+  };
+
+  const clearFixError = () => {
+    setFixError(null);
+    fixErrorRetryRef.current = null;
+  };
+
   const acceptFile = (file: File | undefined) => {
     if (!file) return;
     const ok =
@@ -433,9 +457,9 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
   const handleAnalyze = async () => {
     const usingSavedKey = usingSavedKeyForAts;
     if (!resumeFile || !jobDescription.trim() || (!usingSavedKey && !apiKey.trim())) return;
-    setErrorMessage(null);
+    clearAnalyzeError();
     setSaveKeyMessage(null);
-    setFixError(null);
+    clearFixError();
     setFixOutcome(null);
     setFixUseLlmPolish(false);
     setIsAnalyzing(true);
@@ -450,7 +474,10 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
         resumeFile,
       });
       if (!out.success || !out.atsResult) {
-        setErrorMessage(out.message || 'Could not analyze resume. Check your API key and try again.');
+        setAnalyzeProviderError(
+          out.error ?? out.message ?? 'Could not analyze resume. Check your API key and try again.',
+          () => void handleAnalyze()
+        );
         return;
       }
       const ar = out.atsResult;
@@ -472,7 +499,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : 'Network error. Try again.');
+      setAnalyzeProviderError(e instanceof Error ? e.message : 'Network error. Try again.', () => void handleAnalyze());
     } finally {
       setIsAnalyzing(false);
     }
@@ -480,7 +507,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
 
   const handleSaveKey = async () => {
     if (!userId || !apiKey.trim()) return;
-    setErrorMessage(null);
+    clearAnalyzeError();
     setSaveKeyMessage(null);
     setIsSavingKey(true);
     try {
@@ -490,7 +517,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
         apiKey: apiKey.trim(),
       });
       if (!out.success) {
-        setErrorMessage(out.message || 'Could not save API key.');
+        setAnalyzeProviderError(out.error ?? out.message ?? 'Could not save API key.', () => void handleSaveKey());
         return;
       }
       setSavedKeysByProvider((prev) => ({ ...prev, [provider]: true }));
@@ -498,7 +525,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
       setSaveKeyMessage(`${providerLabel} key saved.`);
       void refreshSavedKeysStatus();
     } catch {
-      setErrorMessage('Failed to save API key. Please try again.');
+      setAnalyzeProviderError('Failed to save API key. Please try again.', () => void handleSaveKey());
     } finally {
       setIsSavingKey(false);
     }
@@ -510,7 +537,7 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
 
   const handleFixResume = async () => {
     if (!resumeFile || !result?.missingKeywords?.length) return;
-    setFixError(null);
+    clearFixError();
     setFixLoading(true);
     // Fix server loads saved keys from DynamoDB only when it has AWS access (works on deployed Lambda).
     // Locally, merge the main BYOK field so a key still in the input works without DynamoDB on Python.
@@ -531,12 +558,14 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
           : {}),
       });
       if (!out.success) {
-        setFixError(out.message || 'Could not improve resume.');
+        setFixProviderError(out.error ?? out.message ?? 'Could not improve resume.', () => void handleFixResume());
         return;
       }
       setFixOutcome(out);
     } catch (e) {
-      setFixError(e instanceof Error ? e.message : 'Network error. Try again.');
+      setFixProviderError(e instanceof Error ? e.message : 'Network error. Try again.', () =>
+        void handleFixResume()
+      );
     } finally {
       setFixLoading(false);
     }
@@ -914,13 +943,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
       )}
 
       {errorMessage && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-        >
-          {errorMessage}
-        </div>
+        <ProviderErrorBanner
+          error={errorMessage}
+          onRetry={analyzeErrorRetryRef.current ?? undefined}
+          onDismiss={clearAnalyzeError}
+          className="mb-6"
+        />
       )}
 
       {/* Loading */}
@@ -1070,12 +1098,12 @@ const ATSScorer: React.FC<ATSScorerProps> = ({ onBack, onNavigateToSettings, sav
               </div>
 
               {fixError && (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
-                >
-                  {fixError}
-                </div>
+                <ProviderErrorBanner
+                  error={fixError}
+                  onRetry={fixErrorRetryRef.current ?? undefined}
+                  onDismiss={clearFixError}
+                  compact
+                />
               )}
 
               {fixLoading && (
