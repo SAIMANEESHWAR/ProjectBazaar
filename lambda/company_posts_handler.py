@@ -1,20 +1,20 @@
 """
 Company Posts API — DynamoDB + HTTP API (Python 3.12)
 
-Table: partition key `postId` only (no GSIs). GET /posts uses Scan + optional FilterExpression,
-then sorts by `createdAt` in Lambda. Suitable for modest table sizes; add GSIs if Scan cost or
-latency becomes an issue.
+Table: partition key `postId`. GET /posts uses ByStream GSI when unfiltered (fast),
+otherwise Scan + filter. Sorted newest-first by `createdAt`.
 
 Env: POSTS_TABLE_NAME (optional, defaults to company-posts-dev-posts), STAGE (optional, default dev)
 
 Routes:
   POST   /posts           — create (JSON). isAnonymous=true → no authorUserId stored, authorName "Anonymous".
-  GET    /posts           — list. Query: company, category, authorUserId|authorId, limit (1–100), nextToken.
+  GET    /posts           — list. Query: company, category, authorUserId|authorId, search, limit (1–100, default 10), nextToken, includeTotal.
   GET    /posts/{postId}  — get one
   PATCH  /posts/{postId}  — {"action": "upvote"} | {"action": "addComment", "author": "...", "text": "..."}
   Upvote: requires header x-user-id; each user increments upvotes at most once (tracked in upvoteUserIds, not returned to clients).
 
-nextToken for GET /posts: JSON offset into the sorted full result set (each request rescans the table).
+nextToken for GET /posts: JSON offset into the sorted result set.
+includeTotal=true (page 1): returns totalMatched for pagination UI.
 
 Non-anonymous: header x-user-id or body.authorUserId / body.authorId (frontend CompanyPost.authorId).
 
@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 POST_CATEGORIES = frozenset(
@@ -54,6 +54,8 @@ CORS_HEADERS = {
 }
 
 STAGE = os.environ.get("STAGE", "dev")
+STREAM_PARTITION = "POST_STREAM"
+STREAM_INDEX = "ByStream"
 
 # Default table when POSTS_TABLE_NAME is not set (copy-paste deploy in console).
 DEFAULT_POSTS_TABLE_NAME = "company-posts-dev-posts"
@@ -107,16 +109,20 @@ def parse_query(event):
     q = event.get("queryStringParameters") or {}
     if not q:
         q = {}
-    lim = int(q.get("limit") or 25)
+    lim = int(q.get("limit") or 10)
     lim = max(1, min(100, lim))
     author = q.get("authorUserId") or q.get("authorId")
+    search = (q.get("search") or "").strip()
+    include_total = str(q.get("includeTotal") or "").lower() in ("1", "true", "yes")
     return {
         "company": q.get("company"),
         "category": q.get("category"),
         "authorUserId": author,
         "postId": q.get("postId") or q.get("id"),
+        "search": search,
         "limit": lim,
         "nextToken": q.get("nextToken"),
+        "includeTotal": include_total,
     }
 
 
@@ -289,6 +295,7 @@ def build_post_item(body, identity):
         "postId": post_id,
         "createdAt": now,
         "updatedAt": now,
+        "streamPartition": STREAM_PARTITION,
         "schemaVersion": 1,
         "stage": STAGE,
         "category": category,
@@ -337,6 +344,7 @@ def fix_public_shape(item, viewer_user_id=None):
     post_id = out.pop("postId", None)
     out.pop("allPostsPk", None)
     out.pop("authorIndexPk", None)
+    out.pop("streamPartition", None)
     out["id"] = post_id
     # Frontend CompanyPost.authorId — DynamoDB attribute is authorUserId
     aid = out.pop("authorUserId", None)
@@ -412,6 +420,72 @@ def handle_get_one(post_id, table, event):
     return response(200, {"post": fix_public_shape(row, viewer or None)})
 
 
+def _matches_search(item, term):
+    if not term:
+        return True
+    needle = term.lower()
+    fields = [
+        item.get("companyName"),
+        item.get("role"),
+        item.get("title"),
+        item.get("content"),
+        item.get("location"),
+        item.get("careerTopic"),
+    ]
+    for field in fields:
+        if isinstance(field, str) and needle in field.lower():
+            return True
+    tags = item.get("tags") or []
+    if isinstance(tags, list):
+        for tag in tags:
+            if isinstance(tag, str) and needle in tag.lower():
+                return True
+    return False
+
+
+def _count_stream_index(table):
+    total = 0
+    last_key = None
+    while True:
+        kw = {
+            "IndexName": STREAM_INDEX,
+            "KeyConditionExpression": Key("streamPartition").eq(STREAM_PARTITION),
+            "Select": "COUNT",
+        }
+        if last_key:
+            kw["ExclusiveStartKey"] = last_key
+        resp = table.query(**kw)
+        total += int(resp.get("Count", 0))
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            break
+    return total
+
+
+def _query_stream_window(table, limit, offset):
+    """Read only offset+limit items from the newest-first stream index."""
+    need = offset + limit
+    collected = []
+    last_key = None
+    while len(collected) < need:
+        kw = {
+            "IndexName": STREAM_INDEX,
+            "KeyConditionExpression": Key("streamPartition").eq(STREAM_PARTITION),
+            "ScanIndexForward": False,
+            "Limit": min(need - len(collected), 100),
+        }
+        if last_key:
+            kw["ExclusiveStartKey"] = last_key
+        resp = table.query(**kw)
+        collected.extend(resp.get("Items", []))
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            break
+    page = collected[offset : offset + limit]
+    has_more = len(collected) > offset + limit or last_key is not None
+    return page, has_more
+
+
 def _list_scan_filter_expression(q):
     """Combine filters with AND (no GSI — applied during Scan)."""
     company = q.get("company")
@@ -434,16 +508,9 @@ def _list_scan_filter_expression(q):
     return expr
 
 
-def handle_list(event, table):
-    q = parse_query(event)
-    limit = q["limit"]
-    token_payload = decode_next_token(q["nextToken"]) or {}
-    try:
-        offset = max(0, int(token_payload.get("offset", 0)))
-    except (TypeError, ValueError):
-        offset = 0
-
+def _list_filtered_scan(table, q, limit, offset, include_total):
     fe = _list_scan_filter_expression(q)
+    search = q.get("search") or ""
     scan_kw = {}
     if fe is not None:
         scan_kw["FilterExpression"] = fe
@@ -455,29 +522,73 @@ def handle_list(event, table):
         if last_key:
             kw["ExclusiveStartKey"] = last_key
         resp = table.scan(**kw)
-        items.extend(resp.get("Items", []))
+        batch = resp.get("Items", [])
+        if search:
+            batch = [i for i in batch if _matches_search(i, search)]
+        items.extend(batch)
         last_key = resp.get("LastEvaluatedKey")
         if not last_key:
             break
 
     items.sort(key=lambda x: str(x.get("createdAt") or ""), reverse=True)
     page = items[offset : offset + limit]
-    viewer = (_header(event, "x-user-id") or "").strip()
-    posts = [fix_public_shape(i, viewer or None) for i in page]
+    has_more = offset + limit < len(items)
+    total = len(items) if include_total else None
+    return page, has_more, total
 
-    next_tok = None
-    if offset + limit < len(items):
-        next_tok = encode_next_token({"offset": offset + limit})
 
-    return response(
-        200,
-        {
-            "posts": posts,
-            "nextToken": next_tok,
-            "count": len(posts),
-            "totalMatched": len(items),
-        },
+def handle_list(event, table):
+    q = parse_query(event)
+    limit = q["limit"]
+    token_payload = decode_next_token(q["nextToken"]) or {}
+    try:
+        offset = max(0, int(token_payload.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    include_total = q["includeTotal"] or offset == 0
+    use_stream = (
+        not q.get("company")
+        and not q.get("category")
+        and not q.get("authorUserId")
+        and not q.get("search")
     )
+
+    total = None
+    has_more = False
+    page_items = []
+
+    if use_stream:
+        try:
+            page_items, has_more = _query_stream_window(table, limit, offset)
+            if offset == 0 and not page_items:
+                page_items, has_more, total = _list_filtered_scan(
+                    table, q, limit, offset, include_total
+                )
+            elif include_total:
+                total = _count_stream_index(table)
+        except ClientError:
+            page_items, has_more, total = _list_filtered_scan(
+                table, q, limit, offset, include_total
+            )
+    else:
+        page_items, has_more, total = _list_filtered_scan(
+            table, q, limit, offset, include_total
+        )
+
+    viewer = (_header(event, "x-user-id") or "").strip()
+    posts = [fix_public_shape(i, viewer or None) for i in page_items]
+
+    next_tok = encode_next_token({"offset": offset + limit}) if has_more else None
+
+    body = {
+        "posts": posts,
+        "nextToken": next_tok,
+        "count": len(posts),
+    }
+    if include_total and total is not None:
+        body["totalMatched"] = total
+    return response(200, body)
 
 
 def handle_patch(post_id, event, table):

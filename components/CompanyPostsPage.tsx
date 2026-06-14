@@ -2,9 +2,14 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Lottie from 'lottie-react';
 import { useAuth } from '../App';
 import CompanyPostDetailView from './CompanyPostDetailView';
-import CompanyPostsExplorer from './company-posts/CompanyPostsExplorer';
-import { postMatchesBrowseFilter } from './company-posts/applyBrowseFilter';
-import type { CompanyPostsBrowseFilter, ExplorerSelectPayload } from './company-posts/explorerTypes';
+import Pagination from './Pagination';
+import {
+    DEFAULT_COMPANY_POSTS_PAGE_SIZE,
+    encodeCompanyPostsPageToken,
+    fetchCompanyPostsPage,
+} from '../lib/companyPostsApi';
+import { fetchAdminCompanyNames } from '../lib/companyCompareData';
+import { PENDING_COMPANY_POSTS_FILTER_KEY } from '../lib/companyPostsClient';
 import engagementLottie from '../lottiefiles/wired-outline-2803-engagement-alt-hover-pinch.json';
 import type {
     CompanyPost,
@@ -277,19 +282,6 @@ export function toLambdaCreateBody(post: CompanyPost, isAnonymous: boolean): Rec
     return body;
 }
 
-const defaultAdminCompanies = [
-    'Google',
-    'Microsoft',
-    'Amazon',
-    'Flipkart',
-    'Swiggy',
-    'Razorpay',
-    'Zomato',
-    'TCS',
-    'Infosys',
-    'Wipro',
-];
-
 /** Set `VITE_COMPANY_POSTS_OFFLINE=true` to use browser storage only. Otherwise uses env URL or default API. */
 const companyPostsApiBase = (() => {
     if (import.meta.env.VITE_COMPANY_POSTS_OFFLINE === 'true') return '';
@@ -305,7 +297,16 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     const [posts, setPosts] = useState<CompanyPost[]>([]);
     const [postsLoading, setPostsLoading] = useState(useCompanyPostsApi);
     const [postsFetchError, setPostsFetchError] = useState<string | null>(null);
-    const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
+    const [apiAdminCompanies, setApiAdminCompanies] = useState<string[]>([]);
+    const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>(() => {
+        if (typeof window === 'undefined') return 'all';
+        const pending = sessionStorage.getItem(PENDING_COMPANY_POSTS_FILTER_KEY);
+        if (pending?.trim()) {
+            sessionStorage.removeItem(PENDING_COMPANY_POSTS_FILTER_KEY);
+            return pending.trim();
+        }
+        return 'all';
+    });
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | PostCategory>('all');
     const [viewMineOnly, setViewMineOnly] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -342,8 +343,8 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
     const [isSubmittingPost, setIsSubmittingPost] = useState(false);
     const [detailPostId, setDetailPostId] = useState<string | null>(null);
-    const [pageView, setPageView] = useState<'explore' | 'posts'>('explore');
-    const [browseFilter, setBrowseFilter] = useState<CompanyPostsBrowseFilter | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalMatchedFromApi, setTotalMatchedFromApi] = useState(0);
     const postsSectionRef = useRef<HTMLElement>(null);
     const pageRootRef = useRef<HTMLDivElement>(null);
     const [mainPanelInset, setMainPanelInset] = useState<{ left: number; width: number } | null>(null);
@@ -422,31 +423,78 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         return () => window.removeEventListener('keydown', onKey);
     }, [detailPostId]);
 
-    const loadRemotePosts = useCallback(async () => {
-        if (!useCompanyPostsApi) return;
-        setPostsLoading(true);
-        setPostsFetchError(null);
-        try {
-            const headers: Record<string, string> = {};
-            if (userEmail) headers['x-user-id'] = userEmail;
-            const res = await fetch(companyPostsApiBase, { headers });
-            const j = (await res.json()) as { posts?: unknown[]; error?: string };
-            if (!res.ok) {
-                throw new Error(j.error || `HTTP ${res.status}`);
-            }
-            const list = (j.posts ?? [])
-                .map(mapApiPostToCompanyPost)
-                .filter((p): p is CompanyPost => p != null);
-            setPosts(list);
-        } catch (e) {
-            setPostsFetchError(e instanceof Error ? e.message : 'Failed to load posts');
-            setPosts([]);
-        } finally {
-            setPostsLoading(false);
-        }
-    }, [companyPostsApiBase, userEmail]);
+    const itemsPerPage = DEFAULT_COMPANY_POSTS_PAGE_SIZE;
 
-    // Load: remote API or localStorage
+    const loadRemotePage = useCallback(
+        async (page: number) => {
+            if (!useCompanyPostsApi) return;
+            setPostsLoading(true);
+            setPostsFetchError(null);
+            try {
+                const headers: Record<string, string> = {};
+                if (userEmail) headers['x-user-id'] = userEmail;
+
+                const j = await fetchCompanyPostsPage(
+                    companyPostsApiBase,
+                    {
+                        limit: itemsPerPage,
+                        nextToken: page > 1 ? encodeCompanyPostsPageToken((page - 1) * itemsPerPage) : null,
+                        company: selectedCompanyFilter !== 'all' ? selectedCompanyFilter : undefined,
+                        category: selectedCategoryFilter !== 'all' ? selectedCategoryFilter : undefined,
+                        authorUserId: viewMineOnly && userEmail ? userEmail : undefined,
+                        search: searchQuery.trim() || undefined,
+                        includeTotal: page === 1,
+                    },
+                    headers,
+                );
+
+                const list = (j.posts ?? [])
+                    .map(mapApiPostToCompanyPost)
+                    .filter((p): p is CompanyPost => p != null);
+                setPosts(list);
+                if (page === 1 && typeof j.totalMatched === 'number') {
+                    setTotalMatchedFromApi(j.totalMatched);
+                } else if (page === 1) {
+                    setTotalMatchedFromApi(list.length);
+                }
+            } catch (e) {
+                setPostsFetchError(e instanceof Error ? e.message : 'Failed to load posts');
+                setPosts([]);
+                if (page === 1) setTotalMatchedFromApi(0);
+            } finally {
+                setPostsLoading(false);
+            }
+        },
+        [
+            companyPostsApiBase,
+            userEmail,
+            selectedCompanyFilter,
+            selectedCategoryFilter,
+            viewMineOnly,
+            searchQuery,
+            itemsPerPage,
+        ],
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery]);
+
+    useEffect(() => {
+        let cancelled = false;
+        void fetchAdminCompanyNames()
+            .then(names => {
+                if (!cancelled) setApiAdminCompanies(names);
+            })
+            .catch(() => {
+                if (!cancelled) setApiAdminCompanies([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Load: remote API (one page at a time) or localStorage
     useEffect(() => {
         if (!useCompanyPostsApi) {
             setPostsLoading(false);
@@ -462,8 +510,8 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
             return;
         }
 
-        void loadRemotePosts();
-    }, [loadRemotePosts]);
+        void loadRemotePage(currentPage);
+    }, [useCompanyPostsApi, currentPage, loadRemotePage]);
 
     // Persist to localStorage only when not using remote API
     useEffect(() => {
@@ -484,16 +532,19 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         const customCompanies = posts
             .filter(p => !p.isAdminCompany)
             .map(p => p.companyName);
-        const adminCompanies = [...defaultAdminCompanies, ...posts.filter(p => p.isAdminCompany).map(p => p.companyName)];
+        const adminCompanies = [...apiAdminCompanies, ...posts.filter(p => p.isAdminCompany).map(p => p.companyName)];
         return {
             admin: Array.from(new Set(adminCompanies)),
             custom: Array.from(new Set(customCompanies)),
         };
-    }, [posts]);
+    }, [posts, apiAdminCompanies]);
 
     const filteredPosts = useMemo(() => {
+        if (useCompanyPostsApi) {
+            return posts;
+        }
+
         return posts.filter(post => {
-            if (browseFilter && !postMatchesBrowseFilter(post, browseFilter)) return false;
             if (selectedCompanyFilter !== 'all' && post.companyName !== selectedCompanyFilter) return false;
             if (selectedCategoryFilter !== 'all' && post.category !== selectedCategoryFilter) return false;
             if (viewMineOnly) {
@@ -522,10 +573,48 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
             }
             return true;
         });
-    }, [posts, browseFilter, selectedCompanyFilter, selectedCategoryFilter, viewMineOnly, searchQuery, currentUserName, userEmail]);
+    }, [
+        posts,
+        useCompanyPostsApi,
+        selectedCompanyFilter,
+        selectedCategoryFilter,
+        viewMineOnly,
+        searchQuery,
+        currentUserName,
+        userEmail,
+    ]);
+
+    const listTotalItems = useMemo(() => {
+        if (useCompanyPostsApi) {
+            return totalMatchedFromApi;
+        }
+        return filteredPosts.length;
+    }, [useCompanyPostsApi, totalMatchedFromApi, filteredPosts.length]);
+
+    const totalPages = Math.max(1, Math.ceil(listTotalItems / itemsPerPage));
+
+    const paginatedPosts = useMemo(() => {
+        if (useCompanyPostsApi) {
+            return filteredPosts;
+        }
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredPosts.slice(start, start + itemsPerPage);
+    }, [useCompanyPostsApi, filteredPosts, currentPage, itemsPerPage]);
+
+    const handlePageChange = useCallback((page: number) => {
+        setCurrentPage(page);
+        requestAnimationFrame(() => {
+            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
+
+    const reloadPostsList = useCallback(() => {
+        if (!useCompanyPostsApi) return;
+        void loadRemotePage(currentPage);
+    }, [useCompanyPostsApi, loadRemotePage, currentPage]);
 
     const filterExcludedAll =
-        posts.length > 0 && filteredPosts.length === 0;
+        listTotalItems > 0 && filteredPosts.length === 0;
 
     const clearListFilters = () => {
         setSelectedCompanyFilter('all');
@@ -533,60 +622,6 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
         setViewMineOnly(false);
         setSearchQuery('');
     };
-
-    const openBrowsePosts = useCallback((payload: ExplorerSelectPayload) => {
-        setBrowseFilter({
-            kind: payload.kind,
-            value: payload.value,
-            title: payload.title,
-            subtitle: payload.subtitle,
-        });
-        setPageView('posts');
-        clearListFilters();
-        requestAnimationFrame(() => {
-            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }, []);
-
-    const openAllPosts = useCallback(() => {
-        setBrowseFilter(null);
-        setPageView('posts');
-        clearListFilters();
-        requestAnimationFrame(() => {
-            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }, []);
-
-    const openSearchPosts = useCallback((query: string) => {
-        setBrowseFilter(null);
-        setSelectedCompanyFilter('all');
-        setSelectedCategoryFilter('all');
-        setViewMineOnly(false);
-        setSearchQuery(query);
-        setPageView('posts');
-        requestAnimationFrame(() => {
-            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }, []);
-
-    const openCategoryPosts = useCallback((category: PostCategory, _title: string) => {
-        setBrowseFilter(null);
-        setSelectedCompanyFilter('all');
-        setSelectedCategoryFilter(category);
-        setViewMineOnly(false);
-        setSearchQuery('');
-        setPageView('posts');
-        requestAnimationFrame(() => {
-            postsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }, []);
-
-    const backToExplore = useCallback(() => {
-        setBrowseFilter(null);
-        setPageView('explore');
-        clearListFilters();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
 
     const sortedAdminCompanyOptions = useMemo(
         () => [...allCompanies.admin].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
@@ -706,7 +741,12 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
             }
             const mapped = mapApiPostToCompanyPost(j.post);
             if (!mapped) throw new Error('Invalid response from server');
-            setPosts(prev => [mapped, ...prev]);
+            if (currentPage === 1) {
+                setPosts(prev => [mapped, ...prev].slice(0, itemsPerPage));
+                setTotalMatchedFromApi(prev => prev + 1);
+            } else {
+                setCurrentPage(1);
+            }
             resetForm();
         } catch (e) {
             setFormError(e instanceof Error ? e.message : 'Failed to create post');
@@ -823,12 +863,10 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
     return (
         <div
             ref={pageRootRef}
-            className={`relative h-full min-h-0 flex flex-col ${pageView === 'explore' ? 'bg-white' : 'bg-gradient-to-b from-white via-slate-50 to-white'}`}
+            className="relative h-full min-h-0 flex flex-col bg-gradient-to-b from-white via-slate-50 to-white"
         >
             <main className="w-full min-w-0">
-                <div className={`mx-auto ${pageView === 'explore' ? 'w-full max-w-[1024px] px-2 sm:px-4' : 'max-w-7xl px-4'}`}>
-                    {/* Page hero + filters — shown on posts view only */}
-                    {pageView === 'posts' && (
+                <div className="mx-auto max-w-7xl px-4">
                     <div className="sticky top-0 z-30 -mx-4 px-0 mb-1 bg-gradient-to-b from-white via-slate-50 to-slate-50">
                         <div className="w-full">
                             <div className="px-4 sm:px-5 pt-4 pb-4">
@@ -1074,49 +1112,24 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                     </div>
                         </div>
                     </div>
-                    )}
 
-                    {pageView === 'explore' ? (
-                        <CompanyPostsExplorer
-                            onSelect={openBrowsePosts}
-                            onViewAllPosts={openAllPosts}
-                            onSearch={openSearchPosts}
-                            onCategorySelect={openCategoryPosts}
-                            onAddPost={() => setIsCreating(true)}
-                        />
-                    ) : (
+                    {(searchQuery.trim() || selectedCategoryFilter !== 'all') && (
                         <div className="pt-2 pb-2">
-                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-1">
-                                <button
-                                    type="button"
-                                    onClick={backToExplore}
-                                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
-                                >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                    Back to explore
-                                </button>
+                            <div className="flex flex-wrap items-center justify-end gap-3 mb-4 px-1">
                                 <div className="min-w-0 text-right">
                                     <h2 className="text-lg font-bold text-gray-900 truncate">
                                         {searchQuery.trim()
                                             ? `Results for "${searchQuery.trim()}"`
-                                            : browseFilter?.value
-                                              ? browseFilter.title
-                                              : browseFilter?.title ??
-                                                (selectedCategoryFilter !== 'all'
-                                                    ? CATEGORY_META[selectedCategoryFilter].label
-                                                    : 'All company posts')}
+                                            : selectedCategoryFilter !== 'all'
+                                              ? CATEGORY_META[selectedCategoryFilter].label
+                                              : 'All company posts'}
                                     </h2>
-                                    {browseFilter?.subtitle && (
-                                        <p className="text-xs text-gray-500 truncate">{browseFilter.subtitle}</p>
-                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <div className={pageView === 'explore' ? 'hidden' : 'pt-4 pb-8 space-y-4'}>
+                    <div className="pt-4 pb-8 space-y-4">
                     {/* Posts list - full width */}
                     <section ref={postsSectionRef} className="space-y-3">
                             {postsFetchError && useCompanyPostsApi && (
@@ -1124,7 +1137,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                     <span>{postsFetchError}</span>
                                     <button
                                         type="button"
-                                        onClick={() => void loadRemotePosts()}
+                                        onClick={() => void reloadPostsList()}
                                         className="px-2 py-1 rounded-lg bg-white border border-red-200 font-medium hover:bg-red-100/80"
                                     >
                                         Retry
@@ -1136,7 +1149,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                 <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
                                     Loading posts…
                                 </div>
-                            ) : filteredPosts.length === 0 ? (
+                            ) : paginatedPosts.length === 0 ? (
                                 <div className="mt-3 rounded-2xl border border-dashed border-gray-300 bg-white/60 px-4 py-6 text-center">
                                     <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 text-orange-600 mb-2">
                                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1177,7 +1190,7 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {filteredPosts.map(post => (
+                                    {paginatedPosts.map(post => (
                                         <article
                                             key={post.id}
                                             className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
@@ -1390,6 +1403,17 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                                         </article>
                                     ))}
                                 </div>
+                            )}
+
+                            {listTotalItems > 0 && (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    onPageChange={handlePageChange}
+                                    itemsPerPage={itemsPerPage}
+                                    totalItems={listTotalItems}
+                                    itemLabel="posts"
+                                />
                             )}
                         </section>
                     </div>

@@ -71,6 +71,8 @@ export interface CompanyPostsExploreHeaderProps {
     onSearch: (query: string) => void;
     onCategorySelect: (category: PostCategory, title: string) => void;
     onAddPost?: () => void;
+    searchPlaceholder?: string;
+    allFiltersLabel?: string;
 }
 
 export const CompanyPostsExploreHeader: React.FC<CompanyPostsExploreHeaderProps> = ({
@@ -79,6 +81,8 @@ export const CompanyPostsExploreHeader: React.FC<CompanyPostsExploreHeaderProps>
     onSearch,
     onCategorySelect,
     onAddPost,
+    searchPlaceholder = 'Search designation / job profile',
+    allFiltersLabel = 'All Filters',
 }) => {
     const [searchDraft, setSearchDraft] = React.useState('');
     const chipsRef = React.useRef<HTMLDivElement>(null);
@@ -136,7 +140,7 @@ export const CompanyPostsExploreHeader: React.FC<CompanyPostsExploreHeaderProps>
                     type="search"
                     value={searchDraft}
                     onChange={e => setSearchDraft(e.target.value)}
-                    placeholder="Search designation / job profile"
+                    placeholder={searchPlaceholder}
                     className="w-full h-[46px] pl-11 pr-4 rounded-full border border-[#D6DFEA] bg-white text-sm text-[#1E223C] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5670FB]/25 focus:border-[#5670FB]/35"
                     autoComplete="off"
                 />
@@ -149,7 +153,7 @@ export const CompanyPostsExploreHeader: React.FC<CompanyPostsExploreHeaderProps>
                     className="inline-flex flex-shrink-0 items-center gap-1.5 text-[13px] font-semibold text-[#5670FB] hover:text-[#4358d9] transition-colors pl-0.5"
                 >
                     <SlidersHorizontal size={15} className="text-[#5670FB]" />
-                    <span>All Filters</span>
+                    <span>{allFiltersLabel}</span>
                 </button>
 
                 <div

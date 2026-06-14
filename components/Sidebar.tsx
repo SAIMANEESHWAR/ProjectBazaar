@@ -8,7 +8,7 @@ import PremiumBadge from './PremiumBadge';
 import SidebarPremiumCard from './SidebarPremiumCard';
 import type { DashboardView } from './DashboardPage';
 import { useCart } from './DashboardPage';
-import { LIVE_INTERVIEW_SETUP_TABS, useDashboard } from '../context/DashboardContext';
+import { COMPANY_SECTION_TABS, LIVE_INTERVIEW_SETUP_TABS, useDashboard } from '../context/DashboardContext';
 import { cachedFetchUserProfile } from '../services/buyerApi';
 import { useJobHuntShell } from '../context/JobHuntShellContext';
 import { PinkJobHuntStar } from './icons/PinkJobHuntStar';
@@ -77,7 +77,7 @@ const buyerNavItems = [
     { name: 'Hackathons', view: 'hackathons' as DashboardView, icon: HackathonsIcon },
     { name: 'AI Resume Builder', view: 'build-resume' as DashboardView, icon: ResumeIcon },
     { name: 'ATS Scorer', view: 'ats-scorer' as DashboardView, icon: ATSScorerIcon },
-    { name: 'Company Posts', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
+    { name: 'Company', view: 'company-posts' as DashboardView, icon: CompanyPostsIcon },
     { name: 'Build Portfolio', view: 'build-portfolio' as DashboardView, icon: PortfolioIcon },
     { name: 'Mock Assessments', view: 'mock-assessment' as DashboardView, icon: MockAssessmentIcon },
     { name: 'Coding Questions', view: 'coding-questions' as DashboardView, icon: CodingQuestionsIcon },
@@ -195,6 +195,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
         setSelectedCoreSubjectSlug,
         liveInterviewSetupTab,
         setLiveInterviewSetupTab,
+        companySectionTab,
+        setCompanySectionTab,
     } = useDashboard();
     const { goToSavedJobsList, goToBrowseAllJobs } = useJobHuntShell();
 
@@ -230,6 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
     const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
     const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(true);
+    const [companyNavExpanded, setCompanyNavExpanded] = useState(true);
     const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
 
@@ -278,9 +281,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
         }
     }, [activeView]);
 
+    useEffect(() => {
+        if (activeView === 'company-posts') {
+            setCompanyNavExpanded(true);
+        }
+    }, [activeView]);
+
     const openLiveInterviewSetup = (tab: typeof liveInterviewSetupTab) => {
         setLiveInterviewSetupTab(tab);
         setActiveView('live-mock-interview');
+        if (window.innerWidth < 1024) onClose();
+    };
+
+    const openCompanySection = (tab: typeof companySectionTab) => {
+        setCompanySectionTab(tab);
+        setActiveView('company-posts');
         if (window.innerWidth < 1024) onClose();
     };
 
@@ -713,6 +728,84 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                             type="button"
                                                             key={tab.id}
                                                             onClick={() => openLiveInterviewSetup(tab.id)}
+                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isSubActive
+                                                                ? isDark
+                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
+                                                                    : 'bg-orange-500 text-white font-medium'
+                                                                : isDark
+                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                                }`}
+                                                        >
+                                                            <span className="whitespace-nowrap truncate">{tab.label}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            if (item.view === 'company-posts') {
+                                const isCompanyActive = activeView === 'company-posts';
+                                if (!isExpanded) {
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={item.name}
+                                            onClick={() => openCompanySection(companySectionTab)}
+                                            className={`w-full flex items-center px-2 justify-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${isCompanyActive
+                                                ? isDark
+                                                    ? 'bg-white text-black'
+                                                    : 'bg-orange-500 text-white'
+                                                : isDark
+                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c2e] hover:text-white'
+                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                } ${isTransitioning ? 'nav-item-animate' : ''}`}
+                                            style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                        >
+                                            <div className="flex-shrink-0 relative">{item.icon}</div>
+                                            <div className="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50 shadow-lg">
+                                                {item.name}
+                                                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                            </div>
+                                        </button>
+                                    );
+                                }
+                                return (
+                                    <div key={item.name} className={isTransitioning ? 'nav-item-animate' : ''} style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCompanyNavExpanded((prev) => !prev)}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isCompanyActive
+                                                ? isDark
+                                                    ? 'bg-white text-black'
+                                                    : 'bg-orange-500 text-white'
+                                                : isDark
+                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+                                                    : 'text-gray-600 hover:bg-orange-50'
+                                                }`}
+                                        >
+                                            <span className="flex items-center min-w-0">
+                                                <span className="flex-shrink-0">{item.icon}</span>
+                                                <span className="ml-3 whitespace-nowrap truncate">{item.name}</span>
+                                            </span>
+                                            <ChevronRight
+                                                className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${companyNavExpanded ? 'rotate-90' : ''}`}
+                                                aria-hidden
+                                            />
+                                        </button>
+                                        {companyNavExpanded && (
+                                            <div className="mt-0.5 ml-2 space-y-0.5">
+                                                {COMPANY_SECTION_TABS.map((tab) => {
+                                                    const isSubActive =
+                                                        isCompanyActive && companySectionTab === tab.id;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={tab.id}
+                                                            onClick={() => openCompanySection(tab.id)}
                                                             className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isSubActive
                                                                 ? isDark
                                                                     ? 'bg-[#1c1c1e] text-white font-medium'

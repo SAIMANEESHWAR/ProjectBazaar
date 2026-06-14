@@ -15,6 +15,7 @@ export type AdminView =
     | 'roadmap-management'
     | 'placement-prep'
     | 'prep-content'
+    | 'company-compare'
     | 'user-profile'
     | 'admin-project-details'
     | 'admin-report-details'

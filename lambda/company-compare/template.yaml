@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: DynamoDB table + GSI (newest-first stream) + HTTP API Lambda for company posts
+Description: DynamoDB table + GSI + HTTP API Lambda for company compare data
 
 Globals:
   Function:
@@ -15,64 +15,80 @@ Parameters:
     Type: String
     Default: dev
     Description: Deployment stage name
+  AdminSyncKey:
+    Type: String
+    NoEcho: true
+    Description: Secret key for admin sync routes (x-admin-key header)
 
 Resources:
-  # DynamoDB — postId PK; ByStream GSI for fast paginated list (newest first)
-  CompanyPostsTable:
+  CompanyCompareTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${AWS::StackName}-posts'
+      TableName: !Sub '${AWS::StackName}-companies'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: postId
+        - AttributeName: companyId
           AttributeType: S
         - AttributeName: streamPartition
           AttributeType: S
-        - AttributeName: createdAt
+        - AttributeName: name
           AttributeType: S
       KeySchema:
-        - AttributeName: postId
+        - AttributeName: companyId
           KeyType: HASH
       GlobalSecondaryIndexes:
         - IndexName: ByStream
           KeySchema:
             - AttributeName: streamPartition
               KeyType: HASH
-            - AttributeName: createdAt
+            - AttributeName: name
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
 
-  CompanyPostsFunction:
+  CompanyCompareFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${AWS::StackName}-api'
-      Handler: company_posts_handler.lambda_handler
+      Handler: company_compare_handler.lambda_handler
       CodeUri: ../
       Environment:
         Variables:
-          POSTS_TABLE_NAME: !Ref CompanyPostsTable
+          COMPARE_TABLE_NAME: !Ref CompanyCompareTable
           STAGE: !Ref Stage
+          ADMIN_SYNC_KEY: !Ref AdminSyncKey
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref CompanyPostsTable
+            TableName: !Ref CompanyCompareTable
       Events:
-        ApiRoot:
+        ApiCompanies:
           Type: HttpApi
           Properties:
-            ApiId: !Ref CompanyPostsHttpApi
-            Path: /posts
+            ApiId: !Ref CompanyCompareHttpApi
+            Path: /companies
             Method: ANY
-        ApiProxy:
+        ApiCompaniesProxy:
           Type: HttpApi
           Properties:
-            ApiId: !Ref CompanyPostsHttpApi
-            Path: /posts/{proxy+}
+            ApiId: !Ref CompanyCompareHttpApi
+            Path: /companies/{proxy+}
+            Method: ANY
+        ApiAdminCompanies:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CompanyCompareHttpApi
+            Path: /admin/companies
+            Method: ANY
+        ApiAdminCompaniesProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CompanyCompareHttpApi
+            Path: /admin/companies/{proxy+}
             Method: ANY
 
-  CompanyPostsHttpApi:
+  CompanyCompareHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref Stage
@@ -83,18 +99,18 @@ Resources:
         AllowMethods:
           - GET
           - POST
-          - PATCH
+          - DELETE
           - OPTIONS
         AllowOrigins:
           - '*'
 
 Outputs:
   HttpApiUrl:
-    Description: Base URL for the HTTP API (append /posts)
-    Value: !Sub 'https://${CompanyPostsHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
-  PostsTableName:
+    Description: Base URL for the HTTP API
+    Value: !Sub 'https://${CompanyCompareHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  CompareTableName:
     Description: DynamoDB table name
-    Value: !Ref CompanyPostsTable
-  CompanyPostsFunctionArn:
+    Value: !Ref CompanyCompareTable
+  CompanyCompareFunctionArn:
     Description: Lambda ARN
-    Value: !GetAtt CompanyPostsFunction.Arn
+    Value: !GetAtt CompanyCompareFunction.Arn

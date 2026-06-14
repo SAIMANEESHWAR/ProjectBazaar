@@ -41,6 +41,7 @@ const adminNavItems = [
     { name: 'Roadmap Management', view: 'roadmap-management' as AdminView, icon: RoadmapIcon },
     { name: 'Placement Prep', view: 'placement-prep' as AdminView, icon: PlacementPrepIcon },
     { name: 'Prep Content', view: 'prep-content' as AdminView, icon: PrepContentIcon },
+    { name: 'Company Compare', view: 'company-compare' as AdminView, icon: PrepContentIcon },
 ];
 
 interface AdminSidebarProps {

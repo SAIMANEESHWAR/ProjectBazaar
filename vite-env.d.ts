@@ -9,6 +9,12 @@ interface ImportMetaEnv {
     readonly VITE_COMPANY_POSTS_API_URL?: string;
     /** Set to `"true"` to use browser storage only (no API). */
     readonly VITE_COMPANY_POSTS_OFFLINE?: string;
+    /** Company Compare API (SAM stack lambda/company-compare). */
+    readonly VITE_COMPANY_COMPARE_API_URL?: string;
+    /** Admin sync key — must match Lambda ADMIN_SYNC_KEY (x-admin-key header). */
+    readonly VITE_COMPANY_COMPARE_ADMIN_KEY?: string;
+    /** Set to `"true"` to use static seed JSON instead of API. */
+    readonly VITE_COMPANY_COMPARE_OFFLINE?: string;
     /** API Gateway URL for get_jobs_details Lambda (paginated job listings). */
     readonly VITE_GET_JOBS_DETAILS_URL?: string;
     /** Optional: override OAuth redirect (default `${origin}/auth`). Must match Google Cloud. */

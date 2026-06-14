@@ -15,6 +15,7 @@ import CareerContentManagementPage from './CareerContentManagementPage';
 import RoadmapManagementPage from './RoadmapManagementPage';
 import PlacementPrepManagementPage from './PlacementPrepManagementPage';
 import PrepContentManagementPage from './PrepContentManagementPage';
+import CompanyCompareManagementPage from './CompanyCompareManagementPage';
 import type { BuyerProject } from '../BuyerProjectCard';
 
 
@@ -70,6 +71,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
         'roadmap-management': 'Roadmap Management',
         'placement-prep': 'Placement Preparation Management',
         'prep-content': 'Preparation Content Management',
+        'company-compare': 'Company Compare Management',
         'user-profile': selectedUser ? `${selectedUser.name}'s Profile` : 'User Profile',
         'admin-project-details': selectedProject ? `Project: ${selectedProject.title}` : 'Project Details',
         'admin-report-details': 'Report Details',
@@ -245,6 +247,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                 {activeView === 'roadmap-management' && <RoadmapManagementPage />}
                 {activeView === 'placement-prep' && <PlacementPrepManagementPage />}
                 {activeView === 'prep-content' && <PrepContentManagementPage />}
+                {activeView === 'company-compare' && <CompanyCompareManagementPage />}
                 {activeView === 'prep-mode' && <PrepContentManagementPage />}
             </div>
         </div>

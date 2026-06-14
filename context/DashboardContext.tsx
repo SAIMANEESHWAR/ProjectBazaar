@@ -1,5 +1,6 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { PENDING_COMPANY_POSTS_FILTER_KEY } from '../lib/companyPostsClient';
 
 // Define the available dashboard modes
 export type DashboardMode = 'buyer' | 'seller' | 'preparation' | 'jobHunt';
@@ -76,6 +77,13 @@ export const LIVE_INTERVIEW_SETUP_TABS: { id: LiveInterviewSetupTab; label: stri
     { id: 'jd', label: 'JD Based' },
 ];
 
+export type CompanySectionTab = 'posts' | 'compare-companies';
+
+export const COMPANY_SECTION_TABS: { id: CompanySectionTab; label: string }[] = [
+    { id: 'posts', label: 'Posts' },
+    { id: 'compare-companies', label: 'Compare Companies' },
+];
+
 /** Views that belong to preparation mode (keep in sync with Sidebar prep nav). */
 export const PREP_VIEWS: DashboardView[] = [
     'prep-hub',
@@ -108,11 +116,14 @@ interface DashboardContextType {
     prepDarkMode: boolean;
     selectedCoreSubjectSlug: string | null;
     liveInterviewSetupTab: LiveInterviewSetupTab;
+    companySectionTab: CompanySectionTab;
     setDashboardMode: (mode: DashboardMode) => void;
     setActiveView: (view: DashboardView) => void;
     setBrowseView: (view: BrowseView) => void;
     setSelectedCoreSubjectSlug: (slug: string | null) => void;
     setLiveInterviewSetupTab: (tab: LiveInterviewSetupTab) => void;
+    setCompanySectionTab: (tab: CompanySectionTab) => void;
+    openCompanyPostsForCompany: (companyName: string) => void;
     toggleDashboardMode: () => void;
     togglePrepDarkMode: () => void;
 }
@@ -185,6 +196,16 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         return 'role';
     });
 
+    const [companySectionTab, setCompanySectionTabState] = useState<CompanySectionTab>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('companySectionTab');
+            if (stored === 'posts' || stored === 'compare-companies') {
+                return stored;
+            }
+        }
+        return 'posts';
+    });
+
     // Persist state changes to localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -229,12 +250,22 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     }, [liveInterviewSetupTab]);
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('companySectionTab', companySectionTab);
+        }
+    }, [companySectionTab]);
+
     const setSelectedCoreSubjectSlug = (slug: string | null) => {
         setSelectedCoreSubjectSlugState(slug);
     };
 
     const setLiveInterviewSetupTab = (tab: LiveInterviewSetupTab) => {
         setLiveInterviewSetupTabState(tab);
+    };
+
+    const setCompanySectionTab = (tab: CompanySectionTab) => {
+        setCompanySectionTabState(tab);
     };
 
     const setDashboardMode = (mode: DashboardMode) => {
@@ -269,6 +300,14 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         setPrepDarkMode((prev) => !prev);
     };
 
+    const openCompanyPostsForCompany = useCallback((companyName: string) => {
+        if (typeof window !== 'undefined' && companyName.trim()) {
+            sessionStorage.setItem(PENDING_COMPANY_POSTS_FILTER_KEY, companyName.trim());
+        }
+        setCompanySectionTabState('posts');
+        setActiveViewState('company-posts');
+    }, []);
+
     return (
         <DashboardContext.Provider
             value={{
@@ -278,11 +317,14 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
                 prepDarkMode,
                 selectedCoreSubjectSlug,
                 liveInterviewSetupTab,
+                companySectionTab,
                 setDashboardMode,
                 setActiveView,
                 setBrowseView,
                 setSelectedCoreSubjectSlug,
                 setLiveInterviewSetupTab,
+                setCompanySectionTab,
+                openCompanyPostsForCompany,
                 toggleDashboardMode,
                 togglePrepDarkMode,
             }}

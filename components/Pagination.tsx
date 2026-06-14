@@ -7,6 +7,7 @@ interface PaginationProps {
     itemsPerPage: number;
     totalItems: number;
     onItemsPerPageChange?: (itemsPerPage: number) => void;
+    itemLabel?: string;
 }
 
 const Pagination: React.FC<PaginationProps> = ({
@@ -15,7 +16,8 @@ const Pagination: React.FC<PaginationProps> = ({
     onPageChange,
     itemsPerPage,
     totalItems,
-    onItemsPerPageChange
+    onItemsPerPageChange,
+    itemLabel = 'items',
 }) => {
     const startItem = (currentPage - 1) * itemsPerPage + 1;
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -90,7 +92,7 @@ const Pagination: React.FC<PaginationProps> = ({
             <div className="text-sm text-gray-600 dark:text-gray-400">
                 Showing <span className="font-semibold text-gray-900 dark:text-gray-100">{startItem}</span> to{' '}
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{endItem}</span> of{' '}
-                <span className="font-semibold text-gray-900 dark:text-gray-100">{totalItems}</span> projects
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{totalItems}</span> {itemLabel}
             </div>
 
             {/* Pagination controls */}

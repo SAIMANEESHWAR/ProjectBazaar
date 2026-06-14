@@ -50,6 +50,7 @@ import PostBidRequestProjectPage from './PostBidRequestProjectPage';
 import MyBidsPage from './MyBidsPage';
 import ChatRoom from './ChatRoom';
 import CompanyPostsPage from './CompanyPostsPage';
+import CompareCompaniesPage from './company-posts/CompareCompaniesPage';
 import { PurchasedCourse, cachedFetchUserData, cachedFetchAllProjects, cachedFetchUserProfile } from '../services/buyerApi';
 import PreparationHub from './preparation/PreparationHub';
 import { PrepContentAccessProvider } from './preparation/PrepContentAccessProvider';
@@ -513,7 +514,7 @@ const MarketplaceHub: React.FC<{
 
 const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, toggleSidebar }) => {
     const { userId, userEmail } = useAuth();
-    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode } = useDashboard();
+    const { dashboardMode, activeView, setActiveView, setDashboardMode, setBrowseView, browseView, prepDarkMode, companySectionTab } = useDashboard();
     const mainScrollRef = useRef<HTMLElement>(null);
     const prevActiveViewRef = useRef(activeView);
     const [savedKeysRefreshNonce, setSavedKeysRefreshNonce] = useState(0);
@@ -1008,6 +1009,9 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ isSidebarOpen, togg
             case 'career-guidance':
                 return <CareerGuidanceComingSoon />;
             case 'company-posts':
+                if (companySectionTab === 'compare-companies') {
+                    return <CompareCompaniesPage />;
+                }
                 return <CompanyPostsPage toggleSidebar={toggleSidebar} />;
             case 'mock-assessment':
                 return <MockAssessmentPage embedded toggleSidebar={toggleSidebar} />;

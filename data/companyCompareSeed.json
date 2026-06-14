@@ -1,0 +1,583 @@
+{
+  "companies": [
+    {
+      "company_identity": {
+        "name": "TCS",
+        "name_citation": "https://www.ambitionbox.com/overview/tcs-overview",
+        "description": "Tata Consultancy Services is an IT services, consulting and business solutions organization that has been partnering with many of the world’s largest businesses for the past 50 years.",
+        "description_citation": "https://www.ambitionbox.com/overview/tcs-overview",
+        "industry": "IT Services & Consulting",
+        "industry_citation": "https://www.ambitionbox.com/overview/tcs-overview",
+        "headquarters": "Mumbai, Maharashtra, India",
+        "headquarters_citation": "https://www.ambitionbox.com/overview/tcs-overview",
+        "website": "tcs.com",
+        "website_citation": "https://www.ambitionbox.com/overview/tcs-overview"
+      },
+      "ambitionbox_ratings": {
+        "overall_rating": 3.3,
+        "overall_rating_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+        "work_life_balance": 3.5,
+        "work_life_balance_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+        "company_culture": 3.2,
+        "company_culture_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+        "skill_development": 3.2,
+        "skill_development_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+        "job_security": 3.8,
+        "job_security_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+        "management": 3,
+        "management_citation": "https://www.ambitionbox.com/reviews/tcs-reviews"
+      },
+      "reviews": [
+        {
+          "review_date": "28 May 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "pros": "Good like life balance and supportive team. TCS provides strong Job security and learning opportunities.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "cons": "Salary growth and promotion process can feel slow compared to Market standards.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "summary": "Good work life balance and job security.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/tcs-reviews"
+        },
+        {
+          "review_date": "25 May 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "pros": "Supportive management in some projects, good for beginners.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "cons": "Management can be poor in certain departments, salary hikes are low.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "summary": "Mixed experience with management.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/tcs-reviews"
+        },
+        {
+          "review_date": "24 May 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "pros": "Learning environment and brand name.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "cons": "Delayed promotions and outdated compensation structure.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/tcs-reviews",
+          "summary": "Good brand but slow growth.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/tcs-reviews"
+        }
+      ],
+      "salaries": [
+        {
+          "role": "System Engineer",
+          "role_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "average_annual_salary": "₹5.8L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "salary_range": "₹5.5L - ₹6.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "experience_level": "0-8 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/tcs-salaries"
+        },
+        {
+          "role": "IT Analyst",
+          "role_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "average_annual_salary": "₹9.2L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "salary_range": "₹8.5L - ₹10.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "experience_level": "4-10 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/tcs-salaries"
+        },
+        {
+          "role": "Software Engineer",
+          "role_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "average_annual_salary": "₹6.5L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "salary_range": "₹5.0L - ₹8.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/tcs-salaries",
+          "experience_level": "1-5 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/tcs-salaries"
+        }
+      ],
+      "interviews": [
+        {
+          "role": "Python Automation Engineer",
+          "role_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions",
+          "difficulty_level": "Moderate",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+            }
+          ],
+          "experience_summary": "Technical round focused on Python logic.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+        },
+        {
+          "role": "System Engineer",
+          "role_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions",
+          "difficulty_level": "Moderate",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+            }
+          ],
+          "experience_summary": "Technical and HR rounds.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/tcs-interview-questions"
+        }
+      ],
+      "benefits": [
+        {
+          "value": "Health Insurance",
+          "value_citation": "https://www.ambitionbox.com/benefits/tcs-benefits"
+        },
+        {
+          "value": "Job Training",
+          "value_citation": "https://www.ambitionbox.com/benefits/tcs-benefits"
+        },
+        {
+          "value": "Soft Skill Training",
+          "value_citation": "https://www.ambitionbox.com/benefits/tcs-benefits"
+        },
+        {
+          "value": "Cafeteria",
+          "value_citation": "https://www.ambitionbox.com/benefits/tcs-benefits"
+        },
+        {
+          "value": "Work From Home",
+          "value_citation": "https://www.ambitionbox.com/benefits/tcs-benefits"
+        }
+      ],
+      "active_jobs": [
+        {
+          "job_title": "Software Engineer",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "location": "Mumbai, Maharashtra",
+          "location_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "posted_date": "12 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/tcs-jobs"
+        },
+        {
+          "job_title": "Systems Engineer",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "location": "Bengaluru, Karnataka",
+          "location_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "posted_date": "13 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/tcs-jobs"
+        },
+        {
+          "job_title": "IT Analyst",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "location": "Hyderabad, Telangana",
+          "location_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "posted_date": "11 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/tcs-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/tcs-jobs"
+        }
+      ],
+      "metadata": {
+        "source_urls": [
+          {
+            "value": "https://www.ambitionbox.com/overview/tcs-overview",
+            "value_citation": "https://www.ambitionbox.com/overview/tcs-overview"
+          }
+        ],
+        "scrape_timestamp": "2026-06-13T15:30:00Z"
+      }
+    },
+    {
+      "company_identity": {
+        "name": "Accenture",
+        "name_citation": "https://www.ambitionbox.com/overview/accenture-overview",
+        "description": "Accenture is a global professional services company with leading capabilities in digital, cloud, and security.",
+        "description_citation": "https://www.ambitionbox.com/overview/accenture-overview",
+        "industry": "IT Services & Consulting",
+        "industry_citation": "https://www.ambitionbox.com/overview/accenture-overview",
+        "headquarters": "Mumbai, Maharashtra (India HQ)",
+        "headquarters_citation": "https://www.ambitionbox.com/overview/accenture-overview",
+        "website": "accenture.com",
+        "website_citation": "https://www.ambitionbox.com/overview/accenture-overview"
+      },
+      "ambitionbox_ratings": {
+        "overall_rating": 3.7,
+        "overall_rating_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+        "work_life_balance": 3.6,
+        "work_life_balance_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+        "company_culture": 3.7,
+        "company_culture_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+        "skill_development": 3.6,
+        "skill_development_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+        "job_security": 3.6,
+        "job_security_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+        "management": 3.4,
+        "management_citation": "https://www.ambitionbox.com/reviews/accenture-reviews"
+      },
+      "reviews": [
+        {
+          "review_date": "12 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "pros": "Excellent work culture, great learning platform, and diverse projects.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "cons": "Work pressure can be high during project deadlines.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "summary": "Great place for career growth.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/accenture-reviews"
+        },
+        {
+          "review_date": "10 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "pros": "Good health benefits and inclusive environment.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "cons": "Variable pay depends heavily on performance ratings.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "summary": "Inclusive culture with good benefits.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/accenture-reviews"
+        },
+        {
+          "review_date": "08 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "pros": "Latest technologies and global exposure.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "cons": "Promotions can be slow at higher levels.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/accenture-reviews",
+          "summary": "Global exposure and tech focus.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/accenture-reviews"
+        }
+      ],
+      "salaries": [
+        {
+          "role": "Application Development Associate",
+          "role_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "average_annual_salary": "₹5.4L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "salary_range": "₹4.5L - ₹6.5L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "experience_level": "0-2 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/accenture-salaries"
+        },
+        {
+          "role": "Software Engineering Associate",
+          "role_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "average_annual_salary": "₹5.2L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "salary_range": "₹4.0L - ₹6.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "experience_level": "0-3 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/accenture-salaries"
+        },
+        {
+          "role": "Team Lead",
+          "role_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "average_annual_salary": "₹15.2L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "salary_range": "₹12.0L - ₹20.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/accenture-salaries",
+          "experience_level": "7-15 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/accenture-salaries"
+        }
+      ],
+      "interviews": [
+        {
+          "role": "Software Engineer",
+          "role_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions",
+          "difficulty_level": "Moderate",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+            }
+          ],
+          "experience_summary": "Multiple rounds: Cognitive, Technical, and HR.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+        },
+        {
+          "role": "Data Analyst",
+          "role_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions",
+          "difficulty_level": "Hard",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+            }
+          ],
+          "experience_summary": "Focus on SQL and Excel skills.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/accenture-interview-questions"
+        }
+      ],
+      "benefits": [
+        {
+          "value": "Health Insurance",
+          "value_citation": "https://www.ambitionbox.com/benefits/accenture-benefits"
+        },
+        {
+          "value": "Parental Leave",
+          "value_citation": "https://www.ambitionbox.com/benefits/accenture-benefits"
+        },
+        {
+          "value": "Education Assistance",
+          "value_citation": "https://www.ambitionbox.com/benefits/accenture-benefits"
+        },
+        {
+          "value": "Work From Home",
+          "value_citation": "https://www.ambitionbox.com/benefits/accenture-benefits"
+        },
+        {
+          "value": "Employee Assistance Program",
+          "value_citation": "https://www.ambitionbox.com/benefits/accenture-benefits"
+        }
+      ],
+      "active_jobs": [
+        {
+          "job_title": "Cloud Infrastructure Engineer",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "location": "Bengaluru, Karnataka",
+          "location_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "posted_date": "12 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/accenture-jobs"
+        },
+        {
+          "job_title": "Java Full Stack Developer",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "location": "Pune, Maharashtra",
+          "location_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "posted_date": "13 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/accenture-jobs"
+        },
+        {
+          "job_title": "Security Delivery Associate",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "location": "Gurgaon, Haryana",
+          "location_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "posted_date": "11 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/accenture-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/accenture-jobs"
+        }
+      ],
+      "metadata": {
+        "source_urls": [
+          {
+            "value": "https://www.ambitionbox.com/overview/accenture-overview",
+            "value_citation": "https://www.ambitionbox.com/overview/accenture-overview"
+          }
+        ],
+        "scrape_timestamp": "2026-06-13T15:30:00Z"
+      }
+    },
+    {
+      "company_identity": {
+        "name": "Wipro",
+        "name_citation": "https://www.ambitionbox.com/overview/wipro-overview",
+        "description": "Wipro Limited is a leading technology services and consulting company focused on building innovative solutions that address clients’ most complex digital transformation needs.",
+        "description_citation": "https://www.ambitionbox.com/overview/wipro-overview",
+        "industry": "IT Services & Consulting",
+        "industry_citation": "https://www.ambitionbox.com/overview/wipro-overview",
+        "headquarters": "Bengaluru, Karnataka, India",
+        "headquarters_citation": "https://www.ambitionbox.com/overview/wipro-overview",
+        "website": "wipro.com",
+        "website_citation": "https://www.ambitionbox.com/overview/wipro-overview"
+      },
+      "ambitionbox_ratings": {
+        "overall_rating": 3.6,
+        "overall_rating_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+        "work_life_balance": 3.6,
+        "work_life_balance_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+        "company_culture": 3.6,
+        "company_culture_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+        "skill_development": 3.5,
+        "skill_development_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+        "job_security": 3.7,
+        "job_security_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+        "management": 3.4,
+        "management_citation": "https://www.ambitionbox.com/reviews/wipro-reviews"
+      },
+      "reviews": [
+        {
+          "review_date": "11 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "pros": "Good work-life balance and supportive colleagues.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "cons": "Salary hikes are not competitive with the market.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "summary": "Decent work life balance.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/wipro-reviews"
+        },
+        {
+          "review_date": "09 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "pros": "Job security is high, good for long term stay.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "cons": "Bureaucratic processes can be frustrating.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "summary": "Secure job but slow processes.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/wipro-reviews"
+        },
+        {
+          "review_date": "07 Jun 2026",
+          "review_date_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "pros": "Great learning opportunities through internal portals.",
+          "pros_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "cons": "Onsite opportunities are limited.",
+          "cons_citation": "https://www.ambitionbox.com/reviews/wipro-reviews",
+          "summary": "Good learning platform.",
+          "summary_citation": "https://www.ambitionbox.com/reviews/wipro-reviews"
+        }
+      ],
+      "salaries": [
+        {
+          "role": "Project Engineer",
+          "role_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "average_annual_salary": "₹4.8L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "salary_range": "₹3.5L - ₹6.5L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "experience_level": "0-4 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/wipro-salaries"
+        },
+        {
+          "role": "Software Engineer",
+          "role_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "average_annual_salary": "₹5.5L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "salary_range": "₹4.0L - ₹8.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "experience_level": "1-5 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/wipro-salaries"
+        },
+        {
+          "role": "Senior Systems Engineer",
+          "role_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "average_annual_salary": "₹8.2L",
+          "average_annual_salary_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "salary_range": "₹6.0L - ₹11.0L",
+          "salary_range_citation": "https://www.ambitionbox.com/salaries/wipro-salaries",
+          "experience_level": "3-8 years exp",
+          "experience_level_citation": "https://www.ambitionbox.com/salaries/wipro-salaries"
+        }
+      ],
+      "interviews": [
+        {
+          "role": "Project Engineer",
+          "role_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions",
+          "difficulty_level": "Moderate",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+            }
+          ],
+          "experience_summary": "Aptitude, Technical, and HR rounds.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+        },
+        {
+          "role": "Software Developer",
+          "role_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions",
+          "difficulty_level": "Moderate",
+          "difficulty_level_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions",
+          "interview_questions": [
+            {
+              "value": "value",
+              "value_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+            },
+            {
+              "value": "source",
+              "value_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+            }
+          ],
+          "experience_summary": "Coding round followed by technical discussion.",
+          "experience_summary_citation": "https://www.ambitionbox.com/interviews/wipro-interview-questions"
+        }
+      ],
+      "benefits": [
+        {
+          "value": "Health Insurance",
+          "value_citation": "https://www.ambitionbox.com/benefits/wipro-benefits"
+        },
+        {
+          "value": "Gymnasium",
+          "value_citation": "https://www.ambitionbox.com/benefits/wipro-benefits"
+        },
+        {
+          "value": "Soft Skill Training",
+          "value_citation": "https://www.ambitionbox.com/benefits/wipro-benefits"
+        },
+        {
+          "value": "Cafeteria",
+          "value_citation": "https://www.ambitionbox.com/benefits/wipro-benefits"
+        },
+        {
+          "value": "Transport Allowance",
+          "value_citation": "https://www.ambitionbox.com/benefits/wipro-benefits"
+        }
+      ],
+      "active_jobs": [
+        {
+          "job_title": "Test Engineer",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "location": "Chennai, Tamil Nadu",
+          "location_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "posted_date": "12 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/wipro-jobs"
+        },
+        {
+          "job_title": "Project Manager",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "location": "Kochi, Kerala",
+          "location_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "posted_date": "13 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/wipro-jobs"
+        },
+        {
+          "job_title": "Business Analyst",
+          "job_title_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "location": "Noida, Uttar Pradesh",
+          "location_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "posted_date": "11 Jun 2026",
+          "posted_date_citation": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url": "https://www.ambitionbox.com/jobs/wipro-jobs",
+          "apply_url_citation": "https://www.ambitionbox.com/jobs/wipro-jobs"
+        }
+      ],
+      "metadata": {
+        "source_urls": [
+          {
+            "value": "https://www.ambitionbox.com/overview/wipro-overview",
+            "value_citation": "https://www.ambitionbox.com/overview/wipro-overview"
+          }
+        ],
+        "scrape_timestamp": "2026-06-13T15:30:00Z"
+      }
+    }
+  ]
+}
