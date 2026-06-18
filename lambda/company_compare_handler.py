@@ -5,14 +5,16 @@ Table: PK companyId. GSI ByStream lists all companies sorted by name.
 
 Env: COMPARE_TABLE_NAME, STAGE, ADMIN_SYNC_KEY
 
+All routes use POST to the Lambda URL (or /companies when behind HTTP API).
+
 Public:
-  GET  /companies              — list with filters
-  GET  /companies/{companyId}  — get one
+  POST { "action": "list", ...filters }           — list with filters
+  POST { "action": "get", "companyId": "..." }    — get one
 
 Admin (header x-admin-key must match ADMIN_SYNC_KEY):
-  POST   /admin/companies/sync       — { companies: [...] } full replace
-  POST   /admin/companies            — { company: {...} } upsert one
-  DELETE /admin/companies/{companyId}
+  POST { "action": "admin_sync", "companies": [...] }     — full replace
+  POST { "action": "admin_upsert", "company": {...} }      — upsert one
+  POST { "action": "admin_delete", "companyId": "..." }   — delete one
 
 SAM: lambda/company-compare/template.yaml, Handler company_compare_handler.lambda_handler
 """
@@ -32,7 +34,7 @@ CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,x-admin-key",
-    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
 }
 
 STAGE = os.environ.get("STAGE", "dev")
@@ -97,8 +99,8 @@ def parse_body(event):
         return None
 
 
-def parse_query(event):
-    q = event.get("queryStringParameters") or {}
+def parse_list_query(source):
+    q = source or {}
     lim = int(q.get("limit") or 100)
     lim = max(1, min(500, lim))
     min_rating = q.get("minRating")
@@ -115,6 +117,11 @@ def parse_query(event):
         "limit": lim,
         "nextToken": q.get("nextToken"),
     }
+
+
+def parse_query(event):
+    q = event.get("queryStringParameters") or {}
+    return parse_list_query(q)
 
 
 def decode_next_token(token):
@@ -459,8 +466,7 @@ def _load_all_companies(table):
     return items
 
 
-def handle_list(table, event):
-    query = parse_query(event)
+def handle_list(table, query):
     all_items = _load_all_companies(table)
     filtered = [_to_public_company(c) for c in all_items if _matches_filters(c, query)]
 
@@ -602,6 +608,28 @@ def extract_path_parts(path):
     return [p for p in path.split("/") if p]
 
 
+def _resolve_post_action(body, parts):
+    action = (body.get("action") or "").strip().lower()
+    if action:
+        return action
+
+    admin_suffix = _admin_companies_suffix(parts)
+    if admin_suffix == ["sync"]:
+        return "admin_sync"
+    if admin_suffix == [] and "admin" in parts:
+        return "admin_upsert"
+    if admin_suffix and len(admin_suffix) == 1 and "admin" in parts:
+        return "admin_delete"
+
+    if body.get("companies") is not None:
+        return "admin_sync"
+    if body.get("company") is not None:
+        return "admin_upsert"
+    if body.get("companyId") or body.get("id"):
+        return "get"
+    return "list"
+
+
 def _admin_companies_suffix(parts):
     """Path suffix after .../admin/companies (supports API Gateway stage/prefix paths)."""
     if "admin" not in parts or "companies" not in parts:
@@ -611,6 +639,37 @@ def _admin_companies_suffix(parts):
     if admin_idx >= companies_idx:
         return None
     return parts[companies_idx + 1 :]
+
+
+def handle_post(body, table, event, parts):
+    if body is None:
+        return response(400, {"error": "Invalid JSON body"})
+
+    action = _resolve_post_action(body, parts)
+
+    if action == "list":
+        return handle_list(table, parse_list_query(body))
+
+    if action == "get":
+        company_id = body.get("companyId") or body.get("id")
+        if not company_id:
+            return response(400, {"error": "companyId required"})
+        return handle_get_one(str(company_id), table)
+
+    if action == "admin_sync":
+        return handle_admin_sync(body, table, event)
+
+    if action == "admin_upsert":
+        return handle_admin_upsert(body, table, event)
+
+    if action == "admin_delete":
+        admin_suffix = _admin_companies_suffix(parts)
+        company_id = body.get("companyId") or body.get("id") or (admin_suffix[0] if admin_suffix else None)
+        if not company_id:
+            return response(400, {"error": "companyId required"})
+        return handle_admin_delete(str(company_id), table, event)
+
+    return response(400, {"error": "Unknown action", "action": action})
 
 
 def lambda_handler(event, context):
@@ -625,41 +684,12 @@ def lambda_handler(event, context):
     if method == "OPTIONS":
         return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
 
+    if method != "POST":
+        return response(405, {"error": "Method not allowed. Use POST.", "path": path, "method": method})
+
     try:
-        admin_suffix = _admin_companies_suffix(parts)
-        if admin_suffix is not None:
-            if method == "POST" and admin_suffix == ["sync"]:
-                body = parse_body(event)
-                if body is None:
-                    return response(400, {"error": "Invalid JSON body"})
-                return handle_admin_sync(body, table, event)
-
-            if method == "POST" and admin_suffix == []:
-                body = parse_body(event)
-                if body is None:
-                    return response(400, {"error": "Invalid JSON body"})
-                return handle_admin_upsert(body, table, event)
-
-            if method == "DELETE" and len(admin_suffix) == 1:
-                return handle_admin_delete(admin_suffix[0], table, event)
-
-            return response(405, {"error": "Method not allowed", "path": path, "method": method})
-
-        if parts[:1] == ["companies"] or "companies" in parts:
-            try:
-                idx = parts.index("companies")
-            except ValueError:
-                idx = -1
-
-            company_id = parts[idx + 1] if idx >= 0 and idx + 1 < len(parts) else None
-
-            if method == "GET" and company_id:
-                return handle_get_one(company_id, table)
-
-            if method == "GET" and not company_id:
-                return handle_list(table, event)
-
-        return response(405, {"error": "Method not allowed", "path": path, "method": method})
+        body = parse_body(event)
+        return handle_post(body, table, event, parts)
     except ClientError as e:
         print(e)
         return response(500, {"error": "DynamoDB error", "message": str(e)})

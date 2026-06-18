@@ -233,8 +233,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
     const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(true);
     const [companyNavExpanded, setCompanyNavExpanded] = useState(true);
+    const [liveInterviewNavHovered, setLiveInterviewNavHovered] = useState(false);
+    const [companyNavHovered, setCompanyNavHovered] = useState(false);
     const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
     const toggleGroup = (label: string) => setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+
+    const getNavParentClass = (isActive: boolean, isGroupHovered: boolean) => {
+        if (isActive || isGroupHovered) {
+            return isDark
+                ? 'bg-white text-black'
+                : 'bg-orange-500 text-white';
+        }
+        return isDark
+            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+            : 'text-gray-600 hover:bg-orange-50';
+    };
+
+    const getNavSubItemClass = (isSubActive: boolean) => {
+        if (isSubActive) {
+            return isDark
+                ? 'bg-[#1c1c1e] text-white font-medium'
+                : 'bg-orange-500 text-white font-medium';
+        }
+        return isDark
+            ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
+            : 'text-gray-600 hover:bg-orange-500 hover:text-white';
+    };
 
     const openCoreSubject = (slug: string | null) => {
         setSelectedCoreSubjectSlug(slug);
@@ -696,18 +720,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     );
                                 }
                                 return (
-                                    <div key={item.name} className={isTransitioning ? 'nav-item-animate' : ''} style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}>
+                                    <div
+                                        key={item.name}
+                                        className={isTransitioning ? 'nav-item-animate' : ''}
+                                        style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                        onMouseEnter={() => setLiveInterviewNavHovered(true)}
+                                        onMouseLeave={() => setLiveInterviewNavHovered(false)}
+                                    >
                                         <button
                                             type="button"
                                             onClick={() => setLiveInterviewNavExpanded((prev) => !prev)}
-                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isLiveInterviewActive
-                                                ? isDark
-                                                    ? 'bg-white text-black'
-                                                    : 'bg-orange-500 text-white'
-                                                : isDark
-                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                                    : 'text-gray-600 hover:bg-orange-50'
-                                                }`}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${getNavParentClass(isLiveInterviewActive, liveInterviewNavHovered)}`}
                                         >
                                             <span className="flex items-center min-w-0">
                                                 <span className="flex-shrink-0">{item.icon}</span>
@@ -728,14 +751,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                             type="button"
                                                             key={tab.id}
                                                             onClick={() => openLiveInterviewSetup(tab.id)}
-                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isSubActive
-                                                                ? isDark
-                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                    : 'bg-orange-500 text-white font-medium'
-                                                                : isDark
-                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                                                    : 'text-gray-600 hover:bg-orange-50'
-                                                                }`}
+                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${getNavSubItemClass(isSubActive)}`}
                                                         >
                                                             <span className="whitespace-nowrap truncate">{tab.label}</span>
                                                         </button>
@@ -774,18 +790,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     );
                                 }
                                 return (
-                                    <div key={item.name} className={isTransitioning ? 'nav-item-animate' : ''} style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}>
+                                    <div
+                                        key={item.name}
+                                        className={isTransitioning ? 'nav-item-animate' : ''}
+                                        style={isTransitioning ? { animationDelay: `${index * 30}ms`, opacity: 0 } : undefined}
+                                        onMouseEnter={() => setCompanyNavHovered(true)}
+                                        onMouseLeave={() => setCompanyNavHovered(false)}
+                                    >
                                         <button
                                             type="button"
                                             onClick={() => setCompanyNavExpanded((prev) => !prev)}
-                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isCompanyActive
-                                                ? isDark
-                                                    ? 'bg-white text-black'
-                                                    : 'bg-orange-500 text-white'
-                                                : isDark
-                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                                    : 'text-gray-600 hover:bg-orange-50'
-                                                }`}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${getNavParentClass(isCompanyActive, companyNavHovered)}`}
                                         >
                                             <span className="flex items-center min-w-0">
                                                 <span className="flex-shrink-0">{item.icon}</span>
@@ -806,14 +821,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                             type="button"
                                                             key={tab.id}
                                                             onClick={() => openCompanySection(tab.id)}
-                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isSubActive
-                                                                ? isDark
-                                                                    ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                    : 'bg-orange-500 text-white font-medium'
-                                                                : isDark
-                                                                    ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-                                                                    : 'text-gray-600 hover:bg-orange-50'
-                                                                }`}
+                                                            className={`w-full flex items-center pl-6 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${getNavSubItemClass(isSubActive)}`}
                                                         >
                                                             <span className="whitespace-nowrap truncate">{tab.label}</span>
                                                         </button>

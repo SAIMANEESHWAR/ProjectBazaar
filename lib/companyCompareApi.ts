@@ -51,7 +51,7 @@ export interface AdminSyncResponse {
 const OFFLINE = import.meta.env.VITE_COMPANY_COMPARE_OFFLINE === 'true';
 
 const DEFAULT_COMPANY_COMPARE_API_URL =
-    'https://et6a14hdo1.execute-api.ap-south-2.amazonaws.com/default/company_compare_handler';
+    'https://o14vqopl3l.execute-api.ap-south-2.amazonaws.com/default/company_compare_handler';
 
 export function getCompanyCompareApiBase(): string {
     if (OFFLINE) return '';
@@ -68,17 +68,15 @@ export function isCompanyCompareApiEnabled(): boolean {
     return Boolean(getCompanyCompareApiBase());
 }
 
-export function buildCompanyCompareListUrl(base: string, query: CompanyCompareListQuery = {}): string {
-    const params = new URLSearchParams();
-    if (query.search?.trim()) params.set('search', query.search.trim());
-    if (query.industry) params.set('industry', query.industry);
-    if (query.location) params.set('location', query.location);
-    if (query.role) params.set('role', query.role);
-    if (query.minRating != null) params.set('minRating', String(query.minRating));
-    params.set('limit', String(query.limit ?? 500));
-    if (query.nextToken) params.set('nextToken', query.nextToken);
-    const qs = params.toString();
-    return qs ? `${base}/companies?${qs}` : `${base}/companies`;
+export function buildCompanyCompareListBody(query: CompanyCompareListQuery = {}): Record<string, unknown> {
+    const body: Record<string, unknown> = { action: 'list', limit: query.limit ?? 500 };
+    if (query.search?.trim()) body.search = query.search.trim();
+    if (query.industry) body.industry = query.industry;
+    if (query.location) body.location = query.location;
+    if (query.role) body.role = query.role;
+    if (query.minRating != null) body.minRating = query.minRating;
+    if (query.nextToken) body.nextToken = query.nextToken;
+    return body;
 }
 
 export async function fetchCompaniesFromApi(
@@ -88,7 +86,11 @@ export async function fetchCompaniesFromApi(
     if (!base) {
         return { companies: [], count: 0, totalMatched: 0 };
     }
-    const res = await fetch(buildCompanyCompareListUrl(base, query));
+    const res = await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildCompanyCompareListBody(query)),
+    });
     const data = (await res.json()) as CompanyCompareListResponse;
     if (!res.ok) {
         throw new Error(data.error || `HTTP ${res.status}`);
@@ -101,7 +103,11 @@ export async function fetchCompanyByIdFromApi(companyId: string): Promise<Compan
     if (!base) {
         throw new Error('Company compare API not configured');
     }
-    const res = await fetch(`${base}/companies/${encodeURIComponent(companyId)}`);
+    const res = await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get', companyId }),
+    });
     const data = (await res.json()) as { company?: CompanyCompareApiItem; error?: string };
     if (!res.ok) {
         throw new Error(data.error || `HTTP ${res.status}`);
@@ -121,13 +127,13 @@ export async function adminSyncCompanies(companies: unknown[]): Promise<AdminSyn
     if (!adminKey) {
         throw new Error('VITE_COMPANY_COMPARE_ADMIN_KEY not configured');
     }
-    const res = await fetch(`${base}/admin/companies/sync`, {
+    const res = await fetch(base, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'x-admin-key': adminKey,
         },
-        body: JSON.stringify({ companies }),
+        body: JSON.stringify({ action: 'admin_sync', companies }),
     });
     const data = (await res.json()) as AdminSyncResponse;
     if (!res.ok) {
@@ -142,9 +148,13 @@ export async function adminDeleteCompany(companyId: string): Promise<void> {
     if (!base || !adminKey) {
         throw new Error('Company compare API or admin key not configured');
     }
-    const res = await fetch(`${base}/admin/companies/${encodeURIComponent(companyId)}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-key': adminKey },
+    const res = await fetch(base, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': adminKey,
+        },
+        body: JSON.stringify({ action: 'admin_delete', companyId }),
     });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {

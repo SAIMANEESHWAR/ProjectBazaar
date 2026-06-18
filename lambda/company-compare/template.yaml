@@ -63,30 +63,36 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CompanyCompareTable
       Events:
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CompanyCompareHttpApi
+            Path: /
+            Method: POST
         ApiCompanies:
           Type: HttpApi
           Properties:
             ApiId: !Ref CompanyCompareHttpApi
             Path: /companies
-            Method: ANY
+            Method: POST
         ApiCompaniesProxy:
           Type: HttpApi
           Properties:
             ApiId: !Ref CompanyCompareHttpApi
             Path: /companies/{proxy+}
-            Method: ANY
+            Method: POST
         ApiAdminCompanies:
           Type: HttpApi
           Properties:
             ApiId: !Ref CompanyCompareHttpApi
             Path: /admin/companies
-            Method: ANY
+            Method: POST
         ApiAdminCompaniesProxy:
           Type: HttpApi
           Properties:
             ApiId: !Ref CompanyCompareHttpApi
             Path: /admin/companies/{proxy+}
-            Method: ANY
+            Method: POST
 
   CompanyCompareHttpApi:
     Type: AWS::Serverless::HttpApi
@@ -97,9 +103,7 @@ Resources:
         AllowHeaders:
           - '*'
         AllowMethods:
-          - GET
           - POST
-          - DELETE
           - OPTIONS
         AllowOrigins:
           - '*'

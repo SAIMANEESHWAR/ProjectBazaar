@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Briefcase,
   Calendar,
@@ -39,6 +39,7 @@ import {
   syncPeerListingToBackend,
   updatePeerListing,
 } from '../services/peerInterviewApi';
+import PeerPracticeQueueHero from './sections/PeerPracticeQueueHero';
 
 /** Rows that stay in waitlist for History / My requests but must not appear in the public peer queue. */
 function canShowOnPeerQueue(w: PeerWaitlistEntry, viewerUserId: string | null): boolean {
@@ -523,6 +524,13 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
   );
   const filterExcludedAll = otherPeerCount > 0 && filtered.length === 0;
 
+  const scrollToPeerQueue = useCallback(() => {
+    document.getElementById('peer-practice-queue-list')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
+
   const renderFilters = (compact: boolean) => (
     <div
       className={
@@ -635,106 +643,33 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
           </div>
         </div>
       )}
-      <div className="sticky top-0 z-20 border-b border-gray-200/80 dark:border-gray-800 bg-gradient-to-b from-white via-slate-50/95 to-slate-50/90 dark:from-gray-950 dark:via-slate-950 dark:to-slate-950 backdrop-blur-sm">
-        <div className="px-4 sm:px-5 pt-4 pb-3">
-          <div className="flex items-start gap-3">
-            <div className="h-11 w-11 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
-              <MessageSquare className="h-5 w-5 text-gray-700 dark:text-gray-300" strokeWidth={2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                Peer practice queue
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                Match by interview type, experience, region, and stack. Connect to propose times — Meet link unlocks when
-                someone accepts.
-              </p>
-            </div>
-          </div>
-        </div>
+      <PeerPracticeQueueHero
+        onScheduleInterview={openSchedule}
+        onBrowseRequests={scrollToPeerQueue}
+        onMyRequests={goToMyRequestsDashboard}
+        incomingCount={incomingRequests.length}
+      />
 
-        <div className="lg:hidden px-4 sm:px-5 pb-4 pt-1 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Request filters</h3>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      <div className="sticky top-0 z-20 border-b border-gray-200/80 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
+        <div className="px-4 sm:px-5 py-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-900 dark:text-white">
+              Filter requests
+            </h2>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={clearFilters}
-                className="text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                className="text-[11px] font-medium text-gray-500 transition-colors hover:text-gray-800 dark:hover:text-gray-300"
               >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={goToMyRequestsDashboard}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/35 text-orange-800 dark:text-orange-200 text-[11px] font-bold px-3 py-2 hover:bg-orange-100/90 dark:hover:bg-orange-950/55 transition-all"
-              >
-                <Inbox className="h-3.5 w-3.5 shrink-0" />
-                My requests
-                {incomingRequests.length > 0 && (
-                  <span className="min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">
-                    {incomingRequests.length > 9 ? '9+' : incomingRequests.length}
-                  </span>
-                )}
+                Reset filters
               </button>
               <button
                 type="button"
                 onClick={goToSentHistory}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-[11px] font-bold px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="text-[11px] font-semibold text-orange-600 transition-colors hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
               >
-                History
-              </button>
-              <button
-                type="button"
-                onClick={openSchedule}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-amber-500 text-white text-[11px] font-bold px-3 py-2 shadow-md shadow-orange-500/25 hover:from-orange-600 hover:to-amber-600 transition-all"
-              >
-                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                Schedule interview
-              </button>
-            </div>
-          </div>
-          {renderFilters(true)}
-        </div>
-
-        <div className="hidden lg:block px-4 sm:px-5 pb-4 pt-1 w-full min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Request filters</h3>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={goToMyRequestsDashboard}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/90 dark:bg-orange-950/35 text-orange-800 dark:text-orange-200 text-[11px] font-bold px-3 py-2 hover:bg-orange-100/90 dark:hover:bg-orange-950/55 transition-all"
-              >
-                <Inbox className="h-3.5 w-3.5 shrink-0" />
-                My requests
-                {incomingRequests.length > 0 && (
-                  <span className="min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">
-                    {incomingRequests.length > 9 ? '9+' : incomingRequests.length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={goToSentHistory}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-[11px] font-bold px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-              >
-                History
-              </button>
-              <button
-                type="button"
-                onClick={openSchedule}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f97316] to-amber-500 text-white text-[11px] font-bold px-3 py-2 shadow-md shadow-orange-500/25 hover:from-orange-600 hover:to-amber-600 transition-all"
-              >
-                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                Schedule interview
+                Sent history
               </button>
             </div>
           </div>
@@ -742,7 +677,7 @@ const PeerInterviewSection: React.FC<PeerInterviewSectionProps> = ({
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-4 sm:py-6 w-full min-w-0">
+      <div id="peer-practice-queue-list" className="scroll-mt-24 px-4 sm:px-5 py-4 sm:py-6 w-full min-w-0">
         <section className="space-y-3 w-full min-w-0 max-w-none">
           {filtered.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 px-4 py-8 text-center">
