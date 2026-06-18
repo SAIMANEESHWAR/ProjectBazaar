@@ -26,6 +26,13 @@ import { CODEXCAREER_LOGO_SRC } from '../lib/brandAssets';
 import VerificationCodeInput from './VerificationCodeInput';
 import { goToSubscriptionPlans } from '../lib/subscriptionNavigation';
 import { getSubscriptionReceipt } from '../services/subscriptionApi';
+import { formatProviderError, type FormattedProviderError } from '../lib/formatProviderError';
+import ProviderErrorBanner from './ProviderErrorBanner';
+import { useAccessibleModal } from '../hooks/useAccessibleModal';
+import { ExternalLink, GraduationCap, HelpCircle, KeyRound, X } from 'lucide-react';
+
+const GROQ_SCOPE_NOTE =
+    'Used for Live AI Interview. Not currently supported for ATS Scoring.';
 
 const UPDATE_SETTINGS_ENDPOINT = 'https://ydcdsqspm3.execute-api.ap-south-2.amazonaws.com/default/Update_userdetails_in_settings';
 const GET_USER_ENDPOINT = 'https://6omszxa58g.execute-api.ap-south-2.amazonaws.com/default/Get_user_Details_by_his_Id';
@@ -52,8 +59,230 @@ const OPENROUTER_LOGO_URL = 'https://openrouter.ai/favicon.ico';
 const OpenRouterLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
     <img src={OPENROUTER_LOGO_URL} alt="OpenRouter" className={className} aria-hidden="true" />
 );
+const GROQ_LOGO_URL = 'https://console.groq.com/favicon.ico';
+const GroqLogo = ({ className = 'w-6 h-6' }: { className?: string }) => (
+    <img src={GROQ_LOGO_URL} alt="Groq" className={className} aria-hidden="true" />
+);
 
 type SettingsLlmProviderId = 'openai' | 'openrouter' | 'gemini' | 'claude' | 'groq';
+
+type LlmProviderLogo = React.FC<{ className?: string }>;
+
+interface LlmProviderConfig {
+    id: SettingsLlmProviderId;
+    name: string;
+    Logo: LlmProviderLogo;
+    group: 'free' | 'paid';
+    badge: string;
+    badgeClassName: string;
+    secondaryBadge?: string;
+    secondaryBadgeClassName?: string;
+    description: string;
+    getKeyUrl: string;
+    helpSteps: string[];
+}
+
+const getApiKeyButtonClassName =
+    'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors';
+
+const LLM_PROVIDER_CONFIG: Record<SettingsLlmProviderId, LlmProviderConfig> = {
+    gemini: {
+        id: 'gemini',
+        name: 'Google Gemini',
+        Logo: GeminiLogo,
+        group: 'free',
+        badge: 'Recommended',
+        badgeClassName: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+        secondaryBadge: 'Free Tier Available',
+        secondaryBadgeClassName: 'bg-teal-50 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200',
+        description: 'Easiest starting point for ATS Scorer.',
+        getKeyUrl: 'https://aistudio.google.com/app/apikey',
+        helpSteps: [
+            'Go to Google AI Studio (aistudio.google.com) and sign in with your Google account.',
+            'Click Get API key, then Create API key in a new or existing project.',
+            'Copy the key (starts with AIza...) and paste it below.',
+            'Click Test, then Save key & model to use ATS Scorer.',
+        ],
+    },
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        Logo: OpenRouterLogo,
+        group: 'free',
+        badge: 'Free Models Available',
+        badgeClassName: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+        description: 'Access multiple models from one key.',
+        getKeyUrl: 'https://openrouter.ai/settings/keys',
+        helpSteps: [
+            'Sign up or sign in at openrouter.ai.',
+            'Open Settings → Keys and click Create Key.',
+            'Copy the key (starts with sk-or-v1-...) and paste it below.',
+            'Click Test, then Save key & model. Free models available on many options.',
+        ],
+    },
+    groq: {
+        id: 'groq',
+        name: 'Groq',
+        Logo: GroqLogo,
+        group: 'free',
+        badge: 'Best for Live Interview',
+        badgeClassName: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+        description: GROQ_SCOPE_NOTE,
+        getKeyUrl: 'https://console.groq.com/keys',
+        helpSteps: [
+            'Create an account at console.groq.com (free tier available).',
+            'Open API Keys in the sidebar and click Create API Key.',
+            'Copy the key (starts with gsk_...) and paste it below.',
+            'Click Test, then Save. Groq powers Live AI Interview only — not ATS Scorer.',
+        ],
+    },
+    openai: {
+        id: 'openai',
+        name: 'OpenAI (GPT)',
+        Logo: OpenAILogo,
+        group: 'paid',
+        badge: 'Paid',
+        badgeClassName: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+        description: 'Premium GPT models.',
+        getKeyUrl: 'https://platform.openai.com/api-keys',
+        helpSteps: [
+            'Sign up at platform.openai.com and add a payment method.',
+            'Go to API Keys and click Create new secret key.',
+            'Copy the key (starts with sk-...) and paste it below.',
+            'Click Test, then Save key & model.',
+        ],
+    },
+    claude: {
+        id: 'claude',
+        name: 'Anthropic Claude',
+        Logo: ClaudeLogo,
+        group: 'paid',
+        badge: 'Paid',
+        badgeClassName: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+        description: 'Strong reasoning and writing quality.',
+        getKeyUrl: 'https://console.anthropic.com/settings/keys',
+        helpSteps: [
+            'Create an account at console.anthropic.com and set up billing.',
+            'Open Settings → API Keys and create a new key.',
+            'Copy the key (starts with sk-ant-...) and paste it below.',
+            'Click Test, then Save key & model.',
+        ],
+    },
+};
+
+const LLM_PROVIDER_GROUPS: { label: string; ids: SettingsLlmProviderId[] }[] = [
+    { label: 'Free tier', ids: ['gemini', 'openrouter', 'groq'] },
+    { label: 'Paid / Advanced', ids: ['openai', 'claude'] },
+];
+
+interface LlmApiKeyHelpModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const LlmApiKeyHelpModal: React.FC<LlmApiKeyHelpModalProps> = ({ isOpen, onClose }) => {
+    const modalRef = useAccessibleModal(isOpen, onClose);
+    if (!isOpen) return null;
+
+    const providers = (['gemini', 'openrouter', 'groq', 'openai', 'claude'] as SettingsLlmProviderId[]).map(
+        (id) => LLM_PROVIDER_CONFIG[id]
+    );
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="presentation">
+            <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} aria-hidden />
+            <div
+                ref={modalRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="llm-help-modal-title"
+                className="relative w-full max-w-lg max-h-[min(90vh,720px)] min-h-0 flex flex-col rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden"
+            >
+                <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-gray-100 shrink-0">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#FF6B00]">
+                                <HelpCircle className="h-5 w-5" aria-hidden />
+                            </div>
+                            <div>
+                                <h2 id="llm-help-modal-title" className="text-lg font-bold text-gray-900">
+                                    How do I get an API key?
+                                </h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Step-by-step setup for each provider. Many students can start with free tiers on Gemini, OpenRouter, and Groq.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                            aria-label="Close"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+                <div className="px-5 sm:px-6 py-4 overflow-y-auto overflow-x-hidden min-h-0 space-y-4">
+                    {providers.map((p) => (
+                        <div key={p.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4 min-w-0">
+                            <div className="flex items-center gap-2.5 mb-2">
+                                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-100">
+                                    <p.Logo className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-900">{p.name}</p>
+                                    <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                        <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full ${p.badgeClassName}`}>
+                                            {p.badge}
+                                        </span>
+                                        {p.secondaryBadge && (
+                                            <span
+                                                className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full ${p.secondaryBadgeClassName}`}
+                                            >
+                                                {p.secondaryBadge}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            {p.id === 'groq' && (
+                                <p className="text-xs text-sky-800 bg-sky-50 border border-sky-100 rounded-lg px-2.5 py-2 mb-2 leading-snug">
+                                    {GROQ_SCOPE_NOTE}
+                                </p>
+                            )}
+                            <ol className="list-decimal list-inside space-y-1.5 text-sm text-gray-600 break-words">
+                                {p.helpSteps.map((step, i) => (
+                                    <li key={i} className="leading-snug break-words">{step}</li>
+                                ))}
+                            </ol>
+                            <a
+                                href={p.getKeyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Get API key from ${p.name} (opens in a new tab)`}
+                                className={`${getApiKeyButtonClassName} mt-3`}
+                            >
+                                <KeyRound className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                Get API Key
+                                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden />
+                            </a>
+                        </div>
+                    ))}
+                </div>
+                <div className="px-5 sm:px-6 py-4 border-t border-gray-100 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-full sm:w-auto sm:ml-auto sm:block px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50"
+                    >
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // Models per provider for ATS (id = API model id, label = display name)
 const LLM_MODELS: Record<SettingsLlmProviderId, { id: string; label: string }[]> = {
@@ -370,14 +599,17 @@ const SettingsPage: React.FC = () => {
     const [hasGroqKey, setHasGroqKey] = useState(false);
     const [atsActiveProvider, setAtsActiveProvider] = useState<string>('openai');
     const [savingAtsActiveProvider, setSavingAtsActiveProvider] = useState(false);
-    const [selectedLlmProvider, setSelectedLlmProvider] = useState<SettingsLlmProviderId>('openai');
-    const [selectedLlmModel, setSelectedLlmModel] = useState<string>('gpt-4o-mini');
+    const [selectedLlmProvider, setSelectedLlmProvider] = useState<SettingsLlmProviderId>('gemini');
+    const [selectedLlmModel, setSelectedLlmModel] = useState<string>('gemini-2.0-flash');
     const [llmSavedModels, setLlmSavedModels] = useState<Record<string, string>>({});
     const [llmKeyInput, setLlmKeyInput] = useState('');
     const [llmTestingProvider, setLlmTestingProvider] = useState<string | null>(null);
     const [llmSavingProvider, setLlmSavingProvider] = useState<string | null>(null);
     const [llmKeyMessage, setLlmKeyMessage] = useState<string | null>(null);
-    const [llmKeyError, setLlmKeyError] = useState<string | null>(null);
+    const [llmKeyError, setLlmKeyError] = useState<FormattedProviderError | null>(null);
+    const llmKeyErrorRetryRef = useRef<(() => void) | null>(null);
+    const llmKeyErrorBannerRef = useRef<HTMLDivElement>(null);
+    const [llmHelpModalOpen, setLlmHelpModalOpen] = useState(false);
     const [uploadingProjectImageId, setUploadingProjectImageId] = useState<string | null>(null);
     const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -553,13 +785,38 @@ const SettingsPage: React.FC = () => {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    setHasOpenAiKey(!!data.hasOpenAiKey);
-                    setHasOpenrouterKey(!!data.hasOpenrouterKey);
-                    setHasGeminiKey(!!data.hasGeminiKey);
-                    setHasClaudeKey(!!data.hasClaudeKey);
-                    setHasGroqKey(!!data.hasGroqKey);
-                    if (typeof data.atsActiveProvider === 'string' && data.atsActiveProvider) {
-                        setAtsActiveProvider(data.atsActiveProvider);
+                    const hasOpenAi = !!data.hasOpenAiKey;
+                    const hasOpenrouter = !!data.hasOpenrouterKey;
+                    const hasGemini = !!data.hasGeminiKey;
+                    const hasClaude = !!data.hasClaudeKey;
+                    const hasGroq = !!data.hasGroqKey;
+                    setHasOpenAiKey(hasOpenAi);
+                    setHasOpenrouterKey(hasOpenrouter);
+                    setHasGeminiKey(hasGemini);
+                    setHasClaudeKey(hasClaude);
+                    setHasGroqKey(hasGroq);
+                    const hasAnyAtsKey = hasOpenAi || hasOpenrouter || hasGemini || hasClaude;
+                    const activeProvider =
+                        typeof data.atsActiveProvider === 'string' && data.atsActiveProvider
+                            ? data.atsActiveProvider
+                            : null;
+                    if (activeProvider) {
+                        setAtsActiveProvider(activeProvider);
+                    }
+                    if (activeProvider && activeProvider !== 'groq') {
+                        setSelectedLlmProvider(activeProvider as SettingsLlmProviderId);
+                    } else if (!hasAnyAtsKey) {
+                        setSelectedLlmProvider('gemini');
+                    } else if (hasGemini) {
+                        setSelectedLlmProvider('gemini');
+                    } else if (hasOpenrouter) {
+                        setSelectedLlmProvider('openrouter');
+                    } else if (hasOpenAi) {
+                        setSelectedLlmProvider('openai');
+                    } else if (hasClaude) {
+                        setSelectedLlmProvider('claude');
+                    } else if (hasGroq) {
+                        setSelectedLlmProvider('groq');
                     }
                     if (data.savedModels && typeof data.savedModels === 'object') {
                         setLlmSavedModels(data.savedModels);
@@ -580,6 +837,16 @@ const SettingsPage: React.FC = () => {
         const validSaved = saved && models?.some((m) => m.id === saved);
         setSelectedLlmModel(validSaved ? saved : defaultId);
     }, [selectedLlmProvider, llmSavedModels]);
+
+    useEffect(() => {
+        if (!llmKeyError) return;
+        requestAnimationFrame(() => {
+            const el = llmKeyErrorBannerRef.current;
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            el.focus({ preventScroll: true });
+        });
+    }, [llmKeyError]);
 
     const handleSaveResumeProfileAndSettings = async () => {
         if (!userId) {
@@ -613,13 +880,23 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    const clearLlmKeyError = () => {
+        setLlmKeyError(null);
+        llmKeyErrorRetryRef.current = null;
+    };
+
+    const setLlmProviderError = (provider: string, raw: unknown, retry?: () => void) => {
+        setLlmKeyError(formatProviderError(provider, raw));
+        llmKeyErrorRetryRef.current = retry ?? null;
+    };
+
     const testLlmApiKey = async (provider: string, apiKey: string) => {
         const key = (apiKey || '').trim();
         if (!key) {
-            setLlmKeyError(`Enter your ${provider} API key first.`);
+            setLlmProviderError(provider, `Enter your ${provider} API key first.`);
             return;
         }
-        setLlmKeyError(null);
+        clearLlmKeyError();
         setLlmKeyMessage(null);
         setLlmTestingProvider(provider);
         try {
@@ -632,10 +909,12 @@ const SettingsPage: React.FC = () => {
             if (data.success) {
                 setLlmKeyMessage(`${provider} API key is valid. Click Save to store it.`);
             } else {
-                setLlmKeyError(data.message || `Invalid ${provider} key.`);
+                setLlmProviderError(provider, data.error ?? data.message ?? `Invalid ${provider} key.`, () =>
+                    testLlmApiKey(provider, key)
+                );
             }
-        } catch (e) {
-            setLlmKeyError('Network error. Please try again.');
+        } catch {
+            setLlmProviderError(provider, 'Network error. Please try again.', () => testLlmApiKey(provider, key));
         } finally {
             setLlmTestingProvider(null);
         }
@@ -647,9 +926,27 @@ const SettingsPage: React.FC = () => {
         (hasGeminiKey ? 1 : 0) +
         (hasClaudeKey ? 1 : 0);
 
+    const activeAtsProviderLabel = (() => {
+        if (atsKeyCount < 1) return null;
+        const atsIds: SettingsLlmProviderId[] = ['gemini', 'openrouter', 'openai', 'claude'];
+        const hasKey: Record<SettingsLlmProviderId, boolean> = {
+            gemini: hasGeminiKey,
+            openrouter: hasOpenrouterKey,
+            openai: hasOpenAiKey,
+            claude: hasClaudeKey,
+            groq: hasGroqKey,
+        };
+        const resolved =
+            atsIds.includes(atsActiveProvider as SettingsLlmProviderId) &&
+            hasKey[atsActiveProvider as SettingsLlmProviderId]
+                ? (atsActiveProvider as SettingsLlmProviderId)
+                : atsIds.find((id) => hasKey[id]);
+        return resolved ? LLM_PROVIDER_CONFIG[resolved].name : null;
+    })();
+
     const saveAtsActiveProvider = async (providerId: string) => {
         if (!userId || providerId === atsActiveProvider) return;
-        setLlmKeyError(null);
+        clearLlmKeyError();
         setSavingAtsActiveProvider(true);
         try {
             const res = await fetch(UPDATE_SETTINGS_ENDPOINT, {
@@ -666,10 +963,10 @@ const SettingsPage: React.FC = () => {
                 setAtsActiveProvider(providerId);
                 setLlmKeyMessage('ATS Scorer will use this provider.');
             } else {
-                setLlmKeyError(data.message || 'Could not update active provider.');
+                setLlmProviderError(providerId, data.message || 'Could not update active provider.');
             }
         } catch {
-            setLlmKeyError('Network error. Please try again.');
+            setLlmProviderError(providerId, 'Network error. Please try again.');
         } finally {
             setSavingAtsActiveProvider(false);
         }
@@ -678,7 +975,7 @@ const SettingsPage: React.FC = () => {
     const saveLlmApiKey = async (provider: string, apiKey: string) => {
         const key = (apiKey || '').trim();
         if (!userId) {
-            setLlmKeyError('You must be logged in.');
+            setLlmProviderError(provider, 'You must be logged in.');
             return;
         }
         const p = provider.toLowerCase() as SettingsLlmProviderId;
@@ -695,10 +992,13 @@ const SettingsPage: React.FC = () => {
         const savingKey = !!key;
         const savingModelOnly = !key && hasKeyForProvider && selectedLlmModel;
         if (!savingKey && !savingModelOnly) {
-            setLlmKeyError(key ? 'Something went wrong.' : 'Enter a key to save, or change model and click Save to update model only.');
+            setLlmProviderError(
+                provider,
+                key ? 'Something went wrong.' : 'Enter a key to save, or change model and click Save to update model only.'
+            );
             return;
         }
-        setLlmKeyError(null);
+        clearLlmKeyError();
         setLlmKeyMessage(null);
         setLlmSavingProvider(provider);
         try {
@@ -736,10 +1036,14 @@ const SettingsPage: React.FC = () => {
                 setLlmSavedModels((prev) => ({ ...prev, [p]: selectedLlmModel }));
                 setLlmKeyInput('');
             } else {
-                setLlmKeyError(data.message || 'Failed to save key.');
+                setLlmProviderError(provider, data.error ?? data.message ?? 'Failed to save key.', () =>
+                    saveLlmApiKey(provider, key)
+                );
             }
-        } catch (e) {
-            setLlmKeyError('Network error. Please try again.');
+        } catch {
+            setLlmProviderError(provider, 'Network error. Please try again.', () =>
+                saveLlmApiKey(provider, key)
+            );
         } finally {
             setLlmSavingProvider(null);
         }
@@ -1959,43 +2263,120 @@ const SettingsPage: React.FC = () => {
                             {llmKeyMessage && (
                                 <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">{llmKeyMessage}</div>
                             )}
-                            {llmKeyError && (
-                                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">{llmKeyError}</div>
+
+                            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50/80 to-white p-4 sm:p-5">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                                            <GraduationCap className="h-5 w-5" aria-hidden />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-gray-900">Start here</h4>
+                                            <p className="mt-1 text-sm text-gray-600">
+                                                For ATS Scorer, pick <strong>Google Gemini</strong> or <strong>OpenRouter</strong> — both offer free tiers.
+                                                Use <strong>Groq</strong> for Live AI Interview only.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLlmHelpModalOpen(true)}
+                                        aria-label="Open API key setup guide"
+                                        className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-emerald-800 bg-white border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                                    >
+                                        <HelpCircle className="w-4 h-4" aria-hidden />
+                                        How do I get an API key?
+                                    </button>
+                                </div>
+                            </div>
+
+                            {!(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey || hasGroqKey) && (
+                                <p className="text-sm text-gray-600 rounded-xl border border-dashed border-orange-200 bg-orange-50/60 px-4 py-3">
+                                    <strong className="text-gray-900">New to AI APIs?</strong> Google Gemini is selected by default — add a free API key below to get started.
+                                </p>
                             )}
-                            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Add or update API key for</label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                        {[
-                                            { id: 'openai' as const, name: 'OpenAI (GPT)', Logo: OpenAILogo, saved: hasOpenAiKey },
-                                            { id: 'openrouter' as const, name: 'OpenRouter', Logo: OpenRouterLogo, saved: hasOpenrouterKey },
-                                            { id: 'gemini' as const, name: 'Google Gemini', Logo: GeminiLogo, saved: hasGeminiKey },
-                                            { id: 'claude' as const, name: 'Anthropic Claude', Logo: ClaudeLogo, saved: hasClaudeKey },
-                                            { id: 'groq' as const, name: 'Groq', Logo: OpenAILogo, saved: hasGroqKey },
-                                        ].map(({ id, name, Logo, saved }) => (
-                                            <button
-                                                key={id}
-                                                type="button"
-                                                onClick={() => {
+
+                            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50 space-y-5 overflow-x-hidden">
+                                {LLM_PROVIDER_GROUPS.map((group) => (
+                                    <div key={group.label}>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">{group.label}</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-w-0">
+                                            {group.ids.map((id) => {
+                                                const cfg = LLM_PROVIDER_CONFIG[id];
+                                                const saved =
+                                                    id === 'openai' ? hasOpenAiKey
+                                                    : id === 'openrouter' ? hasOpenrouterKey
+                                                    : id === 'gemini' ? hasGeminiKey
+                                                    : id === 'claude' ? hasClaudeKey
+                                                    : hasGroqKey;
+                                                const { Logo } = cfg;
+                                                const selectProvider = () => {
                                                     setSelectedLlmProvider(id);
                                                     setLlmKeyInput('');
-                                                    setLlmKeyError(null);
+                                                    clearLlmKeyError();
                                                     setLlmKeyMessage(null);
-                                                }}
-                                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${selectedLlmProvider === id
-                                                    ? 'border-orange-500 bg-orange-50'
-                                                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-gray-100">
-                                                    <Logo className="w-6 h-6 text-gray-800" />
-                                                </div>
-                                                <span className="text-xs font-medium text-gray-700 text-center leading-tight">{name}</span>
-                                                {saved && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Saved</span>}
-                                            </button>
-                                        ))}
+                                                };
+                                                return (
+                                                    <div
+                                                        key={id}
+                                                        className={`flex flex-col rounded-xl border-2 transition-all w-full min-w-0 ${selectedLlmProvider === id
+                                                            ? 'border-orange-500 bg-orange-50'
+                                                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={selectProvider}
+                                                            aria-pressed={selectedLlmProvider === id}
+                                                            aria-label={`Select ${cfg.name} as API key provider`}
+                                                            className="flex flex-col items-stretch gap-2 p-3 text-left w-full rounded-t-[10px] min-w-0"
+                                                        >
+                                                            <div className="flex items-start gap-2.5 min-w-0">
+                                                                <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-white border border-gray-100">
+                                                                    <Logo className="w-6 h-6" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                                        <span className="text-xs font-semibold text-gray-900 break-words">{cfg.name}</span>
+                                                                        {saved && (
+                                                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200 shrink-0">Saved</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                                        <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full max-w-full break-words ${cfg.badgeClassName}`}>
+                                                                            {cfg.badge}
+                                                                        </span>
+                                                                        {cfg.secondaryBadge && (
+                                                                            <span
+                                                                                className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full max-w-full break-words ${cfg.secondaryBadgeClassName}`}
+                                                                            >
+                                                                                {cfg.secondaryBadge}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="mt-1 text-[11px] text-gray-500 leading-snug break-words">{cfg.description}</p>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                        <div className="px-3 pb-3 min-w-0">
+                                                            <a
+                                                                href={cfg.getKeyUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                aria-label={`Get API key from ${cfg.name} (opens in a new tab)`}
+                                                                className={getApiKeyButtonClassName}
+                                                            >
+                                                                <KeyRound className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                                                Get API Key
+                                                                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden />
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
+                                ))}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Model</label>
                                     <select
@@ -2011,6 +2392,15 @@ const SettingsPage: React.FC = () => {
                                         Model used when this provider is selected below.
                                     </p>
                                 </div>
+                                {activeAtsProviderLabel && (
+                                    <div
+                                        className="rounded-lg bg-green-50 border border-green-200 px-3 py-2.5 text-sm text-green-800"
+                                        role="status"
+                                        aria-live="polite"
+                                    >
+                                        ✓ ATS Scorer is currently using your saved <strong>{activeAtsProviderLabel}</strong> key.
+                                    </div>
+                                )}
                                 {atsKeyCount >= 2 && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -2040,24 +2430,27 @@ const SettingsPage: React.FC = () => {
                                         </p>
                                     </div>
                                 )}
-                                {atsKeyCount === 1 && (
-                                    <p className="text-xs text-gray-600 rounded-lg bg-white border border-gray-200 px-3 py-2">
-                                        ATS Scorer uses your saved{' '}
-                                        <strong>
-                                            {hasOpenAiKey
-                                                ? 'OpenAI'
-                                                : hasOpenrouterKey
-                                                  ? 'OpenRouter'
-                                                  : hasGeminiKey
-                                                    ? 'Gemini'
-                                                    : 'Claude'}
-                                        </strong>{' '}
-                                        key and model above.
-                                    </p>
-                                )}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">API key</label>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 mb-1.5 min-w-0">
+                                        <label className="block text-sm font-medium text-gray-700 shrink-0">API key</label>
+                                        <a
+                                            href={LLM_PROVIDER_CONFIG[selectedLlmProvider].getKeyUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            aria-label={`Get ${LLM_PROVIDER_CONFIG[selectedLlmProvider].name} API key (opens in a new tab)`}
+                                            className={getApiKeyButtonClassName}
+                                        >
+                                            <KeyRound className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                            Create API Key
+                                            <ExternalLink className="w-3 h-3 shrink-0" aria-hidden />
+                                        </a>
+                                    </div>
+                                    {selectedLlmProvider === 'groq' && (
+                                        <p className="text-xs text-sky-800 bg-sky-50 border border-sky-100 rounded-lg px-2.5 py-2 mb-2 leading-snug">
+                                            {GROQ_SCOPE_NOTE}
+                                        </p>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 min-w-0">
                                         <input
                                             type="password"
                                             value={llmKeyInput}
@@ -2083,9 +2476,9 @@ const SettingsPage: React.FC = () => {
                                                             ? 'Enter new key to replace'
                                                             : 'sk-ant-...'
                                             }
-                                            className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                                            className="w-full min-w-0 sm:flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                                         />
-                                        <button type="button" onClick={() => testLlmApiKey(selectedLlmProvider, llmKeyInput)} disabled={llmTestingProvider !== null} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                        <button type="button" onClick={() => testLlmApiKey(selectedLlmProvider, llmKeyInput)} disabled={llmTestingProvider !== null} className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
                                             {llmTestingProvider !== null ? 'Testing...' : 'Test'}
                                         </button>
                                         <button
@@ -2100,11 +2493,25 @@ const SettingsPage: React.FC = () => {
                                                     !(hasClaudeKey && selectedLlmProvider === 'claude') &&
                                                     !(hasGroqKey && selectedLlmProvider === 'groq'))
                                             }
-                                            className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                                            className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50"
                                         >
                                             {llmSavingProvider !== null ? 'Saving...' : llmKeyInput.trim() ? 'Save key & model' : 'Save model'}
                                         </button>
                                     </div>
+                                    {llmKeyError && (
+                                        <div
+                                            ref={llmKeyErrorBannerRef}
+                                            tabIndex={-1}
+                                            className="mt-3 outline-none"
+                                            aria-label="API key validation error"
+                                        >
+                                            <ProviderErrorBanner
+                                                error={llmKeyError}
+                                                onRetry={llmKeyErrorRetryRef.current ?? undefined}
+                                                onDismiss={clearLlmKeyError}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                                 {(hasOpenAiKey || hasOpenrouterKey || hasGeminiKey || hasClaudeKey || hasGroqKey) && (
                                     <div className="flex flex-wrap gap-2 pt-1">
@@ -2130,16 +2537,24 @@ const SettingsPage: React.FC = () => {
                                         )}
                                         {hasGroqKey && (
                                             <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">
-                                                Groq ✓
+                                                <GroqLogo className="w-3.5 h-3.5" /> Groq ✓
                                             </span>
                                         )}
                                     </div>
                                 )}
                             </div>
                             <p className="text-xs text-gray-500">
-                                Get keys from OpenAI, OpenRouter, Google AI Studio, Anthropic, or Groq. Keys stay on the server and power ATS Scorer and Live AI Interview.
+                                Keys stay on the server and power ATS Scorer and Live AI Interview. Need help?{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => setLlmHelpModalOpen(true)}
+                                    className="font-medium text-orange-600 hover:text-orange-700 underline-offset-2 hover:underline"
+                                >
+                                    See setup guide
+                                </button>
                             </p>
                         </div>
+                        <LlmApiKeyHelpModal isOpen={llmHelpModalOpen} onClose={() => setLlmHelpModalOpen(false)} />
                     </SectionCard>
 
                     {/* Premium & Credits Section */}
