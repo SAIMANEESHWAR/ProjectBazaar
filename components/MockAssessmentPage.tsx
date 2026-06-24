@@ -857,11 +857,18 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         }
 
         if (Array.isArray(fetchedAssessments)) {
-          const allAssessments = fetchedAssessments.map((a: any) => ({
-            ...a,
-            logo: a.logo || getLogoFromTitle(a.company || a.title),
-            questions: a.questions || []
-          }));
+          const normalizeAssessment = (a: any): Assessment => {
+            const mcqQuestions = (a.questions || []).filter((q: AnyQuestion) => q.type !== 'programming');
+            return {
+              ...a,
+              logo: a.logo || getLogoFromTitle(a.company || a.title),
+              questions: mcqQuestions,
+              objective: mcqQuestions.length || a.objective || 0,
+              programming: 0,
+            };
+          };
+
+          const allAssessments = fetchedAssessments.map(normalizeAssessment);
 
           setAssessments(allAssessments.filter((a: Assessment) => a.category !== 'company'));
           setCompanyAssessments(allAssessments.filter((a: Assessment) => a.category === 'company'));
@@ -879,11 +886,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     fetchAssessments();
   }, []);
 
-  // Get questions for current assessment
-  // Get questions for current assessment
-  const getQuestions = useCallback((): AnyQuestion[] => {
+  const filterMcqQuestions = (questions: AnyQuestion[]): Question[] =>
+    questions.filter((q): q is Question => q.type !== 'programming');
+
+  const getQuestions = useCallback((): Question[] => {
     if (!selectedAssessment) return [];
-    return selectedAssessment.questions || [];
+    return filterMcqQuestions(selectedAssessment.questions || []);
   }, [selectedAssessment]);
 
   // Check if current question is a programming question
@@ -1200,7 +1208,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         questions = data.data || data.questions || [];
       }
 
-      return questions;
+      return filterMcqQuestions(questions);
     } catch (error) {
       console.error('Error fetching questions:', error);
       return [];
@@ -1210,17 +1218,16 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   };
 
   const handleStartTest = async (assessment: Assessment) => {
-    setSelectedAssessment(assessment);
+    const mcqOnly = filterMcqQuestions(assessment.questions || []);
+    setSelectedAssessment({ ...assessment, questions: mcqOnly, programming: 0, objective: mcqOnly.length || assessment.objective });
 
-    // If questions are not already loaded in the assessment object, fetch them
-    if (!assessment.questions || assessment.questions.length === 0) {
+    if (mcqOnly.length === 0) {
       const fetchedQuestions = await fetchQuestions(assessment.id);
       if (fetchedQuestions.length > 0) {
-        // Update the elected assessment with fetched questions
-        setSelectedAssessment(prev => prev ? ({ ...prev, questions: fetchedQuestions }) : assessment);
-        // Also update the main list so we don't fetch again
-        setAssessments(prev => prev.map(a => a.id === assessment.id ? { ...a, questions: fetchedQuestions } : a));
-        setCompanyAssessments(prev => prev.map(a => a.id === assessment.id ? { ...a, questions: fetchedQuestions } : a));
+        const updated = { ...assessment, questions: fetchedQuestions, programming: 0, objective: fetchedQuestions.length };
+        setSelectedAssessment(updated);
+        setAssessments(prev => prev.map(a => a.id === assessment.id ? updated : a));
+        setCompanyAssessments(prev => prev.map(a => a.id === assessment.id ? updated : a));
       }
     }
 
@@ -1525,32 +1532,29 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   // RENDER FUNCTIONS
   // ============================================
 
+  const matchesDifficulty = (assessment: Assessment) =>
+    !assessment.difficulty || assessment.difficulty === selectedDifficulty ||
+    (assessment as Assessment & { difficulties?: DifficultyLevel[] }).difficulties?.includes(selectedDifficulty);
+
   const renderAssessmentCard = (assessment: Assessment) => (
     <div
       key={assessment.id}
       onClick={() => handleStartTest(assessment)}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-lg transition-all duration-300 relative group cursor-pointer"
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-md transition-all duration-200 relative group cursor-pointer"
     >
       {assessment.popular && (
-        <div className="absolute -top-3 right-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1">
-          <StarIcon />
+        <div className="absolute -top-2.5 right-4 bg-orange-500 text-white text-xs font-medium px-2.5 py-0.5 rounded-full">
           Popular
         </div>
       )}
-      {assessment.registrations > 5000 && !assessment.popular && (
-        <div className="absolute -top-3 right-4 bg-gradient-to-r from-rose-400 to-pink-500 text-white text-xs font-medium px-3 py-1 rounded-full">
-          🎯 {assessment.registrations.toLocaleString()} Registrations
-        </div>
-      )}
 
-      <div className="flex flex-col items-center mb-4">
-        <div className="w-20 h-20 rounded-xl bg-gray-50 dark:bg-gray-700 flex items-center justify-center mb-3 overflow-hidden">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-14 h-14 rounded-lg bg-gray-50 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
           <img
             src={assessment.logo}
             alt={assessment.title}
-            className="w-16 h-16 object-contain"
+            className="w-10 h-10 object-contain"
             onError={(e) => {
-              // Generate a simple SVG placeholder with the first letter
               const letter = (assessment.title[0] || '?').toUpperCase();
               const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
                 <rect width="64" height="64" fill="#f3f4f6"/>
@@ -1560,31 +1564,34 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
             }}
           />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{assessment.title}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">{assessment.title}</h3>
+          {assessment.difficulty && (
+            <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full capitalize ${
+              assessment.difficulty === 'easy' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+              assessment.difficulty === 'hard' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+              'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            }`}>
+              {assessment.difficulty}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
+      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <span className="flex items-center gap-1.5">
           <ClockIcon />
-          <span>Time: {assessment.time}</span>
-        </div>
-        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
+          {assessment.time}
+        </span>
+        <span className="flex items-center gap-1.5">
           <GridIcon />
-          <span>Objective: {assessment.objective}</span>
-        </div>
-        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
-          <CodeIcon />
-          <span>Programming: {assessment.programming}</span>
-        </div>
+          {assessment.objective} MCQ
+        </span>
       </div>
 
-      <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-        <div
-          className="w-full text-orange-600 dark:text-orange-400 font-medium hover:text-orange-700 dark:hover:text-orange-300 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
-        >
-          Attempt Now
-          <ArrowRightIcon />
-        </div>
+      <div className="text-sm text-orange-600 dark:text-orange-400 font-medium flex items-center justify-end gap-1 group-hover:gap-2 transition-all">
+        Start Test
+        <ArrowRightIcon />
       </div>
     </div>
   );
@@ -1675,122 +1682,21 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
           {!isLoading && !error && (
             <>
-              {/* Top Stats Bar */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                {/* XP Progress Card */}
-                <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl p-4 text-white">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">⚡</span>
-                      <div>
-                        <p className="text-xs opacity-80">Level {userProgress.level}</p>
-                        <p className="font-semibold">{userProgress.currentXP} / {userProgress.nextLevelXP} XP</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs opacity-80">Streak</p>
-                      <p className="font-bold text-lg">🔥 {userProgress.streak} days</p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white/30 rounded-full h-2">
-                    <div
-                      className="bg-white rounded-full h-2 transition-all duration-500"
-                      style={{ width: `${(userProgress.currentXP / userProgress.nextLevelXP) * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Stats Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-4">
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">{userProgress.testsCompleted}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Tests</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-emerald-600">{userProgress.avgScore}%</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Avg Score</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-amber-600">{userProgress.badges.filter(b => b.earned).length}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Badges</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => navigateToView('leaderboard')}
-                      className="text-xs px-3 py-1.5 border border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
-                    >
-                      Leaderboard →
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Badges Preview */}
-              <div className="bg-gradient-to-br from-white to-amber-50/30 dark:from-gray-800 dark:to-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/30 mb-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🏆</span>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Your Badges</h3>
-                    <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">
-                      {userProgress.badges.filter(b => b.earned).length}/{userProgress.badges.length}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => navigateToView('achievements')}
-                    className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors flex items-center gap-1"
-                  >
-                    View All
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                  </button>
-                </div>
-                <div className="flex gap-4 overflow-x-auto pb-12 pt-4 px-2 scrollbar-hide perspective-[1000px]">
-                  {userProgress.badges.slice(0, 7).map((badge: Badge, index) => (
-                    <div
-                      key={badge.id}
-                      onClick={() => navigateToView('achievements')}
-                      className={`group relative flex-shrink-0 w-16 h-16 flex items-center justify-center cursor-pointer transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-2 preserve-3d ${badge.earned
-                        ? 'drop-shadow-lg'
-                        : 'opacity-40 hover:opacity-100 grayscale'
-                        }`}
-                      style={{
-                        animationDelay: `${index * 50}ms`,
-                        transformStyle: 'preserve-3d'
-                      }}
-                    >
-                      {/* Tooltip */}
-                      <div className="absolute top-14 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap">
-                        <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg relative">
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
-                          {badge.name}
-                        </div>
-                      </div>
-
-                      {badge.image && !failedBadgeImages[badge.id] ? (
-                        <img
-                          src={badge.image}
-                          alt={badge.name}
-                          className={`w-12 h-12 object-contain transition-transform duration-300 group-hover:rotate-6 ${badge.earned ? 'drop-shadow-md' : ''}`}
-                          onError={() => setFailedBadgeImages(prev => ({ ...prev, [badge.id]: true }))}
-                        />
-                      ) : (
-                        <span className="text-3xl transition-transform duration-300 group-hover:rotate-6 drop-shadow-md">{badge.icon}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Main Test Type Toggle */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mock Assessments</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Objective MCQ tests for company interviews and technical skills
+                </p>
+              </div>
+
+              {/* Test Type Toggle */}
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Test Type:</span>
-                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                       <button
                         onClick={() => { setShowCompanyTests(true); setSelectedCategory('all'); }}
-                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${showCompanyTests
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${showCompanyTests
                           ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                           }`}
@@ -1802,7 +1708,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                       </button>
                       <button
                         onClick={() => { setShowCompanyTests(false); setSelectedCategory('all'); }}
-                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${!showCompanyTests
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${!showCompanyTests
                           ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                           }`}
@@ -1815,7 +1721,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     </div>
                   </div>
 
-                  {/* Test Mode Toggle */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Mode:</span>
                     <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
@@ -1824,22 +1729,21 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'timed' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
                           }`}
                       >
-                        ⏱️ Timed
+                        Timed
                       </button>
                       <button
                         onClick={() => setTestMode('practice')}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${testMode === 'practice' ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'
                           }`}
                       >
-                        📚 Practice
+                        Practice
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Sub-category Filters - Only show for Technical Tests */}
                 {!showCompanyTests && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Category:</span>
                     <div className="flex flex-wrap gap-2">
                       {['all', 'technical', 'language', 'framework', 'database', 'devops'].map((cat) => (
@@ -1847,8 +1751,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           key={cat}
                           onClick={() => setSelectedCategory(cat)}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${selectedCategory === cat
-                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700 shadow-sm'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400'
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700'
+                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:border-orange-300'
                             }`}
                         >
                           {cat === 'all' ? 'All' : cat}
@@ -1857,38 +1761,46 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Difficulty Selector */}
-              <div className="flex items-center gap-2 mb-6">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Difficulty:</span>
-                {(['easy', 'medium', 'hard'] as DifficultyLevel[]).map((diff) => (
-                  <button
-                    key={diff}
-                    onClick={() => setSelectedDifficulty(diff)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${selectedDifficulty === diff
-                      ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                  >
-                    {diff}
-                  </button>
-                ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Difficulty:</span>
+                  {(['easy', 'medium', 'hard'] as DifficultyLevel[]).map((diff) => (
+                    <button
+                      key={diff}
+                      onClick={() => setSelectedDifficulty(diff)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition capitalize ${selectedDifficulty === diff
+                        ? diff === 'easy' ? 'bg-emerald-500 text-white' : diff === 'medium' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Company Tests Grid */}
               {showCompanyTests && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                  {companyAssessments.map(renderAssessmentCard)}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {companyAssessments.filter(matchesDifficulty).map(renderAssessmentCard)}
+                  {companyAssessments.filter(matchesDifficulty).length === 0 && (
+                    <p className="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">No company tests found for this difficulty.</p>
+                  )}
                 </div>
               )}
 
-              {/* Regular Assessment Grid - Only show when NOT showing company tests */}
+              {/* Technical Tests Grid */}
               {!showCompanyTests && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {assessments
                     .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
+                    .filter(matchesDifficulty)
                     .map(renderAssessmentCard)}
+                  {assessments
+                    .filter(a => selectedCategory === 'all' || a.category === selectedCategory)
+                    .filter(matchesDifficulty).length === 0 && (
+                    <p className="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">No technical tests found for this filter.</p>
+                  )}
                 </div>
               )}
             </>

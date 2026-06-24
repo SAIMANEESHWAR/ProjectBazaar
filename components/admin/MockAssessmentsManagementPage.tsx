@@ -281,6 +281,13 @@ const MockAssessmentsManagementPage: React.FC = () => {
   const saveAssessment = async (assessment: Partial<Assessment>) => {
     setIsSaving(true);
     setApiError(null);
+    const mcqQuestions = questions.filter((q): q is MCQQuestion => q.type !== 'programming');
+    const payload = {
+      ...assessment,
+      objective: mcqQuestions.length || assessment.objective || 0,
+      programming: 0,
+      questions: mcqQuestions,
+    };
     try {
       // TODO: Add 'create_assessment' and 'update_assessment' actions to Lambda handler
       const response = await fetch(MOCK_ASSESSMENTS_API, {
@@ -288,8 +295,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: editingAssessment ? 'update_assessment' : 'create_assessment',
-          ...assessment,
-          questions: questions,
+          ...payload,
         }),
       });
 
@@ -502,13 +508,14 @@ const MockAssessmentsManagementPage: React.FC = () => {
   };
 
   const handleEdit = (assessment: Assessment) => {
+    const mcqQuestions = (assessment.questions || []).filter((q): q is MCQQuestion => q.type !== 'programming');
     setEditingAssessment(assessment);
     setFormData({
       title: assessment.title,
       logo: assessment.logo,
       time: assessment.time,
-      objective: assessment.objective,
-      programming: assessment.programming,
+      objective: mcqQuestions.length || assessment.objective,
+      programming: 0,
       category: assessment.category,
       popular: assessment.popular,
       difficulty: assessment.difficulty,
@@ -517,7 +524,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
       xpReward: assessment.xpReward,
       status: assessment.status,
     });
-    setQuestions(assessment.questions || []);
+    setQuestions(mcqQuestions);
     setShowAddModal(true);
   };
 
@@ -545,7 +552,11 @@ const MockAssessmentsManagementPage: React.FC = () => {
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-end mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Mock Assessments</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage objective MCQ tests for company and technical assessments</p>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
@@ -749,7 +760,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {assessment.objective} MCQ, {assessment.programming} Coding
+                          {assessment.objective} MCQ
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {assessment.time}
@@ -766,22 +777,25 @@ const MockAssessmentsManagementPage: React.FC = () => {
                           {assessment.registrations.toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => setViewingAssessment(assessment)}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="px-2.5 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="View"
                             >
                               View
                             </button>
                             <button
                               onClick={() => handleEdit(assessment)}
-                              className="text-orange-600 hover:text-orange-900"
+                              className="px-2.5 py-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition"
+                              title="Edit"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => deleteAssessment(assessment.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Delete"
                             >
                               Delete
                             </button>
@@ -831,7 +845,7 @@ const MockAssessmentsManagementPage: React.FC = () => {
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Questions:</span>
-                      <span className="font-medium">{assessment.objective} MCQ, {assessment.programming} Coding</span>
+                      <span className="font-medium">{assessment.objective} MCQ</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Time:</span>
@@ -859,6 +873,12 @@ const MockAssessmentsManagementPage: React.FC = () => {
                       className="flex-1 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={() => deleteAssessment(assessment.id)}
+                      className="px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition"
+                    >
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -1637,16 +1657,7 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                 min="0"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Programming Questions</label>
-              <input
-                type="number"
-                value={formData.programming}
-                onChange={(e) => setFormData({ ...formData, programming: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                min="0"
-              />
+              <p className="text-xs text-gray-500 mt-1">Mock assessments support objective MCQ questions only.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty (Select Multiple)</label>
@@ -1729,11 +1740,9 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                 <button
                   onClick={async () => {
                     const mcqCount = formData.objective || 0;
-                    const progCount = formData.programming || 0;
-                    const total = mcqCount + progCount;
 
-                    if (total === 0) {
-                      alert('Please specify the number of MCQ and/or Programming questions to generate.');
+                    if (mcqCount === 0) {
+                      alert('Please specify the number of MCQ questions to generate.');
                       return;
                     }
 
@@ -1745,56 +1754,30 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
 
                     setIsGeneratingQuestions(true);
                     setGenerationError(null);
-                    const generatedQuestions: AnyQuestion[] = [];
+                    const generatedQuestions: MCQQuestion[] = [];
                     const selectedDifficulties = formData.difficulties && formData.difficulties.length > 0
                       ? formData.difficulties
                       : ['medium'];
                     const category = formData.category || 'technical';
-                    // More specific topic for company assessments to ensure relevant questions
                     const topic = category === 'company' && formData.company
                       ? `${formData.company} Interview Questions`
                       : (formData.title || category);
 
                     try {
-                      // Generate MCQ questions - distribute across selected difficulties
-                      if (mcqCount > 0) {
-                        setGenerationProgress({ current: 0, total: mcqCount, type: 'MCQ' });
-                        const generatedMCQs: MCQQuestion[] = [];
-                        for (let i = 0; i < mcqCount; i++) {
-                          // Distribute questions across selected difficulties
-                          const difficultyIndex = i % selectedDifficulties.length;
-                          const difficulty = selectedDifficulties[difficultyIndex] as DifficultyLevel;
-                          const mcq = await generateMCQQuestion(apiKeyConfig, topic, difficulty, category, i + 1, mcqCount, generatedMCQs);
-                          if (mcq) {
-                            generatedMCQs.push(mcq);
-                            generatedQuestions.push(mcq);
-                          }
-                          setGenerationProgress({ current: i + 1, total: mcqCount, type: 'MCQ' });
-                          // Small delay to avoid rate limits
-                          await new Promise(resolve => setTimeout(resolve, 800));
+                      setGenerationProgress({ current: 0, total: mcqCount, type: 'MCQ' });
+                      for (let i = 0; i < mcqCount; i++) {
+                        const difficultyIndex = i % selectedDifficulties.length;
+                        const difficulty = selectedDifficulties[difficultyIndex] as DifficultyLevel;
+                        const mcq = await generateMCQQuestion(apiKeyConfig, topic, difficulty, category, i + 1, mcqCount, generatedQuestions);
+                        if (mcq) {
+                          generatedQuestions.push(mcq);
                         }
+                        setGenerationProgress({ current: i + 1, total: mcqCount, type: 'MCQ' });
+                        await new Promise(resolve => setTimeout(resolve, 800));
                       }
 
-                      // Generate Programming questions - distribute across selected difficulties
-                      if (progCount > 0) {
-                        setGenerationProgress({ current: 0, total: progCount, type: 'Programming' });
-                        const generatedProgs: ProgrammingQuestion[] = [];
-                        for (let i = 0; i < progCount; i++) {
-                          // Distribute questions across selected difficulties
-                          const difficultyIndex = i % selectedDifficulties.length;
-                          const difficulty = selectedDifficulties[difficultyIndex] as DifficultyLevel;
-                          const prog = await generateProgrammingQuestion(apiKeyConfig, topic, difficulty, category, i + 1, progCount, generatedProgs);
-                          if (prog) {
-                            generatedProgs.push(prog);
-                            generatedQuestions.push(prog);
-                          }
-                          setGenerationProgress({ current: i + 1, total: progCount, type: 'Programming' });
-                          // Small delay to avoid rate limits
-                          await new Promise(resolve => setTimeout(resolve, 800));
-                        }
-                      }
-
-                      setQuestions([...questions, ...generatedQuestions]);
+                      setQuestions(generatedQuestions);
+                      setFormData(prev => ({ ...prev, objective: generatedQuestions.length, programming: 0 }));
                       setGenerationError(null);
                     } catch (error: any) {
                       console.error('Error generating questions:', error);
@@ -1853,10 +1836,10 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800">
-                          {q.type === 'programming' ? 'Coding' : 'MCQ'}
+                          MCQ
                         </span>
                         <span className="text-sm font-medium text-gray-900">
-                          {q.type === 'programming' ? (q as ProgrammingQuestion).question.split('\n')[0] : (q as MCQQuestion).question}
+                          {(q as MCQQuestion).question}
                         </span>
                       </div>
                       {q.type === 'mcq' && (q as MCQQuestion).options && (
@@ -2290,27 +2273,15 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
   };
 
   const handleSave = () => {
-    if (questionType === 'mcq') {
-      if (!mcqData.question || !mcqData.topic || mcqData.options?.some(opt => !opt)) {
-        alert('Please fill all required fields');
-        return;
-      }
-      onSave({
-        id: question?.id || Date.now(),
-        ...mcqData,
-        type: 'mcq',
-      } as MCQQuestion);
-    } else {
-      if (!progData.question || !progData.topic) {
-        alert('Please fill all required fields');
-        return;
-      }
-      onSave({
-        id: question?.id || Date.now(),
-        ...progData,
-        type: 'programming',
-      } as ProgrammingQuestion);
+    if (!mcqData.question || !mcqData.topic || mcqData.options?.some(opt => !opt)) {
+      alert('Please fill all required fields');
+      return;
     }
+    onSave({
+      id: question?.id || Date.now(),
+      ...mcqData,
+      type: 'mcq',
+    } as MCQQuestion);
   };
 
   return (
@@ -2333,7 +2304,7 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
             <div>
               <p className="text-sm font-medium text-gray-900">Generate with Gemini AI</p>
               <p className="text-xs text-gray-600 mt-1">
-                Use Gemini to auto-generate a high-quality {questionType === 'mcq' ? 'MCQ' : 'coding'} question based on topic and difficulty.
+                Use Gemini to auto-generate a high-quality MCQ question based on topic and difficulty.
               </p>
               {aiError && (
                 <p className="mt-1 text-xs text-red-600">
@@ -2362,26 +2333,8 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
             </button>
           </div>
 
-          {/* Question Type Toggle */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setQuestionType('mcq')}
-              className={`flex-1 px-4 py-2 rounded-lg transition ${questionType === 'mcq' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
-                }`}
-            >
-              MCQ Question
-            </button>
-            <button
-              onClick={() => setQuestionType('programming')}
-              className={`flex-1 px-4 py-2 rounded-lg transition ${questionType === 'programming' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
-                }`}
-            >
-              Programming Question
-            </button>
-          </div>
-
-          {questionType === 'mcq' ? (
-            <div className="space-y-4">
+          {/* MCQ Question Form */}
+          <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
                 <textarea
@@ -2453,177 +2406,6 @@ Return ONLY valid JSON (no markdown, no comments, no extra text) in the followin
                 />
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question Title & Description *</label>
-                <textarea
-                  value={progData.question}
-                  onChange={(e) => setProgData({ ...progData, question: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 font-mono text-sm"
-                  rows={5}
-                  placeholder="Title\n\nDescription..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Topic *</label>
-                  <input
-                    type="text"
-                    value={progData.topic}
-                    onChange={(e) => setProgData({ ...progData, topic: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="e.g., Arrays, Strings"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-                  <select
-                    value={progData.difficulty}
-                    onChange={(e) => setProgData({ ...progData, difficulty: e.target.value as DifficultyLevel })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  >
-                    {difficulties.map(diff => (
-                      <option key={diff} value={diff}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Constraints</label>
-                <textarea
-                  value={progData.constraints}
-                  onChange={(e) => setProgData({ ...progData, constraints: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 font-mono text-sm"
-                  rows={3}
-                  placeholder="2 <= nums.length <= 10^4..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Examples</label>
-                {(progData.examples || []).map((ex, index) => (
-                  <div key={index} className="mb-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={ex.input}
-                        onChange={(e) => {
-                          const newExamples = [...(progData.examples || [])];
-                          newExamples[index] = { ...ex, input: e.target.value };
-                          setProgData({ ...progData, examples: newExamples });
-                        }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        placeholder="Input"
-                      />
-                      <input
-                        type="text"
-                        value={ex.output}
-                        onChange={(e) => {
-                          const newExamples = [...(progData.examples || [])];
-                          newExamples[index] = { ...ex, output: e.target.value };
-                          setProgData({ ...progData, examples: newExamples });
-                        }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        placeholder="Output"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={ex.explanation}
-                      onChange={(e) => {
-                        const newExamples = [...(progData.examples || [])];
-                        newExamples[index] = { ...ex, explanation: e.target.value };
-                        setProgData({ ...progData, examples: newExamples });
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      placeholder="Explanation (optional)"
-                    />
-                  </div>
-                ))}
-                <button
-                  onClick={() => setProgData({ ...progData, examples: [...(progData.examples || []), { input: '', output: '', explanation: '' }] })}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  + Add Example
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Cases</label>
-                {(progData.testCases || []).map((tc, index) => (
-                  <div key={index} className="mb-2 p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={tc.input}
-                        onChange={(e) => {
-                          const newTestCases = [...(progData.testCases || [])];
-                          newTestCases[index] = { ...tc, input: e.target.value };
-                          setProgData({ ...progData, testCases: newTestCases });
-                        }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                        placeholder="Input"
-                      />
-                      <input
-                        type="text"
-                        value={tc.expectedOutput}
-                        onChange={(e) => {
-                          const newTestCases = [...(progData.testCases || [])];
-                          newTestCases[index] = { ...tc, expectedOutput: e.target.value };
-                          setProgData({ ...progData, testCases: newTestCases });
-                        }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                        placeholder="Expected Output"
-                      />
-                    </div>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={tc.hidden}
-                        onChange={(e) => {
-                          const newTestCases = [...(progData.testCases || [])];
-                          newTestCases[index] = { ...tc, hidden: e.target.checked };
-                          setProgData({ ...progData, testCases: newTestCases });
-                        }}
-                        className="w-4 h-4 text-orange-500"
-                      />
-                      <span className="text-sm text-gray-700">Hidden test case</span>
-                    </label>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setProgData({ ...progData, testCases: [...(progData.testCases || []), { input: '', expectedOutput: '', hidden: false }] })}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  + Add Test Case
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Starter Code</label>
-                <div className="space-y-2">
-                  {['python', 'javascript', 'java', 'cpp'].map(lang => (
-                    <div key={lang}>
-                      <label className="block text-xs text-gray-600 mb-1">{lang.charAt(0).toUpperCase() + lang.slice(1)}</label>
-                      <textarea
-                        value={progData.starterCode?.[lang] || ''}
-                        onChange={(e) => {
-                          setProgData({
-                            ...progData,
-                            starterCode: {
-                              ...(progData.starterCode || {}),
-                              [lang]: e.target.value,
-                            },
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 font-mono text-sm"
-                        rows={4}
-                        placeholder={`${lang} starter code...`}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
@@ -2681,7 +2463,7 @@ const ViewAssessmentModal: React.FC<ViewAssessmentModalProps> = ({ assessment, o
             </div>
             <div>
               <p className="text-sm text-gray-500">Questions</p>
-              <p className="font-medium">{assessment.objective} MCQ, {assessment.programming} Coding</p>
+              <p className="font-medium">{assessment.objective} MCQ</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Status</p>
@@ -2706,9 +2488,9 @@ const ViewAssessmentModal: React.FC<ViewAssessmentModalProps> = ({ assessment, o
                   <div key={index} className="p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800">
-                        {q.type === 'programming' ? 'Coding' : 'MCQ'}
+                        MCQ
                       </span>
-                      <span className="text-sm font-medium">{index + 1}. {q.type === 'programming' ? (q as ProgrammingQuestion).question.split('\n')[0] : (q as MCQQuestion).question}</span>
+                      <span className="text-sm font-medium">{index + 1}. {(q as MCQQuestion).question}</span>
                     </div>
                     <p className="text-xs text-gray-500">Topic: {q.topic}</p>
                   </div>
