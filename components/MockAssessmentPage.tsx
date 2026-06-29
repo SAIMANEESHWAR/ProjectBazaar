@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Editor from '@monaco-editor/react';
 import { useAuth, useNavigation } from '../App';
 import Sidebar from './Sidebar';
 import type { DashboardView } from './DashboardPage';
@@ -153,51 +152,6 @@ interface ProgrammingQuestion {
 }
 
 type AnyQuestion = Question | ProgrammingQuestion;
-
-// Supported programming languages
-const supportedLanguages = [
-  { id: 'python', name: 'Python 3', pistonId: 'python', version: '3.10.0', monacoId: 'python' },
-  { id: 'javascript', name: 'JavaScript', pistonId: 'javascript', version: '18.15.0', monacoId: 'javascript' },
-  { id: 'java', name: 'Java', pistonId: 'java', version: '15.0.2', monacoId: 'java' },
-  { id: 'cpp', name: 'C++', pistonId: 'cpp', version: '10.2.0', monacoId: 'cpp' },
-  { id: 'c', name: 'C', pistonId: 'c', version: '10.2.0', monacoId: 'c' },
-  { id: 'typescript', name: 'TypeScript', pistonId: 'typescript', version: '5.0.3', monacoId: 'typescript' },
-  { id: 'go', name: 'Go', pistonId: 'go', version: '1.16.2', monacoId: 'go' },
-  { id: 'rust', name: 'Rust', pistonId: 'rust', version: '1.68.2', monacoId: 'rust' },
-  { id: 'ruby', name: 'Ruby', pistonId: 'ruby', version: '3.0.1', monacoId: 'ruby' },
-  { id: 'php', name: 'PHP', pistonId: 'php', version: '8.2.3', monacoId: 'php' },
-  { id: 'kotlin', name: 'Kotlin', pistonId: 'kotlin', version: '1.8.20', monacoId: 'kotlin' },
-  { id: 'swift', name: 'Swift', pistonId: 'swift', version: '5.3.3', monacoId: 'swift' },
-  { id: 'csharp', name: 'C#', pistonId: 'csharp', version: '6.12.0', monacoId: 'csharp' },
-  { id: 'scala', name: 'Scala', pistonId: 'scala', version: '3.2.2', monacoId: 'scala' },
-  { id: 'r', name: 'R', pistonId: 'r', version: '4.1.1', monacoId: 'r' },
-  { id: 'perl', name: 'Perl', pistonId: 'perl', version: '5.36.0', monacoId: 'perl' },
-  { id: 'lua', name: 'Lua', pistonId: 'lua', version: '5.4.4', monacoId: 'lua' },
-  { id: 'bash', name: 'Bash', pistonId: 'bash', version: '5.2.0', monacoId: 'shell' },
-  { id: 'dart', name: 'Dart', pistonId: 'dart', version: '2.19.6', monacoId: 'dart' },
-  { id: 'elixir', name: 'Elixir', pistonId: 'elixir', version: '1.14.3', monacoId: 'elixir' },
-  { id: 'haskell', name: 'Haskell', pistonId: 'haskell', version: '9.0.1', monacoId: 'haskell' },
-  { id: 'clojure', name: 'Clojure', pistonId: 'clojure', version: '1.10.3', monacoId: 'clojure' },
-  { id: 'fsharp', name: 'F#', pistonId: 'fsharp', version: '5.0.201', monacoId: 'fsharp' },
-  { id: 'julia', name: 'Julia', pistonId: 'julia', version: '1.8.5', monacoId: 'julia' },
-  { id: 'ocaml', name: 'OCaml', pistonId: 'ocaml', version: '4.12.0', monacoId: 'ocaml' },
-  { id: 'racket', name: 'Racket', pistonId: 'racket', version: '8.3', monacoId: 'scheme' },
-  { id: 'erlang', name: 'Erlang', pistonId: 'erlang', version: '23.0', monacoId: 'erlang' },
-  { id: 'cobol', name: 'COBOL', pistonId: 'cobol', version: '3.1.2', monacoId: 'cobol' },
-  { id: 'fortran', name: 'Fortran', pistonId: 'fortran', version: '10.2.0', monacoId: 'fortran' },
-  { id: 'pascal', name: 'Pascal', pistonId: 'pascal', version: '3.2.2', monacoId: 'pascal' },
-  { id: 'groovy', name: 'Groovy', pistonId: 'groovy', version: '3.0.7', monacoId: 'groovy' },
-];
-
-// Code execution using Judge0 (see services/codeExecution)
-const executeCode = async (code: string, language: string, input: string = ''): Promise<{ output: string; error: string; success: boolean }> => {
-  const lang = supportedLanguages.find(l => l.id === language);
-  if (!lang) {
-    return { output: '', error: 'Unsupported language', success: false };
-  }
-  const { executeCodeJudge0 } = await import('../services/codeExecution');
-  return executeCodeJudge0({ code, language: lang.id, input });
-};
 
 interface TestResult {
   assessmentId: string;
@@ -398,12 +352,6 @@ const ClockIcon = () => (
 const GridIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-  </svg>
-);
-
-const CodeIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
   </svg>
 );
 
@@ -615,47 +563,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     }
   };
 
-  // Code editor state for programming questions
-  // Determine if assessment title matches a language
-  const getLanguageFromAssessment = (assessmentTitle: string): string | null => {
-    const titleLower = assessmentTitle.toLowerCase();
-    const matchedLang = supportedLanguages.find(lang =>
-      lang.id === titleLower ||
-      lang.name.toLowerCase().includes(titleLower) ||
-      titleLower.includes(lang.id)
-    );
-    return matchedLang ? matchedLang.id : null;
-  };
-
-  // Get initial language based on assessment
-  const getInitialLanguage = (): string => {
-    if (selectedAssessment) {
-      const lang = getLanguageFromAssessment(selectedAssessment.title);
-      if (lang) return lang;
-    }
-    return 'python';
-  };
-
-  const [selectedLanguage, setSelectedLanguage] = useState(getInitialLanguage());
-
-  // Update language when assessment changes
-  useEffect(() => {
-    if (selectedAssessment) {
-      const lang = getLanguageFromAssessment(selectedAssessment.title);
-      if (lang) {
-        setSelectedLanguage(lang);
-      }
-    }
-  }, [selectedAssessment]);
-
-  // Check if language is locked based on assessment
-  const isLanguageLocked = selectedAssessment ? !!getLanguageFromAssessment(selectedAssessment.title) : false;
-  const [codeAnswers, setCodeAnswers] = useState<Record<number, string>>({});
-  const [codeTestResults, setCodeTestResults] = useState<Record<number, { passed: boolean; output: string; expected: string; error?: string }[]>>({});
-  const [isRunningCode, setIsRunningCode] = useState(false);
-  const [codeOutput, setCodeOutput] = useState('');
-  const [leftPanelWidth, setLeftPanelWidth] = useState(35); // percentage
-  const [isResizing, setIsResizing] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState<Record<number, number>>({});
 
   // Anti-cheating & proctoring state
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
@@ -667,19 +575,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [showUnansweredConfirmModal, setShowUnansweredConfirmModal] = useState(false);
   const [showTerminationAlert, setShowTerminationAlert] = useState(false);
   const [terminationReason, setTerminationReason] = useState<'completed' | 'tab_switch' | 'fullscreen_exit' | 'time_expired' | null>(null);
-
-  // Custom test case input for programming questions
-  const [customTestInput, setCustomTestInput] = useState('');
-  const [customTestOutput, setCustomTestOutput] = useState('');
-  const [activeConsoleTab, setActiveConsoleTab] = useState<'testcase' | 'result' | 'custom'>('testcase');
-
-  // Code hints feature
-  const [showHints, setShowHints] = useState(false);
-  const [hintsUsed, setHintsUsed] = useState<Record<number, number>>({});
-
-  // Question instructions visibility
   const [showQuestionInstructions, setShowQuestionInstructions] = useState(false);
-
 
   // Maximum warnings before auto-submit
   const MAX_TAB_SWITCHES = 1;
@@ -983,121 +879,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     return filterMcqQuestions(selectedAssessment.questions || []);
   }, [selectedAssessment]);
 
-  // Check if current question is a programming question
-  const isProgrammingQuestion = (question: AnyQuestion): question is ProgrammingQuestion => {
-    return question.type === 'programming';
-  };
-
-  // Get current code for a programming question
-  const getCurrentCode = (questionIndex: number, question: ProgrammingQuestion) => {
-    if (codeAnswers[questionIndex]) {
-      return codeAnswers[questionIndex];
-    }
-    // If language is locked, only use that language's starter code
-    if (isLanguageLocked) {
-      return question.starterCode[selectedLanguage] || '';
-    }
-    return question.starterCode[selectedLanguage] || question.starterCode.python || '';
-  };
-
-  // Handle code change
-  const handleCodeChange = (questionIndex: number, code: string) => {
-    setCodeAnswers(prev => ({ ...prev, [questionIndex]: code }));
-    // Invalidate test results when code changes to prevent stale passing results
-    setCodeTestResults(prev => {
-      const next = { ...prev };
-      delete next[questionIndex];
-      return next;
-    });
-  };
-
-  // Run code against test cases
-  const runCode = async (questionIndex: number, question: ProgrammingQuestion) => {
-    setIsRunningCode(true);
-    setCodeOutput('Running...');
-
-    const code = getCurrentCode(questionIndex, question);
-
-    if (!code || !code.trim()) {
-      setCodeOutput('Please write some code first.');
-      setIsRunningCode(false);
-      return;
-    }
-    const results: { passed: boolean; output: string; expected: string; error?: string }[] = [];
-
-    // Run against visible test cases only
-    const visibleTestCases = question.testCases.filter(tc => !tc.hidden);
-
-    for (const testCase of visibleTestCases) {
-      const result = await executeCode(code, selectedLanguage, testCase.input);
-      const passed = result.output.trim() === testCase.expectedOutput.trim();
-      results.push({
-        passed,
-        output: result.output || result.error,
-        expected: testCase.expectedOutput,
-        error: result.error,
-      });
-    }
-
-    setCodeTestResults(prev => ({ ...prev, [questionIndex]: results }));
-    setCodeOutput(results.map((r, i) =>
-      `Test ${i + 1}: ${r.passed ? 'Passed' : 'Failed'}\nOutput: ${r.output}\nExpected: ${r.expected}`
-    ).join('\n\n'));
-    setIsRunningCode(false);
-  };
-
-  // Submit code (runs against all test cases including hidden)
-  const submitCode = async (questionIndex: number, question: ProgrammingQuestion) => {
-    setIsRunningCode(true);
-    setCodeOutput('Submitting and running all test cases...');
-
-    const code = getCurrentCode(questionIndex, question);
-
-    if (!code || !code.trim()) {
-      setCodeOutput('Please write some code first.');
-      setIsRunningCode(false);
-      return;
-    }
-    const results: { passed: boolean; output: string; expected: string; error?: string }[] = [];
-
-    for (const testCase of question.testCases) {
-      const result = await executeCode(code, selectedLanguage, testCase.input);
-      const passed = result.output.trim() === testCase.expectedOutput.trim();
-      results.push({
-        passed,
-        output: result.output || result.error,
-        expected: testCase.expectedOutput,
-        error: result.error,
-      });
-    }
-
-    setCodeTestResults(prev => ({ ...prev, [questionIndex]: results }));
-
-    const allPassed = results.every(r => r.passed);
-    const passedCount = results.filter(r => r.passed).length;
-
-    setCodeOutput(
-      `${allPassed ? 'All test cases passed!' : `${passedCount}/${results.length} test cases passed`}\n\n` +
-        results.map((r, i) =>
-        `Test ${i + 1}${question.testCases[i].hidden ? ' (hidden)' : ''}: ${r.passed ? 'Passed' : 'Failed'}${!question.testCases[i].hidden ? `\nOutput: ${r.output}\nExpected: ${r.expected}` : ''}`
-      ).join('\n\n')
-    );
-    setIsRunningCode(false);
-
-    // Mark as answered if at least one test passes
-    if (passedCount > 0) {
-      setAnswers(prev => ({ ...prev, [questionIndex]: passedCount }));
-    }
-  };
-
   // Timer effect
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (view === 'test' && timeLeft > 0 && testMode === 'timed') {
       timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          return prev - 1;
-        });
+        setTimeLeft((prev) => prev - 1);
       }, 1000);
     }
     return () => clearInterval(timer);
@@ -1112,7 +899,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         setTabSwitchCount(prev => {
           const newCount = prev + 1;
           if (newCount >= MAX_TAB_SWITCHES) {
-            // Show termination alert instead of auto-submitting
             setTerminationReason('tab_switch');
             setShowTerminationAlert(true);
           } else {
@@ -1127,7 +913,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       setTabSwitchCount(prev => {
         const newCount = prev + 1;
         if (newCount >= MAX_TAB_SWITCHES) {
-          // Show termination alert instead of auto-submitting
           setTerminationReason('tab_switch');
           setShowTerminationAlert(true);
         } else {
@@ -1161,14 +946,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     };
 
     const preventKeyboardShortcuts = (e: KeyboardEvent) => {
-      // Prevent Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A
       if (e.ctrlKey || e.metaKey) {
         if (['c', 'v', 'x', 'a'].includes(e.key.toLowerCase())) {
           e.preventDefault();
           setCopyPasteAttempts(prev => prev + 1);
         }
       }
-      // Prevent PrintScreen
       if (e.key === 'PrintScreen') {
         e.preventDefault();
       }
@@ -1196,11 +979,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     const handleFullScreenChange = () => {
       const isCurrentlyFullScreen = !!document.fullscreenElement;
       if (!isCurrentlyFullScreen && isFullScreen) {
-        // User exited fullscreen
         setFullScreenExitCount(prev => {
           const newCount = prev + 1;
           if (newCount >= MAX_FULLSCREEN_EXITS) {
-            // Show termination alert instead of auto-submitting
             setTerminationReason('fullscreen_exit');
             setShowTerminationAlert(true);
           } else {
@@ -1219,7 +1000,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     };
   }, [view, isFullScreen, antiCheatMode]);
 
-  // Enter fullscreen mode function
   const enterFullScreen = useCallback(async () => {
     try {
       await document.documentElement.requestFullscreen();
@@ -1229,7 +1009,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     }
   }, []);
 
-  // Exit fullscreen mode function
   const exitFullScreen = useCallback(async () => {
     try {
       if (document.fullscreenElement) {
@@ -1240,26 +1019,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       console.error('Failed to exit fullscreen:', err);
     }
   }, []);
-
-  // Run custom test case
-  const runCustomTestCase = async (questionIndex: number, question: ProgrammingQuestion) => {
-    if (!customTestInput.trim()) {
-      setCustomTestOutput('Please enter a test input.');
-      return;
-    }
-    setIsRunningCode(true);
-    setCustomTestOutput('Running custom test...');
-
-    const code = getCurrentCode(questionIndex, question);
-    const result = await executeCode(code, selectedLanguage, customTestInput);
-
-    setCustomTestOutput(
-      result.success
-        ? `Output:\n${result.output}`
-        : `Error:\n${result.error || 'Execution failed'}`
-    );
-    setIsRunningCode(false);
-  };
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -1344,8 +1103,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     setCopyPasteAttempts(0);
     setTerminationReason(null);
     setHintsUsed({});
-    setCustomTestInput('');
-    setCustomTestOutput('');
 
     // Enter fullscreen mode for both anti-cheat and cheated modes
     enterFullScreen();
@@ -1373,19 +1130,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
     // Check for unanswered questions
     const unansweredQuestions: number[] = [];
-    questions.forEach((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        // For programming questions, check if code was written
-        const code = codeAnswers[index] || '';
-        const hasCode = code.trim().length > 0;
-        if (!hasCode) {
-          unansweredQuestions.push(index + 1);
-        }
-      } else {
-        // For MCQ questions, check if answer is selected
-        if (answers[index] === undefined) {
-          unansweredQuestions.push(index + 1);
-        }
+    questions.forEach((_q, index) => {
+      if (answers[index] === undefined) {
+        unansweredQuestions.push(index + 1);
       }
     });
 
@@ -1406,21 +1153,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
     const questions = getQuestions();
     const questionResults = questions.map((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        // For programming questions, check if they passed any test cases
-        const testResults = codeTestResults[index];
-        const passedAll = testResults?.every(r => r.passed) ?? false;
-        return {
-          questionId: q.id,
-          topic: q.topic,
-          isCorrect: passedAll,
-          userAnswer: answers[index] ?? -1,
-          correctAnswer: 0, // Not applicable for programming
-        };
-      }
-      // For MCQ questions
       const userAnswer = answers[index] ?? -1;
-      const correctAnswer = (q as Question).correctAnswer;
+      const correctAnswer = q.correctAnswer;
       // Ensure both are numbers for comparison to avoid type mismatches
       const isCorrect = Number(userAnswer) === Number(correctAnswer);
 
@@ -1501,9 +1235,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       const updatedBadges = prev.badges.map(badge => {
         if (!badge.earned) {
           if (badge.id === 'first_test' && prev.testsCompleted + 1 >= 1) {
-            return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
-          }
-          if (badge.id === 'master_coder' && solved === questions.length && isProgrammingQuestion(questions[0])) {
             return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
           }
           if (badge.id === 'high_scorer' && score >= 90) {
@@ -1587,7 +1318,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     // Reset proctoring state
     setShowTabWarningModal(false);
     setShowFullScreenWarning(false);
-    setShowHints(false);
 
     setView('results');
 
@@ -2845,17 +2575,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const renderUnansweredConfirmModal = () => {
     const questions = getQuestions();
     const unansweredQuestions: number[] = [];
-    questions.forEach((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        const code = codeAnswers[index] || '';
-        const hasCode = code.trim().length > 0;
-        if (!hasCode) {
-          unansweredQuestions.push(index + 1);
-        }
-      } else {
-        if (answers[index] === undefined) {
-          unansweredQuestions.push(index + 1);
-        }
+    questions.forEach((_q, index) => {
+      if (answers[index] === undefined) {
+        unansweredQuestions.push(index + 1);
       }
     });
 
@@ -3134,37 +2856,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     );
   };
 
-  // Code hints for programming questions
-  const getHintsForQuestion = (questionId: number): string[] => {
-    const hintsMap: Record<number, string[]> = {
-      101: [
-        'Consider using a hash map to store values you\'ve seen',
-        'For each number, check if (target - number) exists in the map',
-        'Time complexity can be O(n) with this approach'
-      ],
-      102: [
-        'You can use two pointers, one at the start and one at the end',
-        'Swap characters at the pointers and move them towards the center',
-        'Alternatively, use Python\'s slicing with [::-1]'
-      ],
-      103: [
-        'Use a stack to keep track of opening brackets',
-        'When you see a closing bracket, check if it matches the top of the stack',
-        'The string is valid if the stack is empty at the end'
-      ],
-      104: [
-        'Use modulo operator (%) to check divisibility',
-        'Check divisibility by 15 first (FizzBuzz), then 5, then 3',
-        'Build the string based on divisibility conditions'
-      ]
-    };
-    return hintsMap[questionId] || [
-      'Break down the problem into smaller steps',
-      'Consider edge cases carefully',
-      'Think about the time and space complexity'
-    ];
-  };
-
   const renderTestInterface = () => {
     const questions = getQuestions();
     const currentQuestion = questions[currentQuestionIndex];
@@ -3315,564 +3006,73 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           {/* Question navigation pills */}
           <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm px-8 py-4 border-b border-gray-200/50 dark:border-gray-700/50 overflow-visible">
             <div className="flex items-center gap-3 overflow-x-auto py-2 px-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-              {/* Section 1 - MCQ Questions */}
-              {questions.some((q) => !isProgrammingQuestion(q)) && (
-                <>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-lg shadow-sm">S1</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">MCQ</span>
-                  </div>
-                  <div className="flex items-center gap-2 py-1">
-                    {questions.map((q, index) => {
-                      if (isProgrammingQuestion(q)) return null;
-                      const isActive = currentQuestionIndex === index;
-                      const isAnswered = answers[index] !== undefined;
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-bold rounded-lg shadow-sm">MCQ</span>
+              </div>
+              <div className="flex items-center gap-2 py-1">
+                {questions.map((_q, index) => {
+                  const isActive = currentQuestionIndex === index;
+                  const isAnswered = answers[index] !== undefined;
 
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentQuestionIndex(index)}
-                          className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${isActive
-                            ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
-                            : isAnswered
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                            }`}
-                        >
-                          {index + 1}
-                          {isAnswered && !isActive && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {/* Section 2 - Programming Questions */}
-              {questions.some((q) => isProgrammingQuestion(q)) && (
-                <>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs font-bold rounded-lg shadow-sm">S2</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Coding</span>
-                  </div>
-                  <div className="flex items-center gap-2 py-1">
-                    {questions.map((q, index) => {
-                      if (!isProgrammingQuestion(q)) return null;
-                      const isActive = currentQuestionIndex === index;
-                      const isAnswered = answers[index] !== undefined || codeTestResults[index]?.some(r => r.passed);
-
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentQuestionIndex(index)}
-                          className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${isActive
-                            ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30'
-                            : isAnswered
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                            }`}
-                        >
-                          {index + 1}
-                          {isAnswered && !isActive && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      className={`relative w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center flex-shrink-0 ${isActive
+                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
+                        : isAnswered
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }`}
+                    >
+                      {index + 1}
+                      {isAnswered && !isActive && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Question content */}
-          <div className={`flex-1 overflow-y-auto ${isProgrammingQuestion(currentQuestion) ? 'p-0' : 'p-6'}`}>
-            <div className={isProgrammingQuestion(currentQuestion) ? 'h-full' : 'max-w-3xl mx-auto'}>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-3xl mx-auto">
               {/* Question card */}
-              <div className={`bg-white dark:bg-gray-800 ${isProgrammingQuestion(currentQuestion) ? 'h-full' : 'rounded-2xl shadow-lg shadow-gray-200/30 dark:shadow-none border border-gray-100 dark:border-gray-700'} overflow-hidden`}>
-                {/* Question header - Only show for MCQ, programming has its own header */}
-                {!isProgrammingQuestion(currentQuestion) && (
-                  <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-gray-750 dark:to-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-base shadow-md shadow-orange-500/25">
-                        {currentQuestionIndex + 1}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
-                          {selectedAssessment?.title} • Question {currentQuestion.id}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Topic: <span className="font-medium text-gray-700 dark:text-gray-300">{currentQuestion.topic}</span>
-                        </p>
-                      </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/30 dark:shadow-none border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-gray-750 dark:to-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-base shadow-md shadow-orange-500/25">
+                      {currentQuestionIndex + 1}
                     </div>
-                    <button
-                      onClick={handleFlagQuestion}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm ${flaggedQuestions.has(currentQuestionIndex)
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
-                        }`}
-                    >
-                      <FlagIcon />
-                      <span className="font-medium">{flaggedQuestions.has(currentQuestionIndex) ? 'Flagged' : 'Flag'}</span>
-                    </button>
+                    <div>
+                      <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
+                        {selectedAssessment?.title} • Question {currentQuestion.id}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Topic: <span className="font-medium text-gray-700 dark:text-gray-300">{currentQuestion.topic}</span>
+                      </p>
+                    </div>
                   </div>
-                )}
+                  <button
+                    onClick={handleFlagQuestion}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-sm ${flaggedQuestions.has(currentQuestionIndex)
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                      }`}
+                  >
+                    <FlagIcon />
+                    <span className="font-medium">{flaggedQuestions.has(currentQuestionIndex) ? 'Flagged' : 'Flag'}</span>
+                  </button>
+                </div>
 
-                {/* Question body */}
-                <div className={isProgrammingQuestion(currentQuestion) ? "h-full" : "p-5"}>
-                  {/* Conditional rendering: MCQ or Programming (LeetCode Style) */}
-                  {isProgrammingQuestion(currentQuestion) ? (
-                    /* Programming Question - LeetCode Style Split Panel */
-                    <div
-                      className="flex flex-col lg:flex-row h-[calc(100vh-200px)] min-h-[600px] overflow-hidden"
-                      onMouseMove={(e) => {
-                        if (isResizing) {
-                          e.preventDefault();
-                          const container = e.currentTarget;
-                          const containerRect = container.getBoundingClientRect();
-                          const containerWidth = containerRect.width;
-                          const mouseX = e.clientX - containerRect.left;
-                          const newWidthPercent = (mouseX / containerWidth) * 100;
-                          // Clamp between 25% and 50%
-                          const clampedWidth = Math.max(25, Math.min(50, newWidthPercent));
-                          setLeftPanelWidth(clampedWidth);
-                        }
-                      }}
-                      onMouseUp={() => setIsResizing(false)}
-                      onMouseLeave={() => setIsResizing(false)}
-                    >
-                      {/* Left Panel - Problem Description */}
-                      <div
-                        className="h-full border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-[#1a1a1a] overflow-hidden"
-                        style={{ width: `${leftPanelWidth}%`, flexShrink: 0 }}
-                      >
-                        {/* Tabs */}
-                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#262626]">
-                          <button className="px-3 py-1.5 text-sm font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded-md">
-                            Description
-                          </button>
-                          <button
-                            onClick={() => setShowQuestionInstructions(!showQuestionInstructions)}
-                            className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 flex items-center justify-center transition-colors"
-                            title="Show question instructions"
-                          >
-                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </button>
-                        </div>
-
-                        {/* Problem Content - Scrollable */}
-                        <div className="flex-1 overflow-y-auto p-5">
-                          {/* Difficulty Badge */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${currentQuestion.difficulty === 'easy'
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                              : currentQuestion.difficulty === 'medium'
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                              }`}>
-                              {currentQuestion.difficulty?.charAt(0).toUpperCase() + currentQuestion.difficulty?.slice(1)}
-                            </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              Topic: {currentQuestion.topic}
-                            </span>
-                          </div>
-
-                          {/* Problem Title & Description */}
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                            {currentQuestionIndex + 1}. {currentQuestion.question.split('\n')[0]}
-                          </h3>
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line text-sm leading-relaxed">
-                              {currentQuestion.question.split('\n').slice(1).join('\n')}
-                            </p>
-                          </div>
-
-                          {/* Examples */}
-                          <div className="mt-6 space-y-4">
-                            {currentQuestion.examples.map((ex, i) => (
-                              <div key={i} className="bg-gray-50 dark:bg-[#262626] rounded-lg p-4">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Example {i + 1}:</p>
-                                <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-md p-3 font-mono text-sm">
-                                  <div className="text-gray-600 dark:text-gray-400">
-                                    <span className="text-gray-500 dark:text-gray-500">Input: </span>
-                                    <span className="text-gray-900 dark:text-gray-200">{ex.input}</span>
-                                  </div>
-                                  <div className="text-gray-600 dark:text-gray-400 mt-1">
-                                    <span className="text-gray-500 dark:text-gray-500">Output: </span>
-                                    <span className="text-gray-900 dark:text-gray-200">{ex.output}</span>
-                                  </div>
-                                  {ex.explanation && (
-                                    <div className="text-gray-600 dark:text-gray-400 mt-1">
-                                      <span className="text-gray-500 dark:text-gray-500">Explanation: </span>
-                                      <span className="text-gray-700 dark:text-gray-300">{ex.explanation}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Constraints */}
-                          {currentQuestion.constraints && (
-                            <div className="mt-6">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Constraints:</p>
-                              <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                                {currentQuestion.constraints.split('\n').map((constraint, i) => (
-                                  <li key={i} className="font-mono text-xs">{constraint}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Question Instructions Panel */}
-                          {showQuestionInstructions && (
-                            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Question Instructions</h4>
-                                  <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1.5">
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Read the problem statement carefully and understand the requirements.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Check the examples to understand the expected input/output format.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Review the constraints to understand the problem limits.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>You can use hints, but they may reduce your score.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Test your solution with the provided test cases before submitting.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Topic: <span className="font-medium">{currentQuestion.topic}</span></span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                      <span className="text-blue-600 dark:text-blue-500 mt-0.5">•</span>
-                                      <span>Difficulty: <span className="font-medium capitalize">{currentQuestion.difficulty || 'N/A'}</span></span>
-                                    </li>
-                                  </ul>
-                                </div>
-                                <button
-                                  onClick={() => setShowQuestionInstructions(false)}
-                                  className="flex-shrink-0 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                                >
-                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Resizable Divider */}
-                      <div
-                        className={`w-1.5 ${isResizing ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'} hover:bg-orange-400 dark:hover:bg-orange-500 cursor-col-resize transition-colors flex-shrink-0 hidden lg:flex items-center justify-center group`}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setIsResizing(true);
-                        }}
-                        title="Drag to resize panels"
-                      >
-                        <div className="w-0.5 h-8 bg-gray-400 dark:bg-gray-500 group-hover:bg-orange-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-
-                      {/* Right Panel - Code Editor & Console */}
-                      <div className="flex-1 h-full flex flex-col bg-[#1e1e1e] overflow-hidden min-w-0 mr-4 rounded-lg">
-                        {/* Editor Header */}
-                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
-                          <div className="flex items-center gap-3">
-                            {isLanguageLocked ? (
-                              <div className="px-3 py-1.5 bg-[#3c3c3c] border border-gray-600 rounded-md text-sm font-medium text-gray-200">
-                                {supportedLanguages.find(l => l.id === selectedLanguage)?.name || selectedLanguage}
-                              </div>
-                            ) : (
-                              <select
-                                value={selectedLanguage}
-                                onChange={(e) => setSelectedLanguage(e.target.value)}
-                                className="px-3 py-1.5 bg-[#3c3c3c] border border-gray-600 rounded-md text-sm font-medium text-gray-200 focus:outline-none focus:ring-1 focus:ring-orange-500 cursor:pointer hover:bg-[#4a4a4a] transition"
-                              >
-                                {supportedLanguages.map(lang => (
-                                  <option key={lang.id} value={lang.id}>{lang.name}</option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                // Reset to starter code for the current language
-                                const starterCode = isLanguageLocked
-                                  ? (currentQuestion.starterCode[selectedLanguage] || '')
-                                  : (currentQuestion.starterCode[selectedLanguage] || currentQuestion.starterCode.python || '');
-                                setCodeAnswers(prev => ({ ...prev, [currentQuestionIndex]: starterCode }));
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
-                              title="Reset to Default Code"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </button>
-                            <button
-                              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition"
-                              title="Fullscreen"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Code Editor */}
-                        <div className="flex-1 min-h-0">
-                          <Editor
-                            height="100%"
-                            language={supportedLanguages.find(l => l.id === selectedLanguage)?.monacoId || 'python'}
-                            value={getCurrentCode(currentQuestionIndex, currentQuestion)}
-                            onChange={(value) => handleCodeChange(currentQuestionIndex, value || '')}
-                            theme="vs-dark"
-                            options={{
-                              minimap: { enabled: false },
-                              fontSize: 14,
-                              lineNumbers: 'on',
-                              scrollBeyondLastLine: false,
-                              automaticLayout: true,
-                              tabSize: 4,
-                              wordWrap: 'on',
-                              padding: { top: 16, bottom: 16 },
-                              renderLineHighlight: 'all',
-                              cursorBlinking: 'smooth',
-                              smoothScrolling: true,
-                            }}
-                          />
-                        </div>
-
-                        {/* Console Panel */}
-                        <div className="h-[220px] border-t border-gray-700 flex flex-col bg-[#1e1e1e]">
-                          {/* Console Tabs */}
-                          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-[#2d2d2d]">
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => setActiveConsoleTab('testcase')}
-                                className={`px-3 py-1 text-xs font-medium rounded transition ${activeConsoleTab === 'testcase' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
-                                  }`}
-                              >
-                                Testcase
-                              </button>
-                              <button
-                                onClick={() => setActiveConsoleTab('result')}
-                                className={`px-3 py-1 text-xs font-medium rounded transition ${activeConsoleTab === 'result' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
-                                  }`}
-                              >
-                                Result
-                              </button>
-                              <button
-                                onClick={() => setActiveConsoleTab('custom')}
-                                className={`px-3 py-1 text-xs font-medium rounded transition ${activeConsoleTab === 'custom' ? 'text-gray-200 bg-gray-700' : 'text-gray-400 hover:text-gray-200'
-                                  }`}
-                              >
-                                Custom Input
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {/* Hints Button */}
-                              <button
-                                onClick={() => {
-                                  setShowHints(!showHints);
-                                  if (!showHints) {
-                                    setHintsUsed(prev => ({
-                                      ...prev,
-                                      [currentQuestionIndex]: (prev[currentQuestionIndex] || 0) + 1
-                                    }));
-                                  }
-                                }}
-                                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition ${showHints
-                                  ? 'bg-purple-600 text-white'
-                                  : 'text-purple-400 hover:text-purple-300 hover:bg-purple-900/30'
-                                  }`}
-                                title="Get hints (may affect score)"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                                Hints
-                              </button>
-                              {codeTestResults[currentQuestionIndex] && (
-                                <span className={`text-xs font-medium ${codeTestResults[currentQuestionIndex].every(r => r.passed)
-                                  ? 'text-emerald-400'
-                                  : 'text-red-400'
-                                  }`}>
-                                  {codeTestResults[currentQuestionIndex].filter(r => r.passed).length}/{codeTestResults[currentQuestionIndex].length} passed
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Console Content */}
-                          <div className="flex-1 overflow-y-auto p-3">
-                            {/* Hints Panel */}
-                            {showHints && (
-                              <div className="mb-3 bg-purple-900/30 border border-purple-700 rounded-lg p-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                  </svg>
-                                  <span className="text-xs font-semibold text-purple-300">Hints</span>
-                                  <span className="text-xs text-purple-500">(Using hints may reduce your score)</span>
-                                </div>
-                                <ul className="space-y-1.5">
-                                  {getHintsForQuestion(currentQuestion.id).map((hint, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-xs text-purple-200">
-                                      <span className="text-purple-400 font-bold">{i + 1}.</span>
-                                      {hint}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Testcase Tab */}
-                            {activeConsoleTab === 'testcase' && (
-                              <div className="space-y-2">
-                                {currentQuestion.testCases.filter(tc => !tc.hidden).map((tc, i) => (
-                                  <div key={i} className="bg-gray-800 rounded p-2">
-                                    <p className="text-xs text-gray-400 mb-1">Case {i + 1}:</p>
-                                    <div className="font-mono text-xs">
-                                      <span className="text-gray-500">Input: </span>
-                                      <span className="text-gray-300">{tc.input}</span>
-                                    </div>
-                                    <div className="font-mono text-xs">
-                                      <span className="text-gray-500">Expected: </span>
-                                      <span className="text-emerald-400">{tc.expectedOutput}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Result Tab */}
-                            {activeConsoleTab === 'result' && (
-                              <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                                {codeOutput || (
-                                  <span className="text-gray-500">
-                                    Run your code to see results here.
-                                  </span>
-                                )}
-                              </pre>
-                            )}
-
-                            {/* Custom Input Tab */}
-                            {activeConsoleTab === 'custom' && (
-                              <div className="space-y-2">
-                                <div>
-                                  <label className="text-xs text-gray-400 block mb-1">Custom Input:</label>
-                                  <textarea
-                                    value={customTestInput}
-                                    onChange={(e) => setCustomTestInput(e.target.value)}
-                                    placeholder="Enter your custom test input here..."
-                                    className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-gray-200 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                  />
-                                </div>
-                                <button
-                                  onClick={() => runCustomTestCase(currentQuestionIndex, currentQuestion)}
-                                  disabled={isRunningCode}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded transition disabled:opacity-50"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                  </svg>
-                                  Run Custom Test
-                                </button>
-                                {customTestOutput && (
-                                  <div className="bg-gray-800 rounded p-2 mt-2">
-                                    <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                                      {customTestOutput}
-                                    </pre>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-[#2d2d2d]">
-                            <div className="flex items-center gap-3">
-                              {/* Proctoring Status - Only show in anti-cheat mode */}
-                              {antiCheatMode && (
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <div className={`w-2 h-2 rounded-full ${tabSwitchCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
-                                  <span className={tabSwitchCount > 0 ? 'text-amber-400' : 'text-gray-400'}>
-                                    {tabSwitchCount > 0 ? `${tabSwitchCount} warning${tabSwitchCount > 1 ? 's' : ''}` : 'Proctored'}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => runCode(currentQuestionIndex, currentQuestion)}
-                                disabled={isRunningCode}
-                                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#3c3c3c] hover:bg-[#4a4a4a] text-gray-200 text-sm font-medium rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
-                              >
-                                {isRunningCode ? (
-                                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                                Run
-                              </button>
-                              <button
-                                onClick={() => submitCode(currentQuestionIndex, currentQuestion)}
-                                disabled={isRunningCode}
-                                className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                                Submit
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* MCQ Question - Options */
-                    <div className="p-5">
+                {/* Question body - MCQ only */}
+                <div className="p-5">
                       <div className="flex items-start gap-3 mb-5">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white leading-relaxed whitespace-pre-line flex-1">
                           {currentQuestion.question}
@@ -3936,7 +3136,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </div>
                       )}
                       <div className="space-y-2.5">
-                        {(currentQuestion as Question).options.map((option, index) => {
+                        {currentQuestion.options.map((option, index) => {
                           const isSelected = answers[currentQuestionIndex] === index;
                           const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
 
@@ -3965,13 +3165,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           );
                         })}
                       </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
               {/* Answer confirmation */}
-              {!isProgrammingQuestion(currentQuestion) && answers[currentQuestionIndex] !== undefined && (
+              {answers[currentQuestionIndex] !== undefined && (
                 <div className="mt-4 px-4 py-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
                     <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4285,7 +3483,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   {testResult.questionResults.map((result, index) => {
                     const question = getQuestions()[index];
                     const isExpanded = expandedQuestion === index;
-                    const isProg = question && isProgrammingQuestion(question);
 
                     return (
                       <div key={index} className="group">
@@ -4307,11 +3504,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                               <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs font-medium">
                                 {result.topic}
                               </span>
-                              {isProg && (
-                                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded text-xs font-medium flex items-center gap-1">
-                                  <CodeIcon /> Code
-                                </span>
-                              )}
                             </div>
                             <p className="text-sm text-gray-900 dark:text-white truncate">
                               {question?.question || 'Question'}
@@ -4350,64 +3542,52 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                               <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{question.question}</p>
 
-                              {isProgrammingQuestion(question) ? (
-                                <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4">
-                                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    {result.isCorrect ? 'All answers correct' : 'Some answers were incorrect. Review your responses.'}
-                                  </p>
-                                </div>
-                              ) : (
-                                <>
-                                  {/* Answer Summary */}
-                                  {!result.isCorrect && (
-                                    <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2">
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <span className="font-semibold text-gray-700 dark:text-gray-300">Your Answer:</span>
-                                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded font-medium">
-                                          {result.userAnswer !== -1 ? String.fromCharCode(65 + result.userAnswer) : 'Not Answered'}
-                                          {result.userAnswer !== -1 && ` - ${(question as Question).options[result.userAnswer]}`}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <span className="font-semibold text-gray-700 dark:text-gray-300">Correct Answer:</span>
-                                        <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded font-medium">
-                                          {String.fromCharCode(65 + (question as Question).correctAnswer)} - {(question as Question).options[(question as Question).correctAnswer]}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Options Grid */}
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {(question as Question).options.map((opt, optIdx) => (
-                                      <div
-                                        key={optIdx}
-                                        className={`px-4 py-3 rounded-xl text-sm flex items-center gap-2 ${optIdx === (question as Question).correctAnswer
-                                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-700'
-                                          : optIdx === result.userAnswer && !result.isCorrect
-                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-2 border-red-300 dark:border-red-700'
-                                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-                                          }`}
-                                      >
-                                        <span className="w-6 h-6 rounded-full bg-current/10 flex items-center justify-center text-xs font-bold">
-                                          {String.fromCharCode(65 + optIdx)}
-                                        </span>
-                                        <span className="flex-1">{opt}</span>
-                                        {optIdx === (question as Question).correctAnswer && (
-                                          <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                          </svg>
-                                        )}
-                                        {optIdx === result.userAnswer && !result.isCorrect && (
-                                          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                          </svg>
-                                        )}
-                                      </div>
-                                    ))}
+                              {!result.isCorrect && (
+                                <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-semibold text-gray-700 dark:text-gray-300">Your Answer:</span>
+                                    <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded font-medium">
+                                      {result.userAnswer !== -1 ? String.fromCharCode(65 + result.userAnswer) : 'Not Answered'}
+                                      {result.userAnswer !== -1 && ` - ${question.options[result.userAnswer]}`}
+                                    </span>
                                   </div>
-                                </>
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-semibold text-gray-700 dark:text-gray-300">Correct Answer:</span>
+                                    <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded font-medium">
+                                      {String.fromCharCode(65 + question.correctAnswer)} - {question.options[question.correctAnswer]}
+                                    </span>
+                                  </div>
+                                </div>
                               )}
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {question.options.map((opt, optIdx) => (
+                                  <div
+                                    key={optIdx}
+                                    className={`px-4 py-3 rounded-xl text-sm flex items-center gap-2 ${optIdx === question.correctAnswer
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-700'
+                                      : optIdx === result.userAnswer && !result.isCorrect
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-2 border-red-300 dark:border-red-700'
+                                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                                      }`}
+                                  >
+                                    <span className="w-6 h-6 rounded-full bg-current/10 flex items-center justify-center text-xs font-bold">
+                                      {String.fromCharCode(65 + optIdx)}
+                                    </span>
+                                    <span className="flex-1">{opt}</span>
+                                    {optIdx === question.correctAnswer && (
+                                      <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                    {optIdx === result.userAnswer && !result.isCorrect && (
+                                      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
 
                               {question.explanation && (
                                 <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
