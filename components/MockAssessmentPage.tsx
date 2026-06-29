@@ -1373,19 +1373,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
     // Check for unanswered questions
     const unansweredQuestions: number[] = [];
-    questions.forEach((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        // For programming questions, check if code was written
-        const code = codeAnswers[index] || '';
-        const hasCode = code.trim().length > 0;
-        if (!hasCode) {
-          unansweredQuestions.push(index + 1);
-        }
-      } else {
-        // For MCQ questions, check if answer is selected
-        if (answers[index] === undefined) {
-          unansweredQuestions.push(index + 1);
-        }
+    questions.forEach((_q, index) => {
+      if (answers[index] === undefined) {
+        unansweredQuestions.push(index + 1);
       }
     });
 
@@ -1406,21 +1396,8 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
     const questions = getQuestions();
     const questionResults = questions.map((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        // For programming questions, check if they passed any test cases
-        const testResults = codeTestResults[index];
-        const passedAll = testResults?.every(r => r.passed) ?? false;
-        return {
-          questionId: q.id,
-          topic: q.topic,
-          isCorrect: passedAll,
-          userAnswer: answers[index] ?? -1,
-          correctAnswer: 0, // Not applicable for programming
-        };
-      }
-      // For MCQ questions
       const userAnswer = answers[index] ?? -1;
-      const correctAnswer = (q as Question).correctAnswer;
+      const correctAnswer = q.correctAnswer;
       // Ensure both are numbers for comparison to avoid type mismatches
       const isCorrect = Number(userAnswer) === Number(correctAnswer);
 
@@ -1501,9 +1478,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       const updatedBadges = prev.badges.map(badge => {
         if (!badge.earned) {
           if (badge.id === 'first_test' && prev.testsCompleted + 1 >= 1) {
-            return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
-          }
-          if (badge.id === 'master_coder' && solved === questions.length && isProgrammingQuestion(questions[0])) {
             return { ...badge, earned: true, earnedDate: new Date().toISOString().split('T')[0] };
           }
           if (badge.id === 'high_scorer' && score >= 90) {
@@ -2845,17 +2819,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const renderUnansweredConfirmModal = () => {
     const questions = getQuestions();
     const unansweredQuestions: number[] = [];
-    questions.forEach((q, index) => {
-      if (isProgrammingQuestion(q)) {
-        const code = codeAnswers[index] || '';
-        const hasCode = code.trim().length > 0;
-        if (!hasCode) {
-          unansweredQuestions.push(index + 1);
-        }
-      } else {
-        if (answers[index] === undefined) {
-          unansweredQuestions.push(index + 1);
-        }
+    questions.forEach((_q, index) => {
+      if (answers[index] === undefined) {
+        unansweredQuestions.push(index + 1);
       }
     });
 
