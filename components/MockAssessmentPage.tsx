@@ -720,6 +720,12 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         return Array.from(badgeMap.values());
       };
 
+      if (!output.ok) {
+        console.warn('get_user_progress failed:', output.status);
+        setUserProgress(prev => ({ ...prev, badges: MOCK_BADGES }));
+        return;
+      }
+
       if (output.ok) {
         const data = await output.json();
         if (data.success && data.data) {
