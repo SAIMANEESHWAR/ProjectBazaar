@@ -1576,10 +1576,13 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                           alert(`No logo found. Please enter manually.`);
                         }
                       }}
-                      className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition whitespace-nowrap"
+                      className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition whitespace-nowrap inline-flex items-center gap-1.5"
                       title="Auto-fetch logo from Simple Icons"
                     >
-                      🔍 Fetch
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      Fetch
                     </button>
                   )}
                 </div>
@@ -1856,7 +1859,9 @@ const AssessmentModal: React.FC<AssessmentModalProps> = ({
                               >
                                 <span className="font-medium">{String.fromCharCode(65 + optIndex)}.</span> {option}
                                 {optIndex === (q as MCQQuestion).correctAnswer && (
-                                  <span className="ml-1 text-green-600">✓</span>
+                                  <svg className="w-3.5 h-3.5 text-green-600 ml-1 inline" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
                                 )}
                               </div>
                             ))}
