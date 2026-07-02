@@ -8,17 +8,18 @@ import {
     Shield,
     TrendingUp,
     Users,
-    Wallet,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { CompanyCompare, RatingDimensionKey } from '../../../types/companyCompare';
 import { RATING_DIMENSIONS } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
 import { StarRating } from './RatingBars';
+import { SalaryIndustryChart } from './SalaryIndustryChart';
 
 export interface CompareMatrixProps {
     left: CompanyCompare;
     right: CompanyCompare;
+    allCompanies: CompanyCompare[];
 }
 
 const DIMENSION_ICONS: Record<RatingDimensionKey, React.ReactNode> = {
@@ -39,41 +40,6 @@ function formatReviewCount(count: number): string {
         return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
     }
     return String(count);
-}
-
-function normalizeRole(role: string): string {
-    return role.trim().toLowerCase();
-}
-
-function getSharedSalaries(left: CompanyCompare, right: CompanyCompare) {
-    const rightByRole = new Map(right.salaries.map(s => [normalizeRole(s.role), s]));
-    const shared = left.salaries
-        .map(leftRow => {
-            const rightRow = rightByRole.get(normalizeRole(leftRow.role));
-            return rightRow ? { role: leftRow.role, left: leftRow, right: rightRow } : null;
-        })
-        .filter(Boolean) as Array<{
-        role: string;
-        left: CompanyCompare['salaries'][number];
-        right: CompanyCompare['salaries'][number];
-    }>;
-
-    if (shared.length > 0) return shared[0];
-
-    const leftRow = left.salaries[0];
-    const rightRow = right.salaries[0];
-    if (leftRow && rightRow) {
-        return { role: leftRow.role, left: leftRow, right: rightRow };
-    }
-    return null;
-}
-
-function parseSalaryRange(range: string): { min: string; max: string } | null {
-    const parts = range.split(/\s*[-–]\s*/);
-    if (parts.length === 2) {
-        return { min: parts[0].trim(), max: parts[1].trim() };
-    }
-    return null;
 }
 
 function getBenefitComparison(left: CompanyCompare, right: CompanyCompare) {
@@ -99,9 +65,17 @@ function pickWinner(left: CompanyCompare, right: CompanyCompare): 'left' | 'righ
     return 'tie';
 }
 
-function SectionHeading({ title }: { title: string }) {
+function SectionHeading({ title, iconSrc }: { title: string; iconSrc?: string }) {
     return (
-        <div className="flex items-center justify-center gap-1.5 border-b border-[#EBF0F6] bg-[#FAFCFF] px-4 py-3">
+        <div className="flex items-center justify-center gap-2 border-b border-[#EBF0F6] bg-[#FAFCFF] px-4 py-3">
+            {iconSrc && (
+                <img
+                    src={iconSrc}
+                    alt=""
+                    className="h-8 w-8 object-contain mix-blend-screen"
+                    aria-hidden
+                />
+            )}
             <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500">{title}</h3>
             <Info size={13} className="text-gray-400" />
         </div>
@@ -233,9 +207,8 @@ function CompanyHeaderCard({
     );
 }
 
-export const CompareMatrix: React.FC<CompareMatrixProps> = ({ left, right }) => {
+export const CompareMatrix: React.FC<CompareMatrixProps> = ({ left, right, allCompanies }) => {
     const winner = pickWinner(left, right);
-    const salaryRow = getSharedSalaries(left, right);
     const benefits = getBenefitComparison(left, right);
     const leftReview = left.reviews[0];
     const rightReview = right.reviews[0];
@@ -244,24 +217,26 @@ export const CompareMatrix: React.FC<CompareMatrixProps> = ({ left, right }) => 
     return (
         <div className="overflow-hidden rounded-2xl border border-[#EBF0F6] bg-white shadow-sm">
             <div className="sticky top-0 z-10 border-b border-[#EBF0F6] bg-white shadow-sm">
-                <div className="flex justify-center px-4 py-5 sm:px-6 sm:py-6">
-                    <div className="flex max-w-full items-center gap-3 sm:gap-5 md:gap-6">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-6 py-6 sm:gap-10 sm:px-10 md:gap-14 md:px-12">
+                    <div className="flex justify-end pr-2 sm:pr-4">
                         <CompanyHeaderCard company={left} align="left" />
+                    </div>
 
-                        <div className="flex flex-shrink-0 flex-col items-center justify-center">
-                            {winner !== 'tie' ? (
-                                <img
-                                    src="/winner.png"
-                                    alt="Winner"
-                                    className="h-auto w-[120px] object-contain sm:w-[140px] md:w-[160px]"
-                                />
-                            ) : (
-                                <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-xs font-bold text-gray-500">
-                                    VS
-                                </span>
-                            )}
-                        </div>
+                    <div className="flex flex-shrink-0 flex-col items-center justify-center px-4 sm:px-6">
+                        {winner !== 'tie' ? (
+                            <img
+                                src="/winner.png"
+                                alt="Winner"
+                                className="h-auto w-[120px] object-contain sm:w-[140px] md:w-[160px]"
+                            />
+                        ) : (
+                            <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-xs font-bold text-gray-500">
+                                VS
+                            </span>
+                        )}
+                    </div>
 
+                    <div className="flex justify-start pl-2 sm:pl-4">
                         <CompanyHeaderCard company={right} align="right" />
                     </div>
                 </div>
@@ -308,46 +283,10 @@ export const CompareMatrix: React.FC<CompareMatrixProps> = ({ left, right }) => 
             </section>
 
             <section className="border-t border-[#EBF0F6]">
-                <SectionHeading title="Salaries" />
-                <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 px-4 py-6 sm:px-6">
-                    {salaryRow ? (
-                        <>
-                            <div className="rounded-xl border border-[#5670FB]/15 bg-[#F5F8FF] p-4">
-                                <p className="text-[11px] font-medium text-gray-500">Average role (per year)</p>
-                                <p className="mt-2 text-lg font-bold text-[#5670FB]">{salaryRow.left.average_annual_salary}</p>
-                                <p className="mt-1 text-xs text-gray-500">{salaryRow.left.salary_range}</p>
-                                {parseSalaryRange(salaryRow.left.salary_range) && (
-                                    <p className="mt-2 text-[11px] text-gray-400">
-                                        Min {parseSalaryRange(salaryRow.left.salary_range)!.min} · Max{' '}
-                                        {parseSalaryRange(salaryRow.left.salary_range)!.max}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="flex flex-col items-center gap-1.5 pt-2">
-                                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F4F7FB] text-gray-500">
-                                    <Wallet size={16} />
-                                </span>
-                                <span className="max-w-[88px] text-center text-[11px] font-medium leading-tight text-gray-500">
-                                    {salaryRow.role}
-                                </span>
-                            </div>
-
-                            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
-                                <p className="text-[11px] font-medium text-gray-500">Average role (per year)</p>
-                                <p className="mt-2 text-lg font-bold text-emerald-600">{salaryRow.right.average_annual_salary}</p>
-                                <p className="mt-1 text-xs text-gray-500">{salaryRow.right.salary_range}</p>
-                                {parseSalaryRange(salaryRow.right.salary_range) && (
-                                    <p className="mt-2 text-[11px] text-gray-400">
-                                        Min {parseSalaryRange(salaryRow.right.salary_range)!.min} · Max{' '}
-                                        {parseSalaryRange(salaryRow.right.salary_range)!.max}
-                                    </p>
-                                )}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="col-span-3 py-6 text-center text-sm text-gray-400">No salary data available</div>
-                    )}
+                <SectionHeading title="Salaries" iconSrc="/company_compare/salary_heading.png" />
+                <div className="grid grid-cols-1 gap-4 px-4 py-6 sm:grid-cols-2 sm:px-6">
+                    <SalaryIndustryChart company={left} allCompanies={allCompanies} />
+                    <SalaryIndustryChart company={right} allCompanies={allCompanies} />
                 </div>
             </section>
 

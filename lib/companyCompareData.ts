@@ -388,6 +388,74 @@ export function getTopSalaryRole(company: CompanyCompare): CompanyCompare['salar
     return null;
 }
 
+/** Parse salary strings like "₹5.7L", "7.3 L/yr", "₹18.4 L/yr" into lakhs. */
+export function parseSalaryToLakhs(value: string): number | null {
+    if (!value?.trim()) return null;
+    const normalized = value.replace(/,/g, '').trim();
+    const lakhMatch = normalized.match(/([\d.]+)\s*l(?:\s*\/\s*yr)?/i);
+    if (lakhMatch) return Number.parseFloat(lakhMatch[1]);
+    const croreMatch = normalized.match(/([\d.]+)\s*cr/i);
+    if (croreMatch) return Number.parseFloat(croreMatch[1]) * 100;
+    return null;
+}
+
+export function formatSalaryLakhs(value: number): string {
+    const rounded = Math.round(value * 10) / 10;
+    const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    return `₹${text} L/yr`;
+}
+
+export function getCompanyAverageSalaryLakhs(company: CompanyCompare): number | null {
+    const topSalary = getTopSalaryRole(company);
+    if (!topSalary) return null;
+
+    const fromAverage = parseSalaryToLakhs(topSalary.average_annual_salary);
+    if (fromAverage != null) return fromAverage;
+
+    const rangeParts = topSalary.salary_range.split(/\s*[-–]\s*/);
+    if (rangeParts.length === 2) {
+        const min = parseSalaryToLakhs(rangeParts[0]);
+        const max = parseSalaryToLakhs(rangeParts[1]);
+        if (min != null && max != null) return (min + max) / 2;
+    }
+
+    return parseSalaryToLakhs(topSalary.salary_range);
+}
+
+export function getIndustryAverageSalaryLakhs(
+    companies: CompanyCompare[],
+    industry: string,
+): number | null {
+    const trimmed = industry.trim();
+    if (!trimmed) return null;
+
+    const values = companies
+        .filter(c => c.identity.industry?.trim() === trimmed)
+        .map(getCompanyAverageSalaryLakhs)
+        .filter((value): value is number => value != null);
+
+    if (!values.length) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+export type SalaryIndustryComparison = 'higher' | 'lower' | 'at par';
+
+export function getSalaryIndustryComparison(
+    companyLakhs: number,
+    industryLakhs: number,
+): SalaryIndustryComparison {
+    if (industryLakhs <= 0) return 'at par';
+    const diffRatio = (companyLakhs - industryLakhs) / industryLakhs;
+    if (Math.abs(diffRatio) < 0.05) return 'at par';
+    return diffRatio > 0 ? 'higher' : 'lower';
+}
+
+export function getSalaryComparisonLabel(comparison: SalaryIndustryComparison): string {
+    if (comparison === 'higher') return 'above par';
+    if (comparison === 'lower') return 'below par';
+    return 'at par';
+}
+
 function companyMatchesLocation(company: CompanyCompare, location: string): boolean {
     const needle = location.trim().toLowerCase();
     if (!needle) return true;

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronDown, CirclePlus, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, CirclePlus, X } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { CompanyCompare } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
@@ -55,7 +55,7 @@ const CompanyPicker: React.FC<CompanyPickerProps> = ({
     }, []);
 
     return (
-        <div ref={containerRef} className="relative flex-1">
+        <div ref={containerRef} className="relative w-full md:w-[360px] lg:w-[400px]">
             <button
                 type="button"
                 disabled={disabled}
@@ -170,7 +170,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
     return (
         <div className="w-full pb-8">
             <div
-                className="relative mx-auto mb-8 flex min-h-[420px] w-full max-w-[1024px] flex-col items-center justify-center overflow-visible rounded-[20px] border border-[#EBF0F6] px-4 py-10 md:py-14"
+                className="relative -mx-6 mb-8 flex min-h-[420px] w-[calc(100%+3rem)] flex-col items-center justify-center overflow-visible px-4 py-10 md:py-14"
                 style={{
                     backgroundImage: "url('/badge_logo/company_compare_hero_bg.png')",
                     backgroundSize: 'cover',
@@ -178,9 +178,9 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                     backgroundRepeat: 'no-repeat',
                 }}
             >
-                <div className="relative z-10 w-full max-w-4xl">
-                    <div className="mb-8 text-center">
-                        <h2 className="mx-auto max-w-[640px] text-3xl font-bold leading-tight text-[#1E223C] md:text-5xl">
+                <div className="relative z-10 w-full max-w-5xl px-2 sm:px-6">
+                    <div className="mb-8 text-center md:mb-10">
+                        <h2 className="mx-auto max-w-[720px] text-3xl font-bold leading-tight text-[#1E223C] md:text-5xl">
                             Compare companies to find the best workplace
                         </h2>
                         <p className="mt-3 text-lg font-medium text-gray-600">
@@ -188,7 +188,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                         </p>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center gap-4 md:flex-row md:gap-6">
+                    <div className="mx-auto flex w-full max-w-[920px] flex-col items-center justify-center gap-4 md:flex-row md:gap-8">
                         <CompanyPicker
                             side="left"
                             companies={companies}
@@ -197,8 +197,8 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                             onSelect={company => setSlot(0, company)}
                             placeholder="Add first company"
                         />
-                        <span className="rounded-full border border-[#5670FB]/20 bg-white/80 px-4 py-2 text-lg font-bold text-[#5670FB] shadow-sm md:border-none md:bg-transparent md:shadow-none md:p-0">
-                            VS
+                        <span className="shrink-0 px-1 text-base font-bold lowercase text-[#5670FB] md:text-lg">
+                            vs
                         </span>
                         <CompanyPicker
                             side="right"
@@ -255,9 +255,14 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                         <button
                             type="button"
                             onClick={() => setShowAllPopular((prev) => !prev)}
-                            className="rounded-full border border-[#5670FB]/40 px-6 py-2.5 text-sm font-semibold text-[#5670FB] transition hover:bg-[#EEF4FF]"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-[#5670FB]/40 px-6 py-2.5 text-sm font-semibold text-[#5670FB] transition hover:bg-[#EEF4FF]"
                         >
                             {showAllPopular ? 'Show less' : 'Show more'}
+                            {showAllPopular ? (
+                                <ChevronUp size={16} className="shrink-0" />
+                            ) : (
+                                <ChevronDown size={16} className="shrink-0" />
+                            )}
                         </button>
                     </div>
                 )}
@@ -266,7 +271,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
 
             {bothSelected ? (
                 <div className="mx-auto w-full max-w-[1024px] px-2 sm:px-4">
-                    <CompareMatrix left={left} right={right} />
+                    <CompareMatrix left={left} right={right} allCompanies={companies} />
                 </div>
             ) : hasAnySelection ? (
                 <div className="mx-auto w-full max-w-[1024px] px-2 sm:px-4">
