@@ -55,7 +55,7 @@ const CompanyPicker: React.FC<CompanyPickerProps> = ({
     }, []);
 
     return (
-        <div ref={containerRef} className="relative w-full md:w-[360px] lg:w-[400px]">
+        <div ref={containerRef} className="relative w-full md:w-[288px] lg:w-[320px]">
             <button
                 type="button"
                 disabled={disabled}
@@ -188,7 +188,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                         </p>
                     </div>
 
-                    <div className="mx-auto flex w-full max-w-[920px] flex-col items-center justify-center gap-4 md:flex-row md:gap-8">
+                    <div className="mx-auto flex w-[80%] max-w-[736px] flex-col items-center justify-center gap-4 md:flex-row md:gap-8">
                         <CompanyPicker
                             side="left"
                             companies={companies}
