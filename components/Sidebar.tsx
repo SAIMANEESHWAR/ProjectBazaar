@@ -229,10 +229,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         ? marketplaceNavItems
                         : buyerNavItems
                     : sellerNavItems;
-    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
-    const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
-    const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(true);
-    const [companyNavExpanded, setCompanyNavExpanded] = useState(true);
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(false);
+    const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(false);
+    const [companyNavExpanded, setCompanyNavExpanded] = useState(false);
     const [liveInterviewNavHovered, setLiveInterviewNavHovered] = useState(false);
     const [companyNavHovered, setCompanyNavHovered] = useState(false);
     const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
@@ -506,7 +506,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     {dashboardMode === 'preparation' && isExpanded ? (
                         <div className="space-y-1">
                             {prepNavGroups.map((group) => {
-                                const isGroupExpanded = expandedGroups[group.label] ?? true;
+                                const isGroupExpanded = expandedGroups[group.label] ?? false;
                                 const isFundamentals = group.label === 'Fundamentals';
                                 const hasActiveItem =
                                     group.items.some(i => i.view === activeView) ||
