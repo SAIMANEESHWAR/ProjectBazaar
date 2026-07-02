@@ -5,22 +5,8 @@ import noPortfolioAnimation from '../lottiefiles/no_prortofolio_animation.json';
 import {
   getPortfolioHistory,
   deletePortfolio,
+  PORTFOLIO_TEMPLATE_INFO,
 } from '../services/portfolioBuilderService';
-
-// Template metadata for display
-const TEMPLATE_INFO = {
-  editorial: { name: 'Editorial', thumbnail: '🅴', color: '#0c0c0c' },
-  alexa: { name: 'Alexa', thumbnail: '💜', color: '#6c63ff' },
-  aurora: { name: 'Aurora', thumbnail: '🌌', color: '#8b5cf6' },
-  slate: { name: 'Slate', thumbnail: '📐', color: '#1e293b' },
-  momentum: { name: 'Momentum', thumbnail: '⚡', color: '#f97316' },
-  minimal: { name: 'Minimal', thumbnail: '📄', color: '#f97316' },
-  modern: { name: 'Modern Dark', thumbnail: '🌙', color: '#ea580c' },
-  professional: { name: 'Professional', thumbnail: '💼', color: '#fb923c' },
-  creative: { name: 'Creative', thumbnail: '🎨', color: '#f59e0b' },
-  developer: { name: 'Developer', thumbnail: '💻', color: '#d97706' },
-  elegant: { name: 'Elegant', thumbnail: '✨', color: '#fbbf24' },
-} as const;
 
 // Items to show initially before "View More"
 const INITIAL_DISPLAY_COUNT = 4;
@@ -426,7 +412,7 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
                   All ({history.length})
                 </button>
                 {availableTemplates.map(templateId => {
-                  const template = TEMPLATE_INFO[templateId] || TEMPLATE_INFO.modern;
+                  const template = PORTFOLIO_TEMPLATE_INFO[templateId] || PORTFOLIO_TEMPLATE_INFO.modern;
                   const count = history.filter(p => p.templateId === templateId).length;
                   return (
                     <button
@@ -450,7 +436,7 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
         
         <div className={`grid gap-4 ${compact ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
           {displayedPortfolios.map((portfolio) => {
-          const template = TEMPLATE_INFO[portfolio.templateId] || TEMPLATE_INFO.modern;
+          const template = PORTFOLIO_TEMPLATE_INFO[portfolio.templateId] || PORTFOLIO_TEMPLATE_INFO.modern;
           
           return (
             <div
