@@ -15,15 +15,24 @@ export const CompareSidebarWidget: React.FC<CompareSidebarWidgetProps> = ({
     className,
 }) => {
     const [left, right] = selection;
-    const demoLeft = left ?? { identity: { name: 'TCS' } } as CompanyCompare;
-    const demoRight = right ?? { identity: { name: 'Accenture' } } as CompanyCompare;
 
     return (
         <aside
             className={`rounded-xl border border-[#EBF0F6] bg-white p-5 shadow-sm ${className ?? ''}`}
         >
             <div className="flex items-center justify-center gap-2 mb-4">
-                <CompanyAvatar name={demoLeft.identity.name} logoUrl={left?.logoUrl} size="md" className="ring-2 ring-white" />
+                {left ? (
+                    <CompanyAvatar
+                        name={left.identity.name}
+                        logoUrl={left.logoUrl}
+                        size="md"
+                        className="ring-2 ring-white"
+                    />
+                ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-xs font-semibold text-gray-500">
+                        —
+                    </div>
+                )}
                 <div className="flex flex-col items-center px-1">
                     <div className="flex items-center gap-0.5 text-amber-400">
                         <Zap size={12} fill="currentColor" />
@@ -35,7 +44,18 @@ export const CompareSidebarWidget: React.FC<CompareSidebarWidgetProps> = ({
                         <Zap size={12} fill="currentColor" className="-ml-1" />
                     </div>
                 </div>
-                <CompanyAvatar name={demoRight.identity.name} logoUrl={right?.logoUrl} size="md" className="ring-2 ring-white" />
+                {right ? (
+                    <CompanyAvatar
+                        name={right.identity.name}
+                        logoUrl={right.logoUrl}
+                        size="md"
+                        className="ring-2 ring-white"
+                    />
+                ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-xs font-semibold text-gray-500">
+                        —
+                    </div>
+                )}
             </div>
 
             <p className="text-center text-sm text-gray-600 leading-relaxed mb-4">

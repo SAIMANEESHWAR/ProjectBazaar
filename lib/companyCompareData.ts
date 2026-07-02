@@ -11,7 +11,6 @@ import type {
     RatingDimensionKey,
 } from '../types/companyCompare';
 import { RATING_DIMENSIONS } from '../types/companyCompare';
-import companyCompareSeed from '../data/companyCompareSeed.json';
 
 type RawRecord = Record<string, unknown>;
 
@@ -263,29 +262,18 @@ function dedupeCompanies(companies: CompanyCompare[]): CompanyCompare[] {
     );
 }
 
-function loadSeedCompanies(): CompanyCompare[] {
-    const raw = (companyCompareSeed as { companies?: unknown[] }).companies ?? [];
-    return dedupeCompanies(raw.map(normalizeCompany));
-}
-
 export async function loadCompaniesFromApi(): Promise<CompanyCompare[]> {
     if (cachedCompanies) return cachedCompanies;
     if (loadPromise) return loadPromise;
 
     if (!isCompanyCompareApiEnabled()) {
-        return loadSeedCompanies();
+        return [];
     }
 
     loadPromise = (async () => {
-        try {
-            const res = await fetchCompaniesFromApi({ limit: 500 });
-            cachedCompanies = dedupeCompanies((res.companies ?? []).map(normalizeCompanyFromApi));
-            return cachedCompanies;
-        } catch (err) {
-            console.warn('Company compare API unavailable, using seed data:', err);
-            cachedCompanies = loadSeedCompanies();
-            return cachedCompanies;
-        }
+        const res = await fetchCompaniesFromApi({ limit: 500 });
+        cachedCompanies = dedupeCompanies((res.companies ?? []).map(normalizeCompanyFromApi));
+        return cachedCompanies;
     })();
 
     try {

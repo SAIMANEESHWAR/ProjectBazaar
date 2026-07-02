@@ -1,9 +1,8 @@
 import * as React from 'react';
 import { filterCompanies } from '../../../lib/companyCompareData';
-import type { CompanyCompare, ExploreFilters } from '../../../types/companyCompare';
+import { DEFAULT_EXPLORE_FILTERS, type CompanyCompare, type ExploreFilters } from '../../../types/companyCompare';
 import { CompareExploreHero } from './CompareExploreHero';
 import { CompareFilterBar } from './CompareFilterBar';
-import { CompareSidebarWidget } from './CompareSidebarWidget';
 import { CompanyDetailView } from './CompanyDetailView';
 import { CompanyExploreListCard } from './CompanyExploreListCard';
 
@@ -58,13 +57,22 @@ export const ExploreCompaniesSection: React.FC<ExploreCompaniesSectionProps> = (
             <CompareExploreHero filters={filters} onFiltersChange={onFiltersChange} />
 
             <div className="w-full max-w-[1024px] mx-auto px-2 sm:px-4">
-                {hasActiveFilters && (
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#EBF0F6] bg-[#FAFCFF] px-4 py-3">
-                        <p className="text-sm text-[#1E223C]">
-                            Showing <strong>{filtered.length}</strong> compan{filtered.length === 1 ? 'y' : 'ies'}
-                        </p>
-                    </div>
-                )}
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#EBF0F6] bg-[#FAFCFF] px-4 py-3">
+                    <p className="text-sm text-[#1E223C]">
+                        Showing <strong>{filtered.length}</strong> of <strong>{companies.length}</strong> compan
+                        {companies.length === 1 ? 'y' : 'ies'}
+                        {hasActiveFilters ? ' (filtered)' : ''}
+                    </p>
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            onClick={() => onFiltersChange(DEFAULT_EXPLORE_FILTERS)}
+                            className="text-xs font-semibold text-[#5670FB] hover:underline"
+                        >
+                            Clear filters
+                        </button>
+                    )}
+                </div>
 
                 <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-6 lg:items-start">
                     <div className="space-y-4 min-w-0">
@@ -85,14 +93,6 @@ export const ExploreCompaniesSection: React.FC<ExploreCompaniesSectionProps> = (
                             ))
                         )}
                     </div>
-
-                    <div className="hidden lg:block sticky top-4">
-                        <CompareSidebarWidget selection={compareSelection} onGoToCompare={onGoToCompare} />
-                    </div>
-                </div>
-
-                <div className="mt-6 lg:hidden">
-                    <CompareSidebarWidget selection={compareSelection} onGoToCompare={onGoToCompare} />
                 </div>
             </div>
         </div>

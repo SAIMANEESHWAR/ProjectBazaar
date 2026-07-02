@@ -10,9 +10,9 @@ export interface CompanyAvatarProps {
 }
 
 const SIZE_CLASSES = {
-    sm: 'h-9 w-9 text-xs',
-    md: 'h-11 w-11 text-sm',
-    lg: 'h-14 w-14 text-base',
+    sm: 'h-10 w-10 text-xs',
+    md: 'h-12 w-12 text-sm',
+    lg: 'h-16 w-16 text-base',
 };
 
 export const CompanyAvatar: React.FC<CompanyAvatarProps> = ({
@@ -29,7 +29,7 @@ export const CompanyAvatar: React.FC<CompanyAvatarProps> = ({
             <img
                 src={logoUrl}
                 alt={`${name} logo`}
-                className={cn('inline-flex shrink-0 rounded-xl object-cover shadow-sm bg-white', SIZE_CLASSES[size], className)}
+                className={cn('inline-flex shrink-0 rounded-xl object-contain p-1 shadow-sm bg-white', SIZE_CLASSES[size], className)}
                 onError={() => setImgError(true)}
             />
         );

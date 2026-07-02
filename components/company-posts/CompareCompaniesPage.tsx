@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
+import { useDashboard } from '../../context/DashboardContext';
 import { loadCompaniesFromApi } from '../../lib/companyCompareData';
 import type { CompanyCompare, ExploreFilters } from '../../types/companyCompare';
 import { DEFAULT_EXPLORE_FILTERS } from '../../types/companyCompare';
@@ -10,6 +11,7 @@ import { CompanyAvatar } from './compare/CompanyAvatar';
 type ActiveSection = 'explore' | 'compare';
 
 const CompareCompaniesPage: React.FC = () => {
+    const { companySectionTab } = useDashboard();
     const [activeSection, setActiveSection] = React.useState<ActiveSection>('explore');
     const [compareSelection, setCompareSelection] = React.useState<[CompanyCompare | null, CompanyCompare | null]>([
         null,
@@ -17,6 +19,13 @@ const CompareCompaniesPage: React.FC = () => {
     ]);
     const [exploreFilters, setExploreFilters] = React.useState<ExploreFilters>(DEFAULT_EXPLORE_FILTERS);
     const [detailCompanyId, setDetailCompanyId] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (companySectionTab !== 'compare-companies') return;
+        setExploreFilters(DEFAULT_EXPLORE_FILTERS);
+        setDetailCompanyId(null);
+        setActiveSection('explore');
+    }, [companySectionTab]);
     const [toast, setToast] = React.useState<string | null>(null);
     const [companies, setCompanies] = React.useState<CompanyCompare[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -68,8 +77,6 @@ const CompareCompaniesPage: React.FC = () => {
     return (
         <div className="w-full bg-white pb-4">
             <div className="w-full max-w-[1024px] mx-auto px-2 sm:px-4 pt-4 pb-2">
-                <h1 className="text-2xl font-bold text-[#1E223C] mb-4">Company Compare</h1>
-
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="inline-flex rounded-xl border border-[#EBF0F6] bg-[#FAFCFF] p-1">
                         {(['explore', 'compare'] as const).map(section => (

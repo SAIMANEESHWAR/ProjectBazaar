@@ -81,6 +81,16 @@ export const CompareFilterBar: React.FC<CompareFilterBarProps> = ({ filters, onF
         });
     };
 
+    const handleChipClick = (chip: (typeof FILTER_CHIPS)[number]) => {
+        if (isChipActive(chip)) {
+            onFiltersChange(DEFAULT_EXPLORE_FILTERS);
+            setSearchDraft('');
+            return;
+        }
+        onFiltersChange({ ...DEFAULT_EXPLORE_FILTERS, ...chip.apply(filters), search: '' });
+        setSearchDraft('');
+    };
+
     return (
         <div className="w-full max-w-[1024px] mx-auto px-2 sm:px-4 mb-4">
             <form onSubmit={handleSearchSubmit} className="relative mb-5 max-w-[720px] mx-auto">
@@ -116,7 +126,7 @@ export const CompareFilterBar: React.FC<CompareFilterBarProps> = ({ filters, onF
                         <button
                             key={chip.id}
                             type="button"
-                            onClick={() => onFiltersChange({ ...filters, ...chip.apply(filters) })}
+                            onClick={() => handleChipClick(chip)}
                             className={cn(
                                 'inline-flex flex-shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-[12px] font-medium transition',
                                 isChipActive(chip)
