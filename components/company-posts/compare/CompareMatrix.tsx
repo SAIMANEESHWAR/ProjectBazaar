@@ -227,7 +227,7 @@ export const CompareMatrix: React.FC<CompareMatrixProps> = ({ left, right, allCo
                             <img
                                 src="/winner.png"
                                 alt="Winner"
-                                className="h-auto w-[120px] object-contain sm:w-[140px] md:w-[160px]"
+                                className="h-auto w-[150px] object-contain sm:w-[180px] md:w-[210px] lg:w-[230px]"
                             />
                         ) : (
                             <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-xs font-bold text-gray-500">

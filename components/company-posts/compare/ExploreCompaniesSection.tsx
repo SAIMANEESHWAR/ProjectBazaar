@@ -46,6 +46,7 @@ export const ExploreCompaniesSection: React.FC<ExploreCompaniesSectionProps> = (
         return (
             <CompanyDetailView
                 company={detailCompany}
+                allCompanies={companies}
                 onBack={() => onDetailCompanyChange(null)}
                 onAddToCompare={() => onAddToCompare(detailCompany)}
             />

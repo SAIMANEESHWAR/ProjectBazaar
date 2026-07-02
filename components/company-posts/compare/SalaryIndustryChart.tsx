@@ -4,8 +4,6 @@ import {
     formatSalaryLakhs,
     getCompanyAverageSalaryLakhs,
     getIndustryAverageSalaryLakhs,
-    getSalaryComparisonLabel,
-    getSalaryIndustryComparison,
     getTopSalaryRole,
 } from '../../../lib/companyCompareData';
 import type { CompanyCompare } from '../../../types/companyCompare';
@@ -76,34 +74,21 @@ export const SalaryIndustryChart: React.FC<SalaryIndustryChartProps> = ({
     }
 
     const benchmarkLakhs = industryLakhs ?? companyLakhs;
-    const comparison = getSalaryIndustryComparison(companyLakhs, benchmarkLakhs);
-    const comparisonLabel = getSalaryComparisonLabel(comparison);
     const maxValue = Math.max(companyLakhs, benchmarkLakhs, 0.1);
 
     return (
         <div className={cn('rounded-xl border border-[#EBF0F6] bg-white p-5 sm:p-6', className)}>
-            <p className="text-base font-semibold leading-snug text-[#1E223C]">
-                Avg. salary is{' '}
-                <span
-                    className={cn(
-                        'font-bold',
-                        comparison === 'higher' && 'text-emerald-600',
-                        comparison === 'lower' && 'text-rose-500',
-                        comparison === 'at par' && 'text-gray-500',
-                    )}
-                >
-                    {comparisonLabel}
-                </span>
-            </p>
             {industry ? (
-                <p className="mt-1 text-sm text-gray-500">
-                    with the avg. salary in{' '}
-                    <span className="font-semibold text-[#1E223C] underline decoration-[#EBF0F6] underline-offset-2">
+                <p className="text-base font-semibold leading-snug text-[#1E223C]">
+                    Average salary compared with the avg. salary in{' '}
+                    <span className="underline decoration-[#EBF0F6] underline-offset-2">
                         {industry} Industry
                     </span>
                 </p>
             ) : (
-                <p className="mt-1 text-sm text-gray-500">compared with industry average</p>
+                <p className="text-base font-semibold leading-snug text-[#1E223C]">
+                    Average salary compared with industry average
+                </p>
             )}
 
             <div className="mt-6 flex items-end justify-center gap-8 sm:gap-10">

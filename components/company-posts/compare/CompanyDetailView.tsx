@@ -13,17 +13,20 @@ import { RATING_DIMENSIONS } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
 import { CompanyPostsPreviewSection } from './CompanyPostsPreviewSection';
 import { RatingBars, StarRating, ratingStarColor } from './RatingBars';
+import { SalaryIndustryChart } from './SalaryIndustryChart';
 
 type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'jobs' | 'benefits';
 
 export interface CompanyDetailViewProps {
     company: CompanyCompare;
+    allCompanies?: CompanyCompare[];
     onBack: () => void;
     onAddToCompare?: () => void;
 }
 
 export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
     company,
+    allCompanies = [],
     onBack,
     onAddToCompare,
 }) => {
@@ -289,27 +292,36 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                     )}
 
                     {activeTab === 'salaries' && (
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[320px] text-left text-sm">
-                                <thead>
-                                    <tr className="border-b border-[#EBF0F6] text-xs uppercase text-gray-500">
-                                        <th className="pb-2 pr-3 font-semibold">Role</th>
-                                        <th className="pb-2 pr-3 font-semibold">Avg</th>
-                                        <th className="pb-2 pr-3 font-semibold">Range</th>
-                                        <th className="pb-2 font-semibold">Exp</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {company.salaries.map(row => (
-                                        <tr key={row.role} className="border-b border-[#EBF0F6] last:border-0">
-                                            <td className="py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
-                                            <td className="py-2.5 pr-3 font-semibold text-[#5670FB]">{row.average_annual_salary}</td>
-                                            <td className="py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
-                                            <td className="py-2.5 text-xs text-gray-500">{row.experience_level}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="space-y-6">
+                            <SalaryIndustryChart
+                                company={company}
+                                allCompanies={allCompanies.length > 0 ? allCompanies : [company]}
+                            />
+
+                            {company.salaries.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-[#EBF0F6]">
+                                    <table className="w-full min-w-[320px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-[#EBF0F6] bg-[#FAFCFF] text-xs uppercase text-gray-500">
+                                                <th className="px-4 py-3 pr-3 font-semibold">Role</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Avg</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Range</th>
+                                                <th className="px-4 py-3 font-semibold">Exp</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {company.salaries.map(row => (
+                                                <tr key={row.role} className="border-b border-[#EBF0F6] last:border-0">
+                                                    <td className="px-4 py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
+                                                    <td className="px-4 py-2.5 pr-3 font-semibold text-[#5670FB]">{row.average_annual_salary}</td>
+                                                    <td className="px-4 py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
+                                                    <td className="px-4 py-2.5 text-xs text-gray-500">{row.experience_level}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
 
