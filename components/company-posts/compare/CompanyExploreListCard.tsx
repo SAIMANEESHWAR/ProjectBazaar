@@ -33,9 +33,9 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
     const location = getPrimaryLocation(company);
 
     const metricItems = [
-        { label: 'Reviews', count: metrics.reviews },
         { label: 'Salaries', count: metrics.salaries },
-        { label: 'Interviews', count: metrics.interviews },
+        { label: 'Interview', count: metrics.interviews },
+        { label: 'Reviews', count: metrics.reviews },
         { label: 'Benefits', count: metrics.benefits },
     ];
 

@@ -40,11 +40,11 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
 
     const tabs: Array<{ id: DetailTab; label: string; count?: number }> = [
         { id: 'about', label: 'About' },
-        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
+        { id: 'ratings', label: 'Rating' },
         { id: 'salaries', label: 'Salaries', count: metrics.salaries },
-        { id: 'interviews', label: 'Interviews', count: metrics.interviews },
+        { id: 'interviews', label: 'Interview', count: metrics.interviews },
+        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
         { id: 'benefits', label: 'Benefits', count: metrics.benefits },
-        { id: 'ratings', label: 'Ratings' },
     ];
 
     React.useEffect(() => {
