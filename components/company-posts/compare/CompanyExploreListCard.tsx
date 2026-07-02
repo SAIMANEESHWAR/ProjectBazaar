@@ -28,7 +28,7 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
 }) => {
     const metrics = getCompanyMetricCounts(company);
     const topRated = getTopRatedDimensions(company, 2);
-    const lowRated = getLowRatedDimensions(company, 2);
+    const lowRated = getLowRatedDimensions(company, 3);
     const topSalary = getTopSalaryRole(company);
     const location = getPrimaryLocation(company);
 
@@ -36,7 +36,6 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
         { label: 'Reviews', count: metrics.reviews },
         { label: 'Salaries', count: metrics.salaries },
         { label: 'Interviews', count: metrics.interviews },
-        { label: 'Jobs', count: metrics.jobs },
         { label: 'Benefits', count: metrics.benefits },
     ];
 
@@ -83,21 +82,25 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
                     </button>
                 </div>
 
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    <div className="flex items-start gap-2 rounded-lg bg-emerald-50/80 px-3 py-2">
-                        <ThumbsUp size={14} className="mt-0.5 shrink-0 text-emerald-600" />
+                <div className="mt-4 grid gap-6 sm:grid-cols-2">
+                    <div className="flex items-start gap-2.5">
+                        <ThumbsUp size={16} className="mt-0.5 shrink-0 text-emerald-600" />
                         <div className="min-w-0">
-                            <p className="text-[11px] font-semibold text-emerald-800">Highly rated for</p>
-                            <p className="text-xs text-emerald-900 truncate">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                                Highly rated for
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-[#1E223C]">
                                 {topRated.map(r => r.label).join(', ')}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-start gap-2 rounded-lg bg-rose-50/80 px-3 py-2">
-                        <ThumbsDown size={14} className="mt-0.5 shrink-0 text-rose-600" />
+                    <div className="flex items-start gap-2.5">
+                        <ThumbsDown size={16} className="mt-0.5 shrink-0 text-rose-500" />
                         <div className="min-w-0">
-                            <p className="text-[11px] font-semibold text-rose-800">Critically rated for</p>
-                            <p className="text-xs text-rose-900 truncate">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-rose-500">
+                                Critically rated for
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-[#1E223C]">
                                 {lowRated.map(r => r.label).join(', ')}
                             </p>
                         </div>
@@ -120,7 +123,7 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
                 )}
             </div>
 
-            <div className="grid grid-cols-5 border-t border-[#EBF0F6] bg-[#FAFCFF]">
+            <div className="grid grid-cols-4 border-t border-[#EBF0F6] bg-[#FAFCFF]">
                 {metricItems.map(item => (
                     <button
                         key={item.label}

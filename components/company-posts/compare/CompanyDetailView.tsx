@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowLeft, BadgeCheck, Briefcase, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
     formatWebsiteUrl,
@@ -15,7 +15,7 @@ import { CompanyPostsPreviewSection } from './CompanyPostsPreviewSection';
 import { RatingBars, StarRating, ratingStarColor } from './RatingBars';
 import { SalaryIndustryChart } from './SalaryIndustryChart';
 
-type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'jobs' | 'benefits';
+type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'benefits';
 
 export interface CompanyDetailViewProps {
     company: CompanyCompare;
@@ -43,7 +43,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
         { id: 'reviews', label: 'Reviews', count: metrics.reviews },
         { id: 'salaries', label: 'Salaries', count: metrics.salaries },
         { id: 'interviews', label: 'Interviews', count: metrics.interviews },
-        { id: 'jobs', label: 'Jobs', count: metrics.jobs },
         { id: 'benefits', label: 'Benefits', count: metrics.benefits },
         { id: 'ratings', label: 'Ratings' },
     ];
@@ -196,12 +195,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                         Quick snapshot
                                     </p>
                                     <ul className="space-y-3 text-sm text-gray-600">
-                                        <li className="flex items-center gap-2">
-                                            <Briefcase size={14} className="text-[#5670FB]" />
-                                            <span>
-                                                <strong>{metrics.jobs}</strong> open jobs
-                                            </span>
-                                        </li>
                                         {topBenefit && (
                                             <li>
                                                 Top benefit: <strong>{topBenefit}</strong>
@@ -341,19 +334,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                         </div>
                     )}
 
-                    {activeTab === 'jobs' && (
-                        <div className="space-y-3">
-                            {company.active_jobs.map(job => (
-                                <article key={`${job.job_title}-${job.location}`} className="rounded-xl border border-[#EBF0F6] p-4">
-                                    <h4 className="font-semibold text-[#1E223C]">{job.job_title}</h4>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        {job.location} · Posted {job.posted_date}
-                                    </p>
-                                </article>
-                            ))}
-                        </div>
-                    )}
-
                     {activeTab === 'benefits' && (
                         <div className="flex flex-wrap gap-2">
                             {company.benefits.map(b => (
@@ -366,24 +346,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                             ))}
                         </div>
                     )}
-                </div>
-
-                <div className="border-t border-[#EBF0F6] px-4 sm:px-6 py-3 bg-[#FAFCFF]">
-                    <p className="text-[11px] text-gray-400">
-                        Data sourced from{' '}
-                        {company.overviewUrl ? (
-                            <a
-                                href={company.overviewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-[#5670FB] hover:underline"
-                            >
-                                AmbitionBox
-                            </a>
-                        ) : (
-                            'AmbitionBox'
-                        )}
-                    </p>
                 </div>
             </div>
 
