@@ -158,6 +158,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     || activeView === 'live-peer-requests';
   const hideInterviewPageTitle =
     activeView === 'live-mock-interview' || activeView === 'live-mock-interview-peer';
+  const hidePageTitle = activeView === 'company-posts';
   const isBuyerDashboard =
     activeView === 'project-bazaar' && dashboardMode === 'buyer';
   const isMarketplaceScopeView = [
@@ -306,7 +307,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <div className={hideInterviewPageTitle ? 'mb-0' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
+    <div className={hideInterviewPageTitle || hidePageTitle ? 'mb-0' : isLiveInterviewView ? 'mb-3' : 'mb-8'}>
       <div
         className={`flex items-center gap-2 sm:gap-3 ${
           hideInterviewPageTitle ? 'min-h-[44px] flex-wrap justify-between' : 'justify-between'
@@ -326,7 +327,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {hideInterviewPageTitle && activeView === 'live-mock-interview' ? (
             <FeatureUsageBanner featureId="live-ai" compact inline />
           ) : null}
-          {dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && (
+          {dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && !hidePageTitle && (
             <h1
               className={`text-3xl ${activeView === 'dashboard' ? 'font-semibold' : 'font-bold'} text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
             >
