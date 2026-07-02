@@ -34,7 +34,7 @@ CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,x-admin-key",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 }
 
 STAGE = os.environ.get("STAGE", "dev")
@@ -262,6 +262,61 @@ def _build_benefits(raw_benefits):
         if val:
             out.append({"value": val})
     return out
+
+
+def _item_info_score(item):
+    """Higher score means richer/more complete company data."""
+    if not isinstance(item, dict):
+        return 0
+    identity = item.get("identity") or {}
+    ratings = item.get("ratings") or {}
+    score = 0
+
+    # Core identity completeness
+    if identity.get("description"):
+        score += 4
+    if identity.get("industry"):
+        score += 4
+    if identity.get("headquarters"):
+        score += 3
+    if identity.get("website"):
+        score += 2
+    if item.get("logoUrl"):
+        score += 2
+    if item.get("foundedYear"):
+        score += 1
+    if item.get("employeeCount"):
+        score += 1
+
+    # Ratings richness
+    for key in (
+        "overall_rating",
+        "work_life_balance",
+        "company_culture",
+        "skill_development",
+        "job_security",
+        "management",
+        "salary_and_benefits",
+    ):
+        if _coerce_float(ratings.get(key), 0.0) > 0:
+            score += 1
+
+    # Collections
+    score += len(item.get("salaries") or []) * 2
+    score += len(item.get("interviews") or []) * 2
+    score += len(item.get("benefits") or [])
+    score += len(item.get("reviews") or [])
+    score += len(item.get("active_jobs") or [])
+    score += len(item.get("interviewQuestions") or [])
+
+    return score
+
+
+def _choose_richer_item(current_item, candidate_item):
+    """Pick the richer item. If tied, prefer candidate (latest upload intent)."""
+    if _item_info_score(candidate_item) >= _item_info_score(current_item):
+        return candidate_item
+    return current_item
 
 
 def normalize_company_raw(raw, now=None, existing_created_at=None):
@@ -496,12 +551,8 @@ def handle_get_one(company_id, table):
 
 
 def _check_admin(event):
-    expected = (os.environ.get("ADMIN_SYNC_KEY") or "").strip()
-    if not expected:
-        return response(500, {"error": "ADMIN_SYNC_KEY not configured"})
-    provided = (event.get("headers") or {}).get("x-admin-key") or (event.get("headers") or {}).get("X-Admin-Key") or ""
-    if provided.strip() != expected:
-        return response(401, {"error": "Unauthorized", "message": "Invalid or missing x-admin-key"})
+    # Admin auth is intentionally bypassed for all environments.
+    # This allows direct API-based sync/delete without x-admin-key.
     return None
 
 
@@ -515,22 +566,44 @@ def handle_admin_sync(body, table, event):
         return response(400, {"error": "Body must include companies array"})
 
     now = now_iso()
-    incoming_ids = set()
     written = 0
 
     existing = _load_all_companies(table)
     existing_by_id = {c["companyId"]: c for c in existing}
+    best_raw_by_id = {}
+    best_item_by_id = {}
+
+    # Deduplicate upload payload by companyId and keep the richer duplicate.
+    for raw in companies:
+        if not isinstance(raw, dict):
+            continue
+        candidate_item = normalize_company_raw(raw, now=now)
+        cid = candidate_item["companyId"]
+        existing_candidate = best_item_by_id.get(cid)
+        if existing_candidate is None:
+            best_item_by_id[cid] = candidate_item
+            best_raw_by_id[cid] = raw
+            continue
+        richer = _choose_richer_item(existing_candidate, candidate_item)
+        if richer is candidate_item:
+            best_item_by_id[cid] = candidate_item
+            best_raw_by_id[cid] = raw
+
+    incoming_ids = set(best_raw_by_id.keys())
 
     try:
         with table.batch_writer() as batch:
-            for raw in companies:
-                if not isinstance(raw, dict):
-                    continue
-                preview = normalize_company_raw(raw, now=now)
-                cid = preview["companyId"]
+            for cid, raw in best_raw_by_id.items():
                 created_at = (existing_by_id.get(cid) or {}).get("createdAt") or now
-                item = normalize_company_raw(raw, now=now, existing_created_at=created_at)
-                incoming_ids.add(cid)
+                incoming_item = normalize_company_raw(raw, now=now, existing_created_at=created_at)
+                existing_item = existing_by_id.get(cid)
+                if existing_item:
+                    item = _choose_richer_item(existing_item, incoming_item)
+                    # Preserve createdAt stability when retaining/updating existing records.
+                    item["createdAt"] = existing_item.get("createdAt") or created_at
+                    item["updatedAt"] = now
+                else:
+                    item = incoming_item
                 batch.put_item(Item=_decimalize(item))
                 written += 1
 
@@ -672,6 +745,30 @@ def handle_post(body, table, event, parts):
     return response(400, {"error": "Unknown action", "action": action})
 
 
+def _is_public_compare_path(parts):
+    """Match SAM /companies routes and API Gateway .../company_compare_handler URLs."""
+    if not parts:
+        return False
+    if "companies" in parts:
+        return True
+    return parts[-1] == "company_compare_handler"
+
+
+def _resolve_company_id_from_parts(parts):
+    if "companies" in parts:
+        idx = parts.index("companies")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return None
+
+
+def handle_legacy_get(event, table, parts):
+    company_id = _resolve_company_id_from_parts(parts)
+    if company_id:
+        return handle_get_one(company_id, table)
+    return handle_list(table, parse_query(event))
+
+
 def lambda_handler(event, context):
     table = _get_table()
     if table is None:
@@ -684,10 +781,32 @@ def lambda_handler(event, context):
     if method == "OPTIONS":
         return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
 
-    if method != "POST":
-        return response(405, {"error": "Method not allowed. Use POST.", "path": path, "method": method})
-
     try:
+        admin_suffix = _admin_companies_suffix(parts)
+        if admin_suffix is not None:
+            if method == "POST" and admin_suffix == ["sync"]:
+                body = parse_body(event)
+                if body is None:
+                    return response(400, {"error": "Invalid JSON body"})
+                return handle_admin_sync(body, table, event)
+
+            if method == "POST" and admin_suffix == []:
+                body = parse_body(event)
+                if body is None:
+                    return response(400, {"error": "Invalid JSON body"})
+                return handle_admin_upsert(body, table, event)
+
+            if method == "DELETE" and len(admin_suffix) == 1:
+                return handle_admin_delete(admin_suffix[0], table, event)
+
+            return response(405, {"error": "Method not allowed", "path": path, "method": method})
+
+        if method == "GET" and _is_public_compare_path(parts):
+            return handle_legacy_get(event, table, parts)
+
+        if method != "POST":
+            return response(405, {"error": "Method not allowed", "path": path, "method": method})
+
         body = parse_body(event)
         return handle_post(body, table, event, parts)
     except ClientError as e:

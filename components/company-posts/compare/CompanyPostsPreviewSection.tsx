@@ -1,7 +1,9 @@
 import * as React from 'react';
+import Lottie from 'lottie-react';
 import { ArrowRight, MessageSquare, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../../../App';
 import { useDashboard } from '../../../context/DashboardContext';
+import noPostsLottie from '../../../lottiefiles/User like share group.json';
 import {
     COMPANY_POSTS_CATEGORY_BADGE,
     COMPANY_POSTS_CATEGORY_LABELS,
@@ -88,16 +90,21 @@ export const CompanyPostsPreviewSection: React.FC<CompanyPostsPreviewSectionProp
                 )}
 
                 {!loading && !error && posts.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-[#EBF0F6] bg-[#FAFCFF] px-4 py-8 text-center">
-                        <MessageSquare size={28} className="mx-auto text-gray-300" />
-                        <p className="mt-3 text-sm font-medium text-[#1E223C]">No posts yet for this company</p>
+                    <div className="flex flex-col items-center rounded-xl border border-dashed border-[#EBF0F6] bg-white px-4 py-10 text-center">
+                        <Lottie
+                            animationData={noPostsLottie}
+                            loop
+                            autoplay
+                            className="mx-auto h-[210px] w-full max-w-[302px]"
+                        />
+                        <p className="mt-4 text-sm font-medium text-[#1E223C]">No posts yet for this company</p>
                         <p className="mt-1 text-xs text-gray-500">
                             Be the first to share an interview experience, salary, or feedback on Company Posts.
                         </p>
                         <button
                             type="button"
                             onClick={() => openCompanyPostsForCompany(companyName)}
-                            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#5670FB] hover:underline"
+                            className="mt-4 inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-orange-500 hover:text-orange-600 hover:underline"
                         >
                             Go to Company Posts
                             <ArrowRight size={14} />

@@ -1,9 +1,9 @@
 import * as React from 'react';
 import {
     adminDeleteCompany,
+    adminUpsertCompany,
     adminSyncCompanies,
     fetchCompaniesFromApi,
-    getCompanyCompareAdminKey,
     getCompanyCompareApiBase,
     isCompanyCompareApiEnabled,
 } from '../../services/companyCompareAdminApi';
@@ -16,6 +16,20 @@ interface UploadPreview {
     sampleNames: string[];
 }
 
+interface MappedCompanyPreview {
+    companyId: string;
+    name: string;
+    industry: string;
+    headquarters: string;
+    overallRating: number;
+    salaryCount: number;
+    interviewCount: number;
+    benefitCount: number;
+    activeJobsCount: number;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 const CompanyCompareManagementPage: React.FC = () => {
     const [companies, setCompanies] = React.useState<CompanyCompare[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -24,10 +38,15 @@ const CompanyCompareManagementPage: React.FC = () => {
     const [toast, setToast] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [uploadPreview, setUploadPreview] = React.useState<UploadPreview | null>(null);
     const [pendingUpload, setPendingUpload] = React.useState<unknown[] | null>(null);
+    const [mappedPreview, setMappedPreview] = React.useState<MappedCompanyPreview[]>([]);
+    const [isDragOver, setIsDragOver] = React.useState(false);
+    const [viewCompany, setViewCompany] = React.useState<CompanyCompare | null>(null);
+    const [editCompany, setEditCompany] = React.useState<CompanyCompare | null>(null);
+    const [editJson, setEditJson] = React.useState('');
+    const [savingEdit, setSavingEdit] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const apiConfigured = isCompanyCompareApiEnabled();
-    const adminKeyConfigured = Boolean(getCompanyCompareAdminKey());
 
     const loadData = React.useCallback(async () => {
         if (!apiConfigured) {
@@ -78,24 +97,36 @@ const CompanyCompareManagementPage: React.FC = () => {
                 industries[ind] = (industries[ind] || 0) + 1;
             }
             setPendingUpload(parsed.companies);
+            setMappedPreview(
+                normalized.map((c) => ({
+                    companyId: c.id,
+                    name: c.identity.name,
+                    industry: c.identity.industry || 'Unknown',
+                    headquarters: c.identity.headquarters || '—',
+                    overallRating: c.ratings.overall_rating,
+                    salaryCount: c.salaries.length || (c.salaryRange ? 1 : 0),
+                    interviewCount: c.interviews.length,
+                    benefitCount: c.benefits.length,
+                    activeJobsCount: c.active_jobs.length,
+                    createdAt: c.createdAt,
+                    updatedAt: c.updatedAt,
+                })),
+            );
             setUploadPreview({
                 count: parsed.companies.length,
                 industries,
-                sampleNames: normalized.slice(0, 5).map(c => c.identity.name),
+                sampleNames: normalized.map(c => c.identity.name),
             });
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Invalid JSON file');
             setPendingUpload(null);
             setUploadPreview(null);
+            setMappedPreview([]);
         }
     };
 
     const handleSync = async () => {
         if (!pendingUpload?.length) return;
-        if (!adminKeyConfigured) {
-            setToast({ type: 'error', message: 'Set VITE_COMPANY_COMPARE_ADMIN_KEY in .env.local' });
-            return;
-        }
         setSyncing(true);
         setError(null);
         try {
@@ -107,6 +138,7 @@ const CompanyCompareManagementPage: React.FC = () => {
             });
             setPendingUpload(null);
             setUploadPreview(null);
+            setMappedPreview([]);
             await loadData();
         } catch (e) {
             setToast({ type: 'error', message: e instanceof Error ? e.message : 'Sync failed' });
@@ -124,6 +156,39 @@ const CompanyCompareManagementPage: React.FC = () => {
             await loadData();
         } catch (e) {
             setToast({ type: 'error', message: e instanceof Error ? e.message : 'Delete failed' });
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) void handleFile(file);
+    };
+
+    const openEdit = (company: CompanyCompare) => {
+        setEditCompany(company);
+        setEditJson(JSON.stringify(company, null, 2));
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editCompany) return;
+        setSavingEdit(true);
+        try {
+            const parsed = JSON.parse(editJson) as unknown;
+            if (!parsed || typeof parsed !== 'object') {
+                throw new Error('Invalid JSON object');
+            }
+            await adminUpsertCompany(parsed);
+            invalidateCompanyCompareCache();
+            setToast({ type: 'success', message: `Updated ${editCompany.identity.name}` });
+            setEditCompany(null);
+            setEditJson('');
+            await loadData();
+        } catch (e) {
+            setToast({ type: 'error', message: e instanceof Error ? e.message : 'Update failed' });
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -153,8 +218,7 @@ const CompanyCompareManagementPage: React.FC = () => {
             {!apiConfigured && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                     Deploy the SAM stack in <code className="font-mono">lambda/company-compare</code>, then set{' '}
-                    <code className="font-mono">VITE_COMPANY_COMPARE_API_URL</code> and{' '}
-                    <code className="font-mono">VITE_COMPANY_COMPARE_ADMIN_KEY</code> in <code className="font-mono">.env.local</code>.
+                    <code className="font-mono">VITE_COMPANY_COMPARE_API_URL</code> in <code className="font-mono">.env.local</code>.
                 </div>
             )}
 
@@ -167,7 +231,28 @@ const CompanyCompareManagementPage: React.FC = () => {
                 <p className="mt-1 text-sm text-gray-500">
                     Expected format: <code className="font-mono">{`{ "companies": [ ... ] }`}</code> (new or legacy schema)
                 </p>
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div
+                    className={`mt-4 rounded-xl border-2 border-dashed p-4 transition-colors ${
+                        isDragOver ? 'border-[#5670FB] bg-[#EEF4FF]' : 'border-[#D6DFEA] bg-[#FAFCFF]'
+                    }`}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                    }}
+                    onDragEnter={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                    }}
+                    onDrop={handleDrop}
+                >
+                    <p className="mb-3 text-sm text-gray-600">
+                        Drag and drop your JSON file here, or choose a file manually.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -192,12 +277,14 @@ const CompanyCompareManagementPage: React.FC = () => {
                             onClick={() => {
                                 setPendingUpload(null);
                                 setUploadPreview(null);
+                                setMappedPreview([]);
                             }}
                             className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                         >
                             Clear selection
                         </button>
                     )}
+                    </div>
                 </div>
 
                 {uploadPreview && (
@@ -206,24 +293,52 @@ const CompanyCompareManagementPage: React.FC = () => {
                             Preview: {uploadPreview.count} companies ready to sync
                         </p>
                         <p className="mt-2 text-xs text-gray-600">
-                            Sample: {uploadPreview.sampleNames.join(', ')}
-                            {uploadPreview.count > 5 ? '…' : ''}
+                            Companies: {uploadPreview.sampleNames.join(', ')}
                         </p>
                         <p className="mt-2 text-xs text-gray-500">
                             Industries:{' '}
                             {Object.entries(uploadPreview.industries)
-                                .slice(0, 6)
                                 .map(([k, v]) => `${k} (${v})`)
                                 .join(', ')}
                         </p>
                         <button
                             type="button"
-                            disabled={syncing || !adminKeyConfigured}
+                            disabled={syncing}
                             onClick={() => void handleSync()}
                             className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                         >
-                            {syncing ? 'Syncing…' : 'Sync to database'}
+                            {syncing ? 'Syncing…' : 'Sync to DB'}
                         </button>
+                    </div>
+                )}
+
+                {mappedPreview.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-[#EBF0F6] bg-white p-4">
+                        <p className="text-sm font-semibold text-[#1E223C]">
+                            Stored mapping preview ({mappedPreview.length} companies)
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                            This is how uploaded items are normalized before storing in DynamoDB.
+                        </p>
+                        <div className="mt-3 max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                            {mappedPreview.map((item) => (
+                                <div key={item.companyId} className="rounded-md border border-gray-100 bg-[#FAFCFF] p-3">
+                                    <p className="text-sm font-semibold text-gray-900">{item.name}</p>
+                                    <div className="mt-2 grid gap-1 text-xs text-gray-600 sm:grid-cols-2">
+                                        <p><span className="font-medium text-gray-700">companyId:</span> {item.companyId}</p>
+                                        <p><span className="font-medium text-gray-700">industry:</span> {item.industry}</p>
+                                        <p><span className="font-medium text-gray-700">headquarters:</span> {item.headquarters}</p>
+                                        <p><span className="font-medium text-gray-700">overallRating:</span> {item.overallRating.toFixed(1)}</p>
+                                        <p><span className="font-medium text-gray-700">salaries:</span> {item.salaryCount}</p>
+                                        <p><span className="font-medium text-gray-700">interviews:</span> {item.interviewCount}</p>
+                                        <p><span className="font-medium text-gray-700">benefits:</span> {item.benefitCount}</p>
+                                        <p><span className="font-medium text-gray-700">activeJobs:</span> {item.activeJobsCount}</p>
+                                        <p><span className="font-medium text-gray-700">createdAt:</span> {item.createdAt ?? 'set on sync'}</p>
+                                        <p><span className="font-medium text-gray-700">updatedAt:</span> {item.updatedAt ?? 'set on sync'}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
@@ -240,24 +355,133 @@ const CompanyCompareManagementPage: React.FC = () => {
                     <ul className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
                         {companies.map(c => (
                             <li key={c.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                                <div className="min-w-0">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    {c.logoUrl ? (
+                                        <img
+                                            src={c.logoUrl}
+                                            alt={c.identity.name}
+                                            className="h-10 w-10 shrink-0 rounded-lg border border-gray-200 object-cover bg-white"
+                                            onError={(e) => {
+                                                const target = e.currentTarget;
+                                                target.style.display = 'none';
+                                                const next = target.nextElementSibling as HTMLElement | null;
+                                                if (next) next.style.display = 'flex';
+                                            }}
+                                        />
+                                    ) : null}
+                                    <div
+                                        className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-600"
+                                        aria-hidden
+                                    >
+                                        {c.identity.name.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
                                     <p className="font-medium text-gray-900 truncate">{c.identity.name}</p>
                                     <p className="text-xs text-gray-500 truncate">
                                         {c.identity.industry} · {c.ratings.overall_rating.toFixed(1)}/5
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => void handleDelete(c.id, c.identity.name)}
-                                    className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-700"
-                                >
-                                    Delete
-                                </button>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewCompany(c)}
+                                        className="text-xs font-semibold text-[#5670FB] hover:text-[#4358d9]"
+                                    >
+                                        View
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => openEdit(c)}
+                                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleDelete(c.id, c.identity.name)}
+                                        className="text-xs font-semibold text-red-600 hover:text-red-700"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </li>
                         ))}
                     </ul>
                 )}
             </div>
+
+            {viewCompany && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+                    <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+                            <h4 className="font-semibold text-gray-900">View company: {viewCompany.identity.name}</h4>
+                            <button
+                                type="button"
+                                onClick={() => setViewCompany(null)}
+                                className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="max-h-[70vh] overflow-y-auto p-5">
+                            <pre className="whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-xs text-gray-800">
+                                {JSON.stringify(viewCompany, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {editCompany && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+                    <div className="w-full max-w-4xl rounded-xl bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+                            <h4 className="font-semibold text-gray-900">Edit company: {editCompany.identity.name}</h4>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditCompany(null);
+                                    setEditJson('');
+                                }}
+                                className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            <p className="mb-2 text-xs text-gray-500">
+                                Edit JSON and save. This will upsert the company in DynamoDB.
+                            </p>
+                            <textarea
+                                value={editJson}
+                                onChange={(e) => setEditJson(e.target.value)}
+                                className="h-[420px] w-full rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs text-gray-800 focus:border-[#5670FB] focus:outline-none focus:ring-2 focus:ring-[#5670FB]/25"
+                            />
+                            <div className="mt-4 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditCompany(null);
+                                        setEditJson('');
+                                    }}
+                                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={savingEdit}
+                                    onClick={() => void handleSaveEdit()}
+                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                    {savingEdit ? 'Saving…' : 'Save changes'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {toast && (
                 <div

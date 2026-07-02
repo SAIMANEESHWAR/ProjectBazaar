@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ArrowLeft, BadgeCheck, Briefcase, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
     formatWebsiteUrl,
@@ -13,17 +13,20 @@ import { RATING_DIMENSIONS } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
 import { CompanyPostsPreviewSection } from './CompanyPostsPreviewSection';
 import { RatingBars, StarRating, ratingStarColor } from './RatingBars';
+import { SalaryIndustryChart } from './SalaryIndustryChart';
 
-type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'jobs' | 'benefits';
+type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'benefits';
 
 export interface CompanyDetailViewProps {
     company: CompanyCompare;
+    allCompanies?: CompanyCompare[];
     onBack: () => void;
     onAddToCompare?: () => void;
 }
 
 export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
     company,
+    allCompanies = [],
     onBack,
     onAddToCompare,
 }) => {
@@ -37,12 +40,11 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
 
     const tabs: Array<{ id: DetailTab; label: string; count?: number }> = [
         { id: 'about', label: 'About' },
-        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
+        { id: 'ratings', label: 'Rating' },
         { id: 'salaries', label: 'Salaries', count: metrics.salaries },
-        { id: 'interviews', label: 'Interviews', count: metrics.interviews },
-        { id: 'jobs', label: 'Jobs', count: metrics.jobs },
+        { id: 'interviews', label: 'Interview', count: metrics.interviews },
+        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
         { id: 'benefits', label: 'Benefits', count: metrics.benefits },
-        { id: 'ratings', label: 'Ratings' },
     ];
 
     React.useEffect(() => {
@@ -193,12 +195,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                         Quick snapshot
                                     </p>
                                     <ul className="space-y-3 text-sm text-gray-600">
-                                        <li className="flex items-center gap-2">
-                                            <Briefcase size={14} className="text-[#5670FB]" />
-                                            <span>
-                                                <strong>{metrics.jobs}</strong> open jobs
-                                            </span>
-                                        </li>
                                         {topBenefit && (
                                             <li>
                                                 Top benefit: <strong>{topBenefit}</strong>
@@ -289,27 +285,36 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                     )}
 
                     {activeTab === 'salaries' && (
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[320px] text-left text-sm">
-                                <thead>
-                                    <tr className="border-b border-[#EBF0F6] text-xs uppercase text-gray-500">
-                                        <th className="pb-2 pr-3 font-semibold">Role</th>
-                                        <th className="pb-2 pr-3 font-semibold">Avg</th>
-                                        <th className="pb-2 pr-3 font-semibold">Range</th>
-                                        <th className="pb-2 font-semibold">Exp</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {company.salaries.map(row => (
-                                        <tr key={row.role} className="border-b border-[#EBF0F6] last:border-0">
-                                            <td className="py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
-                                            <td className="py-2.5 pr-3 font-semibold text-[#5670FB]">{row.average_annual_salary}</td>
-                                            <td className="py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
-                                            <td className="py-2.5 text-xs text-gray-500">{row.experience_level}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="space-y-6">
+                            <SalaryIndustryChart
+                                company={company}
+                                allCompanies={allCompanies.length > 0 ? allCompanies : [company]}
+                            />
+
+                            {company.salaries.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-[#EBF0F6]">
+                                    <table className="w-full min-w-[320px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-[#EBF0F6] bg-[#FAFCFF] text-xs uppercase text-gray-500">
+                                                <th className="px-4 py-3 pr-3 font-semibold">Role</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Avg</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Range</th>
+                                                <th className="px-4 py-3 font-semibold">Exp</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {company.salaries.map(row => (
+                                                <tr key={row.role} className="border-b border-[#EBF0F6] last:border-0">
+                                                    <td className="px-4 py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
+                                                    <td className="px-4 py-2.5 pr-3 font-semibold text-[#5670FB]">{row.average_annual_salary}</td>
+                                                    <td className="px-4 py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
+                                                    <td className="px-4 py-2.5 text-xs text-gray-500">{row.experience_level}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -329,19 +334,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                         </div>
                     )}
 
-                    {activeTab === 'jobs' && (
-                        <div className="space-y-3">
-                            {company.active_jobs.map(job => (
-                                <article key={`${job.job_title}-${job.location}`} className="rounded-xl border border-[#EBF0F6] p-4">
-                                    <h4 className="font-semibold text-[#1E223C]">{job.job_title}</h4>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        {job.location} · Posted {job.posted_date}
-                                    </p>
-                                </article>
-                            ))}
-                        </div>
-                    )}
-
                     {activeTab === 'benefits' && (
                         <div className="flex flex-wrap gap-2">
                             {company.benefits.map(b => (
@@ -354,24 +346,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                             ))}
                         </div>
                     )}
-                </div>
-
-                <div className="border-t border-[#EBF0F6] px-4 sm:px-6 py-3 bg-[#FAFCFF]">
-                    <p className="text-[11px] text-gray-400">
-                        Data sourced from{' '}
-                        {company.overviewUrl ? (
-                            <a
-                                href={company.overviewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-[#5670FB] hover:underline"
-                            >
-                                AmbitionBox
-                            </a>
-                        ) : (
-                            'AmbitionBox'
-                        )}
-                    </p>
                 </div>
             </div>
 

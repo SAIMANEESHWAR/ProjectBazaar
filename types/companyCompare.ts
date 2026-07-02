@@ -112,3 +112,16 @@ export const DEFAULT_EXPLORE_FILTERS: ExploreFilters = {
     role: null,
     knownFor: null,
 };
+
+export const RATING_FILTER_THRESHOLDS = [4.5, 4.0, 3.75, 3.5] as const;
+
+export interface FilterFacet {
+    value: string;
+    count: number;
+}
+
+export interface KnownForFilterFacet {
+    key: RatingDimensionKey;
+    label: string;
+    count: number;
+}

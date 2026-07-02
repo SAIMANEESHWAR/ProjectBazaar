@@ -79,6 +79,8 @@ export const LIVE_INTERVIEW_SETUP_TABS: { id: LiveInterviewSetupTab; label: stri
 
 export type CompanySectionTab = 'posts' | 'compare-companies';
 
+export type CompanyCompareMode = 'explore' | 'compare';
+
 export const COMPANY_SECTION_TABS: { id: CompanySectionTab; label: string }[] = [
     { id: 'posts', label: 'Posts' },
     { id: 'compare-companies', label: 'Compare Companies' },
@@ -117,12 +119,14 @@ interface DashboardContextType {
     selectedCoreSubjectSlug: string | null;
     liveInterviewSetupTab: LiveInterviewSetupTab;
     companySectionTab: CompanySectionTab;
+    companyCompareMode: CompanyCompareMode;
     setDashboardMode: (mode: DashboardMode) => void;
     setActiveView: (view: DashboardView) => void;
     setBrowseView: (view: BrowseView) => void;
     setSelectedCoreSubjectSlug: (slug: string | null) => void;
     setLiveInterviewSetupTab: (tab: LiveInterviewSetupTab) => void;
     setCompanySectionTab: (tab: CompanySectionTab) => void;
+    setCompanyCompareMode: (mode: CompanyCompareMode) => void;
     openCompanyPostsForCompany: (companyName: string) => void;
     toggleDashboardMode: () => void;
     togglePrepDarkMode: () => void;
@@ -206,6 +210,16 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         return 'posts';
     });
 
+    const [companyCompareMode, setCompanyCompareModeState] = useState<CompanyCompareMode>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('companyCompareMode');
+            if (stored === 'explore' || stored === 'compare') {
+                return stored;
+            }
+        }
+        return 'explore';
+    });
+
     // Persist state changes to localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -256,6 +270,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         }
     }, [companySectionTab]);
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('companyCompareMode', companyCompareMode);
+        }
+    }, [companyCompareMode]);
+
     const setSelectedCoreSubjectSlug = (slug: string | null) => {
         setSelectedCoreSubjectSlugState(slug);
     };
@@ -267,6 +287,10 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
     const setCompanySectionTab = (tab: CompanySectionTab) => {
         setCompanySectionTabState(tab);
     };
+
+    const setCompanyCompareMode = useCallback((mode: CompanyCompareMode) => {
+        setCompanyCompareModeState(mode);
+    }, []);
 
     const setDashboardMode = (mode: DashboardMode) => {
         setDashboardModeState(mode);
@@ -318,12 +342,14 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
                 selectedCoreSubjectSlug,
                 liveInterviewSetupTab,
                 companySectionTab,
+                companyCompareMode,
                 setDashboardMode,
                 setActiveView,
                 setBrowseView,
                 setSelectedCoreSubjectSlug,
                 setLiveInterviewSetupTab,
                 setCompanySectionTab,
+                setCompanyCompareMode,
                 openCompanyPostsForCompany,
                 toggleDashboardMode,
                 togglePrepDarkMode,

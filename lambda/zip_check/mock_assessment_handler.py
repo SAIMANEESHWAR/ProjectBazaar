@@ -1,17 +1,12 @@
 ﻿import json
-import os
-import base64
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
-from decimal import Decimal
 import uuid
 import math
 
-# Initialize DynamoDB (explicit region for ap-south-2)
-REGION = os.environ.get('AWS_REGION') or os.environ.get('REGION') or 'ap-south-2'
-dynamodb = boto3.resource('dynamodb', region_name=REGION)
+# Initialize DynamoDB
+dynamodb = boto3.resource('dynamodb')
 test_results_table = dynamodb.Table('TestResults')
 user_progress_table = dynamodb.Table('UserProgress')
 leaderboard_table = dynamodb.Table('Leaderboard')
@@ -20,56 +15,18 @@ daily_challenge_completions_table = dynamodb.Table('DailyChallengeCompletions')
 study_resources_table = dynamodb.Table('StudyResources')
 assessments_table = dynamodb.Table('Assessments')
 
-CORS_HEADERS = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
-
-
-def _json_default(obj):
-    if isinstance(obj, Decimal):
-        if obj % 1 == 0:
-            return int(obj)
-        return float(obj)
-    return str(obj)
-
-
+# Response helper function
 def response(status_code, body):
     return {
         'statusCode': status_code,
-        'headers': CORS_HEADERS,
-        'body': json.dumps(body, default=_json_default) if body is not None else '',
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+        },
+        'body': json.dumps(body, default=str)
     }
-
-
-def get_http_method(event):
-    return (
-        event.get('httpMethod')
-        or (event.get('requestContext') or {}).get('http', {}).get('method')
-        or (event.get('requestContext') or {}).get('httpMethod')
-        or 'POST'
-    ).upper()
-
-
-def parse_body(event):
-    raw = event.get('body')
-    if raw is None:
-        return {}
-    if isinstance(raw, dict):
-        return raw
-    if event.get('isBase64Encoded'):
-        raw = base64.b64decode(raw).decode('utf-8')
-    if not raw:
-        return {}
-    return json.loads(raw)
-
-
-def filter_mcq_questions(questions):
-    if not isinstance(questions, list):
-        return []
-    return [q for q in questions if isinstance(q, dict) and q.get('type') != 'programming']
 
 
 # ========================================
@@ -644,13 +601,7 @@ def get_user_progress(body):
         
         # Format badges (ensure all badge definitions are included)
         badges = progress.get('badges', [])
-        if not isinstance(badges, list):
-            badges = []
-        badge_dict = {
-            b.get('id'): b
-            for b in badges
-            if isinstance(b, dict) and b.get('id')
-        }
+        badge_dict = {b.get('id'): b for b in badges}
         
         # Add all badge definitions, marking earned ones
         formatted_badges = []
@@ -685,19 +636,8 @@ def get_user_progress(body):
             }
         })
         
-    except ClientError as e:
-        print(f"Error getting user progress (DynamoDB): {e.response.get('Error', {})}")
-        return response(500, {
-            "success": False,
-            "error": {
-                "code": "DYNAMODB_ERROR",
-                "message": "Failed to get user progress. Check DynamoDB table UserProgress and IAM permissions.",
-            },
-        })
     except Exception as e:
         print(f"Error getting user progress: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return response(500, {
             "success": False,
             "error": {"code": "INTERNAL_SERVER_ERROR", "message": "Failed to get user progress"}
@@ -1103,12 +1043,12 @@ def create_assessment(body):
 def update_assessment(body):
     """Update an existing assessment."""
     try:
-        assessment_id = body.get('id') or body.get('assessmentId')
+        assessment_id = body.get('id')
         
         if not assessment_id:
             return response(400, {
                 "success": False,
-                "error": {"code": "VALIDATION_ERROR", "message": "id or assessmentId is required"}
+                "error": {"code": "VALIDATION_ERROR", "message": "id is required"}
             })
         
         # Get existing assessment
@@ -1270,15 +1210,6 @@ def list_assessments(body):
             }
         })
         
-    except ClientError as e:
-        print(f"Error listing assessments (DynamoDB): {e.response.get('Error', {})}")
-        return response(500, {
-            "success": False,
-            "error": {
-                "code": "DYNAMODB_ERROR",
-                "message": "Failed to list assessments. Check DynamoDB table Assessments and IAM permissions.",
-            },
-        })
     except Exception as e:
         print(f"Error listing assessments: {str(e)}")
         import traceback
@@ -1289,84 +1220,38 @@ def list_assessments(body):
         })
 
 
-def get_questions(body):
-    """Return MCQ-only questions for an assessment."""
-    try:
-        assessment_id = body.get('assessmentId') or body.get('id')
-        if not assessment_id:
-            return response(400, {
-                "success": False,
-                "error": {"code": "VALIDATION_ERROR", "message": "assessmentId is required"},
-            })
-
-        result = assessments_table.get_item(Key={'id': assessment_id})
-        if 'Item' not in result:
-            return response(404, {
-                "success": False,
-                "error": {"code": "ASSESSMENT_NOT_FOUND", "message": f"Assessment '{assessment_id}' not found"},
-            })
-
-        item = result['Item']
-        questions = filter_mcq_questions(item.get('questions', []))
-        return response(200, {
-            "success": True,
-            "data": questions,
-            "questions": questions,
-        })
-    except ClientError as e:
-        print(f"Error getting questions (DynamoDB): {e.response.get('Error', {})}")
-        return response(500, {
-            "success": False,
-            "error": {
-                "code": "DYNAMODB_ERROR",
-                "message": "Failed to get questions. Check DynamoDB table Assessments and IAM permissions.",
-            },
-        })
-    except Exception as e:
-        print(f"Error getting questions: {str(e)}")
-        return response(500, {
-            "success": False,
-            "error": {"code": "INTERNAL_SERVER_ERROR", "message": "Failed to get questions"},
-        })
-
-
-def ping(_body):
-    """Health check — does not touch DynamoDB."""
-    return response(200, {
-        "success": True,
-        "message": "mock_assessment_handler ok",
-        "region": REGION,
-    })
-
-
 # ========================================
 # MAIN LAMBDA HANDLER
 # ========================================
 def lambda_handler(event, context):
     """Main Lambda handler function."""
     try:
-        if get_http_method(event) == 'OPTIONS':
+        # Handle CORS preflight
+        if event.get('httpMethod') == 'OPTIONS':
             return response(200, {})
-
-        try:
-            body = parse_body(event)
-        except json.JSONDecodeError:
-            return response(400, {
-                "success": False,
-                "error": {"code": "INVALID_JSON", "message": "Invalid JSON in request body"},
-            })
-
-        action = body.get('action') or (event.get('pathParameters') or {}).get('action')
-
+        
+        # Parse request body
+        body = {}
+        if event.get('body'):
+            try:
+                body = json.loads(event['body'])
+            except json.JSONDecodeError:
+                return response(400, {
+                    "success": False,
+                    "error": {"code": "INVALID_JSON", "message": "Invalid JSON in request body"}
+                })
+        
+        # Get action from body or path
+        action = body.get('action') or event.get('pathParameters', {}).get('action')
+        
         if not action:
             return response(400, {
                 "success": False,
-                "error": {"code": "VALIDATION_ERROR", "message": "action is required"},
+                "error": {"code": "VALIDATION_ERROR", "message": "action is required"}
             })
-
-        if action == 'ping':
-            return ping(body)
-        elif action == 'submit_test_result':
+        
+        # Route to appropriate handler
+        if action == 'submit_test_result':
             return submit_test_result(body)
         elif action == 'get_test_history':
             return get_test_history(body)
@@ -1380,8 +1265,6 @@ def lambda_handler(event, context):
             return complete_daily_challenge(body)
         elif action == 'get_study_resources':
             return get_study_resources(body)
-        elif action == 'get_questions':
-            return get_questions(body)
         elif action == 'create_assessment':
             return create_assessment(body)
         elif action == 'update_assessment':
@@ -1393,16 +1276,16 @@ def lambda_handler(event, context):
         else:
             return response(400, {
                 "success": False,
-                "error": {"code": "INVALID_ACTION", "message": f"Unknown action: {action}"},
+                "error": {"code": "INVALID_ACTION", "message": f"Unknown action: {action}"}
             })
-
+            
     except Exception as e:
         print(f"Lambda handler error: {str(e)}")
         import traceback
         traceback.print_exc()
         return response(500, {
             "success": False,
-            "error": {"code": "INTERNAL_SERVER_ERROR", "message": str(e)},
+            "error": {"code": "INTERNAL_SERVER_ERROR", "message": "An error occurred"}
         })
 
 
