@@ -3,8 +3,10 @@ import { fetchAllAdminUsers, getUserAttribution } from '../../services/adminUser
 import {
   formatAttributionLabel,
   formatCapturedAt,
-  hasAttribution,
+  hasUtmCampaignAttribution,
+  hasVisitAttribution,
 } from '../../lib/userAttribution';
+import { UTM_TRACKING_SHEET_URL } from '../../lib/utmTracking';
 
 interface CampaignStat {
   key: string;
@@ -42,7 +44,15 @@ const UserAttributionSummary: React.FC = () => {
   }, []);
 
   const attributedUsers = useMemo(
-    () => users.filter((user) => hasAttribution(getUserAttribution(user))),
+    () => users.filter((user) => hasUtmCampaignAttribution(getUserAttribution(user))),
+    [users]
+  );
+  const visitOnlyUsers = useMemo(
+    () =>
+      users.filter((user) => {
+        const attr = getUserAttribution(user);
+        return hasVisitAttribution(attr) && !hasUtmCampaignAttribution(attr);
+      }),
     [users]
   );
 
@@ -103,7 +113,15 @@ const UserAttributionSummary: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Marketing Attribution</h2>
           <p className="text-sm text-gray-600">
-            Signups with UTM data synced from DynamoDB and Google Sheets
+            Signups with UTM data synced from DynamoDB and{' '}
+            <a
+              href={UTM_TRACKING_SHEET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-orange-600 hover:underline font-medium"
+            >
+              Google Sheets
+            </a>
           </p>
         </div>
         <select
@@ -122,12 +140,12 @@ const UserAttributionSummary: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-orange-50 to-white rounded-xl p-5 border border-orange-200">
-          <p className="text-sm text-orange-700 font-medium">Attributed signups</p>
+          <p className="text-sm text-orange-700 font-medium">UTM campaigns</p>
           <p className="text-3xl font-bold text-orange-900">{attributedUsers.length}</p>
         </div>
         <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-200">
-          <p className="text-sm text-blue-700 font-medium">Unique campaigns</p>
-          <p className="text-3xl font-bold text-blue-900">{campaignStats.length}</p>
+          <p className="text-sm text-blue-700 font-medium">Visit-only (no UTM tags)</p>
+          <p className="text-3xl font-bold text-blue-900">{visitOnlyUsers.length}</p>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-5 border border-green-200">
           <p className="text-sm text-green-700 font-medium">Top source</p>

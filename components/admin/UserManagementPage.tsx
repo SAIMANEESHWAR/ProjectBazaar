@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   formatAttributionLabel,
-  hasAttribution,
+  hasUtmCampaignAttribution,
+  hasVisitAttribution,
   type UserAttribution,
 } from '../../lib/userAttribution';
+import { UTM_TRACKING_SHEET_URL } from '../../lib/utmTracking';
 import { fetchAllAdminUsers, getUserAttribution, type AdminApiUser } from '../../services/adminUsersApi';
+import UserAttributionSummary from './UserAttributionSummary';
 
 const UPDATE_USER_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
 
@@ -47,7 +50,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState<'all' | 'buyer' | 'seller'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
-    const [utmFilter, setUtmFilter] = useState<'all' | 'attributed' | 'none'>('all');
+    const [utmFilter, setUtmFilter] = useState<'all' | 'attributed' | 'visit' | 'none'>('all');
     const [utmSourceFilter, setUtmSourceFilter] = useState('all');
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -212,8 +215,12 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
         return Array.from(sources).sort();
     }, [users]);
 
-    const attributedCount = useMemo(
-        () => users.filter((user) => hasAttribution(user.attribution)).length,
+    const utmCampaignCount = useMemo(
+        () => users.filter((user) => hasUtmCampaignAttribution(user.attribution)).length,
+        [users]
+    );
+    const visitTrackedCount = useMemo(
+        () => users.filter((user) => hasVisitAttribution(user.attribution)).length,
         [users]
     );
 
@@ -224,11 +231,13 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                 user.email.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesRole = roleFilter === 'all' || user.role === roleFilter;
             const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-            const hasUtm = hasAttribution(user.attribution);
+            const hasUtm = hasUtmCampaignAttribution(user.attribution);
+            const hasVisit = hasVisitAttribution(user.attribution);
             const matchesUtm =
                 utmFilter === 'all' ||
                 (utmFilter === 'attributed' && hasUtm) ||
-                (utmFilter === 'none' && !hasUtm);
+                (utmFilter === 'visit' && hasVisit && !hasUtm) ||
+                (utmFilter === 'none' && !hasVisit);
             const matchesSource =
                 utmSourceFilter === 'all' ||
                 user.attribution.utmSource === utmSourceFilter;
@@ -322,6 +331,25 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
 
     return (
         <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-purple-50 border border-purple-200 rounded-xl px-5 py-4">
+                <div>
+                    <p className="text-sm font-semibold text-purple-900">UTM tracking</p>
+                    <p className="text-sm text-purple-700">
+                        Attributed signups are stored in DynamoDB and synced to the Google Sheet on signup.
+                    </p>
+                </div>
+                <a
+                    href={UTM_TRACKING_SHEET_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 transition-colors"
+                >
+                    Open UTM Sheet
+                </a>
+            </div>
+
+            <UserAttributionSummary />
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
@@ -397,8 +425,11 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                             </svg>
                         </div>
                         <div>
-                            <p className="text-sm text-purple-700 font-medium">UTM Attributed</p>
-                            <p className="text-2xl font-bold text-purple-900">{attributedCount}</p>
+                            <p className="text-sm text-purple-700 font-medium">UTM campaigns</p>
+                            <p className="text-2xl font-bold text-purple-900">{utmCampaignCount}</p>
+                            <p className="text-xs text-purple-600 mt-1">
+                                {visitTrackedCount} total tracked visits (sheet may include visit-only rows)
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -452,8 +483,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                             className="px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         >
                             <option value="all">All attribution</option>
-                            <option value="attributed">With UTM</option>
-                            <option value="none">No UTM</option>
+                            <option value="attributed">UTM campaigns</option>
+                            <option value="visit">Visit only (no UTM)</option>
+                            <option value="none">Not tracked</option>
                         </select>
                         <select
                             value={utmSourceFilter}
@@ -568,13 +600,22 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {hasAttribution(user.attribution) ? (
+                                                {hasUtmCampaignAttribution(user.attribution) ? (
                                                     <div>
                                                         <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                                                             {user.attribution.utmSource || 'UTM'}
                                                         </span>
                                                         <div className="text-xs text-gray-500 mt-1 max-w-[180px] truncate">
                                                             {formatAttributionLabel(user.attribution)}
+                                                        </div>
+                                                    </div>
+                                                ) : hasVisitAttribution(user.attribution) ? (
+                                                    <div>
+                                                        <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                                                            Visit only
+                                                        </span>
+                                                        <div className="text-xs text-gray-500 mt-1 max-w-[180px] truncate">
+                                                            {user.attribution.signupReferrer || user.attribution.landingPage || 'Homepage'}
                                                         </div>
                                                     </div>
                                                 ) : (

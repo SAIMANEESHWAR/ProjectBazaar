@@ -50,14 +50,32 @@ export function extractAttributionFromUser(
   return out;
 }
 
-export function hasAttribution(attribution: UserAttribution): boolean {
+/** True UTM / paid click params (matches Google Sheet campaign rows). */
+export function hasUtmCampaignAttribution(attribution: UserAttribution): boolean {
   return Boolean(
     attribution.utmSource ||
       attribution.utmMedium ||
       attribution.utmCampaign ||
+      attribution.utmTerm ||
+      attribution.utmContent ||
       attribution.gclid ||
       attribution.fbclid
   );
+}
+
+/** Any stored visit attribution (includes homepage-only captures without UTM tags). */
+export function hasVisitAttribution(attribution: UserAttribution): boolean {
+  return Boolean(
+    hasUtmCampaignAttribution(attribution) ||
+      (attribution.landingPage && attribution.landingPage.trim()) ||
+      (attribution.signupReferrer && attribution.signupReferrer.trim()) ||
+      attribution.attributionCapturedAt
+  );
+}
+
+/** @deprecated Use hasUtmCampaignAttribution for UTM stats; hasVisitAttribution for all tracked visits. */
+export function hasAttribution(attribution: UserAttribution): boolean {
+  return hasUtmCampaignAttribution(attribution);
 }
 
 export function formatAttributionLabel(attribution: UserAttribution): string {
