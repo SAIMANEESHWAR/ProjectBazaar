@@ -2,9 +2,8 @@ import React from 'react';
 import { LOREM_MEDIUM } from './lorem';
 
 const MOCK_TEMPLATES = [
-  { name: 'Aurora', thumb: '🌌', color: '#0f0f1a', accent: '#8b5cf6' },
-  { name: 'Slate', thumb: '📐', color: '#fafaf9', accent: '#1e293b' },
-  { name: 'Momentum', thumb: '⚡', color: '#fff7ed', accent: '#f97316' },
+  { name: 'Editorial', thumb: '🅴', color: '#0c0c0c', accent: '#e8ff59' },
+  { name: 'Alexa', thumb: '💜', color: '#f8f7ff', accent: '#6c63ff' },
 ];
 
 const BuildPortfolioPreview: React.FC = () => (
@@ -24,7 +23,7 @@ const BuildPortfolioPreview: React.FC = () => (
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center mb-4">
         Step 1 — Pick a style
       </p>
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-8 max-w-md mx-auto">
         {MOCK_TEMPLATES.map((t) => (
           <div
             key={t.name}

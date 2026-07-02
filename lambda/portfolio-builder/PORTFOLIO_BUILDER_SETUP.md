@@ -11,7 +11,7 @@ lambda/portfolio-builder/
   llm_enrich.py        # Uses Users.llmApiKeys + atsActiveProvider
   vercel_deploy.py     # Vercel deployment
   history.py           # portfolio-history DynamoDB
-  templates/           # aurora, slate, momentum HTML generators
+  templates/           # editorial, alexa HTML generators
   requirements.txt
   template.yaml        # SAM deploy
 ```
@@ -22,7 +22,7 @@ Shared (parent `lambda/`): `feature_entitlement.py` for trial gating.
 
 | action | description |
 |--------|-------------|
-| `getTemplates` | List 3 curated templates with previewHtml |
+| `getTemplates` | List curated templates with previewHtml |
 | `generateFromResume` | `{ userId, templateId, fileName, fileType, fileContent }` |
 | `previewPortfolio` | `{ templateId, portfolioData }` |
 | `deployPortfolio` | `{ userId, userEmail, templateId, portfolioData, fileName? }` |
@@ -102,8 +102,6 @@ Upload `portfolio-builder.zip` in Lambda → Upload from → .zip file.
 | id | style |
 |----|-------|
 | `editorial` | Bold award-style (seyi.dev inspired) |
-| `aurora` | Dark dev / gradient |
-| `slate` | Minimal serif |
-| `momentum` | Bold creative |
+| `alexa` | Responsive creative — skill bars, project images ([bedimcode/Alexa](https://github.com/bedimcode/responsive-portfolio-website-Alexa)) |
 
 Legacy `generate_portfolio.py` is unchanged; new deployments use this handler only.

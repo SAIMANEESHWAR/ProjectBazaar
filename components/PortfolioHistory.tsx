@@ -10,6 +10,7 @@ import {
 // Template metadata for display
 const TEMPLATE_INFO = {
   editorial: { name: 'Editorial', thumbnail: '🅴', color: '#0c0c0c' },
+  alexa: { name: 'Alexa', thumbnail: '💜', color: '#6c63ff' },
   aurora: { name: 'Aurora', thumbnail: '🌌', color: '#8b5cf6' },
   slate: { name: 'Slate', thumbnail: '📐', color: '#1e293b' },
   momentum: { name: 'Momentum', thumbnail: '⚡', color: '#f97316' },

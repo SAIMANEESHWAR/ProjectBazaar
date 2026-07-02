@@ -178,9 +178,7 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = () => {
               previewHtml:
                 '<div style="background:#0c0c0c;height:100%;padding:12px;color:#f5f3ee;border-radius:8px"><div style="font-size:7px;color:#8a8a85">PORTFOLIO</div><div style="font-family:Impact;font-size:20px;text-transform:uppercase;line-height:.85">FRONT<br><span style="-webkit-text-stroke:1px #f5f3ee;color:transparent">END</span></div></div>',
             },
-            { id: 'aurora', name: 'Aurora', description: 'Dark dev portfolio', accentColor: '#8b5cf6', previewColor: '#0f0f1a', thumbnail: '🌌', previewHtml: '' },
-            { id: 'slate', name: 'Slate', description: 'Minimal designer style', accentColor: '#1e293b', previewColor: '#fafaf9', thumbnail: '📐', previewHtml: '' },
-            { id: 'momentum', name: 'Momentum', description: 'Bold creative layout', accentColor: '#f97316', previewColor: '#fff7ed', thumbnail: '⚡', previewHtml: '' },
+            { id: 'alexa', name: 'Alexa', description: 'Creative portfolio with skill bars & project images', accentColor: '#6c63ff', previewColor: '#f8f7ff', thumbnail: '💜', previewHtml: '<div style="background:#f8f7ff;height:100%;padding:10px;border-radius:8px"><div style="font-size:7px;color:#6e6e8a">Hi, I\'m</div><div style="font-size:11px;font-weight:700;color:#6c63ff">Alexa Dev</div><div style="margin-top:6px;width:70%;height:4px;background:#6c63ff33;border-radius:99px"><div style="width:88%;height:100%;background:#6c63ff;border-radius:99px"></div></div></div>' },
           ]);
         }
       } finally {
@@ -385,13 +383,13 @@ const BuildPortfolioPage: React.FC<BuildPortfolioPageProps> = () => {
           <section>
             <h2 className="text-sm font-semibold text-gray-800 mb-4">Choose a portfolio style</h2>
             {templatesLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
                 {[1, 2, 3].map((n) => (
                   <div key={n} className="h-64 rounded-2xl bg-gray-100 animate-pulse" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
                 {templates.map((t) => {
                   const selected = selectedTemplate === t.id;
                   return (

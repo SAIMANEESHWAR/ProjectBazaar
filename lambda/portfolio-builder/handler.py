@@ -104,7 +104,7 @@ def handle_generate_from_resume(body: Dict[str, Any], headers: Dict[str, str]) -
     if not user_id:
         return _err(headers, "userId is required")
 
-    template_id = body.get("templateId", "aurora")
+    template_id = body.get("templateId", "editorial")
     if template_id not in TEMPLATE_IDS:
         return _err(headers, f"Invalid template: {template_id}")
 
@@ -154,7 +154,7 @@ def handle_generate_from_resume(body: Dict[str, Any], headers: Dict[str, str]) -
 
 def handle_preview(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, Any]:
     portfolio_data = body.get("portfolioData")
-    template_id = body.get("templateId", "aurora")
+    template_id = body.get("templateId", "editorial")
     if not portfolio_data:
         return _err(headers, "No portfolio data provided")
     if template_id not in TEMPLATE_IDS:
@@ -171,7 +171,7 @@ def handle_deploy(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, An
             return _err(headers, ent_err or "Trial limit reached")
 
     portfolio_data = body.get("portfolioData")
-    template_id = body.get("templateId", "aurora")
+    template_id = body.get("templateId", "editorial")
     user_email = body.get("userEmail", "")
     file_name = body.get("fileName", "resume.pdf")
 
