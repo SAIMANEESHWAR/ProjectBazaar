@@ -136,7 +136,6 @@ const CompareCompaniesPage: React.FC = () => {
                     onFiltersChange={setExploreFilters}
                     compareSelection={compareSelection}
                     onAddToCompare={handleAddToCompare}
-                    onGoToCompare={() => setActiveSection('compare')}
                     detailCompanyId={detailCompanyId}
                     onDetailCompanyChange={setDetailCompanyId}
                 />

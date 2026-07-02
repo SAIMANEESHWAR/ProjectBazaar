@@ -120,11 +120,10 @@ const CollectionCard: React.FC<CollectionCardProps> = ({
 );
 
 export interface CompareExploreHeroProps {
-    filters: ExploreFilters;
     onFiltersChange: (filters: ExploreFilters) => void;
 }
 
-export const CompareExploreHero: React.FC<CompareExploreHeroProps> = ({ filters, onFiltersChange }) => {
+export const CompareExploreHero: React.FC<CompareExploreHeroProps> = ({ onFiltersChange }) => {
     const handleSelect = (value: string, filterType: (typeof COLLECTION_DATA)[number]['filterType']) => {
         if (!value) {
             // "View all ..." should open the full list without restrictive chips.

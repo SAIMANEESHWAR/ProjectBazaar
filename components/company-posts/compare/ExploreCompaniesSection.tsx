@@ -12,7 +12,6 @@ export interface ExploreCompaniesSectionProps {
     onFiltersChange: (filters: ExploreFilters) => void;
     compareSelection: [CompanyCompare | null, CompanyCompare | null];
     onAddToCompare: (company: CompanyCompare) => void;
-    onGoToCompare: () => void;
     detailCompanyId: string | null;
     onDetailCompanyChange: (id: string | null) => void;
 }
@@ -23,7 +22,6 @@ export const ExploreCompaniesSection: React.FC<ExploreCompaniesSectionProps> = (
     onFiltersChange,
     compareSelection,
     onAddToCompare,
-    onGoToCompare,
     detailCompanyId,
     onDetailCompanyChange,
 }) => {
@@ -54,7 +52,7 @@ export const ExploreCompaniesSection: React.FC<ExploreCompaniesSectionProps> = (
     return (
         <div className="w-full pb-6">
             <CompareFilterBar filters={filters} onFiltersChange={onFiltersChange} />
-            <CompareExploreHero filters={filters} onFiltersChange={onFiltersChange} />
+            <CompareExploreHero onFiltersChange={onFiltersChange} />
 
             <div className="w-full max-w-[1024px] mx-auto px-2 sm:px-4">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#EBF0F6] bg-[#FAFCFF] px-4 py-3">
