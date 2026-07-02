@@ -34,7 +34,7 @@ CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,x-admin-key",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 }
 
 STAGE = os.environ.get("STAGE", "dev")
@@ -672,6 +672,30 @@ def handle_post(body, table, event, parts):
     return response(400, {"error": "Unknown action", "action": action})
 
 
+def _is_public_compare_path(parts):
+    """Match SAM /companies routes and API Gateway .../company_compare_handler URLs."""
+    if not parts:
+        return False
+    if "companies" in parts:
+        return True
+    return parts[-1] == "company_compare_handler"
+
+
+def _resolve_company_id_from_parts(parts):
+    if "companies" in parts:
+        idx = parts.index("companies")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return None
+
+
+def handle_legacy_get(event, table, parts):
+    company_id = _resolve_company_id_from_parts(parts)
+    if company_id:
+        return handle_get_one(company_id, table)
+    return handle_list(table, parse_query(event))
+
+
 def lambda_handler(event, context):
     table = _get_table()
     if table is None:
@@ -684,10 +708,32 @@ def lambda_handler(event, context):
     if method == "OPTIONS":
         return {"statusCode": 204, "headers": CORS_HEADERS, "body": ""}
 
-    if method != "POST":
-        return response(405, {"error": "Method not allowed. Use POST.", "path": path, "method": method})
-
     try:
+        admin_suffix = _admin_companies_suffix(parts)
+        if admin_suffix is not None:
+            if method == "POST" and admin_suffix == ["sync"]:
+                body = parse_body(event)
+                if body is None:
+                    return response(400, {"error": "Invalid JSON body"})
+                return handle_admin_sync(body, table, event)
+
+            if method == "POST" and admin_suffix == []:
+                body = parse_body(event)
+                if body is None:
+                    return response(400, {"error": "Invalid JSON body"})
+                return handle_admin_upsert(body, table, event)
+
+            if method == "DELETE" and len(admin_suffix) == 1:
+                return handle_admin_delete(admin_suffix[0], table, event)
+
+            return response(405, {"error": "Method not allowed", "path": path, "method": method})
+
+        if method == "GET" and _is_public_compare_path(parts):
+            return handle_legacy_get(event, table, parts)
+
+        if method != "POST":
+            return response(405, {"error": "Method not allowed", "path": path, "method": method})
+
         body = parse_body(event)
         return handle_post(body, table, event, parts)
     except ClientError as e:

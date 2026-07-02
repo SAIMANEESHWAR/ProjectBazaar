@@ -79,6 +79,32 @@ export function buildCompanyCompareListBody(query: CompanyCompareListQuery = {})
     return body;
 }
 
+function buildCompanyCompareListQuery(query: CompanyCompareListQuery = {}): string {
+    const params = new URLSearchParams();
+    params.set('limit', String(query.limit ?? 500));
+    if (query.search?.trim()) params.set('search', query.search.trim());
+    if (query.industry) params.set('industry', query.industry);
+    if (query.location) params.set('location', query.location);
+    if (query.role) params.set('role', query.role);
+    if (query.minRating != null) params.set('minRating', String(query.minRating));
+    if (query.nextToken) params.set('nextToken', query.nextToken);
+    return params.toString();
+}
+
+async function fetchCompaniesLegacyGet(
+    base: string,
+    query: CompanyCompareListQuery = {},
+): Promise<CompanyCompareListResponse> {
+    const qs = buildCompanyCompareListQuery(query);
+    const url = qs ? `${base}?${qs}` : base;
+    const res = await fetch(url, { method: 'GET' });
+    const data = (await res.json()) as CompanyCompareListResponse;
+    if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return data;
+}
+
 export async function fetchCompaniesFromApi(
     query: CompanyCompareListQuery = {},
 ): Promise<CompanyCompareListResponse> {
@@ -92,6 +118,9 @@ export async function fetchCompaniesFromApi(
         body: JSON.stringify(buildCompanyCompareListBody(query)),
     });
     const data = (await res.json()) as CompanyCompareListResponse;
+    if (res.status === 405) {
+        return fetchCompaniesLegacyGet(base, query);
+    }
     if (!res.ok) {
         throw new Error(data.error || `HTTP ${res.status}`);
     }

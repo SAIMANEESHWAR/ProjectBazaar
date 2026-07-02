@@ -11,6 +11,7 @@ import type {
     RatingDimensionKey,
 } from '../types/companyCompare';
 import { RATING_DIMENSIONS } from '../types/companyCompare';
+import companyCompareSeed from '../data/companyCompareSeed.json';
 
 type RawRecord = Record<string, unknown>;
 
@@ -238,18 +239,53 @@ export function normalizeCompany(raw: unknown): CompanyCompare {
 let cachedCompanies: CompanyCompare[] | null = null;
 let loadPromise: Promise<CompanyCompare[]> | null = null;
 
+function companyDataScore(company: CompanyCompare): number {
+    return (
+        company.reviews.length +
+        company.salaries.length +
+        company.interviews.length +
+        company.benefits.length +
+        company.active_jobs.length
+    );
+}
+
+function dedupeCompanies(companies: CompanyCompare[]): CompanyCompare[] {
+    const byKey = new Map<string, CompanyCompare>();
+    for (const company of companies) {
+        const key = slugifyName(company.identity.name || company.id);
+        const existing = byKey.get(key);
+        if (!existing || companyDataScore(company) > companyDataScore(existing)) {
+            byKey.set(key, company);
+        }
+    }
+    return Array.from(byKey.values()).sort((a, b) =>
+        a.identity.name.localeCompare(b.identity.name),
+    );
+}
+
+function loadSeedCompanies(): CompanyCompare[] {
+    const raw = (companyCompareSeed as { companies?: unknown[] }).companies ?? [];
+    return dedupeCompanies(raw.map(normalizeCompany));
+}
+
 export async function loadCompaniesFromApi(): Promise<CompanyCompare[]> {
     if (cachedCompanies) return cachedCompanies;
     if (loadPromise) return loadPromise;
 
     if (!isCompanyCompareApiEnabled()) {
-        return [];
+        return loadSeedCompanies();
     }
 
     loadPromise = (async () => {
-        const res = await fetchCompaniesFromApi({ limit: 500 });
-        cachedCompanies = (res.companies ?? []).map(normalizeCompanyFromApi);
-        return cachedCompanies;
+        try {
+            const res = await fetchCompaniesFromApi({ limit: 500 });
+            cachedCompanies = dedupeCompanies((res.companies ?? []).map(normalizeCompanyFromApi));
+            return cachedCompanies;
+        } catch (err) {
+            console.warn('Company compare API unavailable, using seed data:', err);
+            cachedCompanies = loadSeedCompanies();
+            return cachedCompanies;
+        }
     })();
 
     try {

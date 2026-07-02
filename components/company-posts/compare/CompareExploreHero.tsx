@@ -2,7 +2,7 @@ import * as React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../../lib/utils';
 import { knownForLabelToDimension } from '../../../lib/companyCompareData';
-import type { ExploreFilters, RatingDimensionKey } from '../../../types/companyCompare';
+import { DEFAULT_EXPLORE_FILTERS, type ExploreFilters, type RatingDimensionKey } from '../../../types/companyCompare';
 
 const COLLECTION_DATA = [
     {
@@ -126,7 +126,11 @@ export interface CompareExploreHeroProps {
 
 export const CompareExploreHero: React.FC<CompareExploreHeroProps> = ({ filters, onFiltersChange }) => {
     const handleSelect = (value: string, filterType: (typeof COLLECTION_DATA)[number]['filterType']) => {
-        if (!value) return;
+        if (!value) {
+            // "View all ..." should open the full list without restrictive chips.
+            onFiltersChange(DEFAULT_EXPLORE_FILTERS);
+            return;
+        }
 
         const patch: Partial<ExploreFilters> = {};
         if (filterType === 'industry') patch.industry = value;
@@ -136,7 +140,8 @@ export const CompareExploreHero: React.FC<CompareExploreHeroProps> = ({ filters,
             patch.knownFor = knownForLabelToDimension(value) as RatingDimensionKey | null;
         }
 
-        onFiltersChange({ ...filters, ...patch, search: '' });
+        // Start from a clean state so hero selections don't stack into zero-result filters.
+        onFiltersChange({ ...DEFAULT_EXPLORE_FILTERS, ...patch, search: '' });
     };
 
     return (
