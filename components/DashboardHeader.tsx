@@ -149,7 +149,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setBuyerProjectView,
   toggleSidebar,
 }) => {
-  const { dashboardMode, setDashboardMode, activeView, setActiveView, browseView, setBrowseView } = useDashboard();
+  const { dashboardMode, setDashboardMode, activeView, setActiveView, browseView, setBrowseView, companySectionTab, companyCompareMode, setCompanyCompareMode } = useDashboard();
   const { navigateTo } = useNavigation();
   const title = viewTitles[activeView] || 'Dashboard';
   const isLiveInterviewView =
@@ -158,6 +158,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     || activeView === 'live-peer-requests';
   const hideInterviewPageTitle =
     activeView === 'live-mock-interview' || activeView === 'live-mock-interview-peer';
+  const isCompanyCompareView =
+    activeView === 'company-posts' && companySectionTab === 'compare-companies';
   const isBuyerDashboard =
     activeView === 'project-bazaar' && dashboardMode === 'buyer';
   const isMarketplaceScopeView = [
@@ -326,7 +328,24 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {hideInterviewPageTitle && activeView === 'live-mock-interview' ? (
             <FeatureUsageBanner featureId="live-ai" compact inline />
           ) : null}
-          {dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && (
+          {isCompanyCompareView ? (
+            <div className="inline-flex rounded-xl border border-[#EBF0F6] bg-orange-50 p-1">
+              {(['explore', 'compare'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setCompanyCompareMode(mode)}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                    companyCompareMode === mode
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-gray-800 hover:bg-white'
+                  }`}
+                >
+                  {mode === 'explore' ? 'Explore' : 'Compare'}
+                </button>
+              ))}
+            </div>
+          ) : dashboardMode !== 'jobHunt' && !hideInterviewPageTitle && (
             <h1
               className={`text-3xl ${activeView === 'dashboard' ? 'font-semibold' : 'font-bold'} text-gray-800 ${isLiveInterviewView ? 'text-center w-full' : ''}`}
             >

@@ -1,18 +1,20 @@
 import * as React from 'react';
 import { cn } from '../../../lib/utils';
-import { companyAvatarColor, companyInitials } from '../../../lib/companyCompareData';
+
+export const COMPANY_LOGO_FALLBACK = '/codexcareer-logo.png';
 
 export interface CompanyAvatarProps {
     name: string;
     logoUrl?: string;
-    size?: 'sm' | 'md' | 'lg';
+    size?: 'sm' | 'md' | 'lg' | 'xl';
     className?: string;
 }
 
 const SIZE_CLASSES = {
-    sm: 'h-10 w-10 text-xs',
-    md: 'h-12 w-12 text-sm',
-    lg: 'h-16 w-16 text-base',
+    sm: 'h-10 w-10',
+    md: 'h-12 w-12',
+    lg: 'h-16 w-16',
+    xl: 'h-24 w-24',
 };
 
 export const CompanyAvatar: React.FC<CompanyAvatarProps> = ({
@@ -21,31 +23,26 @@ export const CompanyAvatar: React.FC<CompanyAvatarProps> = ({
     size = 'md',
     className,
 }) => {
-    const [imgError, setImgError] = React.useState(false);
-    const showLogo = logoUrl && !imgError;
+    const [src, setSrc] = React.useState(logoUrl || COMPANY_LOGO_FALLBACK);
 
-    if (showLogo) {
-        return (
-            <img
-                src={logoUrl}
-                alt={`${name} logo`}
-                className={cn('inline-flex shrink-0 rounded-xl object-contain p-1 shadow-sm bg-white', SIZE_CLASSES[size], className)}
-                onError={() => setImgError(true)}
-            />
-        );
-    }
+    React.useEffect(() => {
+        setSrc(logoUrl || COMPANY_LOGO_FALLBACK);
+    }, [logoUrl]);
 
     return (
-        <div
+        <img
+            src={src}
+            alt={`${name} logo`}
             className={cn(
-                'inline-flex shrink-0 items-center justify-center rounded-xl font-bold text-white shadow-sm',
+                'inline-flex shrink-0 rounded-xl object-contain bg-white p-1 shadow-sm',
                 SIZE_CLASSES[size],
-                className
+                className,
             )}
-            style={{ backgroundColor: companyAvatarColor(name) }}
-            aria-hidden
-        >
-            {companyInitials(name)}
-        </div>
+            onError={() => {
+                if (src !== COMPANY_LOGO_FALLBACK) {
+                    setSrc(COMPANY_LOGO_FALLBACK);
+                }
+            }}
+        />
     );
 };

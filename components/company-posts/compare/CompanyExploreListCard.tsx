@@ -76,9 +76,9 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
                     <button
                         type="button"
                         onClick={onAddToCompare}
-                        className="hidden sm:inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#5670FB] px-3 py-1.5 text-xs font-semibold text-[#5670FB] hover:bg-[#5670FB]/5 transition-colors"
+                        className="hidden sm:inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-orange-500 bg-black px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-900 transition-colors"
                     >
-                        <GitCompare size={14} />
+                        <GitCompare size={14} className="text-orange-400" />
                         Compare
                     </button>
                 </div>
@@ -145,7 +145,7 @@ export const CompanyExploreListCard: React.FC<CompanyExploreListCardProps> = ({
                 <button
                     type="button"
                     onClick={onAddToCompare}
-                    className="flex-1 py-2.5 text-xs font-semibold text-[#5670FB] border-l border-[#EBF0F6] hover:bg-[#FAFCFF]"
+                    className="flex-1 py-2.5 text-xs font-semibold text-white bg-black hover:bg-gray-900 border-l border-[#EBF0F6]"
                 >
                     Compare
                 </button>

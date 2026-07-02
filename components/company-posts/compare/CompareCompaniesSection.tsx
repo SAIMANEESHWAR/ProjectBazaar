@@ -154,6 +154,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
     };
 
     const bothSelected = left && right;
+    const hasAnySelection = Boolean(left || right);
     const popularPairs = React.useMemo(() => {
         const sorted = [...companies]
             .sort((a, b) => (b.ratings.overall_rating || 0) - (a.ratings.overall_rating || 0))
@@ -164,26 +165,25 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
         }
         return pairs;
     }, [companies]);
-    const visiblePopularPairs = showAllPopular ? popularPairs : popularPairs.slice(0, 6);
+    const visiblePopularPairs = showAllPopular ? popularPairs : popularPairs.slice(0, 12);
 
     return (
         <div className="w-full pb-8">
             <div
-                className="relative mx-auto mb-8 flex min-h-[420px] w-full max-w-[1024px] flex-col items-center justify-center overflow-visible rounded-[20px] px-4 py-10 md:py-14"
+                className="relative mx-auto mb-8 flex min-h-[420px] w-full max-w-[1024px] flex-col items-center justify-center overflow-visible rounded-[20px] border border-[#EBF0F6] px-4 py-10 md:py-14"
                 style={{
-                    backgroundImage:
-                        'linear-gradient(to bottom, #5570ff, #273aa4), url(https://static.ambitionbox.com/static/compare-bg_web.svg)',
+                    backgroundImage: "url('/badge_logo/company_compare_hero_bg.png')",
                     backgroundSize: 'cover',
-                    backgroundPosition: 'center bottom',
+                    backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
                 }}
             >
                 <div className="relative z-10 w-full max-w-4xl">
                     <div className="mb-8 text-center">
-                        <h2 className="mx-auto max-w-[640px] text-3xl font-bold leading-tight text-white md:text-5xl">
+                        <h2 className="mx-auto max-w-[640px] text-3xl font-bold leading-tight text-[#1E223C] md:text-5xl">
                             Compare companies to find the best workplace
                         </h2>
-                        <p className="mt-3 text-lg font-medium text-white/90">
+                        <p className="mt-3 text-lg font-medium text-gray-600">
                             Because you deserve better <span role="img" aria-label="smiley">😀</span>
                         </p>
                     </div>
@@ -197,7 +197,7 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                             onSelect={company => setSlot(0, company)}
                             placeholder="Add first company"
                         />
-                        <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-lg font-bold text-white md:border-none md:bg-transparent md:p-0">
+                        <span className="rounded-full border border-[#5670FB]/20 bg-white/80 px-4 py-2 text-lg font-bold text-[#5670FB] shadow-sm md:border-none md:bg-transparent md:shadow-none md:p-0">
                             VS
                         </span>
                         <CompanyPicker
@@ -211,70 +211,73 @@ export const CompareCompaniesSection: React.FC<CompareCompaniesSectionProps> = (
                         />
                     </div>
                 </div>
-
-                <div className="pointer-events-none absolute -left-12 -top-12 h-48 w-48 rounded-full bg-blue-300/20 blur-[100px]" />
-                <div className="pointer-events-none absolute -bottom-12 -right-12 h-56 w-56 rounded-full bg-blue-900/40 blur-[100px]" />
             </div>
 
-            <div className="mx-auto mb-8 w-full max-w-[1024px] px-2 sm:px-4">
-                <h3 className="mb-4 text-2xl font-bold text-[#1E223C]">Popular comparisons</h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {!hasAnySelection && (
+            <div className="mx-auto mb-8 w-full max-w-[1200px] px-2 sm:px-4">
+                <h3 className="mb-6 text-2xl font-bold text-[#1E223C] sm:text-3xl">Popular comparisons</h3>
+                <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                     {visiblePopularPairs.map(([a, b]) => (
                         <button
                             type="button"
                             key={`${a.id}-${b.id}`}
                             onClick={() => onSelectionChange([a, b])}
-                            className="rounded-xl border border-[#EBF0F6] bg-white p-4 text-left transition hover:shadow-sm"
+                            className="rounded-2xl border border-[#EBF0F6] bg-white p-5 text-left transition hover:border-[#5670FB]/20 hover:shadow-md sm:p-6"
                         >
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                                <div className="flex flex-col items-center gap-1">
-                                    <CompanyAvatar name={a.identity.name} logoUrl={a.logoUrl} size="lg" />
-                                    <div className="flex items-center gap-1 text-xs">
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+                                <div className="flex flex-col items-center gap-2">
+                                    <CompanyAvatar name={a.identity.name} logoUrl={a.logoUrl} size="xl" className="rounded-2xl p-1.5" />
+                                    <div className="flex items-center gap-1 text-sm font-medium">
                                         <span className="text-[#68B300]">★</span>
                                         <span>{a.ratings.overall_rating.toFixed(1)}</span>
                                     </div>
-                                    <span className="text-xs font-semibold text-[#1E223C]">{a.identity.name}</span>
+                                    <span className="line-clamp-2 text-center text-sm font-semibold leading-tight text-[#1E223C]">
+                                        {a.identity.name}
+                                    </span>
                                 </div>
-                                <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-500">VS</span>
-                                <div className="flex flex-col items-center gap-1">
-                                    <CompanyAvatar name={b.identity.name} logoUrl={b.logoUrl} size="lg" />
-                                    <div className="flex items-center gap-1 text-xs">
+                                <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-500">VS</span>
+                                <div className="flex flex-col items-center gap-2">
+                                    <CompanyAvatar name={b.identity.name} logoUrl={b.logoUrl} size="xl" className="rounded-2xl p-1.5" />
+                                    <div className="flex items-center gap-1 text-sm font-medium">
                                         <span className="text-[#68B300]">★</span>
                                         <span>{b.ratings.overall_rating.toFixed(1)}</span>
                                     </div>
-                                    <span className="text-xs font-semibold text-[#1E223C]">{b.identity.name}</span>
+                                    <span className="line-clamp-2 text-center text-sm font-semibold leading-tight text-[#1E223C]">
+                                        {b.identity.name}
+                                    </span>
                                 </div>
                             </div>
                         </button>
                     ))}
                 </div>
-                {popularPairs.length > 6 && (
-                    <div className="mt-5 flex justify-center">
+                {popularPairs.length > 12 && (
+                    <div className="mt-8 flex justify-center">
                         <button
                             type="button"
                             onClick={() => setShowAllPopular((prev) => !prev)}
-                            className="rounded-full border border-[#5670FB]/40 px-5 py-2 text-sm font-semibold text-[#5670FB] transition hover:bg-[#EEF4FF]"
+                            className="rounded-full border border-[#5670FB]/40 px-6 py-2.5 text-sm font-semibold text-[#5670FB] transition hover:bg-[#EEF4FF]"
                         >
-                            {showAllPopular ? 'View less' : 'View more'}
+                            {showAllPopular ? 'Show less' : 'Show more'}
                         </button>
                     </div>
                 )}
             </div>
+            )}
 
             {bothSelected ? (
                 <div className="mx-auto w-full max-w-[1024px] px-2 sm:px-4">
                     <CompareMatrix left={left} right={right} />
                 </div>
-            ) : (
+            ) : hasAnySelection ? (
                 <div className="mx-auto w-full max-w-[1024px] px-2 sm:px-4">
                     <div className="rounded-xl border border-dashed border-[#EBF0F6] bg-white px-6 py-14 text-center">
-                        <p className="text-sm font-medium text-[#1E223C]">Select two companies to see the comparison</p>
+                        <p className="text-sm font-medium text-[#1E223C]">Select a second company to see the comparison</p>
                         <p className="mt-1 text-xs text-gray-500">
-                            Use the pickers above or add companies from Explore.
+                            Use the picker above to add another company.
                         </p>
                     </div>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 };

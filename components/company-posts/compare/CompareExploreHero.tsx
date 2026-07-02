@@ -185,7 +185,7 @@ export const CompareExploreHero: React.FC<CompareExploreHeroProps> = ({ onFilter
                     </div>
 
                     <div className="flex items-center gap-1 text-[14px] leading-[20px] text-[#E4E6EE] mt-1">
-                        <span>Curated from AmbitionBox</span>
+                        <span>Curated from codexcareer</span>
                         <img
                             src="https://static.ambitionbox.com/static/loc/information.png"
                             width={20}
