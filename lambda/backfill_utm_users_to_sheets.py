@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-One-time backfill: append existing DynamoDB users with UTM attribution to Google Sheets.
+Backfill / refresh DynamoDB UTM campaign users in Google Sheets.
 
 Usage (from lambda/ with AWS + Google env configured):
-  python backfill_utm_users_to_sheets.py
-
-Skips users whose userId already appears in the sheet.
+  python backfill_utm_users_to_sheets.py          # append missing users only
+  python backfill_utm_users_to_sheets.py --refresh # replace sheet rows (UTM campaigns only)
 """
 from __future__ import annotations
 
@@ -22,10 +21,14 @@ import boto3
 from google_sheets_sync import (
     GOOGLE_SHEET_ID,
     GOOGLE_SHEET_TAB,
+    SHEET_HEADER_ROW,
     SHEETS_API,
     _ensure_header_row,
     _get_service_account_token,
+    _ordered_row_values,
+    _put_json,
     append_user_attribution_row,
+    build_attribution_row,
     is_google_sheets_configured,
 )
 
@@ -110,13 +113,70 @@ def scan_attributed_users() -> List[Dict[str, Any]]:
     return users
 
 
+def dedupe_users(users: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for user in users:
+        user_id = str(user.get("userId") or "")
+        if not user_id:
+            continue
+        existing = by_id.get(user_id)
+        if not existing or (user.get("createdAt") or "") >= (existing.get("createdAt") or ""):
+            by_id[user_id] = user
+    return sorted(by_id.values(), key=lambda u: u.get("createdAt") or "")
+
+
+def refresh_sheet(users: List[Dict[str, Any]]) -> None:
+    """Replace all data rows with current UTM campaign users (clears stale rows)."""
+    token = _get_service_account_token()
+    # Clear old rows — PUT alone leaves trailing rows when the sheet shrinks.
+    clear_range = urllib.parse.quote(f"{GOOGLE_SHEET_TAB}!A2:Q")
+    clear_url = f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{clear_range}:clear"
+    clear_req = urllib.request.Request(
+        clear_url,
+        data=b"{}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(clear_req, timeout=30) as resp:
+        resp.read()
+
+    values = [SHEET_HEADER_ROW]
+    for user in users:
+        row = build_attribution_row(user, signup_method_for(user))
+        values.append(_ordered_row_values(row))
+    range_name = urllib.parse.quote(f"{GOOGLE_SHEET_TAB}!A1")
+    url = f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{range_name}?valueInputOption=USER_ENTERED"
+    _put_json(
+        url,
+        {"values": values},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
 def main() -> int:
+    refresh = "--refresh" in sys.argv
     if not is_google_sheets_configured():
         print("Google Sheets not configured (GOOGLE_SHEET_ID + service account).")
         return 1
 
+    users = dedupe_users(scan_attributed_users())
+
+    if refresh:
+        print(f"Refreshing sheet with {len(users)} UTM campaign users...")
+        try:
+            refresh_sheet(users)
+        except Exception as exc:
+            print(f"Refresh failed: {exc}")
+            return 1
+        for user in users:
+            print(f"  · {user.get('email')} ({user.get('utmSource')})")
+        print(f"Done: sheet updated with {len(users)} rows (+ header).")
+        return 0
+
     existing_ids = fetch_existing_user_ids()
-    users = scan_attributed_users()
     print(f"Found {len(users)} attributed users in DynamoDB; {len(existing_ids)} already in sheet.")
 
     appended = 0
