@@ -74,11 +74,23 @@ VITE_SUBSCRIPTION_API_URL=https://rnu2gfl2z1.execute-api.ap-south-2.amazonaws.co
 
 Deploy a zip containing at minimum:
 
-- `subscription_handler.py`
+- `subscription_handler.py` (packaged as `lambda_function.py` for the deployed handler name)
 - `subscription_invoice.py`
 - `email_service.py`
 - `feature_entitlement.py`
 - `reportlab` (from `requirements-resume-pdf.txt`)
+
+Build on macOS/Windows (Lambda is **arm64** in ap-south-2):
+
+```bash
+cd lambda
+python build_subscription_zip.py
+aws lambda update-function-code --function-name UserSubscriptions_handler \
+  --region ap-south-2 --zip-file fileb://subscription_lambda.zip
+```
+
+The build script defaults to `manylinux2014_aarch64` wheels. Override with
+`LAMBDA_ZIP_PLATFORM=manylinux2014_x86_64` only if the function uses x86_64.
 
 Without `subscription_invoice.py` + `reportlab`, payment receipts will activate the plan but **View/Download PDF** returns `NO_INVOICE`.
 

@@ -54,6 +54,7 @@ try:
         build_subscription_invoice_pdf,
         generate_invoice_number,
         get_invoice_presigned_url,
+        invoice_download_filename,
         is_invoice_pdf_available,
         upload_invoice_pdf,
     )
@@ -335,6 +336,60 @@ def issue_invoice_and_email(
         item["invoiceEmailSentAt"] = ts
         item["invoiceEmailStatus"] = "sent" if sent else "failed"
 
+    return item
+
+
+def regenerate_invoice_pdf(item: Dict[str, Any]) -> Dict[str, Any]:
+    """Rebuild invoice PDF and overwrite the S3 object (used when user views/downloads receipt)."""
+    if not is_invoice_pdf_available():
+        if not item.get("invoiceS3Key"):
+            return issue_invoice_and_email(item)
+        return item
+
+    user_id = item["userId"]
+    subscription_id = item["subscriptionId"]
+    contact = get_user_contact(user_id)
+    invoice_number = item.get("invoiceNumber") or generate_invoice_number()
+    payment_date = item.get("startDate") or now_iso()
+    price_inr = int(item.get("priceInr") or PLAN_CONFIG.get(item.get("planId", ""), {}).get("priceInr", 0))
+    plan_name = item.get("planName") or item.get("planId", "Plan")
+    payment_id = item.get("paymentId")
+
+    try:
+        pdf_bytes = build_subscription_invoice_pdf(
+            invoice_number=invoice_number,
+            user_name=contact["name"],
+            user_email=contact["email"],
+            plan_name=plan_name,
+            plan_id=str(item.get("planId") or ""),
+            price_inr=price_inr,
+            payment_id=str(payment_id) if payment_id else None,
+            payment_date_iso=payment_date,
+            upgrade_from_plan=None,
+        )
+        s3_key, upload_err = upload_invoice_pdf(user_id, subscription_id, pdf_bytes)
+        if upload_err:
+            print(f"invoice regenerate upload: {upload_err}")
+            return item
+    except Exception as exc:
+        print(f"invoice regenerate pdf build failed: {exc}")
+        return item
+
+    ts = now_iso()
+    item["invoiceNumber"] = invoice_number
+    item["invoiceGeneratedAt"] = ts
+    item["invoiceS3Key"] = s3_key
+    subscriptions_table.update_item(
+        Key={"userId": user_id, "subscriptionId": subscription_id},
+        UpdateExpression=(
+            "SET invoiceNumber = :inv, invoiceGeneratedAt = :ts, invoiceS3Key = :key, updatedAt = :ts"
+        ),
+        ExpressionAttributeValues={
+            ":inv": invoice_number,
+            ":ts": ts,
+            ":key": s3_key,
+        },
+    )
     return item
 
 
@@ -933,12 +988,11 @@ def handle_get_subscription_receipt(body: Dict[str, Any]) -> Dict[str, Any]:
         })
 
     s3_key = active.get("invoiceS3Key")
-    if not s3_key:
-        try:
-            active = issue_invoice_and_email(dict(active))
-            s3_key = active.get("invoiceS3Key")
-        except Exception as exc:
-            print(f"get_subscription_receipt invoice retry failed: {exc}")
+    try:
+        active = regenerate_invoice_pdf(dict(active))
+        s3_key = active.get("invoiceS3Key") or s3_key
+    except Exception as exc:
+        print(f"get_subscription_receipt invoice regenerate failed: {exc}")
 
     if not s3_key:
         return response(404, {
@@ -953,7 +1007,13 @@ def handle_get_subscription_receipt(body: Dict[str, Any]) -> Dict[str, Any]:
             },
         })
 
-    url = get_invoice_presigned_url(s3_key, download=download)
+    contact = get_user_contact(user_id)
+    receipt_filename = invoice_download_filename(contact["name"])
+    url = get_invoice_presigned_url(
+        s3_key,
+        download=download,
+        download_filename=receipt_filename,
+    )
     if not url:
         return response(500, {
             "success": False,
