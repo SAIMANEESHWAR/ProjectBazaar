@@ -34,6 +34,7 @@ export interface CompanyInterview {
     difficulty_level: string;
     experience_summary: string;
     interview_questions?: Array<{ value: string }>;
+    selection_process?: string[];
 }
 
 export interface CompanyBenefit {

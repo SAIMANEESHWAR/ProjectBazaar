@@ -98,6 +98,32 @@ function buildBenefits(raw: unknown[]): CompanyCompare['benefits'] {
     return raw.map(b => ({ value: extractValue(b) })).filter(b => b.value);
 }
 
+export function formatBenefitLabel(benefit: CompanyCompare['benefits'][number] | string): string {
+    if (typeof benefit === 'string') return benefit.trim();
+    return benefit.value?.trim() ?? '';
+}
+
+export function getCompanyInterviewQuestions(company: CompanyCompare): string[] {
+    const seen = new Set<string>();
+    const questions: string[] = [];
+    const add = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed || seen.has(trimmed)) return;
+        seen.add(trimmed);
+        questions.push(trimmed);
+    };
+
+    for (const block of company.interviews) {
+        for (const question of block.interview_questions ?? []) {
+            add(extractValue(question));
+        }
+    }
+    for (const question of company.interviewQuestions ?? []) {
+        add(typeof question === 'string' ? question : extractValue(question));
+    }
+    return questions;
+}
+
 function buildActiveJobs(roles: unknown[], headquarters: string): CompanyCompare['active_jobs'] {
     const loc = cleanHeadquarters(headquarters) || 'India';
     return roles
@@ -134,7 +160,7 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         reviews: item.reviews ?? [],
         salaries,
         interviews: item.interviews ?? [],
-        benefits: item.benefits ?? [],
+        benefits: buildBenefits(item.benefits ?? []),
         active_jobs: item.active_jobs ?? [],
         metadata: item.metadata ?? { source_urls: [], scrape_timestamp: '' },
         overviewUrl: item.overviewUrl,
@@ -148,13 +174,14 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
     };
 
     const extra = item as RawRecord;
-    const passthrough = ['locations', 'technologies', 'company_highlights', 'socialLinks'] as const;
-    for (const key of passthrough) {
+    const passthroughKeys = ['locations', 'technologies', 'company_highlights', 'socialLinks'] as const;
+    const passthrough: Partial<Record<(typeof passthroughKeys)[number], unknown>> = {};
+    for (const key of passthroughKeys) {
         if (extra[key] != null) {
-            (base as RawRecord)[key] = extra[key];
+            passthrough[key] = extra[key];
         }
     }
-    return base;
+    return { ...base, ...passthrough };
 }
 
 export function normalizeCompany(raw: unknown): CompanyCompare {
@@ -354,10 +381,11 @@ export function getPrimaryLocation(company: CompanyCompare): string {
 }
 
 export function getCompanyMetricCounts(company: CompanyCompare): CompanyMetricCounts {
+    const interviewQuestions = getCompanyInterviewQuestions(company);
     return {
         reviews: company.reviews.length,
         salaries: company.salaries.length || (company.salaryRange ? 1 : 0),
-        interviews: company.interviews.length,
+        interviews: interviewQuestions.length || company.interviews.length,
         jobs: company.active_jobs.length,
         benefits: company.benefits.length,
     };

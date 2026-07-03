@@ -2,12 +2,16 @@ import * as React from 'react';
 import { ArrowLeft, BadgeCheck, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
+    formatBenefitLabel,
     formatWebsiteUrl,
+    getCompanyInterviewQuestions,
     getCompanyMetricCounts,
     getLowRatedDimensions,
     getPrimaryLocation,
     getTopRatedDimensions,
+    normalizeCompanyFromApi,
 } from '../../../lib/companyCompareData';
+import { fetchCompanyByIdFromApi } from '../../../lib/companyCompareApi';
 import type { CompanyCompare } from '../../../types/companyCompare';
 import { RATING_DIMENSIONS } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
@@ -25,18 +29,45 @@ export interface CompanyDetailViewProps {
 }
 
 export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
-    company,
+    company: initialCompany,
     allCompanies = [],
     onBack,
     onAddToCompare,
 }) => {
+    const [company, setCompany] = React.useState(initialCompany);
+    const [refreshing, setRefreshing] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<DetailTab>('about');
     const metrics = getCompanyMetricCounts(company);
+    const interviewQuestions = getCompanyInterviewQuestions(company);
     const topRated = getTopRatedDimensions(company, 1)[0];
     const lowRated = getLowRatedDimensions(company, 3);
     const websiteUrl = formatWebsiteUrl(company.identity.website);
     const topInterview = company.interviews[0];
-    const topBenefit = company.benefits[0]?.value;
+    const topBenefit = formatBenefitLabel(company.benefits[0] ?? '');
+
+    React.useEffect(() => {
+        setCompany(initialCompany);
+    }, [initialCompany]);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        setRefreshing(true);
+        fetchCompanyByIdFromApi(initialCompany.id)
+            .then(item => {
+                if (!cancelled) {
+                    setCompany(normalizeCompanyFromApi(item));
+                }
+            })
+            .catch(() => {
+                // Keep list data if the detail fetch fails.
+            })
+            .finally(() => {
+                if (!cancelled) setRefreshing(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [initialCompany.id]);
 
     const tabs: Array<{ id: DetailTab; label: string; count?: number }> = [
         { id: 'about', label: 'About' },
@@ -123,6 +154,9 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                 </div>
 
                 <div className="p-4 sm:p-6">
+                    {refreshing && (
+                        <p className="mb-4 text-xs font-medium text-gray-400">Refreshing company data…</p>
+                    )}
                     {activeTab === 'about' && (
                         <div className="space-y-6">
                             <section>
@@ -134,14 +168,17 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                     <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1 text-xs font-medium text-[#1E223C]">
                                         {company.identity.industry}
                                     </span>
-                                    {company.benefits.slice(0, 3).map(b => (
+                                    {company.benefits.slice(0, 3).map(b => {
+                                        const label = formatBenefitLabel(b);
+                                        return (
                                         <span
-                                            key={b.value}
+                                            key={label}
                                             className="rounded-full border border-[#EBF0F6] px-3 py-1 text-xs text-gray-600"
                                         >
-                                            {b.value}
+                                            {label}
                                         </span>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </section>
 
@@ -319,8 +356,14 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                     )}
 
                     {activeTab === 'interviews' && (
-                        <div className="space-y-3">
-                            {company.interviews.map(item => (
+                        <div className="space-y-4">
+                            {company.interviews.map(item => {
+                                const blockQuestions = (item.interview_questions ?? [])
+                                    .map(q => (typeof q === 'string' ? q : q.value))
+                                    .filter(Boolean);
+                                const questions = blockQuestions.length > 0 ? blockQuestions : interviewQuestions;
+
+                                return (
                                 <article key={`${item.role}-${item.difficulty_level}`} className="rounded-xl border border-[#EBF0F6] p-4">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <h4 className="font-semibold text-[#1E223C]">{item.role}</h4>
@@ -328,22 +371,74 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                             {item.difficulty_level}
                                         </span>
                                     </div>
-                                    <p className="mt-2 text-sm text-gray-600">{item.experience_summary}</p>
+                                    {item.experience_summary && (
+                                        <p className="mt-2 text-sm text-gray-600">{item.experience_summary}</p>
+                                    )}
+                                    {item.selection_process && item.selection_process.length > 0 && (
+                                        <div className="mt-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Selection process
+                                            </p>
+                                            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
+                                                {item.selection_process.map(step => (
+                                                    <li key={step}>{step}</li>
+                                                ))}
+                                            </ol>
+                                        </div>
+                                    )}
+                                    {questions.length > 0 && (
+                                        <div className="mt-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Common questions ({questions.length})
+                                            </p>
+                                            <ul className="mt-2 space-y-2">
+                                                {questions.map(question => (
+                                                    <li
+                                                        key={question}
+                                                        className="rounded-lg border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-2 text-sm text-[#1E223C]"
+                                                    >
+                                                        {question}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </article>
-                            ))}
+                                );
+                            })}
+                            {company.interviews.length === 0 && interviewQuestions.length > 0 && (
+                                <div className="rounded-xl border border-[#EBF0F6] p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Common questions ({interviewQuestions.length})
+                                    </p>
+                                    <ul className="mt-2 space-y-2">
+                                        {interviewQuestions.map(question => (
+                                            <li
+                                                key={question}
+                                                className="rounded-lg border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-2 text-sm text-[#1E223C]"
+                                            >
+                                                {question}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'benefits' && (
                         <div className="flex flex-wrap gap-2">
-                            {company.benefits.map(b => (
+                            {company.benefits.map(b => {
+                                const label = formatBenefitLabel(b);
+                                return (
                                 <span
-                                    key={b.value}
+                                    key={label}
                                     className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-sm text-[#1E223C]"
                                 >
-                                    {b.value}
+                                    {label}
                                 </span>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

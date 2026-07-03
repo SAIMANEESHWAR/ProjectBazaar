@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { useDashboard } from '../../context/DashboardContext';
-import { loadCompaniesFromApi } from '../../lib/companyCompareData';
+import { invalidateCompanyCompareCache, loadCompaniesFromApi } from '../../lib/companyCompareData';
 import type { CompanyCompare, ExploreFilters } from '../../types/companyCompare';
 import { DEFAULT_EXPLORE_FILTERS } from '../../types/companyCompare';
 import { CompareCompaniesSection } from './compare/CompareCompaniesSection';
@@ -34,9 +34,12 @@ const CompareCompaniesPage: React.FC = () => {
     const [loadError, setLoadError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
+        if (companySectionTab !== 'compare-companies') return;
+
         let cancelled = false;
         setLoading(true);
         setLoadError(null);
+        invalidateCompanyCompareCache();
         loadCompaniesFromApi()
             .then(data => {
                 if (!cancelled) setCompanies(data);
@@ -52,7 +55,7 @@ const CompareCompaniesPage: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [companySectionTab]);
 
     React.useEffect(() => {
         if (!toast) return;
