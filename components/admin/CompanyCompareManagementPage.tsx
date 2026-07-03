@@ -4,11 +4,13 @@ import {
     adminUpsertCompany,
     adminSyncCompanies,
     fetchCompaniesFromApi,
+    fetchCompanyByIdFromApi,
     getCompanyCompareApiBase,
     isCompanyCompareApiEnabled,
 } from '../../services/companyCompareAdminApi';
-import { invalidateCompanyCompareCache, normalizeCompany } from '../../lib/companyCompareData';
-import type { CompanyCompare } from '../../types/companyCompare';
+import { invalidateCompanyCompareCache, normalizeCompany, normalizeCompanyFromApi } from '../../lib/companyCompareData';
+import type { CompanyCompare, CompanyReview } from '../../types/companyCompare';
+import { CompanyCompareReviewsModal, buildCompanyUpsertPayload } from './CompanyCompareReviewsModal';
 
 interface UploadPreview {
     count: number;
@@ -25,6 +27,7 @@ interface MappedCompanyPreview {
     salaryCount: number;
     interviewCount: number;
     benefitCount: number;
+    reviewCount: number;
     activeJobsCount: number;
     createdAt?: string;
     updatedAt?: string;
@@ -44,6 +47,10 @@ const CompanyCompareManagementPage: React.FC = () => {
     const [editCompany, setEditCompany] = React.useState<CompanyCompare | null>(null);
     const [editJson, setEditJson] = React.useState('');
     const [savingEdit, setSavingEdit] = React.useState(false);
+    const [reviewsCompany, setReviewsCompany] = React.useState<CompanyCompare | null>(null);
+    const [reviewDraft, setReviewDraft] = React.useState<CompanyReview[]>([]);
+    const [loadingReviews, setLoadingReviews] = React.useState(false);
+    const [savingReviews, setSavingReviews] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const apiConfigured = isCompanyCompareApiEnabled();
@@ -107,6 +114,7 @@ const CompanyCompareManagementPage: React.FC = () => {
                     salaryCount: c.salaries.length || (c.salaryRange ? 1 : 0),
                     interviewCount: c.interviews.length,
                     benefitCount: c.benefits.length,
+                    reviewCount: c.reviews.length,
                     activeJobsCount: c.active_jobs.length,
                     createdAt: c.createdAt,
                     updatedAt: c.updatedAt,
@@ -169,6 +177,57 @@ const CompanyCompareManagementPage: React.FC = () => {
     const openEdit = (company: CompanyCompare) => {
         setEditCompany(company);
         setEditJson(JSON.stringify({ ...company, companyId: company.id, id: company.id }, null, 2));
+    };
+
+    const openReviewsEditor = async (company: CompanyCompare) => {
+        setReviewsCompany(company);
+        setReviewDraft([]);
+        setLoadingReviews(true);
+        try {
+            const fresh = await fetchCompanyByIdFromApi(company.id);
+            const normalized = normalizeCompanyFromApi(fresh);
+            setReviewsCompany(normalized);
+            setReviewDraft(normalized.reviews ?? []);
+        } catch (e) {
+            setToast({
+                type: 'error',
+                message: e instanceof Error ? e.message : 'Failed to load reviews',
+            });
+            setReviewsCompany(null);
+        } finally {
+            setLoadingReviews(false);
+        }
+    };
+
+    const closeReviewsEditor = () => {
+        setReviewsCompany(null);
+        setReviewDraft([]);
+    };
+
+    const handleSaveReviews = async () => {
+        if (!reviewsCompany) return;
+        setSavingReviews(true);
+        try {
+            const payload = buildCompanyUpsertPayload({
+                ...reviewsCompany,
+                reviews: reviewDraft,
+            });
+            await adminUpsertCompany(payload);
+            invalidateCompanyCompareCache();
+            setToast({
+                type: 'success',
+                message: `Updated reviews for ${reviewsCompany.identity.name}`,
+            });
+            closeReviewsEditor();
+            await loadData();
+        } catch (e) {
+            setToast({
+                type: 'error',
+                message: e instanceof Error ? e.message : 'Failed to save reviews',
+            });
+        } finally {
+            setSavingReviews(false);
+        }
     };
 
     const handleSaveEdit = async () => {
@@ -333,6 +392,7 @@ const CompanyCompareManagementPage: React.FC = () => {
                                         <p><span className="font-medium text-gray-700">salaries:</span> {item.salaryCount}</p>
                                         <p><span className="font-medium text-gray-700">interviews:</span> {item.interviewCount}</p>
                                         <p><span className="font-medium text-gray-700">benefits:</span> {item.benefitCount}</p>
+                                        <p><span className="font-medium text-gray-700">reviews:</span> {item.reviewCount}</p>
                                         <p><span className="font-medium text-gray-700">activeJobs:</span> {item.activeJobsCount}</p>
                                         <p><span className="font-medium text-gray-700">createdAt:</span> {item.createdAt ?? 'set on sync'}</p>
                                         <p><span className="font-medium text-gray-700">updatedAt:</span> {item.updatedAt ?? 'set on sync'}</p>
@@ -379,7 +439,7 @@ const CompanyCompareManagementPage: React.FC = () => {
                                     <div className="min-w-0">
                                     <p className="font-medium text-gray-900 truncate">{c.identity.name}</p>
                                     <p className="text-xs text-gray-500 truncate">
-                                        {c.identity.industry} · {c.ratings.overall_rating.toFixed(1)}/5
+                                        {c.identity.industry} · {c.ratings.overall_rating.toFixed(1)}/5 · {c.reviews.length} reviews
                                     </p>
                                 </div>
                                 </div>
@@ -390,6 +450,13 @@ const CompanyCompareManagementPage: React.FC = () => {
                                         className="text-xs font-semibold text-[#5670FB] hover:text-[#4358d9]"
                                     >
                                         View
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void openReviewsEditor(c)}
+                                        className="text-xs font-semibold text-violet-700 hover:text-violet-800"
+                                    >
+                                        Reviews
                                     </button>
                                     <button
                                         type="button"
@@ -482,6 +549,18 @@ const CompanyCompareManagementPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {reviewsCompany && (
+                <CompanyCompareReviewsModal
+                    companyName={reviewsCompany.identity.name}
+                    reviews={reviewDraft}
+                    loading={loadingReviews}
+                    saving={savingReviews}
+                    onClose={closeReviewsEditor}
+                    onChange={setReviewDraft}
+                    onSave={() => void handleSaveReviews()}
+                />
             )}
 
             {toast && (

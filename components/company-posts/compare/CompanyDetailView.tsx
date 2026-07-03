@@ -1,5 +1,26 @@
 import * as React from 'react';
-import { ArrowLeft, BadgeCheck, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
+import {
+    ArrowLeft,
+    BadgeCheck,
+    Building2,
+    Calendar,
+    ExternalLink,
+    Facebook,
+    GitCompare,
+    Globe,
+    IndianRupee,
+    Instagram,
+    Linkedin,
+    MapPin,
+    ThumbsDown,
+    ThumbsUp,
+    TrendingUp,
+    Twitter,
+    UserRound,
+    Users,
+    Youtube,
+    type LucideIcon,
+} from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
     formatBenefitLabel,
@@ -22,12 +43,14 @@ import { SalaryIndustryChart } from './SalaryIndustryChart';
 
 type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'benefits' | 'jobs';
 
+const SECTION_HEADING_CLASS = 'mb-3 text-base font-bold text-[#1E223C]';
+
 function ChipSection({ title, items }: { title: string; items: string[] }) {
     const visible = items.map(item => item.trim()).filter(Boolean);
     if (!visible.length) return null;
     return (
         <section>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">{title}</h3>
+            <h3 className={SECTION_HEADING_CLASS}>{title}</h3>
             <div className="flex flex-wrap gap-2">
                 {visible.map(item => (
                     <span
@@ -42,12 +65,25 @@ function ChipSection({ title, items }: { title: string; items: string[] }) {
     );
 }
 
-function FactItem({ label, value }: { label: string; value?: string | number | null }) {
+function FactItem({
+    label,
+    value,
+    icon: Icon,
+}: {
+    label: string;
+    value?: string | number | null;
+    icon: LucideIcon;
+}) {
     if (value == null || value === '') return null;
     return (
-        <div className="rounded-lg border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-            <p className="mt-1 text-sm font-medium text-[#1E223C]">{value}</p>
+        <div className="flex items-start gap-3 rounded-xl border border-[#EBF0F6] bg-white px-3 py-3 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FAFCFF] text-gray-500">
+                <Icon size={18} strokeWidth={2} />
+            </div>
+            <div className="min-w-0 pt-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+                <p className="mt-1 text-sm font-semibold leading-snug text-[#1E223C]">{value}</p>
+            </div>
         </div>
     );
 }
@@ -59,6 +95,15 @@ const SOCIAL_LABELS: Record<string, string> = {
     youtube: 'YouTube',
     instagram: 'Instagram',
     website: 'Website',
+};
+
+const SOCIAL_ICONS: Record<string, LucideIcon> = {
+    linkedin: Linkedin,
+    twitter: Twitter,
+    facebook: Facebook,
+    youtube: Youtube,
+    instagram: Instagram,
+    website: Globe,
 };
 
 export interface CompanyDetailViewProps {
@@ -123,7 +168,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
     const socialEntries = Object.entries(company.socialLinks ?? {}).filter(
         ([, url]) => typeof url === 'string' && url.trim(),
     );
-    const sourceUrl = company.overviewUrl || company.metadata?.source_urls?.[0]?.value;
 
     React.useEffect(() => {
         setActiveTab('about');
@@ -214,99 +258,9 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                 <h2 className="text-lg font-bold text-[#1E223C] mb-3">
                                     Working at {company.identity.name}
                                 </h2>
-                                <p className="text-sm leading-relaxed text-gray-600 mb-4">{company.identity.description}</p>
-                                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                    <FactItem label="Company type" value={company.identity.company_type} />
-                                    <FactItem label="Headquarters" value={company.identity.headquarters} />
-                                    <FactItem
-                                        label="Founded"
-                                        value={company.foundedYear ?? company.identity.founded}
-                                    />
-                                    <FactItem label="Employees" value={company.employeeCount} />
-                                    <FactItem label="CEO" value={company.identity.ceo} />
-                                    <FactItem label="Stock" value={company.identity.stock_symbol} />
-                                    <FactItem label="Parent company" value={company.identity.parent_company} />
-                                    <FactItem label="Avg salary" value={company.salaryRange} />
-                                </div>
-                                <div className="flex flex-wrap gap-2 mb-6">
-                                    <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1 text-xs font-medium text-[#1E223C]">
-                                        {company.identity.industry}
-                                    </span>
-                                    {company.benefits.slice(0, 3).map(b => {
-                                        const label = formatBenefitLabel(b);
-                                        return (
-                                        <span
-                                            key={label}
-                                            className="rounded-full border border-[#EBF0F6] px-3 py-1 text-xs text-gray-600"
-                                        >
-                                            {label}
-                                        </span>
-                                        );
-                                    })}
-                                </div>
-                            </section>
+                                <p className="text-sm leading-relaxed text-gray-600 mb-6">{company.identity.description}</p>
 
-                            <div className="space-y-6">
-                                <ChipSection title="Specialties" items={company.identity.specialties ?? []} />
-                                <ChipSection title="Office locations" items={company.locations ?? []} />
-                                <ChipSection title="Technologies" items={company.technologies ?? []} />
-                                {company.company_highlights && company.company_highlights.length > 0 && (
-                                    <section>
-                                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                            Company highlights
-                                        </h3>
-                                        <ul className="space-y-2">
-                                            {company.company_highlights.map(highlight => (
-                                                <li
-                                                    key={highlight}
-                                                    className="flex gap-2 text-sm text-gray-600 before:content-['•'] before:text-[#5670FB]"
-                                                >
-                                                    {highlight}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </section>
-                                )}
-                                {socialEntries.length > 0 && (
-                                    <section>
-                                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                            Social links
-                                        </h3>
-                                        <div className="flex flex-wrap gap-3">
-                                            {socialEntries.map(([key, url]) => (
-                                                <a
-                                                    key={key}
-                                                    href={formatWebsiteUrl(url)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#5670FB] hover:underline"
-                                                >
-                                                    {SOCIAL_LABELS[key] ?? key}
-                                                    <ExternalLink size={12} />
-                                                </a>
-                                            ))}
-                                        </div>
-                                    </section>
-                                )}
-                                {sourceUrl && (
-                                    <p className="text-xs text-gray-400">
-                                        Source:{' '}
-                                        <a
-                                            href={sourceUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[#5670FB] hover:underline"
-                                        >
-                                            {company.metadata?.source ?? 'View profile'}
-                                        </a>
-                                        {company.metadata?.last_verified
-                                            ? ` · Last verified ${company.metadata.last_verified}`
-                                            : ''}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="grid gap-4 lg:grid-cols-3">
+                            <div className="grid gap-4 lg:grid-cols-3 mb-6">
                                 <div className="rounded-xl border border-[#EBF0F6] p-4">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
                                         Overall Rating
@@ -382,6 +336,89 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                         )}
                                     </ul>
                                 </div>
+                            </div>
+
+                                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    <FactItem label="Company type" value={company.identity.company_type} icon={Building2} />
+                                    <FactItem label="Headquarters" value={company.identity.headquarters} icon={MapPin} />
+                                    <FactItem
+                                        label="Founded"
+                                        value={company.foundedYear ?? company.identity.founded}
+                                        icon={Calendar}
+                                    />
+                                    <FactItem label="Employees" value={company.employeeCount} icon={Users} />
+                                    <FactItem label="CEO" value={company.identity.ceo} icon={UserRound} />
+                                    <FactItem label="Stock" value={company.identity.stock_symbol} icon={TrendingUp} />
+                                    <FactItem label="Parent company" value={company.identity.parent_company} icon={Building2} />
+                                    <FactItem label="Avg salary" value={company.salaryRange} icon={IndianRupee} />
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1 text-xs font-medium text-[#1E223C]">
+                                        {company.identity.industry}
+                                    </span>
+                                    {company.benefits.slice(0, 3).map(b => {
+                                        const label = formatBenefitLabel(b);
+                                        return (
+                                        <span
+                                            key={label}
+                                            className="rounded-full border border-[#EBF0F6] px-3 py-1 text-xs text-gray-600"
+                                        >
+                                            {label}
+                                        </span>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            <div className="space-y-6">
+                                <ChipSection title="Specialties" items={company.identity.specialties ?? []} />
+                                <ChipSection title="Office locations" items={company.locations ?? []} />
+                                <ChipSection title="Technologies" items={company.technologies ?? []} />
+                                {company.company_highlights && company.company_highlights.length > 0 && (
+                                    <section>
+                                        <h3 className={SECTION_HEADING_CLASS}>
+                                            Company highlights
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {company.company_highlights.map(highlight => (
+                                                <li
+                                                    key={highlight}
+                                                    className="flex gap-2 text-sm text-gray-600 before:content-['•'] before:text-[#5670FB]"
+                                                >
+                                                    {highlight}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </section>
+                                )}
+                                {socialEntries.length > 0 && (
+                                    <section>
+                                        <h3 className={SECTION_HEADING_CLASS}>
+                                            Social links
+                                        </h3>
+                                        <div className="flex flex-wrap gap-3">
+                                            {socialEntries.map(([key, url]) => {
+                                                const Icon = SOCIAL_ICONS[key] ?? Globe;
+                                                return (
+                                                <a
+                                                    key={key}
+                                                    href={formatWebsiteUrl(url)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={SOCIAL_LABELS[key] ?? key}
+                                                    aria-label={SOCIAL_LABELS[key] ?? key}
+                                                    className="inline-flex items-center gap-2 rounded-lg border border-[#EBF0F6] bg-white px-3 py-2 text-sm font-medium text-[#1E223C] shadow-sm transition hover:border-[#5670FB]/30 hover:bg-[#FAFCFF]"
+                                                >
+                                                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#FAFCFF] text-gray-500">
+                                                        <Icon size={18} />
+                                                    </span>
+                                                    {SOCIAL_LABELS[key] ?? key}
+                                                </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+                                )}
                             </div>
                         </div>
                     )}
