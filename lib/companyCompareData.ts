@@ -120,9 +120,10 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         salaries = buildSyntheticSalary(item.salaryRange);
     }
 
-    return {
+    const base: CompanyCompare = {
         id,
         identity: {
+            ...(item.identity ?? {}),
             name,
             description: item.identity?.description ?? '',
             industry: item.identity?.industry ?? '',
@@ -145,13 +146,26 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
     };
+
+    const extra = item as RawRecord;
+    const passthrough = ['locations', 'technologies', 'company_highlights', 'socialLinks'] as const;
+    for (const key of passthrough) {
+        if (extra[key] != null) {
+            (base as RawRecord)[key] = extra[key];
+        }
+    }
+    return base;
 }
 
 export function normalizeCompany(raw: unknown): CompanyCompare {
     const cleaned = stripCitationKeys<RawRecord>(raw);
 
-    if (cleaned.companyId && cleaned.identity) {
-        return normalizeCompanyFromApi(cleaned as unknown as CompanyCompareApiItem);
+    const identity = cleaned.identity as RawRecord | undefined;
+    if (identity?.name) {
+        return normalizeCompanyFromApi({
+            ...(cleaned as unknown as CompanyCompareApiItem),
+            companyId: (cleaned.companyId || cleaned.id) as string | undefined,
+        });
     }
 
     const profile = (cleaned.ambitionbox_profile ?? cleaned.company_identity) as RawRecord | undefined;
@@ -216,15 +230,15 @@ export function normalizeCompany(raw: unknown): CompanyCompare {
         };
     }
 
-    const identity = cleaned.company_identity as CompanyCompare['identity'];
+    const companyIdentity = cleaned.company_identity as CompanyCompare['identity'];
     const metadata = cleaned.metadata as CompanyCompare['metadata'];
     const overviewUrl = metadata?.source_urls?.[0]?.value;
 
     return {
-        id: slugifyName(identity.name),
+        id: slugifyName(companyIdentity.name),
         identity: {
-            ...identity,
-            headquarters: cleanHeadquarters(identity.headquarters),
+            ...companyIdentity,
+            headquarters: cleanHeadquarters(companyIdentity.headquarters),
         },
         ratings: coerceRatings(cleaned.ambitionbox_ratings as RawRecord),
         reviews: (cleaned.reviews ?? []) as CompanyCompare['reviews'],

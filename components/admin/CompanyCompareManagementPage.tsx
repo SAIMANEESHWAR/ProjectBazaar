@@ -168,18 +168,19 @@ const CompanyCompareManagementPage: React.FC = () => {
 
     const openEdit = (company: CompanyCompare) => {
         setEditCompany(company);
-        setEditJson(JSON.stringify(company, null, 2));
+        setEditJson(JSON.stringify({ ...company, companyId: company.id, id: company.id }, null, 2));
     };
 
     const handleSaveEdit = async () => {
         if (!editCompany) return;
         setSavingEdit(true);
         try {
-            const parsed = JSON.parse(editJson) as unknown;
+            const parsed = JSON.parse(editJson) as Record<string, unknown>;
             if (!parsed || typeof parsed !== 'object') {
                 throw new Error('Invalid JSON object');
             }
-            await adminUpsertCompany(parsed);
+            const companyId = String(parsed.companyId ?? parsed.id ?? editCompany.id);
+            await adminUpsertCompany({ ...parsed, companyId, id: companyId });
             invalidateCompanyCompareCache();
             setToast({ type: 'success', message: `Updated ${editCompany.identity.name}` });
             setEditCompany(null);

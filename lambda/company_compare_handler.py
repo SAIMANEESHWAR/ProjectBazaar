@@ -191,11 +191,13 @@ def _extract_value(item):
 
 def _build_ratings(raw_ratings):
     raw_ratings = raw_ratings or {}
-    salary_benefits = _coerce_float(raw_ratings.get("salary_and_benefits"))
+    salary_benefits = _coerce_float(
+        raw_ratings.get("salary_and_benefits") or raw_ratings.get("salary_benefits")
+    )
     management = _coerce_float(raw_ratings.get("management"))
     if not management and salary_benefits:
         management = salary_benefits
-    return {
+    ratings = {
         "overall_rating": _coerce_float(raw_ratings.get("overall_rating")),
         "work_life_balance": _coerce_float(raw_ratings.get("work_life_balance")),
         "company_culture": _coerce_float(raw_ratings.get("company_culture")),
@@ -204,6 +206,10 @@ def _build_ratings(raw_ratings):
         "management": management,
         "salary_and_benefits": salary_benefits or management,
     }
+    for key, val in raw_ratings.items():
+        if key not in ratings and val is not None:
+            ratings[key] = val
+    return ratings
 
 
 def _build_synthetic_salary(salary_range, company_name):
@@ -262,6 +268,30 @@ def _build_benefits(raw_benefits):
         if val:
             out.append({"value": val})
     return out
+
+
+def _normalize_benefits_list(raw_benefits):
+    if not raw_benefits:
+        return []
+    if all(isinstance(b, str) for b in raw_benefits):
+        return [b.strip() for b in raw_benefits if isinstance(b, str) and b.strip()]
+    return _build_benefits(raw_benefits)
+
+
+def _resolve_company_id(cleaned, identity=None):
+    identity = identity if isinstance(identity, dict) else (cleaned.get("identity") or {})
+    company_id = cleaned.get("companyId") or cleaned.get("id")
+    if company_id:
+        return str(company_id)
+    name = identity.get("name") or cleaned.get("name")
+    return slugify_name(name) if name else "unknown"
+
+
+def _normalize_identity(identity):
+    identity = dict(identity or {})
+    if identity.get("headquarters"):
+        identity["headquarters"] = _clean_headquarters(identity.get("headquarters"))
+    return identity
 
 
 def _item_info_score(item):
@@ -323,34 +353,28 @@ def normalize_company_raw(raw, now=None, existing_created_at=None):
     """Normalize new or legacy upload shape into canonical DynamoDB item."""
     cleaned = strip_citations(raw if isinstance(raw, dict) else {})
 
-    if cleaned.get("companyId") and cleaned.get("identity"):
-        identity = cleaned.get("identity") or {}
+    identity = cleaned.get("identity")
+    if isinstance(identity, dict) and identity.get("name"):
         name = identity.get("name") or cleaned.get("name") or "Unknown"
-        company_id = cleaned.get("companyId") or slugify_name(name)
+        company_id = _resolve_company_id(cleaned, identity)
         ratings = cleaned.get("ratings") or {}
         if isinstance(ratings, dict):
             ratings = _build_ratings(ratings)
         ts = now or now_iso()
-        return {
+        item = {
             "companyId": company_id,
             "streamPartition": STREAM_PARTITION,
             "name": name,
             "logoUrl": cleaned.get("logoUrl") or "",
-            "identity": {
-                "name": name,
-                "description": identity.get("description") or "",
-                "industry": identity.get("industry") or "",
-                "headquarters": _clean_headquarters(identity.get("headquarters")),
-                "website": identity.get("website") or "",
-            },
-            "foundedYear": cleaned.get("foundedYear"),
+            "identity": _normalize_identity({**identity, "name": name}),
+            "foundedYear": cleaned.get("foundedYear") or identity.get("founded"),
             "employeeCount": cleaned.get("employeeCount") or "",
             "overviewUrl": cleaned.get("overviewUrl") or "",
             "ratings": ratings,
             "salaryRange": cleaned.get("salaryRange") or "",
             "salaries": cleaned.get("salaries") or [],
             "interviews": cleaned.get("interviews") or [],
-            "benefits": cleaned.get("benefits") or [],
+            "benefits": _normalize_benefits_list(cleaned.get("benefits")),
             "reviews": cleaned.get("reviews") or [],
             "active_jobs": cleaned.get("active_jobs") or [],
             "interviewQuestions": cleaned.get("interviewQuestions") or [],
@@ -358,6 +382,16 @@ def normalize_company_raw(raw, now=None, existing_created_at=None):
             "createdAt": existing_created_at or cleaned.get("createdAt") or ts,
             "updatedAt": ts,
         }
+        passthrough_keys = (
+            "locations",
+            "technologies",
+            "company_highlights",
+            "socialLinks",
+        )
+        for key in passthrough_keys:
+            if key in cleaned and cleaned.get(key) is not None:
+                item[key] = cleaned[key]
+        return item
 
     profile = cleaned.get("ambitionbox_profile") or cleaned.get("company_identity") or {}
     ratings_raw = cleaned.get("employee_ratings") or cleaned.get("ambitionbox_ratings") or {}
@@ -427,28 +461,27 @@ def normalize_company_raw(raw, now=None, existing_created_at=None):
 def _to_public_company(item):
     if not item:
         return None
-    ratings = item.get("ratings") or {}
-    return {
-        "companyId": item.get("companyId"),
-        "id": item.get("companyId"),
-        "name": item.get("name"),
-        "logoUrl": item.get("logoUrl") or "",
-        "identity": item.get("identity") or {},
-        "foundedYear": item.get("foundedYear"),
-        "employeeCount": item.get("employeeCount") or "",
-        "overviewUrl": item.get("overviewUrl") or "",
-        "ratings": ratings,
-        "salaryRange": item.get("salaryRange") or "",
-        "salaries": item.get("salaries") or [],
-        "interviews": item.get("interviews") or [],
-        "benefits": item.get("benefits") or [],
-        "reviews": item.get("reviews") or [],
-        "active_jobs": item.get("active_jobs") or [],
-        "interviewQuestions": item.get("interviewQuestions") or [],
-        "metadata": item.get("metadata") or {"source_urls": [], "scrape_timestamp": ""},
-        "createdAt": item.get("createdAt"),
-        "updatedAt": item.get("updatedAt"),
-    }
+    public = {k: v for k, v in item.items() if k != "streamPartition"}
+    public["companyId"] = item.get("companyId")
+    public["id"] = item.get("companyId")
+    public["name"] = item.get("name")
+    public.setdefault("logoUrl", item.get("logoUrl") or "")
+    public.setdefault("identity", item.get("identity") or {})
+    public.setdefault("employeeCount", item.get("employeeCount") or "")
+    public.setdefault("overviewUrl", item.get("overviewUrl") or "")
+    public.setdefault("ratings", item.get("ratings") or {})
+    public.setdefault("salaryRange", item.get("salaryRange") or "")
+    public.setdefault("salaries", item.get("salaries") or [])
+    public.setdefault("interviews", item.get("interviews") or [])
+    public.setdefault("benefits", item.get("benefits") or [])
+    public.setdefault("reviews", item.get("reviews") or [])
+    public.setdefault("active_jobs", item.get("active_jobs") or [])
+    public.setdefault("interviewQuestions", item.get("interviewQuestions") or [])
+    public.setdefault(
+        "metadata",
+        item.get("metadata") or {"source_urls": [], "scrape_timestamp": ""},
+    )
+    return public
 
 
 def _matches_filters(company, query):
