@@ -36,6 +36,10 @@ export interface CompanyCompareApiItem {
     active_jobs?: CompanyCompare['active_jobs'];
     interviewQuestions?: string[];
     metadata?: CompanyCompare['metadata'];
+    locations?: string[];
+    technologies?: string[];
+    company_highlights?: string[];
+    socialLinks?: CompanyCompare['socialLinks'];
     createdAt?: string;
     updatedAt?: string;
 }

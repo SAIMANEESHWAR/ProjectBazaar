@@ -52,11 +52,11 @@ function extractValue(item: unknown): string {
 }
 
 function coerceRatings(raw: RawRecord): AmbitionBoxRatings {
-    const salaryBenefits = Number(raw.salary_and_benefits) || 0;
+    const salaryBenefits = Number(raw.salary_and_benefits) || Number(raw.salary_benefits) || 0;
     let management = Number(raw.management) || 0;
     if (!management && salaryBenefits) management = salaryBenefits;
 
-    return {
+    const ratings: AmbitionBoxRatings = {
         overall_rating: Number(raw.overall_rating) || 0,
         work_life_balance: Number(raw.work_life_balance) || 0,
         company_culture: Number(raw.company_culture) || 0,
@@ -64,6 +64,60 @@ function coerceRatings(raw: RawRecord): AmbitionBoxRatings {
         job_security: Number(raw.job_security) || 0,
         management,
     };
+
+    if (salaryBenefits) {
+        ratings.salary_and_benefits = salaryBenefits;
+    }
+
+    for (const [key, val] of Object.entries(raw)) {
+        if (key in ratings || val == null) continue;
+        const num = Number(val);
+        if (Number.isFinite(num) && num > 0) {
+            ratings[key] = num;
+        }
+    }
+
+    return ratings;
+}
+
+const RATING_LABELS: Record<string, string> = {
+    overall_rating: 'Overall rating',
+    work_life_balance: 'Work-life balance',
+    company_culture: 'Company culture',
+    skill_development: 'Skill development',
+    job_security: 'Job security',
+    management: 'Management',
+    salary_and_benefits: 'Salary & benefits',
+    salary_benefits: 'Salary & benefits',
+    career_growth: 'Career growth',
+    promotions: 'Promotions',
+    work_satisfaction: 'Work satisfaction',
+};
+
+function formatRatingLabel(key: string): string {
+    return RATING_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+}
+
+export function getCompanyRatingEntries(
+    company: CompanyCompare,
+): Array<{ key: string; label: string; value: number }> {
+    const entries: Array<{ key: string; label: string; value: number }> = [];
+    const seenLabels = new Set<string>();
+
+    for (const [key, val] of Object.entries(company.ratings)) {
+        const value = Number(val);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        const label = formatRatingLabel(key);
+        if (seenLabels.has(label)) continue;
+        seenLabels.add(label);
+        entries.push({ key, label, value });
+    }
+
+    return entries.sort((a, b) => {
+        if (a.key === 'overall_rating') return -1;
+        if (b.key === 'overall_rating') return 1;
+        return a.label.localeCompare(b.label);
+    });
 }
 
 function buildSyntheticSalary(salaryRange: string): CompanyCompare['salaries'] {
@@ -165,23 +219,19 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         metadata: item.metadata ?? { source_urls: [], scrape_timestamp: '' },
         overviewUrl: item.overviewUrl,
         logoUrl: item.logoUrl,
-        foundedYear: item.foundedYear,
+        foundedYear: item.foundedYear ?? item.identity?.founded,
         employeeCount: item.employeeCount,
         salaryRange: item.salaryRange,
         interviewQuestions: item.interviewQuestions,
+        locations: item.locations,
+        technologies: item.technologies,
+        company_highlights: item.company_highlights,
+        socialLinks: item.socialLinks,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
     };
 
-    const extra = item as RawRecord;
-    const passthroughKeys = ['locations', 'technologies', 'company_highlights', 'socialLinks'] as const;
-    const passthrough: Partial<Record<(typeof passthroughKeys)[number], unknown>> = {};
-    for (const key of passthroughKeys) {
-        if (extra[key] != null) {
-            passthrough[key] = extra[key];
-        }
-    }
-    return { ...base, ...passthrough };
+    return base;
 }
 
 export function normalizeCompany(raw: unknown): CompanyCompare {
