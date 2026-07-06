@@ -6,7 +6,9 @@ import {
   type UserAttribution,
 } from '../../lib/userAttribution';
 import { UTM_TRACKING_SHEET_URL } from '../../lib/utmTracking';
-import { fetchAllAdminUsers, getUserAttribution, type AdminApiUser } from '../../services/adminUsersApi';
+import { getAdminPasswordDisplay, getLoginMethod } from '../../lib/adminLoginCredentials';
+import { fetchAllAdminUsers, adminSetUserPassword, getUserAttribution, type AdminApiUser } from '../../services/adminUsersApi';
+import UserAttributionPanel from './UserAttributionPanel';
 import UserAttributionSummary from './UserAttributionSummary';
 
 const UPDATE_USER_ENDPOINT = 'https://m81g90npsf.execute-api.ap-south-2.amazonaws.com/default/Get_All_users_for_admin';
@@ -35,6 +37,12 @@ interface User {
     accountLockedUntil?: string | null;
     createdBy?: string;
     attribution: UserAttribution;
+    passwordHash?: string;
+    passwordSalt?: string;
+    viewablePassword?: string;
+    emailVerified?: boolean;
+    phoneVerified?: boolean;
+    loginCount?: number;
 }
 
 interface ApiUser extends AdminApiUser {}
@@ -61,6 +69,10 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
         credits?: number;
         accountLockedUntil?: string | null;
     } | null>(null);
+    const [viewingUser, setViewingUser] = useState<User | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [isSettingPassword, setIsSettingPassword] = useState(false);
+    const [passwordSetError, setPasswordSetError] = useState<string | null>(null);
 
     // Map API user to User interface
     const mapApiUserToComponent = (apiUser: ApiUser): User => {
@@ -116,6 +128,12 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
             accountLockedUntil: apiUser.accountLockedUntil,
             createdBy: apiUser.createdBy,
             attribution: getUserAttribution(apiUser),
+            passwordHash: apiUser.passwordHash,
+            passwordSalt: apiUser.passwordSalt,
+            viewablePassword: apiUser.viewablePassword,
+            emailVerified: apiUser.emailVerified,
+            phoneVerified: apiUser.phoneVerified,
+            loginCount: apiUser.loginCount,
         };
     };
 
@@ -275,8 +293,47 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
     };
 
     const handleViewUserDetails = (user: User) => {
-        if (onViewUser) {
-            onViewUser({ id: user.id, name: user.name, email: user.email });
+        setViewingUser(user);
+    };
+
+    const handleCloseDetailsModal = () => {
+        setViewingUser(null);
+        setNewPassword('');
+        setPasswordSetError(null);
+    };
+
+    const handleSetUserPassword = async () => {
+        if (!viewingUser || !newPassword.trim()) return;
+        setIsSettingPassword(true);
+        setPasswordSetError(null);
+        try {
+            const saved = await adminSetUserPassword(viewingUser.userId, newPassword.trim());
+            const updatedUser = { ...viewingUser, viewablePassword: saved, passwordHash: 'set', passwordSalt: 'set' };
+            setViewingUser(updatedUser);
+            setUsers((prev) => prev.map((u) => (u.userId === viewingUser.userId ? updatedUser : u)));
+            setNewPassword('');
+        } catch (err) {
+            setPasswordSetError(err instanceof Error ? err.message : 'Failed to set password');
+        } finally {
+            setIsSettingPassword(false);
+        }
+    };
+
+    const generateRandomPassword = () => {
+        const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+        let result = 'Aa1!';
+        for (let i = 0; i < 9; i++) {
+            result += chars[Math.floor(Math.random() * chars.length)];
+        }
+        setNewPassword(result);
+    };
+
+    const copyToClipboard = async (value: string, label: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            alert(`${label} copied to clipboard`);
+        } catch {
+            alert(`Could not copy ${label.toLowerCase()}`);
         }
     };
 
@@ -734,6 +791,202 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) =
                     )}
                 </div>
             )}
+
+            {/* View User Details Modal */}
+            {viewingUser && (() => {
+                const passwordDisplay = getAdminPasswordDisplay(viewingUser);
+                return (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 rounded-t-2xl">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-bold text-white">User Details</h2>
+                                <button
+                                    onClick={handleCloseDetailsModal}
+                                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                                >
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <p className="text-orange-100 text-sm mt-1">{viewingUser.name} ({viewingUser.email})</p>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">User ID</p>
+                                    <p className="text-sm font-mono text-gray-900 break-all">{viewingUser.userId}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Role</p>
+                                    <p className="text-sm font-semibold text-gray-900 capitalize">{viewingUser.role}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</p>
+                                    <p className="text-sm font-semibold text-gray-900">{getStatusLabel(viewingUser.status)}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Joined</p>
+                                    <p className="text-sm font-semibold text-gray-900">{viewingUser.joinDate}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-5">
+                                <h3 className="text-lg font-bold text-amber-900 mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                    Login Credentials
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white rounded-lg p-3 border border-amber-100">
+                                        <div>
+                                            <p className="text-xs font-semibold text-gray-500 uppercase">Login email</p>
+                                            <p className="text-sm font-medium text-gray-900">{viewingUser.email || '—'}</p>
+                                        </div>
+                                        {viewingUser.email && (
+                                            <button
+                                                type="button"
+                                                onClick={() => copyToClipboard(viewingUser.email, 'Email')}
+                                                className="text-xs font-semibold text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors self-start"
+                                            >
+                                                Copy
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white rounded-lg p-3 border border-amber-100">
+                                        <div>
+                                            <p className="text-xs font-semibold text-gray-500 uppercase">Phone</p>
+                                            <p className="text-sm font-medium text-gray-900">{viewingUser.phoneNumber || '—'}</p>
+                                        </div>
+                                        {viewingUser.phoneNumber && (
+                                            <button
+                                                type="button"
+                                                onClick={() => copyToClipboard(viewingUser.phoneNumber!, 'Phone')}
+                                                className="text-xs font-semibold text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors self-start"
+                                            >
+                                                Copy
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white rounded-lg p-3 border border-amber-100">
+                                        <div>
+                                            <p className="text-xs font-semibold text-gray-500 uppercase">Password</p>
+                                            <p className={`text-sm font-medium ${passwordDisplay.isPlaintext ? 'font-mono text-gray-900' : 'text-gray-600'}`}>
+                                                {passwordDisplay.text}
+                                            </p>
+                                        </div>
+                                        {passwordDisplay.isPlaintext && (
+                                            <button
+                                                type="button"
+                                                onClick={() => copyToClipboard(passwordDisplay.text, 'Password')}
+                                                className="text-xs font-semibold text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors self-start"
+                                            >
+                                                Copy
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="bg-white rounded-lg p-3 border border-amber-100">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase">Login method</p>
+                                            <p className="text-sm font-medium text-gray-900">{getLoginMethod(viewingUser)}</p>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-amber-100">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase">Verification</p>
+                                            <p className="text-sm font-medium text-gray-900">
+                                                Email: {viewingUser.emailVerified ? 'Verified' : 'Not verified'}
+                                                {viewingUser.phoneNumber ? ` · Phone: ${viewingUser.phoneVerified ? 'Verified' : 'Not verified'}` : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {passwordDisplay.isSet && passwordDisplay.needsAdminSet && (
+                                        <div className="bg-white rounded-lg p-4 border border-amber-200 space-y-3">
+                                            <p className="text-sm text-amber-900">
+                                                This account was created before password viewing was enabled. Set a new password to view and share it with the user.
+                                            </p>
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                    placeholder="New password (min 8 chars, upper, lower, number, symbol)"
+                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={generateRandomPassword}
+                                                    className="px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                                >
+                                                    Generate
+                                                </button>
+                                            </div>
+                                            {passwordSetError && (
+                                                <p className="text-xs text-red-600">{passwordSetError}</p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={handleSetUserPassword}
+                                                disabled={isSettingPassword || !newPassword.trim()}
+                                                className="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                                            >
+                                                {isSettingPassword ? 'Saving...' : 'Set Password & View'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Credits</p>
+                                    <p className="text-xl font-bold text-gray-900">{viewingUser.credits ?? 0}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Purchases</p>
+                                    <p className="text-xl font-bold text-gray-900">{viewingUser.totalPurchases ?? 0}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-center">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Logins</p>
+                                    <p className="text-xl font-bold text-gray-900">{viewingUser.loginCount ?? 0}</p>
+                                </div>
+                            </div>
+
+                            {viewingUser.lastActive && (
+                                <p className="text-sm text-gray-500 text-center">
+                                    Last active: {viewingUser.lastActive}
+                                </p>
+                            )}
+
+                            <UserAttributionPanel
+                                attribution={viewingUser.attribution}
+                                createdBy={viewingUser.createdBy}
+                                compact
+                            />
+
+                            <div className="flex gap-3 pt-2 border-t border-gray-200">
+                                <button
+                                    onClick={handleCloseDetailsModal}
+                                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleCloseDetailsModal();
+                                        handleEditUser(viewingUser);
+                                    }}
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold shadow-lg"
+                                >
+                                    Edit User
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                );
+            })()}
 
             {/* Edit User Modal */}
             {editingUser && editFormData && (

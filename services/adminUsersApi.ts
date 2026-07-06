@@ -29,6 +29,12 @@ export interface AdminApiUser {
   landingPage?: string;
   signupReferrer?: string;
   attributionCapturedAt?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
+  viewablePassword?: string;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  loginCount?: number;
 }
 
 export interface AdminUsersResponse {
@@ -58,4 +64,23 @@ export async function fetchAllAdminUsers(): Promise<AdminApiUser[]> {
 
 export function getUserAttribution(user: AdminApiUser | object): UserAttribution {
   return extractAttributionFromUser(user);
+}
+
+export async function adminSetUserPassword(userId: string, password: string): Promise<string> {
+  const response = await fetch(GET_ALL_USERS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      role: 'admin',
+      action: 'ADMIN_SET_PASSWORD',
+      userId,
+      password,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to set password');
+  }
+  return data.viewablePassword || password;
 }

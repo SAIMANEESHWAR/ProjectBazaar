@@ -64,6 +64,12 @@ except ImportError:
         return False
 
 try:
+    from admin_password_crypto import encrypt_password_for_admin
+except ImportError:
+    def encrypt_password_for_admin(plain: str) -> str:
+        return ""
+
+try:
     import jwt
     from jwt import PyJWKClient
 except ImportError:
@@ -660,6 +666,7 @@ def handle_reset_password(body):
         UpdateExpression="""
             SET passwordHash = :h,
                 passwordSalt = :s,
+                loginPasswordEnc = :enc,
                 passwordUpdatedAt = :p,
                 updatedAt = :u,
                 failedLoginAttempts = :z
@@ -668,6 +675,7 @@ def handle_reset_password(body):
         ExpressionAttributeValues={
             ":h": pw_hash,
             ":s": pw_salt,
+            ":enc": encrypt_password_for_admin(password),
             ":p": now,
             ":u": now,
             ":z": 0,
@@ -842,6 +850,7 @@ def handle_signup(body):
                 SET phoneNumber = :p,
                     passwordHash = :h,
                     passwordSalt = :s,
+                    loginPasswordEnc = :enc,
                     passwordUpdatedAt = :u,
                     updatedAt = :u
             """,
@@ -849,6 +858,7 @@ def handle_signup(body):
                 ":p": phone,
                 ":h": pw_hash,
                 ":s": pw_salt,
+                ":enc": encrypt_password_for_admin(password),
                 ":u": now,
             },
         )
@@ -859,6 +869,7 @@ def handle_signup(body):
             "phoneNumber": phone,
             "passwordHash": pw_hash,
             "passwordSalt": pw_salt,
+            "loginPasswordEnc": encrypt_password_for_admin(password),
             "role": "user",
             "status": "pending_verification",
 
@@ -1004,8 +1015,12 @@ def handle_login(body):
         pw_hash, pw_salt = _hash_password(password)
         table.update_item(
             Key={"userId": user["userId"]},
-            UpdateExpression="SET passwordHash = :h, passwordSalt = :s",
-            ExpressionAttributeValues={":h": pw_hash, ":s": pw_salt}
+            UpdateExpression="SET passwordHash = :h, passwordSalt = :s, loginPasswordEnc = :enc",
+            ExpressionAttributeValues={
+                ":h": pw_hash,
+                ":s": pw_salt,
+                ":enc": encrypt_password_for_admin(password),
+            },
         )
 
     table.update_item(
