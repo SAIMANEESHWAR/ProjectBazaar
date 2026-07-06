@@ -47,11 +47,7 @@ interface User {
 
 interface ApiUser extends AdminApiUser {}
 
-interface UserManagementPageProps {
-    onViewUser?: (user: { id: string; name: string; email: string }) => void;
-}
-
-const UserManagementPage: React.FC<UserManagementPageProps> = ({ onViewUser }) => {
+const UserManagementPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
