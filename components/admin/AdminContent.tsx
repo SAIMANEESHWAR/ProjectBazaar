@@ -234,9 +234,7 @@ const AdminContent: React.FC<AdminContentProps> = ({ activeView, toggleSidebar, 
                     />
                 )}
                 {activeView === 'user-management' && (
-                    <UserManagementPage
-                        onViewUser={handleViewUser}
-                    />
+                    <UserManagementPage />
                 )}
                 {activeView === 'revenue-analytics' && <RevenueAnalyticsPage />}
                 {activeView === 'payout-systems' && <PayoutSystemsPage />}

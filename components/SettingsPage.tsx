@@ -180,6 +180,8 @@ const SettingsPage: React.FC = () => {
     const [jobEmailNotifications, setJobEmailNotifications] = useState(false);
     const [receiptLoading, setReceiptLoading] = useState(false);
     const [receiptError, setReceiptError] = useState<string | null>(null);
+    const [receiptViewUrl, setReceiptViewUrl] = useState<string | null>(null);
+    const receiptViewerRef = useRef<HTMLDivElement>(null);
 
     const [fullName, setFullName] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -253,7 +255,7 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const openSubscriptionReceipt = async (download: boolean) => {
+    const openSubscriptionReceipt = async (download: boolean, scrollToViewer = !download) => {
         if (!userId || !subscription?.subscriptionId) {
             setReceiptError('No active subscription receipt available.');
             return;
@@ -264,15 +266,34 @@ const SettingsPage: React.FC = () => {
             const result = await getSubscriptionReceipt(userId, subscription.subscriptionId, download);
             if (!result.ok) {
                 setReceiptError(result.message);
+                if (!download) setReceiptViewUrl(null);
                 return;
             }
-            window.open(result.data.invoiceUrl, download ? '_self' : '_blank', 'noopener,noreferrer');
+            if (download) {
+                window.open(result.data.invoiceUrl, '_self', 'noopener,noreferrer');
+            } else {
+                setReceiptViewUrl(result.data.invoiceUrl);
+                if (scrollToViewer) {
+                    requestAnimationFrame(() => {
+                        receiptViewerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    });
+                }
+            }
         } catch {
             setReceiptError('Could not load receipt. Try again later.');
+            if (!download) setReceiptViewUrl(null);
         } finally {
             setReceiptLoading(false);
         }
     };
+
+    const receiptAutoPreviewRef = useRef(false);
+    useEffect(() => {
+        if (receiptAutoPreviewRef.current) return;
+        if (!isPremium || !userId || !subscription?.subscriptionId) return;
+        receiptAutoPreviewRef.current = true;
+        void openSubscriptionReceipt(false, false);
+    }, [isPremium, userId, subscription?.subscriptionId]);
 
     // Become a Freelancer: not every user is a freelancer; switch to opt-in and enter skills/projects
     const [isFreelancer, setIsFreelancer] = useState(false);
@@ -2226,6 +2247,29 @@ const SettingsPage: React.FC = () => {
                                     </div>
                                     {receiptError && (
                                         <p className="mt-3 text-sm text-amber-700">{receiptError}</p>
+                                    )}
+                                    {receiptViewUrl && (
+                                        <div
+                                            ref={receiptViewerRef}
+                                            className="mt-4 border border-orange-200 rounded-xl overflow-hidden bg-white"
+                                        >
+                                            <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-orange-50 border-b border-orange-200">
+                                                <p className="text-sm font-semibold text-gray-800">Receipt preview</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setReceiptViewUrl(null)}
+                                                    className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                            <iframe
+                                                src={receiptViewUrl}
+                                                title="CodeXCareer payment receipt"
+                                                className="w-full bg-white"
+                                                style={{ height: 'min(70vh, 720px)' }}
+                                            />
+                                        </div>
                                     )}
                                     <div className="mt-4 pt-4 border-t border-gray-100">
                                         <button

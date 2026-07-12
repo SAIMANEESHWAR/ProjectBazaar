@@ -229,10 +229,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                         ? marketplaceNavItems
                         : buyerNavItems
                     : sellerNavItems;
-    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Library: true, Fundamentals: true, 'System Design': true, Research: true, Platform: true });
-    const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(true);
-    const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(true);
-    const [companyNavExpanded, setCompanyNavExpanded] = useState(true);
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [expandedCoreSubjects, setExpandedCoreSubjects] = useState(false);
+    const [liveInterviewNavExpanded, setLiveInterviewNavExpanded] = useState(false);
+    const [companyNavExpanded, setCompanyNavExpanded] = useState(false);
     const [liveInterviewNavHovered, setLiveInterviewNavHovered] = useState(false);
     const [companyNavHovered, setCompanyNavHovered] = useState(false);
     const [coreSubjectCategories, setCoreSubjectCategories] = useState<CoreSubject[]>([]);
@@ -242,22 +242,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
         if (isActive || isGroupHovered) {
             return isDark
                 ? 'bg-white text-black'
-                : 'bg-orange-500 text-white';
+                : 'bg-orange-50 text-orange-700 font-semibold ring-1 ring-orange-100';
         }
         return isDark
             ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-            : 'text-gray-600 hover:bg-orange-50';
+            : 'text-gray-600 hover:bg-orange-50 hover:text-gray-900';
     };
 
     const getNavSubItemClass = (isSubActive: boolean) => {
         if (isSubActive) {
             return isDark
                 ? 'bg-[#1c1c1e] text-white font-medium'
-                : 'bg-orange-500 text-white font-medium';
+                : 'bg-orange-50 text-orange-700 font-medium ring-1 ring-inset ring-orange-100';
         }
         return isDark
             ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
-            : 'text-gray-600 hover:bg-orange-500 hover:text-white';
+            : 'text-gray-600 hover:bg-orange-50 hover:text-orange-800';
     };
 
     const openCoreSubject = (slug: string | null) => {
@@ -347,6 +347,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
     const isExpanded = isOpen && !isCollapsed;
     const sidebarWidth = isExpanded ? 'w-64' : 'w-16';
     const isDark = dashboardMode === 'preparation' && prepDarkMode;
+    const navActiveLight = 'bg-orange-50 text-orange-700 font-semibold ring-1 ring-orange-100';
+    const navActiveSubLight = 'bg-orange-50 text-orange-700 font-medium ring-1 ring-inset ring-orange-100';
 
     return (
         <>
@@ -506,7 +508,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                     {dashboardMode === 'preparation' && isExpanded ? (
                         <div className="space-y-1">
                             {prepNavGroups.map((group) => {
-                                const isGroupExpanded = expandedGroups[group.label] ?? true;
+                                const isGroupExpanded = expandedGroups[group.label] ?? false;
                                 const isFundamentals = group.label === 'Fundamentals';
                                 const hasActiveItem =
                                     group.items.some(i => i.view === activeView) ||
@@ -544,7 +546,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                         className={`w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${activeView === item.view
                                                             ? isDark
                                                                 ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                : 'bg-orange-500 text-white font-medium'
+                                                                : navActiveSubLight
                                                             : isDark
                                                                 ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
                                                                 : 'text-gray-600 hover:bg-orange-50'
@@ -562,7 +564,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                             className={`w-full flex items-center justify-between gap-2.5 pl-4 pr-3 py-2 text-sm rounded-lg transition-all duration-200 ${isCoreSubjectsActive && !selectedCoreSubjectSlug
                                                                 ? isDark
                                                                     ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                    : 'bg-orange-500 text-white font-medium'
+                                                                    : navActiveSubLight
                                                                 : isCoreSubjectsActive
                                                                     ? isDark
                                                                         ? 'text-white font-medium'
@@ -601,7 +603,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                                                                 className={`w-full flex items-center pl-6 pr-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${isSubjectActive
                                                                                     ? isDark
                                                                                         ? 'bg-[#1c1c1e] text-white font-medium'
-                                                                                        : 'bg-orange-500 text-white font-medium'
+                                                                                        : navActiveSubLight
                                                                                     : isDark
                                                                                         ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
                                                                                         : 'text-gray-600 hover:bg-orange-50'
@@ -638,7 +640,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     className={`group relative flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${isExpanded ? 'px-4' : 'justify-center px-2'} ${activeView === item.view
                                         ? isDark
                                             ? 'bg-white text-black'
-                                            : 'bg-orange-500 text-white'
+                                            : navActiveLight
                                         : isDark
                                             ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
                                             : 'text-gray-600 hover:bg-orange-50'
@@ -704,7 +706,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                             className={`w-full flex items-center px-2 justify-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${isLiveInterviewActive
                                                 ? isDark
                                                     ? 'bg-white text-black'
-                                                    : 'bg-orange-500 text-white'
+                                                    : navActiveLight
                                                 : isDark
                                                     ? 'text-[#8e8e93] hover:bg-[#1c1c2e] hover:text-white'
                                                     : 'text-gray-600 hover:bg-orange-50'
@@ -774,7 +776,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                             className={`w-full flex items-center px-2 justify-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${isCompanyActive
                                                 ? isDark
                                                     ? 'bg-white text-black'
-                                                    : 'bg-orange-500 text-white'
+                                                    : navActiveLight
                                                 : isDark
                                                     ? 'text-[#8e8e93] hover:bg-[#1c1c2e] hover:text-white'
                                                     : 'text-gray-600 hover:bg-orange-50'
@@ -849,7 +851,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onCollapseToggle
                                     className={`w-full flex items-center ${isExpanded ? 'px-4' : 'px-2 justify-center'} py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative group ${activeView === item.view
                                         ? isDark
                                             ? 'bg-white text-black'
-                                            : 'bg-orange-500 text-white'
+                                            : navActiveLight
                                         : isDark
                                             ? 'text-[#8e8e93] hover:bg-[#1c1c1e] hover:text-white'
                                             : 'text-gray-600 hover:bg-orange-50'

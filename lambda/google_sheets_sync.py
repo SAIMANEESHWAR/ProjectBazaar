@@ -32,7 +32,27 @@ except ImportError:
 
 GOOGLE_SHEETS_WEBAPP_URL = os.environ.get("GOOGLE_SHEETS_WEBAPP_URL", "").strip()
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "").strip()
-GOOGLE_SHEET_TAB = os.environ.get("GOOGLE_SHEET_TAB", "UTM Signups").strip()
+GOOGLE_SHEET_TAB = os.environ.get("GOOGLE_SHEET_TAB", "Sheet1").strip()
+
+SHEET_HEADER_ROW = [
+    "Synced At",
+    "User ID",
+    "Email",
+    "Signup Method",
+    "Status",
+    "Created By",
+    "Created At",
+    "UTM Source",
+    "UTM Medium",
+    "UTM Campaign",
+    "UTM Term",
+    "UTM Content",
+    "GCLID",
+    "FBCLID",
+    "Landing Page",
+    "Referrer",
+    "Attribution Captured At",
+]
 
 
 def _load_service_account_credentials() -> Tuple[str, str]:
@@ -103,6 +123,41 @@ def build_attribution_row(user: Dict[str, Any], signup_method: str) -> Dict[str,
     }
 
 
+def _get_json(url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    req = urllib.request.Request(url, headers=headers or {}, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            raw = resp.read().decode("utf-8")
+            if not raw:
+                return {}
+            return json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Google Sheets HTTP {exc.code}: {detail}") from exc
+
+
+def _put_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            **(headers or {}),
+        },
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            raw = resp.read().decode("utf-8")
+            if not raw:
+                return {"success": True}
+            return json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Google Sheets HTTP {exc.code}: {detail}") from exc
+
+
 def _post_json(url: str, payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -163,12 +218,8 @@ def _get_service_account_token() -> str:
     return token
 
 
-def _append_via_service_account(row: Dict[str, str]) -> None:
-    token = _get_service_account_token()
-    range_name = urllib.parse.quote(f"{GOOGLE_SHEET_TAB}!A:Z")
-    url = f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{range_name}:append?valueInputOption=USER_ENTERED"
-
-    ordered = [
+def _ordered_row_values(row: Dict[str, str]) -> list:
+    return [
         row["syncedAt"],
         row["userId"],
         row["email"],
@@ -188,9 +239,34 @@ def _append_via_service_account(row: Dict[str, str]) -> None:
         row["attributionCapturedAt"],
     ]
 
+
+def _ensure_header_row(token: str) -> None:
+    header_range = urllib.parse.quote(f"{GOOGLE_SHEET_TAB}!A1:Q1")
+    read_url = f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{header_range}"
+    data = _get_json(read_url, headers={"Authorization": f"Bearer {token}"})
+    existing = (data.get("values") or [[]])[0] if data.get("values") else []
+    if existing[: len(SHEET_HEADER_ROW)] == SHEET_HEADER_ROW:
+        return
+    write_url = (
+        f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{header_range}"
+        "?valueInputOption=USER_ENTERED"
+    )
+    _put_json(
+        write_url,
+        {"values": [SHEET_HEADER_ROW]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def _append_via_service_account(row: Dict[str, str]) -> None:
+    token = _get_service_account_token()
+    _ensure_header_row(token)
+    range_name = urllib.parse.quote(f"{GOOGLE_SHEET_TAB}!A:Z")
+    url = f"{SHEETS_API}/{GOOGLE_SHEET_ID}/values/{range_name}:append?valueInputOption=USER_ENTERED"
+
     _post_json(
         url,
-        {"values": [ordered]},
+        {"values": [_ordered_row_values(row)]},
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -218,8 +294,6 @@ def append_user_attribution_row(user: Dict[str, Any], signup_method: str) -> boo
             "utmContent",
             "gclid",
             "fbclid",
-            "landingPage",
-            "signupReferrer",
         )
     )
     if not has_attribution:

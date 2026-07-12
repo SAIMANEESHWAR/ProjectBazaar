@@ -52,6 +52,13 @@ export default defineConfig(({ mode }) => ({
         secure: true,
         rewrite: (p) => p.replace(/^\/dev-api\/live-mock-interview/, '/default/LiveMockinterview'),
       },
+      // Portfolio Builder v2 Lambda (API Gateway e2ptkiquz2)
+      '/dev-api/portfolio-builder': {
+        target: 'https://e2ptkiquz2.execute-api.ap-south-2.amazonaws.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/dev-api\/portfolio-builder/, '/default/portfolio-builder'),
+      },
     },
   },
 }))

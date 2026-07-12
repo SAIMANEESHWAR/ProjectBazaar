@@ -11,7 +11,7 @@
  * 5. Copy the Web App URL into Lambda env GOOGLE_SHEETS_WEBAPP_URL
  */
 
-const SHEET_NAME = 'UTM Signups';
+const SHEET_NAME = 'Sheet1';
 
 const HEADERS = [
   'Synced At',

@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Portfolio Builder v2 — AI resume to portfolio + Vercel deploy
+
+Globals:
+  Function:
+    Timeout: 300
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    MemorySize: 512
+
+Parameters:
+  Stage:
+    Type: String
+    Default: default
+  VercelToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+  PortfolioHistoryTable:
+    Type: String
+    Default: portfolio-history
+  UsersTable:
+    Type: String
+    Default: Users
+
+Resources:
+  PortfolioBuilderFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-portfolio-builder'
+      Handler: handler.lambda_handler
+      CodeUri: ./
+      Environment:
+        Variables:
+          VERCEL_TOKEN: !Ref VercelToken
+          DYNAMODB_TABLE: !Ref PortfolioHistoryTable
+          USERS_TABLE: !Ref UsersTable
+          SUBSCRIPTIONS_TABLE: UserSubscriptions
+          AWS_REGION: !Ref AWS::Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PortfolioHistoryTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: UserSubscriptions
+      Events:
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PortfolioBuilderHttpApi
+            Path: /
+            Method: POST
+
+  PortfolioBuilderHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowCredentials: false
+        AllowHeaders:
+          - '*'
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+Outputs:
+  HttpApiUrl:
+    Description: Portfolio Builder API base URL
+    Value: !Sub 'https://${PortfolioBuilderHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  PortfolioBuilderFunctionArn:
+    Description: Lambda ARN
+    Value: !GetAtt PortfolioBuilderFunction.Arn

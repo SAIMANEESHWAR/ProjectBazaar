@@ -4,10 +4,22 @@ CodeXCareer pushes attributed signups to Google Sheets automatically from `login
 
 ## Option A — Google Apps Script (recommended)
 
-### 1. Create the sheet
+### 1. Use the team sheet
+
+Spreadsheet: [UTM TRACKING MEM](https://docs.google.com/spreadsheets/d/1mEFA3vltqYBoWZkqR4L1q_wpCXIECDM8L-nGB1awZ8Y/edit)
+
+Default tab name: **Sheet1** (`GOOGLE_SHEET_TAB=Sheet1` on `User_login_signup` Lambda).
+
+**Important:** A public “view” link is not enough for the service account. Share the sheet with:
+
+`google-sheets-access@neon-framing-485219-i4.iam.gserviceaccount.com`
+
+as **Editor**.
+
+### 2. Create the sheet (if starting fresh)
 
 1. Open [Google Sheets](https://sheets.google.com)
-2. Create a spreadsheet named **CodeXCareer UTM Signups**
+2. Create a spreadsheet named **CodeXCareer UTM Signups** (or use the team sheet above)
 
 ### 2. Add the script
 

@@ -2,18 +2,11 @@ import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import { useAuth } from '../App';
 import noPortfolioAnimation from '../lottiefiles/no_prortofolio_animation.json';
-
-const PORTFOLIO_API_ENDPOINT = 'https://tya60ig1pc.execute-api.ap-south-2.amazonaws.com/default/portfolio-generator';
-
-// Template metadata for display - Updated with website color theme (orange)
-const TEMPLATE_INFO: Record<string, { name: string; thumbnail: string; color: string }> = {
-  minimal: { name: 'Minimal', thumbnail: '📄', color: '#f97316' },
-  modern: { name: 'Modern Dark', thumbnail: '🌙', color: '#ea580c' },
-  professional: { name: 'Professional', thumbnail: '💼', color: '#fb923c' },
-  creative: { name: 'Creative', thumbnail: '🎨', color: '#f59e0b' },
-  developer: { name: 'Developer', thumbnail: '💻', color: '#d97706' },
-  elegant: { name: 'Elegant', thumbnail: '✨', color: '#fbbf24' },
-};
+import {
+  getPortfolioHistory,
+  deletePortfolio,
+  PORTFOLIO_TEMPLATE_INFO,
+} from '../services/portfolioBuilderService';
 
 // Items to show initially before "View More"
 const INITIAL_DISPLAY_COUNT = 4;
@@ -81,30 +74,16 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
 
   const fetchHistory = async () => {
     if (!userId) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
-    try {
-      const response = await fetch(PORTFOLIO_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'getPortfolioHistory',
-          userId: userId,
-        }),
-      });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        setHistory(result.history || []);
-      } else {
-        setError(result.error || 'Failed to load history');
-      }
+    try {
+      const items = await getPortfolioHistory(userId);
+      setHistory(items);
     } catch (err) {
       console.error('Error fetching history:', err);
-      setError('Failed to connect to server');
+      setError(err instanceof Error ? err.message : 'Failed to connect to server');
     } finally {
       setIsLoading(false);
     }
@@ -123,24 +102,10 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
     setDeletingId(portfolioId);
     
     try {
-      const response = await fetch(PORTFOLIO_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'deletePortfolio',
-          userId: userId,
-          portfolioId: portfolioId,
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setHistory(prev => prev.filter(p => p.portfolioId !== portfolioId));
-        showToast('Portfolio deleted successfully', 'success');
-      } else {
-        showToast('Failed to delete portfolio', 'error');
-      }
+      if (!userId) return;
+      await deletePortfolio(userId, portfolioId);
+      setHistory((prev) => prev.filter((p) => p.portfolioId !== portfolioId));
+      showToast('Portfolio deleted successfully', 'success');
     } catch (err) {
       console.error('Error deleting portfolio:', err);
       showToast('Failed to delete portfolio', 'error');
@@ -447,7 +412,7 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
                   All ({history.length})
                 </button>
                 {availableTemplates.map(templateId => {
-                  const template = TEMPLATE_INFO[templateId] || TEMPLATE_INFO.modern;
+                  const template = PORTFOLIO_TEMPLATE_INFO[templateId] || PORTFOLIO_TEMPLATE_INFO.modern;
                   const count = history.filter(p => p.templateId === templateId).length;
                   return (
                     <button
@@ -471,7 +436,7 @@ const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({ onSelectPortfolio, 
         
         <div className={`grid gap-4 ${compact ? 'grid-cols-1' : 'md:grid-cols-2'}`}>
           {displayedPortfolios.map((portfolio) => {
-          const template = TEMPLATE_INFO[portfolio.templateId] || TEMPLATE_INFO.modern;
+          const template = PORTFOLIO_TEMPLATE_INFO[portfolio.templateId] || PORTFOLIO_TEMPLATE_INFO.modern;
           
           return (
             <div

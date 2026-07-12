@@ -1146,8 +1146,41 @@ const CompanyPostsPage: React.FC<{ toggleSidebar?: () => void }> = () => {
                             )}
 
                             {postsLoading ? (
-                                <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
-                                    Loading posts…
+                                <div className="space-y-3" aria-busy="true" aria-label="Loading company posts">
+                                    {[0, 1, 2, 3].map(i => (
+                                        <div
+                                            key={i}
+                                            className="rounded-2xl border border-gray-200 bg-white/90 shadow-sm overflow-hidden animate-pulse"
+                                        >
+                                            <div className="p-4 pb-3 border-b border-gray-100 flex items-start justify-between gap-4">
+                                                <div className="min-w-0 flex-1 space-y-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-4 w-24 rounded-full bg-gray-200" />
+                                                        <div className="h-3 w-28 rounded bg-gray-100" />
+                                                        <div className="h-4 w-16 rounded-full bg-gray-100" />
+                                                    </div>
+                                                    <div className="h-4 w-3/4 rounded bg-gray-200" />
+                                                    <div className="space-y-1.5">
+                                                        <div className="h-3 w-full rounded bg-gray-100" />
+                                                        <div className="h-3 w-11/12 rounded bg-gray-100" />
+                                                        <div className="h-3 w-2/3 rounded bg-gray-100" />
+                                                    </div>
+                                                    <div className="flex items-center gap-2 pt-0.5">
+                                                        <div className="h-3 w-32 rounded bg-gray-100" />
+                                                        <div className="h-3 w-20 rounded bg-gray-100" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1.5 min-w-[120px]">
+                                                    <div className="h-5 w-24 rounded-full bg-gray-200" />
+                                                    <div className="h-3 w-16 rounded bg-gray-100" />
+                                                </div>
+                                            </div>
+                                            <div className="px-4 py-2.5 flex items-center gap-3 bg-slate-50/60">
+                                                <div className="h-6 w-20 rounded-full bg-gray-200" />
+                                                <div className="h-6 w-24 rounded-full bg-gray-100" />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : paginatedPosts.length === 0 ? (
                                 <div className="mt-3 rounded-2xl border border-dashed border-gray-300 bg-white/60 px-4 py-6 text-center">

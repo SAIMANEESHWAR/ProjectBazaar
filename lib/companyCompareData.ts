@@ -8,9 +8,11 @@ import type {
     CompanyCompare,
     CompanyMetricCounts,
     ExploreFilters,
+    FilterFacet,
+    KnownForFilterFacet,
     RatingDimensionKey,
 } from '../types/companyCompare';
-import { RATING_DIMENSIONS } from '../types/companyCompare';
+import { RATING_DIMENSIONS, RATING_FILTER_THRESHOLDS } from '../types/companyCompare';
 
 type RawRecord = Record<string, unknown>;
 
@@ -50,11 +52,11 @@ function extractValue(item: unknown): string {
 }
 
 function coerceRatings(raw: RawRecord): AmbitionBoxRatings {
-    const salaryBenefits = Number(raw.salary_and_benefits) || 0;
+    const salaryBenefits = Number(raw.salary_and_benefits) || Number(raw.salary_benefits) || 0;
     let management = Number(raw.management) || 0;
     if (!management && salaryBenefits) management = salaryBenefits;
 
-    return {
+    const ratings: AmbitionBoxRatings = {
         overall_rating: Number(raw.overall_rating) || 0,
         work_life_balance: Number(raw.work_life_balance) || 0,
         company_culture: Number(raw.company_culture) || 0,
@@ -62,6 +64,60 @@ function coerceRatings(raw: RawRecord): AmbitionBoxRatings {
         job_security: Number(raw.job_security) || 0,
         management,
     };
+
+    if (salaryBenefits) {
+        ratings.salary_and_benefits = salaryBenefits;
+    }
+
+    for (const [key, val] of Object.entries(raw)) {
+        if (key in ratings || val == null) continue;
+        const num = Number(val);
+        if (Number.isFinite(num) && num > 0) {
+            ratings[key] = num;
+        }
+    }
+
+    return ratings;
+}
+
+const RATING_LABELS: Record<string, string> = {
+    overall_rating: 'Overall rating',
+    work_life_balance: 'Work-life balance',
+    company_culture: 'Company culture',
+    skill_development: 'Skill development',
+    job_security: 'Job security',
+    management: 'Management',
+    salary_and_benefits: 'Salary & benefits',
+    salary_benefits: 'Salary & benefits',
+    career_growth: 'Career growth',
+    promotions: 'Promotions',
+    work_satisfaction: 'Work satisfaction',
+};
+
+function formatRatingLabel(key: string): string {
+    return RATING_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+}
+
+export function getCompanyRatingEntries(
+    company: CompanyCompare,
+): Array<{ key: string; label: string; value: number }> {
+    const entries: Array<{ key: string; label: string; value: number }> = [];
+    const seenLabels = new Set<string>();
+
+    for (const [key, val] of Object.entries(company.ratings)) {
+        const value = Number(val);
+        if (!Number.isFinite(value) || value <= 0) continue;
+        const label = formatRatingLabel(key);
+        if (seenLabels.has(label)) continue;
+        seenLabels.add(label);
+        entries.push({ key, label, value });
+    }
+
+    return entries.sort((a, b) => {
+        if (a.key === 'overall_rating') return -1;
+        if (b.key === 'overall_rating') return 1;
+        return a.label.localeCompare(b.label);
+    });
 }
 
 function buildSyntheticSalary(salaryRange: string): CompanyCompare['salaries'] {
@@ -96,6 +152,32 @@ function buildBenefits(raw: unknown[]): CompanyCompare['benefits'] {
     return raw.map(b => ({ value: extractValue(b) })).filter(b => b.value);
 }
 
+export function formatBenefitLabel(benefit: CompanyCompare['benefits'][number] | string): string {
+    if (typeof benefit === 'string') return benefit.trim();
+    return benefit.value?.trim() ?? '';
+}
+
+export function getCompanyInterviewQuestions(company: CompanyCompare): string[] {
+    const seen = new Set<string>();
+    const questions: string[] = [];
+    const add = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed || seen.has(trimmed)) return;
+        seen.add(trimmed);
+        questions.push(trimmed);
+    };
+
+    for (const block of company.interviews) {
+        for (const question of block.interview_questions ?? []) {
+            add(extractValue(question));
+        }
+    }
+    for (const question of company.interviewQuestions ?? []) {
+        add(typeof question === 'string' ? question : extractValue(question));
+    }
+    return questions;
+}
+
 function buildActiveJobs(roles: unknown[], headquarters: string): CompanyCompare['active_jobs'] {
     const loc = cleanHeadquarters(headquarters) || 'India';
     return roles
@@ -118,9 +200,10 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         salaries = buildSyntheticSalary(item.salaryRange);
     }
 
-    return {
+    const base: CompanyCompare = {
         id,
         identity: {
+            ...(item.identity ?? {}),
             name,
             description: item.identity?.description ?? '',
             industry: item.identity?.industry ?? '',
@@ -131,25 +214,35 @@ export function normalizeCompanyFromApi(item: CompanyCompareApiItem): CompanyCom
         reviews: item.reviews ?? [],
         salaries,
         interviews: item.interviews ?? [],
-        benefits: item.benefits ?? [],
+        benefits: buildBenefits(item.benefits ?? []),
         active_jobs: item.active_jobs ?? [],
         metadata: item.metadata ?? { source_urls: [], scrape_timestamp: '' },
         overviewUrl: item.overviewUrl,
         logoUrl: item.logoUrl,
-        foundedYear: item.foundedYear,
+        foundedYear: item.foundedYear ?? item.identity?.founded,
         employeeCount: item.employeeCount,
         salaryRange: item.salaryRange,
         interviewQuestions: item.interviewQuestions,
+        locations: item.locations,
+        technologies: item.technologies,
+        company_highlights: item.company_highlights,
+        socialLinks: item.socialLinks,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
     };
+
+    return base;
 }
 
 export function normalizeCompany(raw: unknown): CompanyCompare {
     const cleaned = stripCitationKeys<RawRecord>(raw);
 
-    if (cleaned.companyId && cleaned.identity) {
-        return normalizeCompanyFromApi(cleaned as unknown as CompanyCompareApiItem);
+    const identity = cleaned.identity as RawRecord | undefined;
+    if (identity?.name) {
+        return normalizeCompanyFromApi({
+            ...(cleaned as unknown as CompanyCompareApiItem),
+            companyId: (cleaned.companyId || cleaned.id) as string | undefined,
+        });
     }
 
     const profile = (cleaned.ambitionbox_profile ?? cleaned.company_identity) as RawRecord | undefined;
@@ -214,15 +307,15 @@ export function normalizeCompany(raw: unknown): CompanyCompare {
         };
     }
 
-    const identity = cleaned.company_identity as CompanyCompare['identity'];
+    const companyIdentity = cleaned.company_identity as CompanyCompare['identity'];
     const metadata = cleaned.metadata as CompanyCompare['metadata'];
     const overviewUrl = metadata?.source_urls?.[0]?.value;
 
     return {
-        id: slugifyName(identity.name),
+        id: slugifyName(companyIdentity.name),
         identity: {
-            ...identity,
-            headquarters: cleanHeadquarters(identity.headquarters),
+            ...companyIdentity,
+            headquarters: cleanHeadquarters(companyIdentity.headquarters),
         },
         ratings: coerceRatings(cleaned.ambitionbox_ratings as RawRecord),
         reviews: (cleaned.reviews ?? []) as CompanyCompare['reviews'],
@@ -238,6 +331,30 @@ export function normalizeCompany(raw: unknown): CompanyCompare {
 let cachedCompanies: CompanyCompare[] | null = null;
 let loadPromise: Promise<CompanyCompare[]> | null = null;
 
+function companyDataScore(company: CompanyCompare): number {
+    return (
+        company.reviews.length +
+        company.salaries.length +
+        company.interviews.length +
+        company.benefits.length +
+        company.active_jobs.length
+    );
+}
+
+function dedupeCompanies(companies: CompanyCompare[]): CompanyCompare[] {
+    const byKey = new Map<string, CompanyCompare>();
+    for (const company of companies) {
+        const key = slugifyName(company.identity.name || company.id);
+        const existing = byKey.get(key);
+        if (!existing || companyDataScore(company) > companyDataScore(existing)) {
+            byKey.set(key, company);
+        }
+    }
+    return Array.from(byKey.values()).sort((a, b) =>
+        a.identity.name.localeCompare(b.identity.name),
+    );
+}
+
 export async function loadCompaniesFromApi(): Promise<CompanyCompare[]> {
     if (cachedCompanies) return cachedCompanies;
     if (loadPromise) return loadPromise;
@@ -248,7 +365,7 @@ export async function loadCompaniesFromApi(): Promise<CompanyCompare[]> {
 
     loadPromise = (async () => {
         const res = await fetchCompaniesFromApi({ limit: 500 });
-        cachedCompanies = (res.companies ?? []).map(normalizeCompanyFromApi);
+        cachedCompanies = dedupeCompanies((res.companies ?? []).map(normalizeCompanyFromApi));
         return cachedCompanies;
     })();
 
@@ -314,10 +431,11 @@ export function getPrimaryLocation(company: CompanyCompare): string {
 }
 
 export function getCompanyMetricCounts(company: CompanyCompare): CompanyMetricCounts {
+    const interviewQuestions = getCompanyInterviewQuestions(company);
     return {
         reviews: company.reviews.length,
         salaries: company.salaries.length || (company.salaryRange ? 1 : 0),
-        interviews: company.interviews.length,
+        interviews: interviewQuestions.length || company.interviews.length,
         jobs: company.active_jobs.length,
         benefits: company.benefits.length,
     };
@@ -360,6 +478,74 @@ export function getTopSalaryRole(company: CompanyCompare): CompanyCompare['salar
         };
     }
     return null;
+}
+
+/** Parse salary strings like "₹5.7L", "7.3 L/yr", "₹18.4 L/yr" into lakhs. */
+export function parseSalaryToLakhs(value: string): number | null {
+    if (!value?.trim()) return null;
+    const normalized = value.replace(/,/g, '').trim();
+    const lakhMatch = normalized.match(/([\d.]+)\s*l(?:\s*\/\s*yr)?/i);
+    if (lakhMatch) return Number.parseFloat(lakhMatch[1]);
+    const croreMatch = normalized.match(/([\d.]+)\s*cr/i);
+    if (croreMatch) return Number.parseFloat(croreMatch[1]) * 100;
+    return null;
+}
+
+export function formatSalaryLakhs(value: number): string {
+    const rounded = Math.round(value * 10) / 10;
+    const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    return `₹${text} L/yr`;
+}
+
+export function getCompanyAverageSalaryLakhs(company: CompanyCompare): number | null {
+    const topSalary = getTopSalaryRole(company);
+    if (!topSalary) return null;
+
+    const fromAverage = parseSalaryToLakhs(topSalary.average_annual_salary);
+    if (fromAverage != null) return fromAverage;
+
+    const rangeParts = topSalary.salary_range.split(/\s*[-–]\s*/);
+    if (rangeParts.length === 2) {
+        const min = parseSalaryToLakhs(rangeParts[0]);
+        const max = parseSalaryToLakhs(rangeParts[1]);
+        if (min != null && max != null) return (min + max) / 2;
+    }
+
+    return parseSalaryToLakhs(topSalary.salary_range);
+}
+
+export function getIndustryAverageSalaryLakhs(
+    companies: CompanyCompare[],
+    industry: string,
+): number | null {
+    const trimmed = industry.trim();
+    if (!trimmed) return null;
+
+    const values = companies
+        .filter(c => c.identity.industry?.trim() === trimmed)
+        .map(getCompanyAverageSalaryLakhs)
+        .filter((value): value is number => value != null);
+
+    if (!values.length) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+export type SalaryIndustryComparison = 'higher' | 'lower' | 'at par';
+
+export function getSalaryIndustryComparison(
+    companyLakhs: number,
+    industryLakhs: number,
+): SalaryIndustryComparison {
+    if (industryLakhs <= 0) return 'at par';
+    const diffRatio = (companyLakhs - industryLakhs) / industryLakhs;
+    if (Math.abs(diffRatio) < 0.05) return 'at par';
+    return diffRatio > 0 ? 'higher' : 'lower';
+}
+
+export function getSalaryComparisonLabel(comparison: SalaryIndustryComparison): string {
+    if (comparison === 'higher') return 'above par';
+    if (comparison === 'lower') return 'below par';
+    return 'at par';
 }
 
 function companyMatchesLocation(company: CompanyCompare, location: string): boolean {
@@ -422,6 +608,112 @@ export function filterCompanies(filters: ExploreFilters, companies?: CompanyComp
 
         return haystack.includes(query);
     });
+}
+
+export function formatFilterCount(count: number): string {
+    if (count >= 100_000) {
+        const lakhs = count / 100_000;
+        return `${lakhs >= 10 ? Math.round(lakhs) : lakhs.toFixed(1).replace(/\.0$/, '')}L`;
+    }
+    if (count >= 1_000) {
+        const thousands = count / 1_000;
+        return `${thousands >= 10 ? Math.round(thousands) : thousands.toFixed(1).replace(/\.0$/, '')}k`;
+    }
+    return String(count);
+}
+
+export function countActiveExploreFilters(filters: ExploreFilters): number {
+    let count = 0;
+    if (filters.search.trim()) count += 1;
+    if (filters.industry) count += 1;
+    if (filters.minRating != null) count += 1;
+    if (filters.location) count += 1;
+    if (filters.role) count += 1;
+    if (filters.knownFor) count += 1;
+    return count;
+}
+
+export function buildRatingFilterFacets(
+    companies: CompanyCompare[],
+): Array<{ threshold: number; count: number }> {
+    return RATING_FILTER_THRESHOLDS.map(threshold => ({
+        threshold,
+        count: companies.filter(c => c.ratings.overall_rating >= threshold).length,
+    }));
+}
+
+export function buildIndustryFilterFacets(companies: CompanyCompare[]): FilterFacet[] {
+    const counts = new Map<string, number>();
+    for (const company of companies) {
+        const industry = company.identity.industry?.trim();
+        if (!industry) continue;
+        counts.set(industry, (counts.get(industry) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count);
+}
+
+export function buildLocationFilterFacets(companies: CompanyCompare[]): FilterFacet[] {
+    const counts = new Map<string, number>();
+    for (const company of companies) {
+        const location = getPrimaryLocation(company);
+        if (!location) continue;
+        counts.set(location, (counts.get(location) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count);
+}
+
+export function buildRoleFilterFacets(companies: CompanyCompare[]): FilterFacet[] {
+    const counts = new Map<string, number>();
+    for (const company of companies) {
+        const roles = new Set<string>();
+        for (const salary of company.salaries) {
+            const role = salary.role?.trim();
+            if (role) roles.add(role);
+        }
+        for (const job of company.active_jobs) {
+            const title = job.job_title?.trim();
+            if (title) roles.add(title);
+        }
+        for (const role of roles) {
+            counts.set(role, (counts.get(role) ?? 0) + 1);
+        }
+    }
+    return Array.from(counts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count);
+}
+
+export function buildKnownForFilterFacets(companies: CompanyCompare[]): KnownForFilterFacet[] {
+    return RATING_DIMENSIONS.map(dim => ({
+        key: dim.key,
+        label: dim.label,
+        count: companies.filter(c => companyMatchesKnownFor(c, dim.key)).length,
+    })).sort((a, b) => b.count - a.count);
+}
+
+const PREFERRED_METRO_CITIES = ['Mumbai', 'Pune', 'Bengaluru', 'Bangalore', 'New Delhi', 'Hyderabad', 'Chennai', 'Kolkata'];
+
+export function getTopMetroCityFacets(companies: CompanyCompare[], limit = 4): FilterFacet[] {
+    const all = buildLocationFilterFacets(companies);
+    const picked: FilterFacet[] = [];
+    const used = new Set<string>();
+
+    const findCity = (target: string) =>
+        all.find(f => f.value.toLowerCase() === target.toLowerCase());
+
+    for (const city of PREFERRED_METRO_CITIES) {
+        if (picked.length >= limit) break;
+        const match = findCity(city);
+        if (!match || used.has(match.value.toLowerCase())) continue;
+        used.add(match.value.toLowerCase());
+        picked.push(match);
+    }
+
+    return picked;
 }
 
 const AVATAR_COLORS = ['#5670FB', '#1E223C', '#10B981', '#F59E0B', '#EC4899', '#6366F1'];

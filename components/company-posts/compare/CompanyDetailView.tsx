@@ -1,49 +1,173 @@
 import * as React from 'react';
-import { ArrowLeft, BadgeCheck, Briefcase, ExternalLink, GitCompare, ThumbsDown, ThumbsUp } from 'lucide-react';
+import {
+    ArrowLeft,
+    BadgeCheck,
+    Building2,
+    Calendar,
+    ExternalLink,
+    Facebook,
+    GitCompare,
+    Globe,
+    IndianRupee,
+    Instagram,
+    Linkedin,
+    MapPin,
+    ThumbsDown,
+    ThumbsUp,
+    TrendingUp,
+    Twitter,
+    UserRound,
+    Users,
+    Youtube,
+    type LucideIcon,
+} from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
+    formatBenefitLabel,
     formatWebsiteUrl,
+    getCompanyInterviewQuestions,
     getCompanyMetricCounts,
+    getCompanyRatingEntries,
     getLowRatedDimensions,
     getPrimaryLocation,
     getTopRatedDimensions,
+    normalizeCompanyFromApi,
 } from '../../../lib/companyCompareData';
+import { fetchCompanyByIdFromApi } from '../../../lib/companyCompareApi';
 import type { CompanyCompare } from '../../../types/companyCompare';
 import { RATING_DIMENSIONS } from '../../../types/companyCompare';
 import { CompanyAvatar } from './CompanyAvatar';
 import { CompanyPostsPreviewSection } from './CompanyPostsPreviewSection';
 import { RatingBars, StarRating, ratingStarColor } from './RatingBars';
+import { SalaryIndustryChart } from './SalaryIndustryChart';
 
-type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'jobs' | 'benefits';
+type DetailTab = 'about' | 'ratings' | 'reviews' | 'salaries' | 'interviews' | 'benefits' | 'jobs';
+
+const SECTION_HEADING_CLASS = 'mb-3 text-base font-bold text-[#1E223C]';
+
+function ChipSection({ title, items }: { title: string; items: string[] }) {
+    const visible = items.map(item => item.trim()).filter(Boolean);
+    if (!visible.length) return null;
+    return (
+        <section>
+            <h3 className={SECTION_HEADING_CLASS}>{title}</h3>
+            <div className="flex flex-wrap gap-2">
+                {visible.map(item => (
+                    <span
+                        key={item}
+                        className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-sm text-[#1E223C]"
+                    >
+                        {item}
+                    </span>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function FactItem({
+    label,
+    value,
+    icon: Icon,
+}: {
+    label: string;
+    value?: string | number | null;
+    icon: LucideIcon;
+}) {
+    if (value == null || value === '') return null;
+    return (
+        <div className="flex items-start gap-3 rounded-xl border border-[#EBF0F6] bg-white px-3 py-3 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FAFCFF] text-gray-500">
+                <Icon size={18} strokeWidth={2} />
+            </div>
+            <div className="min-w-0 pt-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+                <p className="mt-1 text-sm font-semibold leading-snug text-[#1E223C]">{value}</p>
+            </div>
+        </div>
+    );
+}
+
+const SOCIAL_LABELS: Record<string, string> = {
+    linkedin: 'LinkedIn',
+    twitter: 'Twitter',
+    facebook: 'Facebook',
+    youtube: 'YouTube',
+    instagram: 'Instagram',
+    website: 'Website',
+};
+
+const SOCIAL_ICONS: Record<string, LucideIcon> = {
+    linkedin: Linkedin,
+    twitter: Twitter,
+    facebook: Facebook,
+    youtube: Youtube,
+    instagram: Instagram,
+    website: Globe,
+};
 
 export interface CompanyDetailViewProps {
     company: CompanyCompare;
+    allCompanies?: CompanyCompare[];
     onBack: () => void;
     onAddToCompare?: () => void;
 }
 
 export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
-    company,
+    company: initialCompany,
+    allCompanies = [],
     onBack,
     onAddToCompare,
 }) => {
+    const [company, setCompany] = React.useState(initialCompany);
+    const [refreshing, setRefreshing] = React.useState(false);
     const [activeTab, setActiveTab] = React.useState<DetailTab>('about');
     const metrics = getCompanyMetricCounts(company);
+    const interviewQuestions = getCompanyInterviewQuestions(company);
+    const ratingEntries = getCompanyRatingEntries(company);
     const topRated = getTopRatedDimensions(company, 1)[0];
     const lowRated = getLowRatedDimensions(company, 3);
     const websiteUrl = formatWebsiteUrl(company.identity.website);
     const topInterview = company.interviews[0];
-    const topBenefit = company.benefits[0]?.value;
+    const topBenefit = formatBenefitLabel(company.benefits[0] ?? '');
+
+    React.useEffect(() => {
+        setCompany(initialCompany);
+    }, [initialCompany]);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        setRefreshing(true);
+        fetchCompanyByIdFromApi(initialCompany.id)
+            .then(item => {
+                if (!cancelled) {
+                    setCompany(normalizeCompanyFromApi(item));
+                }
+            })
+            .catch(() => {
+                // Keep list data if the detail fetch fails.
+            })
+            .finally(() => {
+                if (!cancelled) setRefreshing(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [initialCompany.id]);
 
     const tabs: Array<{ id: DetailTab; label: string; count?: number }> = [
         { id: 'about', label: 'About' },
-        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
+        { id: 'ratings', label: 'Rating' },
         { id: 'salaries', label: 'Salaries', count: metrics.salaries },
-        { id: 'interviews', label: 'Interviews', count: metrics.interviews },
-        { id: 'jobs', label: 'Jobs', count: metrics.jobs },
+        { id: 'interviews', label: 'Interview', count: metrics.interviews },
+        { id: 'reviews', label: 'Reviews', count: metrics.reviews },
         { id: 'benefits', label: 'Benefits', count: metrics.benefits },
-        { id: 'ratings', label: 'Ratings' },
+        ...(metrics.jobs > 0 ? [{ id: 'jobs' as const, label: 'Jobs', count: metrics.jobs }] : []),
     ];
+
+    const socialEntries = Object.entries(company.socialLinks ?? {}).filter(
+        ([, url]) => typeof url === 'string' && url.trim(),
+    );
 
     React.useEffect(() => {
         setActiveTab('about');
@@ -83,6 +207,10 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                 </div>
                                 <p className="mt-1 text-sm text-gray-500">
                                     {company.identity.industry} | {getPrimaryLocation(company)}
+                                    {company.employeeCount ? ` | ${company.employeeCount} employees` : ''}
+                                    {company.foundedYear || company.identity.founded
+                                        ? ` | Founded ${company.foundedYear ?? company.identity.founded}`
+                                        : ''}
                                 </p>
                             </div>
                         </div>
@@ -121,29 +249,18 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                 </div>
 
                 <div className="p-4 sm:p-6">
+                    {refreshing && (
+                        <p className="mb-4 text-xs font-medium text-gray-400">Refreshing company data…</p>
+                    )}
                     {activeTab === 'about' && (
                         <div className="space-y-6">
                             <section>
                                 <h2 className="text-lg font-bold text-[#1E223C] mb-3">
                                     Working at {company.identity.name}
                                 </h2>
-                                <p className="text-sm leading-relaxed text-gray-600 mb-4">{company.identity.description}</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1 text-xs font-medium text-[#1E223C]">
-                                        {company.identity.industry}
-                                    </span>
-                                    {company.benefits.slice(0, 3).map(b => (
-                                        <span
-                                            key={b.value}
-                                            className="rounded-full border border-[#EBF0F6] px-3 py-1 text-xs text-gray-600"
-                                        >
-                                            {b.value}
-                                        </span>
-                                    ))}
-                                </div>
-                            </section>
+                                <p className="text-sm leading-relaxed text-gray-600 mb-6">{company.identity.description}</p>
 
-                            <div className="grid gap-4 lg:grid-cols-3">
+                            <div className="grid gap-4 lg:grid-cols-3 mb-6">
                                 <div className="rounded-xl border border-[#EBF0F6] p-4">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
                                         Overall Rating
@@ -193,12 +310,6 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                         Quick snapshot
                                     </p>
                                     <ul className="space-y-3 text-sm text-gray-600">
-                                        <li className="flex items-center gap-2">
-                                            <Briefcase size={14} className="text-[#5670FB]" />
-                                            <span>
-                                                <strong>{metrics.jobs}</strong> open jobs
-                                            </span>
-                                        </li>
                                         {topBenefit && (
                                             <li>
                                                 Top benefit: <strong>{topBenefit}</strong>
@@ -226,6 +337,89 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                     </ul>
                                 </div>
                             </div>
+
+                                <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    <FactItem label="Company type" value={company.identity.company_type} icon={Building2} />
+                                    <FactItem label="Headquarters" value={company.identity.headquarters} icon={MapPin} />
+                                    <FactItem
+                                        label="Founded"
+                                        value={company.foundedYear ?? company.identity.founded}
+                                        icon={Calendar}
+                                    />
+                                    <FactItem label="Employees" value={company.employeeCount} icon={Users} />
+                                    <FactItem label="CEO" value={company.identity.ceo} icon={UserRound} />
+                                    <FactItem label="Stock" value={company.identity.stock_symbol} icon={TrendingUp} />
+                                    <FactItem label="Parent company" value={company.identity.parent_company} icon={Building2} />
+                                    <FactItem label="Avg salary" value={company.salaryRange} icon={IndianRupee} />
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <span className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1 text-xs font-medium text-[#1E223C]">
+                                        {company.identity.industry}
+                                    </span>
+                                    {company.benefits.slice(0, 3).map(b => {
+                                        const label = formatBenefitLabel(b);
+                                        return (
+                                        <span
+                                            key={label}
+                                            className="rounded-full border border-[#EBF0F6] px-3 py-1 text-xs text-gray-600"
+                                        >
+                                            {label}
+                                        </span>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            <div className="space-y-6">
+                                <ChipSection title="Specialties" items={company.identity.specialties ?? []} />
+                                <ChipSection title="Office locations" items={company.locations ?? []} />
+                                <ChipSection title="Technologies" items={company.technologies ?? []} />
+                                {company.company_highlights && company.company_highlights.length > 0 && (
+                                    <section>
+                                        <h3 className={SECTION_HEADING_CLASS}>
+                                            Company highlights
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {company.company_highlights.map(highlight => (
+                                                <li
+                                                    key={highlight}
+                                                    className="flex gap-2 text-sm text-gray-600 before:content-['•'] before:text-[#5670FB]"
+                                                >
+                                                    {highlight}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </section>
+                                )}
+                                {socialEntries.length > 0 && (
+                                    <section>
+                                        <h3 className={SECTION_HEADING_CLASS}>
+                                            Social links
+                                        </h3>
+                                        <div className="flex flex-wrap gap-3">
+                                            {socialEntries.map(([key, url]) => {
+                                                const Icon = SOCIAL_ICONS[key] ?? Globe;
+                                                return (
+                                                <a
+                                                    key={key}
+                                                    href={formatWebsiteUrl(url)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={SOCIAL_LABELS[key] ?? key}
+                                                    aria-label={SOCIAL_LABELS[key] ?? key}
+                                                    className="inline-flex items-center gap-2 rounded-lg border border-[#EBF0F6] bg-white px-3 py-2 text-sm font-medium text-[#1E223C] shadow-sm transition hover:border-[#5670FB]/30 hover:bg-[#FAFCFF]"
+                                                >
+                                                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#FAFCFF] text-gray-500">
+                                                        <Icon size={18} />
+                                                    </span>
+                                                    {SOCIAL_LABELS[key] ?? key}
+                                                </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -248,17 +442,14 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                     Category Ratings
                                 </p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {RATING_DIMENSIONS.map(dim => {
-                                        const value = company.ratings[dim.key];
-                                        return (
-                                            <div key={dim.key} className="flex items-center justify-between gap-2">
-                                                <span className="text-sm text-[#1E223C]">{dim.label}</span>
-                                                <span className={cn('text-sm font-bold', ratingStarColor(value))}>
-                                                    ★ {value.toFixed(1)}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                                    {ratingEntries.map(entry => (
+                                        <div key={entry.key} className="flex items-center justify-between gap-2">
+                                            <span className="text-sm text-[#1E223C]">{entry.label}</span>
+                                            <span className={cn('text-sm font-bold', ratingStarColor(entry.value))}>
+                                                ★ {entry.value.toFixed(1)}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                                 <div className="mt-5">
                                     <RatingBars ratings={company.ratings} />
@@ -269,7 +460,12 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
 
                     {activeTab === 'reviews' && (
                         <div className="space-y-3">
-                            {company.reviews.map((review, idx) => (
+                            {company.reviews.length === 0 ? (
+                                <p className="rounded-xl border border-dashed border-[#EBF0F6] bg-[#FAFCFF] px-4 py-8 text-center text-sm text-gray-500">
+                                    No employee reviews available yet.
+                                </p>
+                            ) : (
+                                company.reviews.map((review, idx) => (
                                 <article key={`${review.review_date}-${idx}`} className="rounded-xl border border-[#EBF0F6] p-4">
                                     <p className="text-xs text-gray-400">{review.review_date}</p>
                                     <p className="mt-2 font-medium text-[#1E223C]">{review.summary}</p>
@@ -284,37 +480,61 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                         </div>
                                     </div>
                                 </article>
-                            ))}
+                                ))
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'salaries' && (
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[320px] text-left text-sm">
-                                <thead>
-                                    <tr className="border-b border-[#EBF0F6] text-xs uppercase text-gray-500">
-                                        <th className="pb-2 pr-3 font-semibold">Role</th>
-                                        <th className="pb-2 pr-3 font-semibold">Avg</th>
-                                        <th className="pb-2 pr-3 font-semibold">Range</th>
-                                        <th className="pb-2 font-semibold">Exp</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {company.salaries.map(row => (
-                                        <tr key={row.role} className="border-b border-[#EBF0F6] last:border-0">
-                                            <td className="py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
-                                            <td className="py-2.5 pr-3 font-semibold text-[#5670FB]">{row.average_annual_salary}</td>
-                                            <td className="py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
-                                            <td className="py-2.5 text-xs text-gray-500">{row.experience_level}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="space-y-6">
+                            <SalaryIndustryChart
+                                company={company}
+                                allCompanies={allCompanies.length > 0 ? allCompanies : [company]}
+                            />
+
+                            {company.salaries.length > 0 ? (
+                                <div className="overflow-x-auto rounded-xl border border-[#EBF0F6]">
+                                    <table className="w-full min-w-[320px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-[#EBF0F6] bg-[#FAFCFF] text-xs uppercase text-gray-500">
+                                                <th className="px-4 py-3 pr-3 font-semibold">Role</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Avg</th>
+                                                <th className="px-4 py-3 pr-3 font-semibold">Range</th>
+                                                <th className="px-4 py-3 font-semibold">Exp</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {company.salaries.map(row => (
+                                                <tr key={`${row.role}-${row.salary_range}`} className="border-b border-[#EBF0F6] last:border-0">
+                                                    <td className="px-4 py-2.5 pr-3 font-medium text-[#1E223C]">{row.role}</td>
+                                                    <td className="px-4 py-2.5 pr-3 font-semibold text-[#5670FB]">
+                                                        {row.average_annual_salary}
+                                                        {row.currency ? ` (${row.currency})` : ''}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 pr-3 text-gray-600">{row.salary_range}</td>
+                                                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                                                        {row.experience_level || row.salary_period || '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : company.salaryRange ? (
+                                <div className="rounded-xl border border-[#EBF0F6] bg-[#FAFCFF] p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Average salary</p>
+                                    <p className="mt-2 text-lg font-semibold text-[#5670FB]">{company.salaryRange}</p>
+                                </div>
+                            ) : (
+                                <p className="rounded-xl border border-dashed border-[#EBF0F6] bg-[#FAFCFF] px-4 py-8 text-center text-sm text-gray-500">
+                                    No salary data available yet.
+                                </p>
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'interviews' && (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {company.interviews.map(item => (
                                 <article key={`${item.role}-${item.difficulty_level}`} className="rounded-xl border border-[#EBF0F6] p-4">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -323,55 +543,96 @@ export const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({
                                             {item.difficulty_level}
                                         </span>
                                     </div>
-                                    <p className="mt-2 text-sm text-gray-600">{item.experience_summary}</p>
+                                    {item.experience_summary && (
+                                        <p className="mt-2 text-sm text-gray-600">{item.experience_summary}</p>
+                                    )}
+                                    {item.selection_process && item.selection_process.length > 0 && (
+                                        <div className="mt-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Selection process
+                                            </p>
+                                            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
+                                                {item.selection_process.map(step => (
+                                                    <li key={step}>{step}</li>
+                                                ))}
+                                            </ol>
+                                        </div>
+                                    )}
                                 </article>
                             ))}
+                            {interviewQuestions.length > 0 ? (
+                                <div className="rounded-xl border border-[#EBF0F6] p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Common questions ({interviewQuestions.length})
+                                    </p>
+                                    <ul className="mt-2 space-y-2">
+                                        {interviewQuestions.map(question => (
+                                            <li
+                                                key={question}
+                                                className="rounded-lg border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-2 text-sm text-[#1E223C]"
+                                            >
+                                                {question}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p className="rounded-xl border border-dashed border-[#EBF0F6] bg-[#FAFCFF] px-4 py-8 text-center text-sm text-gray-500">
+                                    No interview data available yet.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'benefits' && (
+                        <div className="flex flex-wrap gap-2">
+                            {company.benefits.length === 0 ? (
+                                <p className="w-full rounded-xl border border-dashed border-[#EBF0F6] bg-[#FAFCFF] px-4 py-8 text-center text-sm text-gray-500">
+                                    No benefits listed yet.
+                                </p>
+                            ) : (
+                            company.benefits.map(b => {
+                                const label = formatBenefitLabel(b);
+                                return (
+                                <span
+                                    key={label}
+                                    className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-sm text-[#1E223C]"
+                                >
+                                    {label}
+                                </span>
+                                );
+                            })
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'jobs' && (
                         <div className="space-y-3">
                             {company.active_jobs.map(job => (
-                                <article key={`${job.job_title}-${job.location}`} className="rounded-xl border border-[#EBF0F6] p-4">
+                                <article
+                                    key={`${job.job_title}-${job.location}`}
+                                    className="rounded-xl border border-[#EBF0F6] p-4"
+                                >
                                     <h4 className="font-semibold text-[#1E223C]">{job.job_title}</h4>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        {job.location} · Posted {job.posted_date}
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        {job.location}
+                                        {job.posted_date ? ` · Posted ${job.posted_date}` : ''}
                                     </p>
+                                    {job.apply_url && (
+                                        <a
+                                            href={job.apply_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[#5670FB] hover:underline"
+                                        >
+                                            Apply
+                                            <ExternalLink size={12} />
+                                        </a>
+                                    )}
                                 </article>
                             ))}
                         </div>
                     )}
-
-                    {activeTab === 'benefits' && (
-                        <div className="flex flex-wrap gap-2">
-                            {company.benefits.map(b => (
-                                <span
-                                    key={b.value}
-                                    className="rounded-full border border-[#EBF0F6] bg-[#FAFCFF] px-3 py-1.5 text-sm text-[#1E223C]"
-                                >
-                                    {b.value}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="border-t border-[#EBF0F6] px-4 sm:px-6 py-3 bg-[#FAFCFF]">
-                    <p className="text-[11px] text-gray-400">
-                        Data sourced from{' '}
-                        {company.overviewUrl ? (
-                            <a
-                                href={company.overviewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-[#5670FB] hover:underline"
-                            >
-                                AmbitionBox
-                            </a>
-                        ) : (
-                            'AmbitionBox'
-                        )}
-                    </p>
                 </div>
             </div>
 

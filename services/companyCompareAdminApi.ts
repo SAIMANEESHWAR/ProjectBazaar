@@ -1,5 +1,6 @@
 export {
     adminDeleteCompany,
+    adminUpsertCompany,
     adminSyncCompanies,
     fetchCompaniesFromApi,
     fetchCompanyByIdFromApi,
