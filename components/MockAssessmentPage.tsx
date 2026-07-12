@@ -12,8 +12,9 @@ const MOCK_ASSESSMENTS_API = 'https://w7k9vplo2j.execute-api.ap-south-2.amazonaw
 const technologyLogoMap: Record<string, string> = {
   'java': 'java', 'python': 'python', 'javascript': 'javascript', 'typescript': 'typescript',
   'c++': 'cplusplus', 'cpp': 'cplusplus', 'c': 'c', 'go': 'go', 'rust': 'rust',
-  'react': 'react', 'vue': 'vuedotjs', 'angular': 'angular', 'node.js': 'nodedotjs',
-  'next.js': 'nextdotjs', 'express': 'express', 'django': 'django', 'flask': 'flask',
+  'react': 'react', 'vue': 'vuedotjs', 'angular': 'angular',
+  'node.js': 'nodedotjs', 'nodejs': 'nodedotjs', 'node js': 'nodedotjs', 'node': 'nodedotjs',
+  'next.js': 'nextdotjs', 'nextjs': 'nextdotjs', 'express': 'express', 'django': 'django', 'flask': 'flask',
   'spring': 'spring', 'mysql': 'mysql', 'postgresql': 'postgresql', 'mongodb': 'mongodb',
   'redis': 'redis', 'docker': 'docker', 'kubernetes': 'kubernetes', 'aws': 'amazonaws',
   'azure': 'microsoftazure', 'gcp': 'googlecloud', 'git': 'git', 'google': 'google',
@@ -21,14 +22,46 @@ const technologyLogoMap: Record<string, string> = {
   'netflix': 'netflix', 'uber': 'uber', 'linkedin': 'linkedin',
 };
 
+const normalizeLogoKey = (value: string) => value.toLowerCase().trim().replace(/[.\s_-]+/g, '');
+
 const getLogoFromTitle = (title: string): string => {
   if (!title) return '';
   const titleLower = title.toLowerCase().trim();
-  if (technologyLogoMap[titleLower]) return `https://cdn.simpleicons.org/${technologyLogoMap[titleLower]}/000000`;
-  for (const [key, iconName] of Object.entries(technologyLogoMap)) {
-    if (titleLower.includes(key) || key.includes(titleLower)) return `https://cdn.simpleicons.org/${iconName}/000000`;
+  const titleNorm = normalizeLogoKey(title);
+
+  if (technologyLogoMap[titleLower]) {
+    return `https://cdn.simpleicons.org/${technologyLogoMap[titleLower]}/000000`;
   }
+
+  // Prefer longer keys first so "nodejs" wins over "node"/"c"
+  const entries = Object.entries(technologyLogoMap).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, iconName] of entries) {
+    const keyNorm = normalizeLogoKey(key);
+    if (titleNorm === keyNorm) {
+      return `https://cdn.simpleicons.org/${iconName}/000000`;
+    }
+    // Avoid short ambiguous keys like "c" matching inside other words
+    if (keyNorm.length >= 3 && (titleNorm.includes(keyNorm) || (titleNorm.length >= 3 && keyNorm.includes(titleNorm)))) {
+      return `https://cdn.simpleicons.org/${iconName}/000000`;
+    }
+  }
+
+  // Prefer company/topic word before "Assessment" e.g. "Google Assessment"
+  const firstWord = titleLower.split(/\s+/)[0] || '';
+  if (firstWord && technologyLogoMap[firstWord]) {
+    return `https://cdn.simpleicons.org/${technologyLogoMap[firstWord]}/000000`;
+  }
+
   return '';
+};
+
+const getLetterAvatarDataUrl = (title: string): string => {
+  const letter = (title?.trim()?.[0] || '?').toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+    <rect width="64" height="64" rx="12" fill="#f3f4f6"/>
+    <text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="600" fill="#6b7280">${letter}</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${typeof btoa !== 'undefined' ? btoa(svg) : ''}`;
 };
 const triggerConfetti = async () => {
   const confetti = (await import('canvas-confetti')).default;
@@ -175,6 +208,9 @@ interface TestResult {
     isCorrect: boolean;
     userAnswer: number;
     correctAnswer: number;
+    question?: string;
+    options?: string[];
+    explanation?: string;
   }[];
 }
 
@@ -343,8 +379,8 @@ const dailyChallengeData: DailyChallenge = {
 // ICONS
 // ============================================
 
-const ClockIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+const ClockIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
@@ -527,7 +563,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const [showRules, setShowRules] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set());
   const [testStartTime, setTestStartTime] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'assessment' | 'interview' | 'history'>(initialView === 'history' ? 'history' : 'assessment');
+  const [activeTab, setActiveTab] = useState<'assessment' | 'history'>(initialView === 'history' ? 'history' : 'assessment');
   const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('grid');
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'passed' | 'failed'>('all');
@@ -665,7 +701,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         solved: item.solved,
         duration: item.duration || '0 mins',
         startTime: item.startTime,
-        questionResults: [] // Not always needed for list view
+        xpEarned: item.xpEarned,
+        difficulty: item.difficulty,
+        questionResults: Array.isArray(item.questionResults) ? item.questionResults : [],
+        proctoringViolations: item.proctoringData
+          ? {
+              tabSwitchCount: item.proctoringData.tabSwitchCount || 0,
+              fullScreenExitCount: item.proctoringData.fullScreenExitCount || 0,
+            }
+          : undefined,
       }));
 
       setTestHistory(mappedHistory);
@@ -885,14 +929,20 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     return filterMcqQuestions(selectedAssessment.questions || []);
   }, [selectedAssessment]);
 
-  // Timer effect
+  // Timer effect — auto-submit when time runs out
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (view === 'test' && timeLeft > 0 && testMode === 'timed') {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
+    if (view !== 'test' || testMode !== 'timed') return;
+
+    if (timeLeft <= 0) {
+      setTerminationReason('time_expired');
+      setShowTerminationAlert(true);
+      return;
     }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
     return () => clearInterval(timer);
   }, [view, timeLeft, testMode]);
 
@@ -1071,6 +1121,69 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     }
   };
 
+  const openHistoryDetails = async (result: TestResult) => {
+    setTestResult(result);
+    setExpandedQuestion(null);
+    setView('results');
+
+    const matched =
+      assessments.find(a => a.id === result.assessmentId) ||
+      companyAssessments.find(a => a.id === result.assessmentId) ||
+      assessments.find(a => a.title.toLowerCase() === result.assessmentTitle.toLowerCase()) ||
+      companyAssessments.find(a => a.title.toLowerCase() === result.assessmentTitle.toLowerCase());
+
+    // Prefer questions already stored on the result; otherwise load assessment questions
+    const snapshotQuestions: Question[] = (result.questionResults || [])
+      .filter(r => r.question && Array.isArray(r.options) && r.options.length > 0)
+      .map((r, index) => ({
+        id: r.questionId || index + 1,
+        question: r.question as string,
+        options: r.options as string[],
+        correctAnswer: Number(r.correctAnswer),
+        topic: r.topic || 'General',
+        explanation: r.explanation,
+        type: 'mcq' as const,
+      }));
+
+    if (snapshotQuestions.length > 0) {
+      setSelectedAssessment({
+        id: result.assessmentId,
+        title: result.assessmentTitle,
+        logo: matched?.logo || getLogoFromTitle(result.assessmentTitle),
+        time: result.duration,
+        objective: snapshotQuestions.length,
+        programming: 0,
+        registrations: matched?.registrations || 0,
+        questions: snapshotQuestions,
+      });
+      return;
+    }
+
+    if (matched) {
+      const mcqOnly = filterMcqQuestions(matched.questions || []);
+      if (mcqOnly.length > 0) {
+        setSelectedAssessment({ ...matched, questions: mcqOnly, programming: 0 });
+        return;
+      }
+    }
+
+    if (result.assessmentId) {
+      const fetched = await fetchQuestions(result.assessmentId);
+      if (fetched.length > 0) {
+        setSelectedAssessment({
+          id: result.assessmentId,
+          title: result.assessmentTitle,
+          logo: matched?.logo || getLogoFromTitle(result.assessmentTitle),
+          time: result.duration,
+          objective: fetched.length,
+          programming: 0,
+          registrations: matched?.registrations || 0,
+          questions: fetched,
+        });
+      }
+    }
+  };
+
   const handleStartTest = async (assessment: Assessment) => {
     const mcqOnly = filterMcqQuestions(assessment.questions || []);
     setSelectedAssessment({ ...assessment, questions: mcqOnly, programming: 0, objective: mcqOnly.length || assessment.objective });
@@ -1172,6 +1285,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         isCorrect,
         userAnswer,
         correctAnswer,
+        question: q.question,
+        options: q.options,
+        explanation: q.explanation,
       };
     });
 
@@ -1367,12 +1483,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       onClick={() => handleStartTest(assessment)}
       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-md transition-all duration-200 relative group cursor-pointer"
     >
-      {assessment.popular && (
-        <div className="absolute -top-2.5 right-4 bg-orange-500 text-white text-xs font-medium px-2.5 py-0.5 rounded-full">
-          Popular
-        </div>
-      )}
-
       <div className="flex items-center gap-4 mb-4">
         <div className="w-14 h-14 rounded-lg bg-gray-50 dark:bg-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
           <img
@@ -1422,9 +1532,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   );
 
   const renderAssessmentList = () => (
-    <div className="bg-gradient-to-br from-slate-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+      <div className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-4">
@@ -1458,15 +1568,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                   }`}
               >
                 Free Mock Assessment
-              </button>
-              <button
-                onClick={() => setActiveTab('interview')}
-                className={`px-5 py-2 rounded-lg font-medium transition text-sm ${activeTab === 'interview'
-                  ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-              >
-                Mock Interview
               </button>
               <button
                 onClick={() => setActiveTab('history')}
@@ -1632,7 +1733,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           )}
         </div>
       )}
-      {activeTab === 'interview' && renderMockInterviewSection()}
       {activeTab === 'history' && renderHistorySection()}
 
       {/* Leaderboard View */}
@@ -1904,56 +2004,6 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
     </div >
   );
 
-  const renderMockInterviewSection = () => (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Mock Interview</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Get paired with a suitable peer and interview each other anonymously
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-          <button
-            onClick={() => setView('schedule')}
-            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-xl hover:shadow-lg shadow-orange-500/30 transition flex items-center justify-center gap-2"
-          >
-            Get An Interview Now
-            <ArrowRightIcon />
-          </button>
-          <button
-            onClick={() => setView('schedule')}
-            className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2"
-          >
-            Get An Interview Later
-            <CalendarIcon />
-          </button>
-        </div>
-
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">How It Works</h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { icon: <UsersIcon />, title: 'Pairup', desc: 'We will match you with the suitable peer based on your preferences. The Interview will be of 1 Hr : 30 Mins' },
-            { icon: <VideoIcon />, title: 'Interview Your Peer', desc: 'For the first half (45 Mins), you interview your peer based on the question and answer we provide (or vice versa)' },
-            { icon: <VideoIcon />, title: 'Peer Interviews You', desc: 'Second half (45 Mins), your peer interviews you based on the question and answer we provide (or vice versa)' },
-            { icon: <StarIcon />, title: 'Evaluate Each Other', desc: 'After completion you and your peer provide feedback. Work on the areas you lack and then repeat until you are confident' },
-          ].map((step, index) => (
-            <div key={index} className="relative">
-              <div className="absolute -top-4 -left-4 text-6xl font-bold text-gray-100 dark:text-gray-700">{index + 1}</div>
-              <div className="relative bg-gray-50 dark:bg-gray-700 rounded-xl p-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400">
-                  {step.icon}
-                </div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">{step.title}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{step.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
   const renderHistorySection = () => {
     const filteredHistory = testHistory
       .filter((result) => {
@@ -1974,11 +2024,25 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         return 0;
       });
 
+    const resolveHistoryLogo = (result: TestResult): string => {
+      const matched =
+        assessments.find(a => a.id === result.assessmentId) ||
+        companyAssessments.find(a => a.id === result.assessmentId) ||
+        assessments.find(a => a.title.toLowerCase() === result.assessmentTitle.toLowerCase()) ||
+        companyAssessments.find(a => a.title.toLowerCase() === result.assessmentTitle.toLowerCase());
+
+      return (
+        matched?.logo ||
+        getLogoFromTitle(result.assessmentTitle) ||
+        getLetterAvatarDataUrl(result.assessmentTitle)
+      );
+    };
+
     const renderHistoryCard = (result: TestResult, index: number) => {
       // Note: result.score is already a percentage (0-100), not the number of correct answers
       const percentage = Math.round(result.score);
       const isPassed = percentage >= 60;
-      const assessment = assessments.find(a => a.id === result.assessmentId);
+      const logoSrc = resolveHistoryLogo(result);
 
       return (
         <div
@@ -1986,11 +2050,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
           className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
         >
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex-shrink-0">
+            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex-shrink-0 overflow-hidden">
               <img
-                src={assessment?.logo || '/mock_assessments_logo/sde_interview.png'}
+                src={logoSrc}
                 alt={result.assessmentTitle}
                 className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).onerror = null;
+                  (e.target as HTMLImageElement).src = getLetterAvatarDataUrl(result.assessmentTitle);
+                }}
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -2044,10 +2112,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               </button>
             )}
             <button
-              onClick={() => {
-                setTestResult(result);
-                setView('results');
-              }}
+              onClick={() => openHistoryDetails(result)}
               className={`${isPassed ? 'flex-1' : 'w-full'} flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition`}
             >
               View Details
@@ -2061,7 +2126,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
       // Note: result.score is already a percentage (0-100), not the number of correct answers
       const percentage = Math.round(result.score);
       const isPassed = percentage >= 60;
-      const assessment = assessments.find(a => a.id === result.assessmentId);
+      const logoSrc = resolveHistoryLogo(result);
 
       return (
         <div
@@ -2070,11 +2135,15 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         >
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1">
-              <div className="w-11 h-11 bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex-shrink-0">
+              <div className="w-11 h-11 bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex-shrink-0 overflow-hidden">
                 <img
-                  src={assessment?.logo || '/mock_assessments_logo/sde_interview.png'}
+                  src={logoSrc}
                   alt={result.assessmentTitle}
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).onerror = null;
+                    (e.target as HTMLImageElement).src = getLetterAvatarDataUrl(result.assessmentTitle);
+                  }}
                 />
               </div>
               <div className="min-w-0">
@@ -2119,7 +2188,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 </button>
               )}
               <button
-                onClick={() => { setTestResult(result); setView('results'); }}
+                onClick={() => openHistoryDetails(result)}
                 className="px-2.5 py-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
               >
                 Details
@@ -2814,37 +2883,46 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
   const renderTerminationAlertModal = () => {
     const isTabSwitch = terminationReason === 'tab_switch';
     const isFullScreenExit = terminationReason === 'fullscreen_exit';
+    const isTimeExpired = terminationReason === 'time_expired';
 
     return (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8">
-          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-5 bg-red-100 dark:bg-red-900/30 rounded-full">
-            <svg className="w-10 h-10 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <div className={`flex items-center justify-center w-20 h-20 mx-auto mb-5 rounded-full ${isTimeExpired ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+            <svg className={`w-10 h-10 ${isTimeExpired ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {isTimeExpired ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              )}
             </svg>
           </div>
 
-          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 text-center mb-3">
-            Test Terminated
+          <h2 className={`text-2xl font-bold text-center mb-3 ${isTimeExpired ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+            {isTimeExpired ? 'Time Up!' : 'Test Terminated'}
           </h2>
 
           <p className="text-gray-700 dark:text-gray-300 text-center mb-4 font-medium">
             {isTabSwitch && 'Your test has been automatically terminated due to exceeding the maximum tab switch limit.'}
             {isFullScreenExit && 'Your test has been automatically terminated due to exceeding the maximum fullscreen exit limit.'}
+            {isTimeExpired && 'Your allotted time has ended. Your answers will be submitted automatically.'}
           </p>
 
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-3 text-red-700 dark:text-red-400">
+          <div className={`rounded-xl p-4 mb-6 border ${isTimeExpired ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+            <div className={`flex items-center gap-3 ${isTimeExpired ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
               <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm">
                 {isTabSwitch && `Tab switches: ${tabSwitchCount}/${MAX_TAB_SWITCHES}`}
                 {isFullScreenExit && `Fullscreen exits: ${fullScreenExitCount}/${MAX_FULLSCREEN_EXITS}`}
+                {isTimeExpired && 'Timer reached 00:00:00'}
               </span>
             </div>
-            <p className="text-xs text-red-600 dark:text-red-400 mt-3">
-              Your answers will be submitted and scored. This violation has been recorded.
+            <p className={`text-xs mt-3 ${isTimeExpired ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+              {isTimeExpired
+                ? 'Your answers have been recorded and will be scored.'
+                : 'Your answers will be submitted and scored. This violation has been recorded.'}
             </p>
           </div>
 
@@ -2853,7 +2931,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               setShowTerminationAlert(false);
               proceedWithSubmission();
             }}
-            className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition shadow-lg shadow-red-500/30"
+            className={`w-full py-3 text-white font-semibold rounded-xl transition shadow-lg ${
+              isTimeExpired
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30'
+                : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-red-500/30'
+            }`}
           >
             View Results
           </button>
@@ -2971,20 +3053,51 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
 
             <div className="flex items-center gap-3">
               {/* Timer - Only show in timed mode */}
-              {testMode === 'timed' && (
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${timeLeft < 300
-                  ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700'
-                  : timeLeft < 600
-                    ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
-                    : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                  }`}>
-                  <ClockIcon />
-                  <span className={`font-mono text-sm ${timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'
-                    }`}>
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-              )}
+              {testMode === 'timed' && (() => {
+                const isCritical = timeLeft <= 60;
+                const isLow = timeLeft > 60 && timeLeft <= 300;
+                const isWarning = timeLeft > 300 && timeLeft <= 600;
+                return (
+                  <div
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                      isCritical
+                        ? 'bg-red-100 border-red-400 dark:bg-red-900/40 dark:border-red-500 animate-pulse shadow-md shadow-red-500/20'
+                        : isLow
+                          ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-600'
+                          : isWarning
+                            ? 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-600'
+                            : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                    }`}
+                    title={isCritical ? 'Time almost up!' : isLow ? 'Less than 5 minutes left' : isWarning ? 'Less than 10 minutes left' : 'Time remaining'}
+                  >
+                    <ClockIcon
+                      className={`w-4 h-4 ${
+                        isCritical || isLow
+                          ? 'text-red-600 dark:text-red-400'
+                          : isWarning
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    />
+                    <span
+                      className={`font-mono text-sm font-semibold tabular-nums ${
+                        isCritical || isLow
+                          ? 'text-red-600 dark:text-red-400'
+                          : isWarning
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-gray-600 dark:text-gray-300'
+                      }`}
+                    >
+                      {formatTime(timeLeft)}
+                    </span>
+                    {(isCritical || isLow) && (
+                      <span className={`text-[10px] font-bold uppercase tracking-wide ${isCritical ? 'text-red-700 dark:text-red-300' : 'text-red-500 dark:text-red-400'}`}>
+                        {isCritical ? 'Hurry!' : 'Low'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -3226,7 +3339,7 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
         {showTabWarningModal && antiCheatMode && renderTabWarningModal()}
         {showFullScreenWarning && antiCheatMode && renderFullScreenWarningModal()}
         {showUnansweredConfirmModal && renderUnansweredConfirmModal()}
-        {showTerminationAlert && antiCheatMode && renderTerminationAlertModal()}
+        {showTerminationAlert && (antiCheatMode || terminationReason === 'time_expired') && renderTerminationAlertModal()}
       </div>
     );
   };
@@ -3486,8 +3599,24 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                 </div>
 
                 <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {testResult.questionResults.map((result, index) => {
-                    const question = getQuestions()[index];
+                  {(!testResult.questionResults || testResult.questionResults.length === 0) ? (
+                    <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                      Detailed question answers are not available for this attempt.
+                      New tests will save question-by-question results for review.
+                    </div>
+                  ) : testResult.questionResults.map((result, index) => {
+                    const liveQuestion = getQuestions()[index];
+                    const question: Question | null = liveQuestion || (result.question && result.options
+                      ? {
+                          id: result.questionId || index + 1,
+                          question: result.question,
+                          options: result.options,
+                          correctAnswer: Number(result.correctAnswer),
+                          topic: result.topic || 'General',
+                          explanation: result.explanation,
+                          type: 'mcq',
+                        }
+                      : null);
                     const isExpanded = expandedQuestion === index;
 
                     return (
@@ -3508,11 +3637,11 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs font-medium">
-                                {result.topic}
+                                {result.topic || 'General'}
                               </span>
                             </div>
                             <p className="text-sm text-gray-900 dark:text-white truncate">
-                              {question?.question || 'Question'}
+                              {question?.question || `Question ${index + 1}`}
                             </p>
                           </div>
 
@@ -3520,9 +3649,9 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                           <div className="flex items-center gap-4 flex-shrink-0">
                             <div className="text-right hidden sm:block">
                               <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {result.isCorrect ? '30' : '0'}/30
+                                {result.isCorrect ? '1' : '0'}/1
                               </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">points</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">mark</p>
                             </div>
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${result.isCorrect ? 'bg-emerald-500' : 'bg-red-500'
                               }`}>
@@ -3543,67 +3672,85 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
                         </button>
 
                         {/* Expanded Details */}
-                        {isExpanded && question && (
+                        {isExpanded && (
                           <div className="px-6 pb-6 bg-gray-50 dark:bg-gray-800/50">
                             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                              <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{question.question}</p>
+                              {question ? (
+                                <>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">{question.question}</p>
 
-                              {!result.isCorrect && (
-                                <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-semibold text-gray-700 dark:text-gray-300">Your Answer:</span>
-                                    <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded font-medium">
-                                      {result.userAnswer !== -1 ? String.fromCharCode(65 + result.userAnswer) : 'Not Answered'}
-                                      {result.userAnswer !== -1 && ` - ${question.options[result.userAnswer]}`}
-                                    </span>
+                                  <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2">
+                                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                                      <span className="font-semibold text-gray-700 dark:text-gray-300">Your Answer:</span>
+                                      <span className={`px-2 py-1 rounded font-medium ${result.isCorrect
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                        }`}>
+                                        {result.userAnswer !== -1 ? String.fromCharCode(65 + Number(result.userAnswer)) : 'Not Answered'}
+                                        {result.userAnswer !== -1 && question.options[Number(result.userAnswer)]
+                                          ? ` - ${question.options[Number(result.userAnswer)]}`
+                                          : ''}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                                      <span className="font-semibold text-gray-700 dark:text-gray-300">Correct Answer:</span>
+                                      <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded font-medium">
+                                        {String.fromCharCode(65 + Number(question.correctAnswer))}
+                                        {question.options[Number(question.correctAnswer)]
+                                          ? ` - ${question.options[Number(question.correctAnswer)]}`
+                                          : ''}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-semibold text-gray-700 dark:text-gray-300">Correct Answer:</span>
-                                    <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded font-medium">
-                                      {String.fromCharCode(65 + question.correctAnswer)} - {question.options[question.correctAnswer]}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {question.options.map((opt, optIdx) => (
-                                  <div
-                                    key={optIdx}
-                                    className={`px-4 py-3 rounded-xl text-sm flex items-center gap-2 ${optIdx === question.correctAnswer
-                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-700'
-                                      : optIdx === result.userAnswer && !result.isCorrect
-                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-2 border-red-300 dark:border-red-700'
-                                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
-                                      }`}
-                                  >
-                                    <span className="w-6 h-6 rounded-full bg-current/10 flex items-center justify-center text-xs font-bold">
-                                      {String.fromCharCode(65 + optIdx)}
-                                    </span>
-                                    <span className="flex-1">{opt}</span>
-                                    {optIdx === question.correctAnswer && (
-                                      <svg className="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                      </svg>
-                                    )}
-                                    {optIdx === result.userAnswer && !result.isCorrect && (
-                                      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                      </svg>
-                                    )}
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {question.options.map((opt, optIdx) => (
+                                      <div
+                                        key={optIdx}
+                                        className={`px-4 py-3 rounded-xl text-sm flex items-center gap-2 ${optIdx === Number(question.correctAnswer)
+                                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-700'
+                                          : optIdx === Number(result.userAnswer) && !result.isCorrect
+                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-2 border-red-300 dark:border-red-700'
+                                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                                          }`}
+                                      >
+                                        <span className="w-6 h-6 rounded-full bg-current/10 flex items-center justify-center text-xs font-bold">
+                                          {String.fromCharCode(65 + optIdx)}
+                                        </span>
+                                        <span className="flex-1">{opt}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
 
-                              {question.explanation && (
-                                <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
-                                    <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
-                                      <LightBulbIcon className="w-4 h-4" />
-                                      Explanation
-                                    </span>
+                                  {question.explanation && (
+                                    <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                                      <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                        <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
+                                          <LightBulbIcon className="w-4 h-4" />
+                                          Explanation
+                                        </span>
+                                      </p>
+                                      <p className="text-sm text-blue-700 dark:text-blue-400">{question.explanation}</p>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                                  <p>
+                                    Your answer:{' '}
+                                    <strong>
+                                      {result.userAnswer !== -1
+                                        ? String.fromCharCode(65 + Number(result.userAnswer))
+                                        : 'Not Answered'}
+                                    </strong>
                                   </p>
-                                  <p className="text-sm text-blue-700 dark:text-blue-400">{question.explanation}</p>
+                                  <p>
+                                    Correct answer:{' '}
+                                    <strong>{String.fromCharCode(65 + Number(result.correctAnswer))}</strong>
+                                  </p>
+                                  <p className={result.isCorrect ? 'text-emerald-600' : 'text-red-500'}>
+                                    {result.isCorrect ? 'Correct' : 'Incorrect'}
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -3780,20 +3927,29 @@ const MockAssessmentPage: React.FC<MockAssessmentPageProps> = ({ initialView = '
               <p className="text-gray-600 mb-8 max-w-xl mx-auto">
                 has successfully {isPassed ? 'completed' : 'participated in'} the
                 <br />
-                <strong className="text-orange-600">Mock Coding Interview Assessment - {testResult.assessmentTitle}</strong>
+                <strong className="text-orange-600">Mock Assessment - {testResult.assessmentTitle}</strong>
                 <br />
-                with a score of <strong className="text-2xl">{testResult.score.toFixed(1)}%</strong>
+                with marks of{' '}
+                <strong className="text-2xl text-gray-900">
+                  {testResult.solved}/{testResult.totalQuestions}
+                </strong>
+                {' '}
+                <span className="text-gray-500">
+                  ({testResult.score.toFixed(1)}%)
+                </span>
               </p>
 
               {/* Stats */}
               <div className="flex justify-center gap-12 mb-8">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-orange-600">{testResult.solved}</p>
-                  <p className="text-gray-500 text-sm">Questions Solved</p>
+                  <p className="text-3xl font-bold text-orange-600">
+                    {testResult.solved}/{testResult.totalQuestions}
+                  </p>
+                  <p className="text-gray-500 text-sm">Marks</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-orange-600">{testResult.totalQuestions}</p>
-                  <p className="text-gray-500 text-sm">Total Questions</p>
+                  <p className="text-3xl font-bold text-orange-600">{testResult.score.toFixed(0)}%</p>
+                  <p className="text-gray-500 text-sm">Percentage</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-orange-600">{testResult.duration}</p>
