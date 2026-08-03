@@ -7,6 +7,17 @@ import SystemDesignAdminPanel from "./system-design/SystemDesignAdminPanel";
 import CoreSubjectsAdminPanel from "./core-subjects/CoreSubjectsAdminPanel";
 import CoreSubjectCategoryModal from "./core-subjects/CoreSubjectCategoryModal";
 import CoreSubjectQuizModal from "./core-subjects/CoreSubjectQuizModal";
+import InterviewQuestionModal, {
+  interviewQuestionPlainText,
+  type AdminInterviewQuestion,
+  type InterviewQuestionSavePayload,
+} from "./InterviewQuestionModal";
+import BankQuestionModal, {
+  bankQuestionPlainText,
+  type AdminBankQuestion,
+  type BankQuestionSavePayload,
+  type BankQuestionScope,
+} from "./BankQuestionModal";
 import {
   mapCoreSubjectQuizFromApi,
   mapCoreSubjectQuizToApi,
@@ -230,15 +241,15 @@ const PrepContentManagementPage: React.FC = () => {
   } | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
-  const [iqData, setIqData] = useState<any[]>([]);
+  const [iqData, setIqData] = useState<AdminInterviewQuestion[]>([]);
   const [dsaData, setDsaData] = useState<any[]>([]);
   const [quizData, setQuizData] = useState<any[]>([]);
   const [dmData, setDmData] = useState<any[]>([]);
   const [jpData, setJpData] = useState<any[]>([]);
   const [noteData, setNoteData] = useState<any[]>([]);
   const [rmData, setRmData] = useState<any[]>([]);
-  const [mrData, setMrData] = useState<any[]>([]);
-  const [posData, setPosData] = useState<any[]>([]);
+  const [mrData, setMrData] = useState<AdminBankQuestion[]>([]);
+  const [posData, setPosData] = useState<AdminBankQuestion[]>([]);
   const [sdData, setSdData] = useState<Record<SDTabId, AdminSDItem[]>>(emptySdDataRecord);
   const [sdDesignType, setSdDesignType] = useState<SDDesignType>("hld");
   const [sdSubSection, setSdSubSection] = useState<SDSubSection>("questions");
@@ -254,6 +265,30 @@ const PrepContentManagementPage: React.FC = () => {
   const [csError, setCsError] = useState<string | null>(null);
   const [csReordering, setCsReordering] = useState(false);
   const [contentLoading, setContentLoading] = useState(false);
+
+  // Interview question modal state
+  const [iqModal, setIqModal] = useState<{
+    open: boolean;
+    item?: AdminInterviewQuestion | null;
+  }>({ open: false });
+  const [iqSaving, setIqSaving] = useState(false);
+  const [iqDeleteModal, setIqDeleteModal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Company / role bank question modal
+  const [bankModal, setBankModal] = useState<{
+    open: boolean;
+    scope: BankQuestionScope;
+    item?: AdminBankQuestion | null;
+  }>({ open: false, scope: "mass_recruitment" });
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankDeleteModal, setBankDeleteModal] = useState<{
+    scope: BankQuestionScope;
+    id: string;
+    name: string;
+  } | null>(null);
 
   // SD modal state
   const [sdModal, setSdModal] = useState<{
@@ -298,16 +333,33 @@ const PrepContentManagementPage: React.FC = () => {
   const [csQuizSaving, setCsQuizSaving] = useState(false);
 
   const loadTabContent = useCallback(async (tab: PrepTab) => {
-    const tabMap: Partial<Record<PrepTab, { type: ContentType; setter: React.Dispatch<React.SetStateAction<any[]>> }>> = {
-      "interview-questions": { type: "interview_questions", setter: setIqData },
+    const tabMap: Partial<
+      Record<
+        PrepTab,
+        {
+          type: ContentType;
+          setter: React.Dispatch<React.SetStateAction<any[]>>;
+        }
+      >
+    > = {
+      "interview-questions": {
+        type: "interview_questions",
+        setter: setIqData as React.Dispatch<React.SetStateAction<any[]>>,
+      },
       dsa: { type: "dsa_problems", setter: setDsaData },
       quizzes: { type: "quizzes", setter: setQuizData },
       "cold-dms": { type: "cold_dm_templates", setter: setDmData },
       "job-portals": { type: "job_portals", setter: setJpData },
       notes: { type: "handwritten_notes", setter: setNoteData },
       roadmaps: { type: "roadmaps", setter: setRmData },
-      "mass-recruitment": { type: "mass_recruitment", setter: setMrData },
-      positions: { type: "position_resources", setter: setPosData },
+      "mass-recruitment": {
+        type: "mass_recruitment",
+        setter: setMrData as React.Dispatch<React.SetStateAction<any[]>>,
+      },
+      positions: {
+        type: "position_resources",
+        setter: setPosData as React.Dispatch<React.SetStateAction<any[]>>,
+      },
       oops: { type: "fundamentals", setter: setOopsData },
       language: { type: "fundamentals", setter: setLangData },
     };
@@ -473,6 +525,115 @@ const PrepContentManagementPage: React.FC = () => {
 
   const triggerEdit = (name: string) => {
     showToast(`Editing "${name}" — editor modal coming soon`, "info");
+  };
+
+  const openIqAddModal = () => setIqModal({ open: true, item: null });
+  const openIqEditModal = (item: AdminInterviewQuestion) =>
+    setIqModal({ open: true, item });
+
+  const handleIqSave = async (formData: InterviewQuestionSavePayload) => {
+    setIqSaving(true);
+    const isEdit = !!iqModal.item?.id;
+    const payload: Record<string, unknown> = {
+      ...formData,
+      ...(isEdit && iqModal.item?.createdAt
+        ? { createdAt: iqModal.item.createdAt }
+        : {}),
+    };
+    const item = await prepAdminApi.putContentSingle<AdminInterviewQuestion>(
+      "interview_questions",
+      payload,
+    );
+    setIqSaving(false);
+    if (item) {
+      setIqData((prev) =>
+        isEdit
+          ? prev.map((q) => (q.id === item.id ? item : q))
+          : [...prev, item],
+      );
+      showToast(
+        `"${interviewQuestionPlainText(item.question)}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setIqModal({ open: false });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const handleIqDeleteConfirm = async () => {
+    if (!iqDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent(
+      "interview_questions",
+      iqDeleteModal.id,
+    );
+    setDeleteLoading(false);
+    if (ok) {
+      setIqData((prev) => prev.filter((q) => q.id !== iqDeleteModal.id));
+      showToast(`"${iqDeleteModal.name}" deleted successfully`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setIqDeleteModal(null);
+  };
+
+  const openBankAddModal = (scope: BankQuestionScope) =>
+    setBankModal({ open: true, scope, item: null });
+  const openBankEditModal = (
+    scope: BankQuestionScope,
+    item: AdminBankQuestion,
+  ) => setBankModal({ open: true, scope, item });
+
+  const handleBankSave = async (formData: BankQuestionSavePayload) => {
+    setBankSaving(true);
+    const scope = bankModal.scope;
+    const isEdit = !!bankModal.item?.id;
+    const payload: Record<string, unknown> = {
+      ...formData,
+      ...(isEdit && bankModal.item?.createdAt
+        ? { createdAt: bankModal.item.createdAt }
+        : {}),
+    };
+    const item = await prepAdminApi.putContentSingle<AdminBankQuestion>(
+      scope,
+      payload,
+    );
+    setBankSaving(false);
+    if (item) {
+      const setter = scope === "mass_recruitment" ? setMrData : setPosData;
+      setter((prev) =>
+        isEdit
+          ? prev.map((q) => (q.id === item.id ? item : q))
+          : [...prev, item],
+      );
+      showToast(
+        `"${bankQuestionPlainText(item.question)}" ${isEdit ? "updated" : "added"} successfully`,
+        "success",
+      );
+      setBankModal({ open: false, scope });
+    } else {
+      showToast("Save failed. Please try again.", "info");
+    }
+  };
+
+  const handleBankDeleteConfirm = async () => {
+    if (!bankDeleteModal) return;
+    setDeleteLoading(true);
+    const ok = await prepAdminApi.deleteContent(
+      bankDeleteModal.scope,
+      bankDeleteModal.id,
+    );
+    setDeleteLoading(false);
+    if (ok) {
+      const setter =
+        bankDeleteModal.scope === "mass_recruitment" ? setMrData : setPosData;
+      setter((prev) => prev.filter((q) => q.id !== bankDeleteModal.id));
+      showToast(`"${bankDeleteModal.name}" deleted successfully`, "success");
+    } else {
+      showToast("Delete failed. Please try again.", "info");
+    }
+    setBankDeleteModal(null);
   };
 
   // SD-specific: open delete confirmation modal
@@ -1083,23 +1244,26 @@ const PrepContentManagementPage: React.FC = () => {
             btnLabel="Add Question"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={openIqAddModal}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {iqData.map((q) => (
+              {iqData.map((q) => {
+                const plain = interviewQuestionPlainText(q.question);
+                return (
                 <CardShell key={q.id}>
                   <div className="flex items-start justify-between mb-3">
                     <DiffBadge d={q.difficulty} />
                     <ActionBtns
-                      name={q.question}
-                      onEdit={() => triggerEdit(q.question)}
+                      name={plain}
+                      onEdit={() => openIqEditModal(q)}
                       onDelete={() =>
-                        confirmDelete(q.question, q.id, setIqData)
+                        setIqDeleteModal({ id: q.id, name: plain })
                       }
                     />
                   </div>
                   <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
-                    {q.question}
+                    {plain}
                   </h4>
                   <div className="mt-3 flex items-center gap-2">
                     <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
@@ -1107,7 +1271,8 @@ const PrepContentManagementPage: React.FC = () => {
                     </span>
                   </div>
                 </CardShell>
-              ))}
+              );
+              })}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1132,13 +1297,15 @@ const PrepContentManagementPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {iqData.map((q, i) => (
+                  {iqData.map((q, i) => {
+                    const plain = interviewQuestionPlainText(q.question);
+                    return (
                     <tr key={q.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-400">
                         {i + 1}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
-                        {q.question}
+                        {plain}
                       </td>
                       <td className="px-6 py-4">
                         <DiffBadge d={q.difficulty} />
@@ -1148,15 +1315,16 @@ const PrepContentManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <ActionBtns
-                          name={q.question}
-                          onEdit={() => triggerEdit(q.question)}
+                          name={plain}
+                          onEdit={() => openIqEditModal(q)}
                           onDelete={() =>
-                            confirmDelete(q.question, q.id, setIqData)
+                            setIqDeleteModal({ id: q.id, name: plain })
                           }
                         />
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1844,75 +2012,51 @@ const PrepContentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Mass Recruitment ─── */}
+      {/* ─── Mass Recruitment (company-wise questions) ─── */}
       {activeTab === "mass-recruitment" && (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <SectionHeader
-            title="Mass Recruitment Companies"
+            title="Company-wise Questions"
             count={mrData.length}
-            btnLabel="Add Company"
+            btnLabel="Add Question"
             view={viewMode}
             onViewChange={setViewMode}
+            onAdd={() => openBankAddModal("mass_recruitment")}
           />
           {isGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
-              {mrData.map((company) => (
-                <CardShell key={company.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden ring-1 ring-gray-200">
-                        <img
-                          src={company.logo}
-                          alt=""
-                          className="w-6 h-6 object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                            (
-                              e.target as HTMLImageElement
-                            ).parentElement!.innerHTML =
-                              `<span class="text-sm font-bold text-gray-400">${company.name.charAt(0)}</span>`;
-                          }}
-                        />
-                      </div>
-                      <h4 className="font-semibold text-gray-900 text-sm">
-                        {company.name}
-                      </h4>
+              {mrData.map((q) => {
+                const plain = bankQuestionPlainText(q.question);
+                return (
+                  <CardShell key={q.id}>
+                    <div className="flex items-start justify-between mb-3">
+                      <DiffBadge d={q.difficulty || "Medium"} />
+                      <ActionBtns
+                        name={plain}
+                        onEdit={() => openBankEditModal("mass_recruitment", q)}
+                        onDelete={() =>
+                          setBankDeleteModal({
+                            scope: "mass_recruitment",
+                            id: q.id,
+                            name: plain,
+                          })
+                        }
+                      />
                     </div>
-                    <ActionBtns
-                      name={company.name}
-                      onEdit={() => triggerEdit(company.name)}
-                      onDelete={() =>
-                        confirmDelete(company.name, company.id, setMrData)
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    <div className="bg-blue-50 rounded-lg p-2.5 text-center ring-1 ring-blue-100">
-                      <p className="text-lg font-bold text-blue-700">
-                        {company.interviewQuestions}
-                      </p>
-                      <p className="text-[10px] text-blue-500 mt-0.5">
-                        Interview
-                      </p>
+                    <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+                      {plain}
+                    </h4>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-xs px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full ring-1 ring-orange-100">
+                        {q.companyName || q.companyId || "Company"}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
+                        {q.subType || "interview"}
+                      </span>
                     </div>
-                    <div className="bg-emerald-50 rounded-lg p-2.5 text-center ring-1 ring-emerald-100">
-                      <p className="text-lg font-bold text-emerald-700">
-                        {company.dsaProblems}
-                      </p>
-                      <p className="text-[10px] text-emerald-500 mt-0.5">DSA</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-2.5 text-center ring-1 ring-amber-100">
-                      <p className="text-lg font-bold text-amber-700">
-                        {company.aptitudeQuestions}
-                      </p>
-                      <p className="text-[10px] text-amber-500 mt-0.5">
-                        Aptitude
-                      </p>
-                    </div>
-                  </div>
-                </CardShell>
-              ))}
+                  </CardShell>
+                );
+              })}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1920,16 +2064,19 @@ const PrepContentManagementPage: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Question
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Company
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interview Qs
+                      Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      DSA
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Aptitude
+                      Difficulty
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Actions
@@ -1937,31 +2084,161 @@ const PrepContentManagementPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {mrData.map((company) => (
-                    <tr key={company.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {company.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {company.interviewQuestions}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {company.dsaProblems}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {company.aptitudeQuestions}
-                      </td>
-                      <td className="px-6 py-4">
-                        <ActionBtns
-                          name={company.name}
-                          onEdit={() => triggerEdit(company.name)}
-                          onDelete={() =>
-                            confirmDelete(company.name, company.id, setMrData)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {mrData.map((q, i) => {
+                    const plain = bankQuestionPlainText(q.question);
+                    return (
+                      <tr key={q.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {i + 1}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
+                          {plain}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {q.companyName || q.companyId}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {q.subType || "interview"}
+                        </td>
+                        <td className="px-6 py-4">
+                          <DiffBadge d={q.difficulty || "Medium"} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <ActionBtns
+                            name={plain}
+                            onEdit={() =>
+                              openBankEditModal("mass_recruitment", q)
+                            }
+                            onDelete={() =>
+                              setBankDeleteModal({
+                                scope: "mass_recruitment",
+                                id: q.id,
+                                name: plain,
+                              })
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Positions (role-wise questions) ─── */}
+      {activeTab === "positions" && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <SectionHeader
+            title="Role-wise Questions"
+            count={posData.length}
+            btnLabel="Add Question"
+            view={viewMode}
+            onViewChange={setViewMode}
+            onAdd={() => openBankAddModal("position_resources")}
+          />
+          {isGrid ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+              {posData.map((q) => {
+                const plain = bankQuestionPlainText(q.question);
+                return (
+                  <CardShell key={q.id}>
+                    <div className="flex items-start justify-between mb-3">
+                      <DiffBadge d={q.difficulty || "Medium"} />
+                      <ActionBtns
+                        name={plain}
+                        onEdit={() =>
+                          openBankEditModal("position_resources", q)
+                        }
+                        onDelete={() =>
+                          setBankDeleteModal({
+                            scope: "position_resources",
+                            id: q.id,
+                            name: plain,
+                          })
+                        }
+                      />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+                      {plain}
+                    </h4>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-xs px-2 py-0.5 bg-violet-50 text-violet-700 rounded-full ring-1 ring-violet-100">
+                        {q.roleLabel || q.roleId || "Role"}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">
+                        {q.subType || "interview"}
+                      </span>
+                    </div>
+                  </CardShell>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Question
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Difficulty
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {posData.map((q, i) => {
+                    const plain = bankQuestionPlainText(q.question);
+                    return (
+                      <tr key={q.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {i + 1}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
+                          {plain}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {q.roleLabel || q.roleId}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {q.subType || "interview"}
+                        </td>
+                        <td className="px-6 py-4">
+                          <DiffBadge d={q.difficulty || "Medium"} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <ActionBtns
+                            name={plain}
+                            onEdit={() =>
+                              openBankEditModal("position_resources", q)
+                            }
+                            onDelete={() =>
+                              setBankDeleteModal({
+                                scope: "position_resources",
+                                id: q.id,
+                                name: plain,
+                              })
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2067,6 +2344,99 @@ const PrepContentManagementPage: React.FC = () => {
             onClose={() => setSdModal({ open: false, tabId: sdModal.tabId })}
           />
         ))}
+
+      {iqModal.open && (
+        <InterviewQuestionModal
+          item={iqModal.item ?? null}
+          saving={iqSaving}
+          onSave={handleIqSave}
+          onClose={() => setIqModal({ open: false })}
+        />
+      )}
+
+      {bankModal.open && (
+        <BankQuestionModal
+          scope={bankModal.scope}
+          item={bankModal.item ?? null}
+          saving={bankSaving}
+          onSave={handleBankSave}
+          onClose={() =>
+            setBankModal({ open: false, scope: bankModal.scope })
+          }
+        />
+      )}
+
+      {bankDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Question
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-gray-900">
+                "{bankDeleteModal.name}"
+              </span>
+              ? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setBankDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBankDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {iqDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Question
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-gray-900">
+                "{iqDeleteModal.name}"
+              </span>
+              ? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setIqDeleteModal(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleIqDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Delete Confirmation Modal ─── */}
       {csCategoryModal.open && (

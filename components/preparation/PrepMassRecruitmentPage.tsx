@@ -4,6 +4,8 @@ import { prepUserApi } from '../../services/preparationApi';
 import { isNonEmptyString } from '../../lib/prepContentHelpers';
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
+import PrepQuestionDetailSidebar from './PrepQuestionDetailSidebar';
+import { richHtmlToPlainText } from './PrepRichContentRenderer';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
 import PrepPaginationBar from './PrepPaginationBar';
@@ -16,6 +18,7 @@ interface PrepMassRecruitmentPageProps {
 interface MRQuestionFromAPI {
   id: string;
   question: string;
+  answer?: string;
   category?: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   companyId: string;
@@ -72,6 +75,7 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [viewMode, setViewMode] = useViewMode();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<MRQuestionFromAPI | null>(null);
 
   useClampPrepPage(currentPage, setCurrentPage);
 
@@ -164,7 +168,8 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       if (difficultyFilter !== 'all' && item.difficulty !== difficultyFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        return item.question.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q));
+        const plain = (richHtmlToPlainText(item.question) || item.question).toLowerCase();
+        return plain.includes(q) || (item.category && item.category.toLowerCase().includes(q));
       }
       return true;
     });
@@ -186,6 +191,14 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
 
   useEffect(() => { setCurrentPage(1); }, [selectedCompanyId, activeSubTab, searchQuery, difficultyFilter]);
 
+  const selectedIndex = useMemo(
+    () =>
+      selectedQuestion
+        ? questions.findIndex((q) => q.id === selectedQuestion.id)
+        : -1,
+    [selectedQuestion, questions],
+  );
+
   const showCategory = activeSubTab !== 'interview';
 
   const subTab = massRecruitmentSubTabConfig.find((t) => t.key === activeSubTab)!;
@@ -198,13 +211,27 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
 
   const toggleSolved = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isSolved: !q.isSolved } : q));
+    setSelectedQuestion((prev) =>
+      prev?.id === id ? { ...prev, isSolved: !prev.isSolved } : prev,
+    );
     prepUserApi.toggleSolved('mass_recruitment', id).catch(() => { });
   }, []);
 
   const toggleRevision = useCallback((id: string) => {
     setAllQuestions(prev => prev.map(q => q.id === id ? { ...q, isBookmarked: !q.isBookmarked } : q));
+    setSelectedQuestion((prev) =>
+      prev?.id === id ? { ...prev, isBookmarked: !prev.isBookmarked } : prev,
+    );
     prepUserApi.toggleBookmarked('mass_recruitment', id).catch(() => { });
   }, []);
+
+  const openQuestion = (q: MRQuestionFromAPI) => setSelectedQuestion(q);
+  const goToAdjacent = (direction: 'next' | 'prev') => {
+    if (selectedIndex < 0) return;
+    const nextIndex = direction === 'next' ? selectedIndex + 1 : selectedIndex - 1;
+    const adjacent = questions[nextIndex];
+    if (adjacent) setSelectedQuestion(adjacent);
+  };
 
   return (
     <div>
@@ -352,21 +379,27 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
                     const isRevision = q.isBookmarked ?? false;
                     const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
                     return (
-                      <tr key={q.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150">
+                      <tr
+                        key={q.id}
+                        onClick={() => openQuestion(q)}
+                        className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                      >
                         <td className="px-5 py-3.5 text-sm text-gray-400 font-medium">{globalIdx + 1}</td>
-                        <td className="px-5 py-3.5 text-sm text-gray-900">{q.question}</td>
+                        <td className="px-5 py-3.5 text-sm text-gray-900">
+                          {richHtmlToPlainText(q.question) || q.question}
+                        </td>
                         {showCategory && (<td className="px-5 py-3.5 text-sm text-gray-500">{q.category || '—'}</td>)}
                         <td className="px-5 py-3.5 text-center">
                           <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <button onClick={() => toggleSolved(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          <button onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                             {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                             ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
                           </button>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <button onClick={() => toggleRevision(q.id)} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                          <button onClick={(e) => { e.stopPropagation(); toggleRevision(q.id); }} className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                             {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                             ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
                           </button>
@@ -384,21 +417,27 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
                 const isSolved = q.isSolved ?? false;
                 const isRevision = q.isBookmarked ?? false;
                 return (
-                  <div key={q.id} className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                  <div
+                    key={q.id}
+                    onClick={() => openQuestion(q)}
+                    className="group border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <span className={`inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full ${difficultyClass(q.difficulty)}`}>{q.difficulty}</span>
                       <div className="flex gap-1">
-                        <button onClick={() => toggleSolved(q.id)} className={`p-1 rounded-full transition-all ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); toggleSolved(q.id); }} className={`p-1 rounded-full transition-all ${isSolved ? 'text-green-600 bg-green-50' : 'text-gray-300 hover:text-gray-400'}`}>
                           {isSolved ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                           ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>)}
                         </button>
-                        <button onClick={() => toggleRevision(q.id)} className={`p-1 rounded-full transition-all ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); toggleRevision(q.id); }} className={`p-1 rounded-full transition-all ${isRevision ? 'text-orange-500 bg-orange-50' : 'text-gray-300 hover:text-gray-400'}`}>
                           {isRevision ? (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
                           ) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>)}
                         </button>
                       </div>
                     </div>
-                    <h4 className="font-semibold text-gray-900 text-sm leading-snug">{q.question}</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm leading-snug">
+                      {richHtmlToPlainText(q.question) || q.question}
+                    </h4>
                     {q.category && (<span className="mt-2 inline-block text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{q.category}</span>)}
                   </div>
                 );
@@ -418,6 +457,28 @@ const PrepMassRecruitmentPage = (_props: PrepMassRecruitmentPageProps) => {
       )}
 
       <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; } .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
+
+      {selectedQuestion && (
+        <PrepQuestionDetailSidebar
+          question={{
+            id: selectedQuestion.id,
+            question: selectedQuestion.question,
+            difficulty: selectedQuestion.difficulty,
+            category: selectedQuestion.category || selectedQuestion.subType || 'General',
+            role: selectedQuestion.companyName,
+            isSolved: selectedQuestion.isSolved ?? false,
+            isBookmarked: selectedQuestion.isBookmarked ?? false,
+            answer: selectedQuestion.answer,
+          }}
+          onClose={() => setSelectedQuestion(null)}
+          onNext={() => goToAdjacent('next')}
+          onPrev={() => goToAdjacent('prev')}
+          hasNext={selectedIndex >= 0 && selectedIndex < questions.length - 1}
+          hasPrev={selectedIndex > 0}
+          onToggleSolved={() => toggleSolved(selectedQuestion.id)}
+          onToggleBookmark={() => toggleRevision(selectedQuestion.id)}
+        />
+      )}
     </div>
   );
 };

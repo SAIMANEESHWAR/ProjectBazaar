@@ -5,6 +5,7 @@ import { fetchDifficultyStats, isNonEmptyString } from '../../lib/prepContentHel
 import PrepFilterDropdown from './PrepFilterDropdown';
 import PrepViewToggle, { useViewMode } from './PrepViewToggle';
 import PrepQuestionDetailSidebar from './PrepQuestionDetailSidebar';
+import { richHtmlToPlainText } from './PrepRichContentRenderer';
 import { RefreshCw } from 'lucide-react';
 import { invalidateCache } from '../../lib/apiCache';
 import PrepPaginationBar from './PrepPaginationBar';
@@ -371,7 +372,9 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                           {(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}
                         </td>
                         <td className="py-3 px-4">
-                          <p className="font-medium text-gray-900">{q.question}</p>
+                          <p className="font-medium text-gray-900">
+                            {richHtmlToPlainText(q.question) || q.question}
+                          </p>
                         </td>
                         <td className="py-3 px-4">
                           <DifficultyBadge difficulty={q.difficulty} />
@@ -437,7 +440,9 @@ export default function PrepInterviewQuestionsPage(_props: PrepInterviewQuestion
                         </svg>
                       </button>
                     </div>
-                    <h4 className="font-semibold text-gray-900 text-sm leading-snug mt-3">{q.question}</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm leading-snug mt-3">
+                      {richHtmlToPlainText(q.question) || q.question}
+                    </h4>
                     <span className="mt-3 inline-block text-xs px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-full ring-1 ring-blue-100">{q.category}</span>
                     <div className="mt-3 flex items-center gap-2">
                       <button

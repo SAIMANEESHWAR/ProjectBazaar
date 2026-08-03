@@ -1,6 +1,10 @@
 import PrepDetailSidebar, { difficultyBadgeVariant } from './PrepDetailSidebar';
 import PrepLockedPremiumBlock from './PrepLockedPremiumBlock';
 import { usePrepContentAccess } from './prepContentAccess';
+import PrepRichContentRenderer, {
+  isRichHtmlContent,
+  richHtmlToPlainText,
+} from './PrepRichContentRenderer';
 
 export interface PrepQuestionDetail {
   id: string;
@@ -25,6 +29,33 @@ interface PrepQuestionDetailSidebarProps {
   hasPrev?: boolean;
 }
 
+function RichOrPlain({
+  content,
+  emptyLabel = 'No content available yet.',
+}: {
+  content: string;
+  emptyLabel?: string;
+}) {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return <p className="text-sm italic text-neutral-500">{emptyLabel}</p>;
+  }
+  if (isRichHtmlContent(trimmed)) {
+    return (
+      <PrepRichContentRenderer
+        html={trimmed}
+        variant="nocturnal"
+        className="text-[15px] md:text-base"
+      />
+    );
+  }
+  return (
+    <p className="whitespace-pre-line text-[15px] leading-relaxed text-neutral-200 md:text-base">
+      {trimmed}
+    </p>
+  );
+}
+
 export default function PrepQuestionDetailSidebar({
   question,
   onClose,
@@ -43,10 +74,14 @@ export default function PrepQuestionDetailSidebar({
     ...(question.role ? [{ label: question.role, variant: 'default' as const }] : []),
   ];
 
+  const title = richHtmlToPlainText(question.question) || question.question;
+  const questionIsRich = isRichHtmlContent(question.question);
+  const answer = question.answer?.trim() ?? '';
+
   return (
     <PrepDetailSidebar
       itemId={question.id}
-      title={question.question}
+      title={title}
       tags={tags}
       isSolved={question.isSolved}
       isBookmarked={question.isBookmarked}
@@ -59,18 +94,21 @@ export default function PrepQuestionDetailSidebar({
       hasPrev={hasPrev}
       ariaLabel="Interview question details"
     >
+      {questionIsRich && (
+        <section className="mb-8">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+            Question
+          </p>
+          <RichOrPlain content={question.question} />
+        </section>
+      )}
+
       <section className="mb-8">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
           Answer
         </p>
         {canViewAnswers ? (
-          question.answer ? (
-            <p className="whitespace-pre-line text-[15px] leading-relaxed text-neutral-200 md:text-base">
-              {question.answer}
-            </p>
-          ) : (
-            <p className="text-sm italic text-neutral-500">No answer available yet.</p>
-          )
+          <RichOrPlain content={answer} emptyLabel="No answer available yet." />
         ) : (
           <PrepLockedPremiumBlock
             title="Answer locked"

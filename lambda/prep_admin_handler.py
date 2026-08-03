@@ -1,8 +1,9 @@
 import base64
 import binascii
 import json
-import uuid
 import math
+import re
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict
@@ -212,15 +213,24 @@ def normalize_cold_dm(raw: dict, now: str) -> dict:
 
 
 def normalize_mass_recruitment(raw: dict, now: str) -> dict:
+    """Per-question item for a company (company-wise interview / DSA / aptitude / etc.)."""
+    difficulty = str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium"
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
+    company_name = str(raw.get("companyName") or raw.get("name") or "").strip()
+    company_id = str(raw.get("companyId") or "").strip()
+    if not company_id and company_name:
+        company_id = re.sub(r"[^a-z0-9]+", "-", company_name.lower()).strip("-")
     return {
         "id": str(raw.get("id") or generate_id("mr")),
-        "name": str(raw.get("name", "")).strip(),
+        "question": str(raw.get("question", "")).strip(),
+        "answer": str(raw.get("answer", "")).strip(),
+        "category": str(raw.get("category", "")).strip(),
+        "difficulty": difficulty,
+        "companyId": company_id,
+        "companyName": company_name,
         "logo": str(raw.get("logo", "")).strip(),
-        "interviewQuestions": int(raw.get("interviewQuestions", 0)),
-        "dsaProblems": int(raw.get("dsaProblems", 0)),
-        "aptitudeQuestions": int(raw.get("aptitudeQuestions", 0)),
-        "website": str(raw.get("website", "")).strip(),
-        "hiringPattern": str(raw.get("hiringPattern", "")).strip(),
+        "subType": str(raw.get("subType") or "interview").strip() or "interview",
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
@@ -278,15 +288,19 @@ def normalize_roadmap(raw: dict, now: str) -> dict:
 
 
 def normalize_position_resource(raw: dict, now: str) -> dict:
-    """Per-question item: id, question, category?, difficulty, roleId, roleLabel, subType."""
+    """Per-question item: id, question, answer?, category?, difficulty, roleId, roleLabel, subType."""
+    difficulty = str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium"
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
     return {
         "id": str(raw.get("id") or generate_id("pr")),
         "question": str(raw.get("question", "")).strip(),
+        "answer": str(raw.get("answer", "")).strip(),
         "category": str(raw.get("category", "")).strip(),
-        "difficulty": str(raw.get("difficulty", "Medium")).strip() if raw.get("difficulty") else "Medium",
+        "difficulty": difficulty,
         "roleId": str(raw.get("roleId", "")).strip(),
         "roleLabel": str(raw.get("roleLabel", "")).strip(),
-        "subType": str(raw.get("subType", "")).strip(),
+        "subType": str(raw.get("subType") or "interview").strip() or "interview",
         "createdAt": raw.get("createdAt") or now,
         "updatedAt": now,
     }
