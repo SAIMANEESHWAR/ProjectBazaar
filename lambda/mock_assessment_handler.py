@@ -585,12 +585,7 @@ def get_test_history(body):
                 'solved': item.get('solved'),
                 'duration': item.get('duration'),
                 'startTime': item.get('startTime'),
-                'percentage': round(score, 2),  # score is already percentage
-                'questionResults': item.get('questionResults', []),
-                'xpEarned': item.get('xpEarned'),
-                'difficulty': item.get('difficulty'),
-                'testMode': item.get('testMode'),
-                'proctoringData': item.get('proctoringData'),
+                'percentage': round(score, 2)  # score is already percentage
             })
         
         return response(200, {
