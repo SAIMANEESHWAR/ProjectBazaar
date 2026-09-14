@@ -200,41 +200,78 @@ export default function FAQWithSpiral() {
   }, [cfg, gradients]);
 
 
-  // FAQ content (edit freely)
+  // FAQ content — expanded for SEO / AEO intent coverage
   const faqs = [
     {
       q: "What is CodeXCareer?",
-      a: "CodeXCareer is a marketplace where you can buy and sell premium project templates, code, and digital products. Turn your academic and personal projects into real revenue.",
+      a: "CodeXCareer is an all-in-one career platform for students and developers: campus placement preparation, ATS resume scoring, AI mock interviews, coding practice, job hunt, and a tech project marketplace in one login.",
+    },
+    {
+      q: "Is CodeXCareer a placement preparation platform?",
+      a: "Yes. Preparation Mode on Yearly and Lifetime plans covers DSA, aptitude, core subjects, system design, and company/role tracks—paired with resume and interview tools.",
+    },
+    {
+      q: "How much does CodeXCareer cost?",
+      a: "You can start free. Paid plans are Monthly ₹299, Yearly ₹699 (includes Preparation Mode and live AI interviews), and Lifetime ₹999. Payments are in INR via Razorpay (UPI, cards, wallets).",
+    },
+    {
+      q: "Does CodeXCareer include an ATS resume builder?",
+      a: "Yes. Score your resume against a job description, fix keyword gaps with the AI resume builder, then continue into portfolios and interview practice on the same platform.",
+    },
+    {
+      q: "How do AI mock interviews work?",
+      a: "You start a timed AI interview session, answer prompts, and receive scored feedback. Pair it with coding questions and mock assessments. See the demo at /live-mock-interview.",
+    },
+    {
+      q: "Is CodeXCareer an alternative to LeetCode or Upwork?",
+      a: "Use CodeXCareer when you need coding practice plus ATS, portfolios, and projects. LeetCode still leads pure DSA volume; Upwork still leads broad global freelancing.",
     },
     {
       q: "How do I purchase a project?",
-      a: "Simply browse our collection, add projects to your cart, and checkout. You will receive instant access to download the project files, documentation, and any additional resources.",
+      a: "Browse the marketplace, add projects to your cart, and checkout. You receive access to project files and documentation after payment.",
     },
     {
       q: "Can I sell my own projects?",
-      a: "Yes! Sign up as a seller and start uploading your projects. We handle payment processing, provide analytics, and help you reach a global audience of buyers.",
+      a: "Yes. Sign up as a seller, upload listings, and manage bids. Monetization sits next to resume, portfolio, and interview prep in the same account.",
     },
     {
       q: "What payment methods do you accept?",
-      a: "We accept all major credit cards, debit cards, and PayPal. All transactions are secure and encrypted for your protection.",
+      a: "Subscriptions and purchases use Razorpay—UPI, cards, and wallets in INR.",
     },
     {
-      q: "What types of projects can I sell?",
-      a: "You can sell web applications, mobile apps, desktop software, design templates, API projects, full-stack solutions, and more. All projects must include documentation and be fully functional.",
+      q: "Where can I read comparisons and guides?",
+      a: "Visit /blog for long guides, /compare for short answer pages, and /guides for ATS and campus placement playbooks.",
     },
     {
-      q: "How do sellers get paid?",
-      a: "Sellers receive payments through our secure payout system. Earnings are transferred to your account after project approval and can be withdrawn to your bank account or PayPal.",
+      q: "How do I contact support?",
+      a: "Email support@codexcareer.com. For product background, see /about.",
     },
     {
       q: "Is there a refund policy?",
-      a: "Yes, we offer a 30-day money-back guarantee if a project doesn't meet the description or has critical issues. Contact our support team for assistance.",
-    },
-    {
-      q: "Do projects come with support?",
-      a: "Support varies by project. Some sellers offer email support, documentation, or video tutorials. Check each project's details for specific support information.",
+      a: "Marketplace refunds depend on order status and listing accuracy; contact support for assistance. Subscription terms are covered in /terms.",
     },
   ];
+
+  useEffect(() => {
+    const id = 'faq-page-jsonld';
+    const script = document.getElementById(id) ?? document.createElement('script');
+    script.id = id;
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    });
+    if (!document.getElementById(id)) document.head.appendChild(script);
+    return () => {
+      document.getElementById(id)?.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = query
     ? faqs.filter(({ q, a }) => (q + a).toLowerCase().includes(query.toLowerCase()))

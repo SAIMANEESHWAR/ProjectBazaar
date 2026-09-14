@@ -26,12 +26,43 @@
         { "key": "Content-Type", "value": "application/xml" },
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
+    },
+    {
+      "source": "/og-image.png",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" },
+        { "key": "Content-Type", "value": "image/png" }
+      ]
     }
+  ],
+  "redirects": [
+    { "source": "/resume-builder", "destination": "/build-resume", "permanent": true },
+    { "source": "/privacy-policy", "destination": "/privacy", "permanent": true },
+    { "source": "/terms-and-conditions", "destination": "/terms", "permanent": true },
+    { "source": "/coding-interview-questions", "destination": "/coding-questions", "permanent": true },
+    { "source": "/mock-interview", "destination": "/mock-assessment", "permanent": true }
   ],
   "rewrites": [
     { "source": "/robots.txt", "destination": "/robots.txt" },
     { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
     { "source": "/b8f4e2c1a9d74f6e8b3c5d7a1e9f0b2d.txt", "destination": "/b8f4e2c1a9d74f6e8b3c5d7a1e9f0b2d.txt" },
+    { "source": "/compare/codexcareer-vs-upwork", "destination": "/compare/codexcareer-vs-upwork.html" },
+    { "source": "/compare/codexcareer-vs-leetcode", "destination": "/compare/codexcareer-vs-leetcode.html" },
+    { "source": "/compare/all-in-one-alternative", "destination": "/compare/all-in-one-alternative.html" },
+    { "source": "/placement-preparation", "destination": "/placement-preparation.html" },
+    { "source": "/ats-resume-builder", "destination": "/ats-resume-builder.html" },
+    { "source": "/ai-mock-interview", "destination": "/ai-mock-interview.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/pricing", "destination": "/pricing.html" },
+    { "source": "/guides/ats-resume-format-for-freshers-india", "destination": "/guides/ats-resume-format-for-freshers-india.html" },
+    { "source": "/guides/campus-placement-30-day-plan", "destination": "/guides/campus-placement-30-day-plan.html" },
+    { "source": "/guides/how-ai-mock-interviews-work", "destination": "/guides/how-ai-mock-interviews-work.html" },
+    { "source": "/blog/codexcareer-vs-upwork", "destination": "/blog/codexcareer-vs-upwork.html" },
+    { "source": "/blog/codexcareer-vs-leetcode", "destination": "/blog/codexcareer-vs-leetcode.html" },
+    { "source": "/blog/codexcareer-vs-ats-resume-builders", "destination": "/blog/codexcareer-vs-ats-resume-builders.html" },
+    { "source": "/blog/best-all-in-one-alternative-to-upwork-leetcode-ats", "destination": "/blog/best-all-in-one-alternative-to-upwork-leetcode-ats.html" },
+    { "source": "/blog", "destination": "/blog/index.html" },
+    { "source": "/llms.txt", "destination": "/llms.txt" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

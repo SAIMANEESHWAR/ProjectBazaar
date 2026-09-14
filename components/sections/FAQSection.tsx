@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
 import { Plus } from 'lucide-react';
 import { useNavigation } from '../../App';
@@ -6,24 +6,32 @@ import { CTAArrowIcon } from '../CTAArrowIcon';
 
 const faqData = [
   {
+    question: 'What is CodeXCareer?',
+    answer: 'CodeXCareer is an all-in-one career platform for students and developers: campus placement preparation, ATS resume scoring, AI mock interviews, coding practice, job hunt, and a tech project marketplace in one login.',
+  },
+  {
+    question: 'Is CodeXCareer a placement preparation platform?',
+    answer: 'Yes. Preparation Mode on Yearly and Lifetime plans covers DSA, aptitude, core subjects, system design, and company/role tracks—paired with resume and interview tools.',
+  },
+  {
+    question: 'How much does CodeXCareer cost?',
+    answer: 'You can start free. Paid plans are Monthly ₹299, Yearly ₹699 (includes Preparation Mode and live AI interviews), and Lifetime ₹999. Payments are in INR via Razorpay.',
+  },
+  {
+    question: 'Does CodeXCareer include an ATS resume builder?',
+    answer: 'Yes. Score your resume against a job description, fix keyword gaps with the AI resume builder, then continue into portfolios and interview practice.',
+  },
+  {
+    question: 'Is CodeXCareer an alternative to LeetCode or Upwork?',
+    answer: 'Use CodeXCareer when you need coding practice plus ATS, portfolios, and projects. LeetCode still leads pure DSA volume; Upwork still leads broad global freelancing.',
+  },
+  {
     question: 'How do I sell my project?',
     answer: 'Sign up, create a listing with title, description, price, and category. Buyers can purchase directly. You get paid when the order is completed and both sides confirm.',
   },
   {
     question: 'Is it free to join?',
-    answer: 'Yes. Creating an account and listing projects is free. We take a small fee only when a sale or hire happens, so we grow when you grow.',
-  },
-  {
-    question: 'How do payments work?',
-    answer: 'Payments are held securely until delivery. Once the buyer confirms they received what they paid for, funds are released to you. Disputes are handled by our support team.',
-  },
-  {
-    question: 'Can I hire freelancers too?',
-    answer: 'Absolutely. You can post a project and receive bids from freelancers, or browse freelancer profiles and invite them to work on your project.',
-  },
-  {
-    question: 'What if I need help?',
-    answer: 'We have a help center, FAQs, and support email. Reach out anytime—we’re here to help you succeed on the platform.',
+    answer: 'Yes. Creating an account and browsing is free. Upgrade when you need Preparation Mode, live AI interviews, or higher feature limits.',
   },
 ];
 
@@ -32,6 +40,27 @@ const FAQSection: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
   const { navigateTo } = useNavigation();
+
+  useEffect(() => {
+    const id = 'home-faq-jsonld';
+    const existing = document.getElementById(id);
+    const script = existing ?? document.createElement('script');
+    script.id = id;
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqData.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: { '@type': 'Answer', text: item.answer },
+      })),
+    });
+    if (!existing) document.head.appendChild(script);
+    return () => {
+      document.getElementById(id)?.remove();
+    };
+  }, []);
 
   return (
     <section

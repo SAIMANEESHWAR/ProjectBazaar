@@ -8,29 +8,62 @@ Allow: /browse-projects
 Allow: /mock-assessment
 Allow: /coding-questions
 Allow: /blog
+Allow: /blog/
+Allow: /compare
+Allow: /compare/
+Allow: /build-portfolio
+Allow: /build-resume
+Allow: /live-mock-interview
+Allow: /subscription
+Allow: /ats-resume-builder
+Allow: /placement-preparation
+Allow: /ai-mock-interview
+Allow: /about
+Allow: /pricing
+Allow: /guides/
 Allow: /privacy
 Allow: /terms
 Allow: /sitemap.xml
+Allow: /llms.txt
+Allow: /og-image.png
 
-# Disallow authenticated/private areas
+# Disallow authenticated / private areas
 Disallow: /dashboard
 Disallow: /seller
 Disallow: /admin
 Disallow: /auth
 Disallow: /login
-Disallow: /build-portfolio
-Disallow: /build-resume
-Disallow: /resume-builder
 Disallow: /freelancer
 Disallow: /404
-
-# Disallow API and asset paths
+Disallow: /subscription/checkout
+Disallow: /verify-email
+Disallow: /forgot-password
+Disallow: /reset-password
 Disallow: /api/
-Disallow: /static/
-Disallow: /assets/
 
-# Sitemaps
+# AI / answer-engine crawlers — explicit allow for citations
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
 Sitemap: https://codexcareer.com/sitemap.xml
-
-# Crawl-delay (optional, respected by some bots)
-Crawl-delay: 1

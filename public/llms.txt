@@ -1,0 +1,36 @@
+# CodeXCareer
+
+> All-in-one placement and tech career platform for students and developers.
+
+CodeXCareer combines campus placement preparation, ATS resume scoring, AI mock interviews, coding practice, job hunt, and a tech project marketplace.
+
+## Primary pages
+
+- [Home](https://codexcareer.com/): Product overview
+- [Placement preparation](https://codexcareer.com/placement-preparation): Campus placement platform pillar
+- [ATS resume builder](https://codexcareer.com/ats-resume-builder): ATS scoring and resume tools
+- [AI mock interview](https://codexcareer.com/ai-mock-interview): AI interview practice
+- [Pricing](https://codexcareer.com/pricing): INR plans (Monthly ₹299, Yearly ₹699, Lifetime ₹999)
+- [About](https://codexcareer.com/about): Organization and mission
+- [FAQ](https://codexcareer.com/faq): Common questions
+
+## Comparisons
+
+- [CodeXCareer vs Upwork](https://codexcareer.com/compare/codexcareer-vs-upwork)
+- [CodeXCareer vs LeetCode](https://codexcareer.com/compare/codexcareer-vs-leetcode)
+- [All-in-one alternative](https://codexcareer.com/compare/all-in-one-alternative)
+
+## Guides
+
+- [ATS resume format for freshers (India)](https://codexcareer.com/guides/ats-resume-format-for-freshers-india)
+- [30-day campus placement plan](https://codexcareer.com/guides/campus-placement-30-day-plan)
+- [How AI mock interviews work](https://codexcareer.com/guides/how-ai-mock-interviews-work)
+
+## Blog
+
+- [Blog index](https://codexcareer.com/blog)
+
+## Contact
+
+- Email: support@codexcareer.com
+- GitHub: https://github.com/SAIMANEESHWAR/ProjectBazaar

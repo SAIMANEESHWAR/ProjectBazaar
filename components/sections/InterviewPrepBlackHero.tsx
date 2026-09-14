@@ -205,7 +205,7 @@ export const InterviewPrepBlackHero: React.FC = () => {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
           <h1 className="font-sans text-[36px] font-bold leading-[1.12] tracking-tight text-white sm:text-[48px] md:text-[56px] lg:text-[64px]">
-            How top software engineers
+            Placement prep, ATS resumes
             <br />
             <span className="relative inline-block">
               <span
@@ -213,13 +213,13 @@ export const InterviewPrepBlackHero: React.FC = () => {
                 aria-hidden
               />
               <span className="relative bg-gradient-to-r from-[#2dd4a8] via-[#1F8268] to-[#14b8a6] bg-clip-text text-transparent">
-                prepare for interviews
+                &amp; AI mock interviews
               </span>
             </span>
           </h1>
 
-          <p className="mt-6 max-w-[540px] text-base leading-relaxed text-[#94a3b8] sm:text-lg md:mt-8">
-            Practical interview prep loved by 100,000+ software engineers and managers.
+          <p className="mt-6 max-w-[560px] text-base leading-relaxed text-[#94a3b8] sm:text-lg md:mt-8">
+            CodeXCareer is the all-in-one career platform for students: campus placement preparation, ATS resume scoring, coding practice, AI mock interviews, and a tech project marketplace—in one login.
           </p>
 
           <div className="mt-10 flex w-full max-w-md flex-col items-stretch gap-3 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-4">
@@ -230,7 +230,7 @@ export const InterviewPrepBlackHero: React.FC = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              Buy Premium
+              View Yearly plan
             </motion.button>
             <motion.button
               type="button"
@@ -239,12 +239,17 @@ export const InterviewPrepBlackHero: React.FC = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              Start with System Design
+              Start free
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
             </motion.button>
           </div>
 
-          <p className="mt-6 text-sm text-[#64748b]">Start free. Go deep when you&apos;re ready.</p>
+          <p className="mt-6 text-sm text-[#64748b]">
+            Free to start · Preparation Mode on Yearly &amp; Lifetime ·{' '}
+            <a href="/placement-preparation" className="text-[#2dd4a8] underline-offset-2 hover:underline">
+              Learn about placement prep
+            </a>
+          </p>
         </motion.div>
         </div>
 

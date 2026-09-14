@@ -38,6 +38,7 @@ import { SubscriptionProvider, useSubscription } from './context/SubscriptionCon
 import { clearSubscriptionCookie } from './lib/subscriptionCookie';
 import SubscriptionFeatureGate from './components/subscription/SubscriptionFeatureGate';
 import type { SubscriptionFeatureId } from './lib/subscriptionFeatures';
+import PublicToolSeoIntro from './components/seo/PublicToolSeoIntro';
 import { PremiumProvider, usePremium } from './context/PremiumContext';
 import { LlmKeysGateProvider } from './context/LlmKeysGateContext';
 export { usePremium, PremiumContext } from './context/PremiumContext';
@@ -163,29 +164,29 @@ const ThemeProvider: React.FC<{ children: ReactNode; page: Page }> = ({ children
 };
 
 const PAGE_TITLES: Record<Page, string> = {
-  home: 'CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations',
+  home: 'CodeXCareer — Placement Prep, ATS Resume & AI Mock Interviews',
   auth: 'Sign In — CodeXCareer',
   dashboard: 'Dashboard — CodeXCareer',
   seller: 'Seller Dashboard — CodeXCareer',
   admin: 'Admin — CodeXCareer',
-  faq: 'FAQ — CodeXCareer',
-  browseProjects: 'Browse Projects — CodeXCareer',
+  faq: 'FAQ — Placement Prep, ATS & Career Tools | CodeXCareer',
+  browseProjects: 'Browse Tech Projects Marketplace — CodeXCareer',
   freelancerProfile: 'Freelancer Profile — CodeXCareer',
-  buildPortfolio: 'Build Portfolio — CodeXCareer',
-  buildResume: 'Resume Builder — CodeXCareer',
-  mockAssessment: 'Mock Assessments — CodeXCareer',
+  buildPortfolio: 'Portfolio Builder for Students — CodeXCareer',
+  buildResume: 'ATS Resume Builder for Students — Score & Fix | CodeXCareer',
+  mockAssessment: 'Mock Assessments & Coding Challenges — CodeXCareer',
   mockLeaderboard: 'Leaderboard — Mock Assessments — CodeXCareer',
   mockAchievements: 'Achievements — Mock Assessments — CodeXCareer',
   mockDailyChallenge: 'Daily Challenge — Mock Assessments — CodeXCareer',
   mockHistory: 'Test History — Mock Assessments — CodeXCareer',
-  codingQuestions: 'Coding Interview Questions — CodeXCareer',
-  liveMockInterview: 'Live AI Mock Interview — CodeXCareer',
-  blog: 'Blog — Anayattics',
-  blogPost: 'Blog Article — Anayattics',
+  codingQuestions: 'Coding Interview Questions for Freshers — CodeXCareer',
+  liveMockInterview: 'Live AI Mock Interview Demo — CodeXCareer',
+  blog: 'Blog — Comparisons & Career Guides | CodeXCareer',
+  blogPost: 'Blog Article — CodeXCareer',
   privacy: 'Privacy Policy — CodeXCareer',
   terms: 'Terms & Conditions — CodeXCareer',
   notFound: 'Page Not Found — CodeXCareer',
-  subscriptionPlans: 'Subscription Plans — CodeXCareer',
+  subscriptionPlans: 'Subscription Plans — Monthly, Yearly & Lifetime | CodeXCareer',
   subscriptionCheckout: 'Checkout — CodeXCareer',
   verifyEmail: 'Verify Email — CodeXCareer',
   forgotPassword: 'Forgot Password — CodeXCareer',
@@ -193,20 +194,38 @@ const PAGE_TITLES: Record<Page, string> = {
 };
 
 const PAGE_META_DESCRIPTIONS: Record<string, string> = {
-  home: 'Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios.',
-  faq: 'Frequently asked questions about CodeXCareer — your marketplace for projects, freelancing, and career development.',
-  browseProjects: 'Browse and discover projects for sale on CodeXCareer. Find the perfect project to buy or get inspired for your next build.',
-  mockAssessment: 'Practice with mock assessments and coding challenges on CodeXCareer. Prepare for technical interviews and track your progress.',
-  codingQuestions: 'Sharpen your coding skills with interview-style questions. Practice data structures, algorithms, and problem solving on CodeXCareer.',
-  liveMockInterview: 'Walk through a demo live AI mock interview: onboarding, timed session, and sample scored feedback — all with mock data on CodeXCareer.',
-  blog: 'Read analytics implementation guides, data strategy insights, and growth measurement best practices from the Anayattics team.',
-  blogPost: 'Detailed analytics implementation guide and expert insights from the Anayattics editorial team.',
+  home: 'All-in-one career platform for students: campus placement prep, ATS resume scoring, AI mock interviews, coding practice, and a project marketplace.',
+  faq: 'Answers about CodeXCareer placement prep, ATS resumes, AI mock interviews, pricing, projects, and subscriptions for students and developers.',
+  browseProjects: 'Browse and buy tech project templates on CodeXCareer—full-stack, ML, and academic projects for students and developers.',
+  mockAssessment: 'Timed mock assessments and coding challenges with score tracking—practice for technical interviews on CodeXCareer.',
+  codingQuestions: 'Practice coding interview questions for freshers: data structures, algorithms, and problem-solving with discussions on CodeXCareer.',
+  liveMockInterview: 'Try a live AI mock interview demo: onboarding, timed session, and sample scored feedback on CodeXCareer.',
+  blog: 'Compare CodeXCareer vs Upwork, LeetCode, and ATS resume builders. Guides for placement prep and student freelancing.',
+  blogPost: 'CodeXCareer guide covering freelance marketplaces, coding interview platforms, and ATS resume tools for students.',
+  buildResume: 'ATS resume builder for students—score your resume against a job description, fix keyword gaps, and prepare for campus applications.',
+  buildPortfolio: 'Build and publish a student portfolio from your CodeXCareer profile—proof of projects for placements and freelancing.',
+  subscriptionPlans: 'CodeXCareer pricing: Monthly ₹299, Yearly ₹699 with Preparation Mode and AI interviews, Lifetime ₹999. Pay in INR via Razorpay.',
   privacy: 'Learn how CodeXCareer collects, uses, and protects your personal data. Read our full privacy policy.',
   terms: 'Read the terms and conditions for using CodeXCareer, including marketplace rules, intellectual property, and payment terms.',
 };
 
+const NOINDEX_PAGES: Page[] = [
+  'auth',
+  'dashboard',
+  'seller',
+  'admin',
+  'freelancerProfile',
+  'subscriptionCheckout',
+  'verifyEmail',
+  'forgotPassword',
+  'resetPassword',
+  'notFound',
+  'mockHistory',
+  'mockAchievements',
+];
+
 const DEFAULT_META_DESCRIPTION =
-  'CodeXCareer helps you discover projects, prepare for interviews, build portfolios, and grow with practical learning and marketplace tools.';
+  'CodeXCareer helps students prepare for placements, score ATS resumes, practice AI mock interviews, and grow with projects.';
 
 function updatePageMeta(page: Page) {
   const title = PAGE_TITLES[page] || PAGE_TITLES.home;
@@ -217,6 +236,7 @@ function updatePageMeta(page: Page) {
       ? window.location.pathname
       : PAGE_TO_PATH[page] || '/';
   const absoluteUrl = `${base}${path}`;
+  const robotsContent = NOINDEX_PAGES.includes(page) ? 'noindex, nofollow' : 'index, follow';
 
   document.title = title;
 
@@ -224,6 +244,14 @@ function updatePageMeta(page: Page) {
   if (descEl) {
     descEl.setAttribute('content', description);
   }
+
+  let robotsEl = document.querySelector('meta[name="robots"]');
+  if (!robotsEl) {
+    robotsEl = document.createElement('meta');
+    robotsEl.setAttribute('name', 'robots');
+    document.head.appendChild(robotsEl);
+  }
+  robotsEl.setAttribute('content', robotsContent);
 
   const ogTitleEl = document.querySelector('meta[property="og:title"]');
   if (ogTitleEl) ogTitleEl.setAttribute('content', title);
@@ -255,6 +283,32 @@ const SubscriptionFeatureGateWrapper: React.FC<{
 }> = ({ featureId, children }) => (
   <div className="min-h-screen bg-gray-50">
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
+      {featureId === 'resume-builder' && (
+        <PublicToolSeoIntro
+          title="ATS resume builder for students"
+          definition="CodeXCareer helps you score your resume against a job description, fix keyword gaps, and prepare a parser-safe resume for campus and company portals—then continue into portfolios and interview practice."
+          bullets={[
+            'Match skills and keywords to a real job description',
+            'Fix gaps with the AI resume builder in the same workflow',
+            'Pair ATS work with projects, portfolios, and mock interviews',
+          ]}
+          learnMoreHref="/ats-resume-builder"
+          learnMoreLabel="Read the ATS resume hub"
+        />
+      )}
+      {featureId === 'portfolio' && (
+        <PublicToolSeoIntro
+          title="Portfolio builder for students"
+          definition="Generate and publish a live portfolio from your CodeXCareer profile so recruiters can see projects alongside your ATS-ready resume."
+          bullets={[
+            'Turn projects into a shareable portfolio site',
+            'Connect portfolio proof to resume and marketplace credibility',
+            'Use with placement prep and interview practice in one account',
+          ]}
+          learnMoreHref="/placement-preparation"
+          learnMoreLabel="See the placement platform"
+        />
+      )}
       <SubscriptionFeatureGate featureId={featureId}>{children}</SubscriptionFeatureGate>
     </div>
   </div>

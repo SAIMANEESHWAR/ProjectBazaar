@@ -13,10 +13,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations</title>
-    <meta name="title" content="CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations" />
-    <meta name="description" content="Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios. Turn your ideas into revenue." />
-    <meta name="keywords" content="CodeXCareer, CXC, cXc, project marketplace, buy projects, sell projects, freelancer platform, coding challenges, mock assessments, portfolio builder, resume builder, hackathons, career guidance, student projects, tech careers" />
+    <title>CodeXCareer — Placement Prep, ATS Resume &amp; AI Mock Interviews</title>
+    <meta name="title" content="CodeXCareer — Placement Prep, ATS Resume &amp; AI Mock Interviews" />
+    <meta name="description" content="All-in-one career platform for students: campus placement prep, ATS resume scoring, AI mock interviews, coding practice, and a project marketplace." />
+    <meta name="keywords" content="CodeXCareer, placement preparation platform, ATS resume builder for students, AI mock interview, coding interview practice, Upwork alternative for students, LeetCode alternative, campus placement, freelance project marketplace" />
     <meta name="author" content="CodeXCareer" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://codexcareer.com/" />
@@ -29,27 +29,23 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://codexcareer.com/" />
     <meta property="og:site_name" content="CodeXCareer" />
-    <meta property="og:title" content="CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations" />
-    <meta property="og:description" content="Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios." />
+    <meta property="og:title" content="CodeXCareer — Placement Prep, ATS Resume &amp; AI Mock Interviews" />
+    <meta property="og:description" content="Campus placement prep, ATS resumes, AI mock interviews, coding practice, and projects—one career platform for students and developers." />
     <meta property="og:image" content="https://codexcareer.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="CodeXCareer — Discover, Build, Earn" />
+    <meta property="og:image:alt" content="CodeXCareer — Placement prep, ATS resume, AI mock interviews" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://codexcareer.com/" />
-    <meta name="twitter:title" content="CodeXCareer — Marketplace for Projects, Ideas & Freelance Collaborations" />
-    <meta name="twitter:description" content="Discover, buy, and sell projects on CodeXCareer. Connect with freelancers, access mock assessments, coding challenges, career guidance, and build production-ready portfolios." />
+    <meta name="twitter:title" content="CodeXCareer — Placement Prep, ATS Resume &amp; AI Mock Interviews" />
+    <meta name="twitter:description" content="Campus placement prep, ATS resumes, AI mock interviews, coding practice, and projects—one career platform for students and developers." />
     <meta name="twitter:image" content="https://codexcareer.com/og-image.png" />
-    <meta name="twitter:image:alt" content="CodeXCareer — Discover, Build, Earn" />
+    <meta name="twitter:image:alt" content="CodeXCareer — Placement prep, ATS resume, AI mock interviews" />
 
-    <!-- Google Search Console verification (replace YOUR_GOOGLE_VERIFICATION_CODE with actual code) -->
-    <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" />
-
-    <!-- Bing Webmaster Tools verification (replace YOUR_BING_VERIFICATION_CODE with actual code) -->
-    <meta name="msvalidate.01" content="YOUR_BING_VERIFICATION_CODE" />
+    <!-- Add google-site-verification / msvalidate.01 meta tags when you have real tokens from GSC / Bing. -->
 
     <!-- IndexNow -->
     <meta name="indexnow-key" content="b8f4e2c1a9d74f6e8b3c5d7a1e9f0b2d" />
@@ -58,12 +54,10 @@
     <meta name="theme-color" content="#ff7a00" />
     <meta name="msapplication-TileColor" content="#ff7a00" />
 
-    <!-- Preconnects -->
+    <!-- Preconnects — subset fonts for CWV (Schibsted + Space Grotesk only) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <!-- Razorpay Standard Checkout (also loaded on-demand by lib/razorpayCheckout.ts) -->
     <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
@@ -77,43 +71,57 @@
       gtag('config', 'G-XEJHXMYWY0');
     </script>
 
-    <!-- Structured Data (JSON-LD) -->
+    <!-- Organization -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebApplication",
+      "@type": "Organization",
+      "@id": "https://codexcareer.com/#organization",
       "name": "CodeXCareer",
+      "alternateName": ["CXC", "cXc", "Code X Career"],
       "url": "https://codexcareer.com",
-      "description": "CodeXCareer is a digital marketplace for projects, ideas, and freelance collaborations. Discover, buy, and sell projects while accessing mock assessments, coding challenges, and career guidance tools.",
-      "applicationCategory": "Marketplace",
-      "operatingSystem": "Web",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR",
-        "description": "Free to browse and list projects"
-      },
-      "creator": {
-        "@type": "Organization",
-        "name": "CodeXCareer",
-        "url": "https://codexcareer.com",
-        "email": "support@codexcareer.com",
-        "sameAs": [
-          "https://github.com/SAIMANEESHWAR/ProjectBazaar"
-        ]
-      },
-      "featureList": [
-        "Project Marketplace",
-        "Freelancer Collaboration",
-        "Mock Assessments",
-        "Coding Interview Preparation",
-        "AI Resume Builder",
-        "Portfolio Generator",
-        "Career Guidance",
-        "Hackathon Discovery"
+      "logo": "https://codexcareer.com/logo1.png",
+      "email": "support@codexcareer.com",
+      "sameAs": [
+        "https://github.com/SAIMANEESHWAR/ProjectBazaar"
       ]
     }
     </script>
+
+    <!-- SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CodeXCareer",
+      "url": "https://codexcareer.com",
+      "description": "All-in-one placement and tech career platform: preparation mode, ATS resume scoring, AI mock interviews, coding practice, and a project marketplace for students and developers.",
+      "applicationCategory": ["EducationalApplication", "BusinessApplication"],
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "AggregateOffer",
+        "lowPrice": "0",
+        "highPrice": "999",
+        "priceCurrency": "INR",
+        "offerCount": "4",
+        "description": "Free to start; Monthly ₹299, Yearly ₹699, Lifetime ₹999"
+      },
+      "creator": { "@id": "https://codexcareer.com/#organization" },
+      "featureList": [
+        "Placement Preparation Mode",
+        "ATS Resume Scorer",
+        "AI Resume Builder",
+        "AI Mock Interviews",
+        "Coding Interview Practice",
+        "Mock Assessments",
+        "Portfolio Builder",
+        "Project Marketplace",
+        "Job Hunt"
+      ]
+    }
+    </script>
+
+    <!-- WebSite -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -122,19 +130,65 @@
       "url": "https://codexcareer.com",
       "name": "CodeXCareer",
       "alternateName": ["CXC", "cXc", "Code X Career"],
-      "description": "CodeXCareer (CXC) — marketplace for projects, mock assessments, coding interview prep, resume and portfolio tools, and career growth.",
+      "description": "Placement prep, ATS resumes, AI mock interviews, coding practice, and projects for students and developers.",
       "inLanguage": "en",
-      "publisher": {
-        "@type": "Organization",
-        "name": "CodeXCareer",
-        "url": "https://codexcareer.com"
-      }
+      "publisher": { "@id": "https://codexcareer.com/#organization" }
+    }
+    </script>
+
+    <!-- Homepage FAQ for AEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is CodeXCareer?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CodeXCareer is an all-in-one career platform for students and developers that combines campus placement preparation, ATS resume tools, AI mock interviews, coding practice, job hunt, and a tech project marketplace."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is CodeXCareer a placement preparation platform?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Preparation Mode (Yearly and Lifetime plans) covers DSA, aptitude, core subjects, system design, and company/role tracks alongside resume and interview tools."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does CodeXCareer cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can start free. Paid plans are Monthly ₹299, Yearly ₹699 (includes Preparation Mode and live AI interviews), and Lifetime ₹999. Payments are in INR via Razorpay."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is CodeXCareer an alternative to LeetCode or Upwork?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CodeXCareer is an integrated alternative when you need coding practice plus ATS resumes, portfolios, and freelance projects. LeetCode still leads pure DSA volume; Upwork still leads broad global freelancing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does CodeXCareer include an ATS resume builder?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. CodeXCareer includes an ATS scorer and AI resume builder so students can match resumes to job descriptions and fix gaps before applying."
+          }
+        }
+      ]
     }
     </script>
 
     <style>
       body {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Schibsted Grotesk', 'Space Grotesk', system-ui, -apple-system, sans-serif;
       }
     </style>
   </head>
@@ -143,6 +197,20 @@
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PBTN4Z7R"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
+
+    <noscript>
+      <main style="max-width:720px;margin:2rem auto;padding:1rem;font-family:system-ui,sans-serif">
+        <h1>CodeXCareer — Placement Prep, ATS Resume &amp; AI Mock Interviews</h1>
+        <p>CodeXCareer is an all-in-one career platform for students: campus placement preparation, ATS resume scoring, AI mock interviews, coding practice, and a project marketplace.</p>
+        <ul>
+          <li><a href="/placement-preparation">Placement preparation</a></li>
+          <li><a href="/ats-resume-builder">ATS resume builder</a></li>
+          <li><a href="/ai-mock-interview">AI mock interviews</a></li>
+          <li><a href="/blog">Blog &amp; comparisons</a></li>
+          <li><a href="/pricing">Pricing</a></li>
+        </ul>
+      </main>
+    </noscript>
 
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

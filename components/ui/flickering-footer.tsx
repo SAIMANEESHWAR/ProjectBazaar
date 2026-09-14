@@ -330,30 +330,31 @@ export function useMediaQuery(query: string) {
 
 export const siteConfig = {
   hero: {
-    badge: "Discover projects & freelancers",
-    title: "Meet your AI Agent Streamline your workflow",
-    description: "The ultimate marketplace for projects, ideas, and collaborations. Discover, build, and earn.",
+    badge: "Placement prep & career tools",
+    title: "Placement prep, ATS resumes & AI mock interviews",
+    description: "All-in-one career platform for students—placement prep, ATS resumes, AI mock interviews, coding practice, and projects.",
     cta: {
-      primary: { text: "Try for Free", href: "#" },
-      secondary: { text: "Log in", href: "#" },
+      primary: { text: "Start free", href: "/auth" },
+      secondary: { text: "Log in", href: "/auth" },
     },
   },
   footerLinks: [
     {
       title: "Company",
       links: [
-        { id: 1, title: "About", url: "#" },
-        { id: 2, title: "Contact", url: "#" },
-        { id: 3, title: "Blog", url: "#" },
-        { id: 4, title: "Story", url: "#" },
+        { id: 1, title: "About", url: "/about" },
+        { id: 2, title: "Contact", url: "mailto:support@codexcareer.com" },
+        { id: 3, title: "Blog", url: "/blog" },
+        { id: 4, title: "Comparisons", url: "/compare/codexcareer-vs-leetcode" },
       ],
     },
     {
       title: "Products",
       links: [
-        { id: 5, title: "How it works", url: "#how-it-works" },
-        { id: 7, title: "Pricing", url: "#pricing" },
-        { id: 8, title: "Why us", url: "#why-choose-us" },
+        { id: 5, title: "Placement prep", url: "/placement-preparation" },
+        { id: 6, title: "ATS resume", url: "/ats-resume-builder" },
+        { id: 7, title: "Pricing", url: "/pricing" },
+        { id: 8, title: "AI mock interview", url: "/ai-mock-interview" },
       ],
     },
     {
@@ -413,19 +414,29 @@ export const FlickeringFooter: React.FC = () => {
                     <a
                       href={link.url}
                       onClick={(e) => {
-                        e.preventDefault();
                         if (link.url === '#cookie-settings') {
+                          e.preventDefault();
                           localStorage.removeItem('cookieConsent');
                           window.location.reload();
-                        } else if (link.url === '/privacy') {
+                          return;
+                        }
+                        if (link.url.startsWith('mailto:')) {
+                          return;
+                        }
+                        if (link.url === '/privacy') {
+                          e.preventDefault();
                           navigateTo('privacy');
                         } else if (link.url === '/terms') {
+                          e.preventDefault();
                           navigateTo('terms');
                         } else if (link.url === '/faq') {
+                          e.preventDefault();
                           navigateTo('faq');
-                        } else if (link.url.startsWith("#")) {
+                        } else if (link.url.startsWith('#')) {
+                          e.preventDefault();
                           scrollToId(link.url);
                         }
+                        // External SEO landers (/about, /blog, /pricing, pillars): full navigation
                       }}
                       className="hover:text-[#ff7a00] transition-colors"
                     >

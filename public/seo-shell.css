@@ -1,0 +1,27 @@
+:root { --ink:#1a1a1a; --muted:#555; --accent:#ff7a00; --bg:#fff8f1; --line:#eadfce; --card:#fff; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink); background:linear-gradient(180deg,var(--bg) 0%,#fff 42%); line-height:1.65; }
+.wrap { max-width:760px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+.brand { font-weight:700; letter-spacing:-0.02em; font-size:1.15rem; color:var(--accent); text-decoration:none; }
+nav.crumbs { margin:1rem 0 0; font-size:0.9rem; color:var(--muted); }
+nav.crumbs a { color:var(--accent); text-decoration:none; }
+h1 { font-family: Georgia, "Times New Roman", serif; font-size:clamp(1.8rem,4vw,2.55rem); line-height:1.15; margin:1rem 0 0.75rem; letter-spacing:-0.02em; }
+.lede { font-size:1.125rem; color:var(--muted); margin-bottom:1.25rem; }
+.takeaways { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem 1.25rem; margin:1.25rem 0 1.75rem; }
+.takeaways h2 { font-size:1rem; margin:0 0 0.5rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); }
+.takeaways ul { margin:0; padding-left:1.2rem; }
+h2 { font-size:1.35rem; margin-top:2rem; }
+h3 { font-size:1.1rem; margin-top:1.35rem; }
+table { width:100%; border-collapse:collapse; margin:1.25rem 0 1.75rem; font-size:0.95rem; }
+th, td { border:1px solid var(--line); padding:0.75rem 0.85rem; text-align:left; vertical-align:top; }
+th { background:#fff1e4; }
+.cta { display:inline-block; margin-top:1.5rem; background:var(--accent); color:#fff; text-decoration:none; padding:0.85rem 1.25rem; border-radius:999px; font-weight:600; }
+.cta.secondary { background:transparent; color:var(--accent); border:2px solid var(--accent); margin-left:0.5rem; }
+.links a { color:var(--accent); }
+.faq details { border:1px solid var(--line); border-radius:10px; padding:0.85rem 1rem; margin:0.65rem 0; background:#fff; }
+.faq summary { cursor:pointer; font-weight:600; }
+footer { margin-top:3rem; padding-top:1.25rem; border-top:1px solid var(--line); font-size:0.9rem; color:var(--muted); }
+footer a { color:var(--accent); text-decoration:none; margin-right:0.75rem; }
+.def { border-left:4px solid var(--accent); padding:0.75rem 1rem; background:#fff; margin:1.25rem 0; }
+ol.steps { padding-left:1.25rem; }
+ol.steps li { margin:0.5rem 0; }

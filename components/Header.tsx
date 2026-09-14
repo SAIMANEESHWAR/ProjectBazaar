@@ -48,8 +48,8 @@ const Header: React.FC = () => {
 
   const navLinks: NavLink[] = [
     { name: 'How it works', onClick: () => scrollToSection('how-it-works') },
-    { name: 'Pricing', onClick: () => scrollToSection('pricing') },
-    { name: 'Why us', onClick: () => scrollToSection('why-choose-us') },
+    { name: 'Pricing', onClick: () => navigateTo('subscriptionPlans') },
+    { name: 'Blog', onClick: () => { window.location.href = '/blog'; } },
     { name: 'FAQs', onClick: () => navigateTo('faq') },
   ];
 
